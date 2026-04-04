@@ -5725,6 +5725,7 @@
         endpoint: "",
       };
       let cloudPersistQueue = Promise.resolve();
+      let cloudRefreshInFlight = null;
 
       function clone(value) {
         return JSON.parse(JSON.stringify(value));
@@ -10813,6 +10814,41 @@
           session.cloudSessionToken = "";
           saveSession();
           return null;
+        }
+      }
+
+      async function refreshStateFromBackend(options = {}) {
+        if (!session.cloudSessionToken) {
+          return false;
+        }
+
+        if (cloudRefreshInFlight) {
+          return cloudRefreshInFlight;
+        }
+
+        cloudRefreshInFlight = (async () => {
+          const latestState = await getCloudAuthenticatedState();
+          if (!latestState) {
+            return false;
+          }
+
+          state = latestState;
+          updateCurrentUserRecord();
+          applyBranding();
+          saveState();
+          saveSession();
+
+          if (!options.skipRender) {
+            renderApp();
+          }
+
+          return true;
+        })();
+
+        try {
+          return await cloudRefreshInFlight;
+        } finally {
+          cloudRefreshInFlight = null;
         }
       }
 
@@ -25499,6 +25535,21 @@
       }
 
       function installEventHandlers() {
+        window.addEventListener("focus", () => {
+          refreshStateFromBackend({
+            skipRender: false,
+          }).catch(() => {});
+        });
+
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState !== "visible") {
+            return;
+          }
+          refreshStateFromBackend({
+            skipRender: false,
+          }).catch(() => {});
+        });
+
         document.addEventListener("keydown", (event) => {
           if (event.key === "Escape" && confirmDialog) {
             event.preventDefault();
@@ -25531,6 +25582,11 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            if (["people", "tournaments", "links", "judging", "search"].includes(session.view)) {
+              await refreshStateFromBackend({
+                skipRender: true,
+              });
+            }
             renderApp();
             return;
           }
