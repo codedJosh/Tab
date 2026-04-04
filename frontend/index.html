@@ -6055,6 +6055,154 @@
         return "member";
       }
 
+      const TOURNAMENT_PERMISSION_ROLE_CONFIGS = [
+        {
+          key: "tabDirectorEmails",
+          access: "tab_director",
+          label: "Tab Directors",
+          assignmentLabel: "Tab Director",
+        },
+        {
+          key: "caTeamEmails",
+          access: "ca_team",
+          label: "CA Team",
+          assignmentLabel: "CA Team",
+        },
+        {
+          key: "tournamentDirectorEmails",
+          access: "tournament_director",
+          label: "Tournament Directors",
+          assignmentLabel: "Tournament Director",
+        },
+        {
+          key: "convenorEmails",
+          access: "convenor",
+          label: "Convenors",
+          assignmentLabel: "Convenor",
+        },
+        {
+          key: "registrationOfficerEmails",
+          access: "registration_officer",
+          label: "Registration Officers",
+          assignmentLabel: "Registration Officer",
+        },
+        {
+          key: "financeOfficerEmails",
+          access: "finance_officer",
+          label: "Finance Officers",
+          assignmentLabel: "Finance Officer",
+        },
+        {
+          key: "equityOfficerEmails",
+          access: "equity_officer",
+          label: "Equity Officers",
+          assignmentLabel: "Equity Officer",
+        },
+        {
+          key: "judgeEmails",
+          access: "judge",
+          label: "Judges",
+          assignmentLabel: "Judge",
+        },
+        {
+          key: "debaterEmails",
+          access: "debater",
+          label: "Debaters",
+          assignmentLabel: "Debater",
+        },
+      ];
+
+      const LEGACY_TOURNAMENT_PERMISSION_ROLE_CONFIGS = [
+        {
+          key: "managerEmails",
+          access: "tab_director",
+          label: "Legacy Managers",
+          assignmentLabel: "Legacy Manager",
+        },
+        {
+          key: "tabManagerEmails",
+          access: "tab_director",
+          label: "Legacy Tab Managers",
+          assignmentLabel: "Legacy Tab Manager",
+        },
+      ];
+
+      function getTournamentPermissionRoleConfigs(options = {}) {
+        return Boolean(options.includeLegacy)
+          ? [...LEGACY_TOURNAMENT_PERMISSION_ROLE_CONFIGS, ...TOURNAMENT_PERMISSION_ROLE_CONFIGS]
+          : [...TOURNAMENT_PERMISSION_ROLE_CONFIGS];
+      }
+
+      function getTournamentPermissionConfigByKey(key = "") {
+        return (
+          getTournamentPermissionRoleConfigs({ includeLegacy: true }).find(
+            (config) => config.key === String(key || "").trim(),
+          ) || null
+        );
+      }
+
+      function getTournamentPermissionKeys(options = {}) {
+        return getTournamentPermissionRoleConfigs(options).map((config) => config.key);
+      }
+
+      function normalizePermissionEmailList(value = []) {
+        return Array.from(
+          new Set(
+            (Array.isArray(value) ? value : [])
+              .map((entry) => normalizeEmail(entry))
+              .filter(Boolean),
+          ),
+        );
+      }
+
+      function normalizeTournamentPermissions(record = {}) {
+        const normalized = {};
+        getTournamentPermissionKeys({ includeLegacy: true }).forEach((key) => {
+          normalized[key] = normalizePermissionEmailList(record?.[key] || []);
+        });
+        return normalized;
+      }
+
+      function hasFullTournamentAdminAccess(access = "") {
+        return ["manager", "system_admin", "tab_director", "ca_team"].includes(
+          String(access || "").trim(),
+        );
+      }
+
+      function hasTournamentOperationsAccess(access = "") {
+        return (
+          hasFullTournamentAdminAccess(access) ||
+          [
+            "tournament_director",
+            "convenor",
+            "registration_officer",
+            "finance_officer",
+          ].includes(String(access || "").trim())
+        );
+      }
+
+      function hasTournamentBackstageAccess(access = "") {
+        return (
+          hasTournamentOperationsAccess(access) ||
+          String(access || "").trim() === "equity_officer"
+        );
+      }
+
+      function hasTournamentPeopleAccess(access = "") {
+        return hasTournamentOperationsAccess(access) || hasFullTournamentAdminAccess(access);
+      }
+
+      function hasTournamentSanctionAccess(access = "") {
+        return (
+          hasFullTournamentAdminAccess(access) ||
+          String(access || "").trim() === "equity_officer"
+        );
+      }
+
+      function allowsWingBallotsForFormat(format = "") {
+        return ["World Schools"].includes(String(format || "").trim());
+      }
+
       function toTitleLabel(value) {
         return String(value || "")
           .trim()
