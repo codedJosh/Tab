@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JADE Debate Tab | Tournament Management</title>
+    <title>Hummingbird Tab System | Tournament Management</title>
     <meta
       name="description"
-      content="JADE Debate Tab is a polished tournament management platform for debate events, judging, motions, draw release, standings, speaker rankings, and private access links."
+      content="Hummingbird Tab System is a polished tournament management platform for debate events, judging, motions, draw release, standings, speaker rankings, and private access links."
     />
     <meta name="theme-color" content="#123f2f" />
     <link rel="icon" type="image/svg+xml" href="jade-hummingbird-mark.svg" />
@@ -5195,11 +5195,11 @@
           <span class="startup-orbit-dot one"></span>
           <span class="startup-orbit-dot two"></span>
           <div class="startup-logo-card">
-            <img class="startup-logo" src="jade-logo.jpg" alt="JADE logo" />
+            <img class="startup-logo" src="jade-logo.jpg" alt="Hummingbird Tab System logo" />
           </div>
         </div>
         <div class="startup-wordmark">
-          <p class="startup-kicker">JADE Debate Tab</p>
+          <p class="startup-kicker">Hummingbird Tab System</p>
           <strong class="startup-title">Professional Tournament Control</strong>
           <p class="startup-motto">Fuelling a Thinking Revolution</p>
           <span class="startup-subtitle" id="startup-progress-label">Initializing secure workspace...</span>
@@ -5212,7 +5212,7 @@
           </div>
           <div class="startup-progress-shell">
             <div class="startup-progress-meta">
-              <span id="startup-progress-stage">Booting JADE systems</span>
+              <span id="startup-progress-stage">Booting Hummingbird systems</span>
               <strong id="startup-progress-value" class="startup-progress-value">12%</strong>
             </div>
             <div class="startup-progress-track">
@@ -5651,7 +5651,7 @@
 
       const DEFAULT_SETTINGS = {
         branding: {
-          appName: "JADE Debate Tab",
+          appName: "Hummingbird Tab System",
           subtitle:
             "Premium tournament operations, controlled publishing, and calm competitor access in one place.",
           accent: "#1f6a4e",
@@ -5690,7 +5690,7 @@
           welcomeNote:
             "This private page is designed to show only the essentials for competitors.",
           emailTemplate:
-            "Hello {{name}}, your private DebateTab access link for {{tournament}} is {{link}}.",
+            "Hello {{name}}, your private Hummingbird Tab System access link for {{tournament}} is {{link}}.",
         },
         feedback: {
           categories: ["Analysis", "Style", "Strategy"],
@@ -5762,7 +5762,7 @@
         startupSplashFailed = false;
         setStartupSplashProgress(
           12,
-          "Booting JADE systems",
+          "Booting Hummingbird systems",
           "Preparing your tournament workspace.",
         );
         clearStartupSplashTimers();
@@ -5796,7 +5796,7 @@
           setStartupSplashProgress(
             100,
             "Workspace ready",
-            "Ready to open JADE Debate Tab.",
+            "Ready to open Hummingbird Tab System.",
           );
         }
         const elapsed = Date.now() - STARTUP_SPLASH_STARTED_AT;
@@ -7402,7 +7402,7 @@
       }
 
       function renderBrandLockup({
-        kicker = "JADE",
+        kicker = "Hummingbird",
         subtitle = "",
         size = "compact",
         className = "",
@@ -7416,7 +7416,7 @@
         return `
           <div class="brand-lockup ${escapeHtml(size)} ${escapeHtml(className)}">
             <div class="jade-logo-wrap">
-              <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE logo" />
+              <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="Hummingbird Tab System logo" />
             </div>
             <div class="brand-copy">
               <p class="brand-kicker">${escapeHtml(kicker)}</p>
@@ -10767,7 +10767,7 @@
 
         if (!response.ok || result.ok === false) {
           const error = new Error(
-            String(result?.error || result?.message || "JADE backend request failed."),
+            String(result?.error || result?.message || "Hummingbird backend request failed."),
           );
           error.code = result?.code || String(response.status || "backend_error");
           throw error;
@@ -10833,7 +10833,7 @@
               console.error(error);
               setFlash(
                 "warning",
-                "Saved on this device, but JADE could not sync to the backend right now.",
+                "Saved on this device, but Hummingbird Tab System could not sync to the backend right now.",
               );
               renderApp();
             }
@@ -12903,7 +12903,10 @@
           ...clone(DEFAULT_SETTINGS.branding),
           ...(next.appSettings.branding || {}),
         };
-        if (next.appSettings.branding.appName === "DebateTab Command") {
+        if (
+          next.appSettings.branding.appName === "DebateTab Command" ||
+          next.appSettings.branding.appName === "JADE Debate Tab"
+        ) {
           next.appSettings.branding.appName = DEFAULT_SETTINGS.branding.appName;
         }
         if (
@@ -12951,6 +12954,12 @@
           ...clone(DEFAULT_SETTINGS.portal),
           ...(next.appSettings.portal || {}),
         };
+        if (
+          next.appSettings.portal.emailTemplate ===
+          "Hello {{name}}, your private DebateTab access link for {{tournament}} is {{link}}."
+        ) {
+          next.appSettings.portal.emailTemplate = DEFAULT_SETTINGS.portal.emailTemplate;
+        }
         next.appSettings.feedback = {
           ...clone(DEFAULT_SETTINGS.feedback),
           ...(next.appSettings.feedback || {}),
@@ -14236,7 +14245,7 @@
 
         return `
           <div class="auth-page">
-            <div class="auth-top-ticker" aria-label="JADE motto ticker">
+            <div class="auth-top-ticker" aria-label="Hummingbird motto ticker">
               <div class="auth-top-ticker-track">
                 ${tickerItems}
               </div>
@@ -14246,7 +14255,7 @@
               <section class="hero-panel auth-hero">
                 <div class="stack">
                   ${renderBrandLockup({
-                    kicker: "JADE Platform",
+                    kicker: "Hummingbird Platform",
                     size: "hero featured",
                     subtitle:
                       "Premium tournament operations, controlled publishing, and competitor access that stays calm.",
@@ -14255,7 +14264,7 @@
                     <p class="eyebrow">Designed For Serious Debate</p>
                     <h1>Run tab with polish. Keep competitor access simple.</h1>
                     <p class="hero-copy">
-                      JADE Debate Tab gives managers fine control over tournament formats, publishing, permissions, feedback, and private links without forcing competitors through staff-heavy screens.
+                      Hummingbird Tab System gives managers fine control over tournament formats, publishing, permissions, feedback, and private links without forcing competitors through staff-heavy screens.
                     </p>
                   </div>
                   <div class="hero-feature-list">
@@ -14306,7 +14315,7 @@
                       <div class="section-heading">
                         <div>
                           <p class="eyebrow">Sign In</p>
-                          <h2>Access JADE Debate Tab</h2>
+                          <h2>Access Hummingbird Tab System</h2>
                         </div>
                         <span class="role-pill">Password-protected access</span>
                       </div>
@@ -14455,7 +14464,7 @@
           <aside class="menu-panel">
             <div class="menu-brand">
               ${renderBrandLockup({
-                kicker: "JADE Menu",
+                kicker: "Hummingbird Menu",
                 size: "compact",
                 subtitle: menuSubtitle,
               })}
@@ -20324,14 +20333,14 @@
             : " • ready for quick return");
         const accessLabel = accessRecord ? "Private URL Ready" : "Session Access";
         const accessNote = accessRecord
-          ? "Your one-tap JADE access link is available from Access Links."
+          ? "Your one-tap Hummingbird access link is available from Access Links."
           : "Use the workspace directly or generate private access from the links area.";
 
         return `
           <div class="workspace-overview-band">
             <article class="workspace-overview-card is-primary">
               <span class="workspace-overview-label">Signed In</span>
-              <strong>${escapeHtml(user?.name || user?.email || "JADE User")}</strong>
+              <strong>${escapeHtml(user?.name || user?.email || "Hummingbird User")}</strong>
               <p class="muted">${escapeHtml(toTitleLabel(user?.globalRole || "member"))}</p>
             </article>
             <article class="workspace-overview-card">
@@ -20477,7 +20486,7 @@
         }
 
         const contactName = String(profile?.name || "Participant").trim() || "Participant";
-        const subject = encodeURIComponent("JADE Contact | " + contactName);
+        const subject = encodeURIComponent("Hummingbird Tab System Contact | " + contactName);
         return "mailto:" + email + "?subject=" + subject;
       }
 
@@ -21576,7 +21585,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Password and Device Access</p>
-                <h2>Save your password from inside JADE</h2>
+                <h2>Save your password from inside Hummingbird Tab System</h2>
               </div>
               <span class="role-pill">${escapeHtml(
                 devicePasswordSavingEnabled ? "Enabled" : "Not saved",
@@ -21742,7 +21751,7 @@
                 <h3>Data</h3>
               </div>
               <div class="stack">
-                <div class="alert info">JADE is currently running as a local app on this device.</div>
+                <div class="alert info">Hummingbird Tab System is currently running as a local app on this device.</div>
                 <p class="fine-print">
                   Export a JSON backup whenever you want a portable copy of your tournaments, users, and settings.
                 </p>
@@ -21821,7 +21830,7 @@
               <section class="content-panel">
                 <div class="workspace-topbar surface">
                   ${renderBrandLockup({
-                    kicker: "JADE Workspace",
+                    kicker: "Hummingbird Workspace",
                     size: "compact",
                     subtitle:
                       capabilities.canManageAny
@@ -21897,7 +21906,7 @@
               <div class="private-shell">
                 <section class="surface portal-ribbon">
                   ${renderBrandLockup({
-                    kicker: "Private JADE Access",
+                    kicker: "Private Hummingbird Access",
                     size: "compact",
                     subtitle:
                       "This private portal is designed to stay focused on competitor essentials.",
@@ -22004,7 +22013,7 @@
               <section class="surface portal-ribbon">
                 <div class="portal-head">
                   ${renderBrandLockup({
-                    kicker: "Private JADE Access",
+                    kicker: "Private Hummingbird Access",
                     size: "compact",
                     subtitle:
                       "A compact competitor portal for rounds, standings, speaker scores, and feedback.",
@@ -22244,7 +22253,7 @@
       function renderApp() {
         if (!state) {
           document.querySelector("#app").innerHTML =
-            '<div class="page-shell"><section class="surface"><h2>Loading JADE Debate Tab...</h2></section></div>';
+            '<div class="page-shell"><section class="surface"><h2>Loading Hummingbird Tab System...</h2></section></div>';
           return;
         }
 
@@ -22372,13 +22381,13 @@
                 renderApp();
                 return;
               } catch (initError) {
-                setFlash("error", initError.message || "JADE could not initialize backend sync.");
+                setFlash("error", initError.message || "Hummingbird Tab System could not initialize backend sync.");
                 renderApp();
                 return;
               }
             }
 
-            setFlash("error", error.message || "JADE could not sign you in.");
+            setFlash("error", error.message || "Hummingbird Tab System could not sign you in.");
             renderApp();
             return;
           }
@@ -22506,7 +22515,7 @@
                 "The shared backend workspace has not been initialized yet. A System Manager should sign in from the original setup device first.",
               );
             } else {
-              setFlash("error", error.message || "JADE could not create your account.");
+              setFlash("error", error.message || "Hummingbird Tab System could not create your account.");
             }
             renderApp();
             return;
@@ -22538,7 +22547,7 @@
 
       async function initializeCloudFromBackup(formData) {
         if (!(await probeCloudBackend())) {
-          setFlash("error", "JADE backend setup is not available right now.");
+          setFlash("error", "Hummingbird backend setup is not available right now.");
           renderApp();
           return;
         }
@@ -22593,7 +22602,7 @@
         } catch (error) {
           setFlash(
             "error",
-            error.message || "JADE could not initialize the backend workspace from that backup.",
+            error.message || "Hummingbird Tab System could not initialize the backend workspace from that backup.",
           );
           renderApp();
         }
@@ -22628,7 +22637,7 @@
           } catch (error) {
             setFlash(
               "error",
-              error.message || "JADE could not submit the password reset request right now.",
+              error.message || "Hummingbird Tab System could not submit the password reset request right now.",
             );
           }
           renderApp();
@@ -26288,10 +26297,10 @@
           setStartupSplashProgress(
             100,
             "Load interrupted",
-            "JADE could not finish loading. Please refresh and try again.",
+            "Hummingbird Tab System could not finish loading. Please refresh and try again.",
           );
           document.querySelector("#app").innerHTML =
-            '<div class="page-shell"><section class="surface"><h2>JADE could not finish loading.</h2><p class="muted">Please refresh the page and try again.</p></section></div>';
+            '<div class="page-shell"><section class="surface"><h2>Hummingbird Tab System could not finish loading.</h2><p class="muted">Please refresh the page and try again.</p></section></div>';
         } finally {
           await finishStartupSplash();
         }
