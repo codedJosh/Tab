@@ -5950,6 +5950,33 @@
         ).slice(0, max);
       }
 
+      function isLocalAppRuntime() {
+        const host = String(window.location.hostname || "").trim().toLowerCase();
+        return (
+          window.location.protocol === "file:" ||
+          host === "localhost" ||
+          host === "127.0.0.1"
+        );
+      }
+
+      function requiresSharedBackend() {
+        return !isLocalAppRuntime();
+      }
+
+      function getSharedBackendUnavailableMessage() {
+        return "The shared account service is unavailable right now. Please try again in a moment.";
+      }
+
+      function buildHostedBlankState() {
+        return {
+          version: 1,
+          appSettings: clone(DEFAULT_SETTINGS),
+          users: [],
+          recoveryRequests: [],
+          tournaments: [],
+        };
+      }
+
       function normalizeSessionRecord(record = {}) {
         return {
           userEmail: normalizeEmail(record.userEmail),
@@ -11066,6 +11093,45 @@
         }
       }
 
+      async function persistStateToCloudNow({ skipRender = true } = {}) {
+        updateCurrentUserRecord();
+        saveState();
+        saveSession();
+
+        const cloudAvailable = await probeCloudBackend(true);
+        if (!cloudAvailable) {
+          if (requiresSharedBackend()) {
+            throw new Error(getSharedBackendUnavailableMessage());
+          }
+          queueCloudPersist();
+          return false;
+        }
+
+        if (!session.cloudSessionToken || !getCurrentUser()) {
+          if (requiresSharedBackend()) {
+            throw new Error("Your shared session has expired. Please sign in again.");
+          }
+          queueCloudPersist();
+          return false;
+        }
+
+        const result = await callCloud("persist", {
+          sessionToken: session.cloudSessionToken,
+          state,
+        });
+        cloudRuntime.initialized = true;
+        state = await rehydrateState(result.state);
+        updateCurrentUserRecord();
+        saveState();
+        saveSession();
+
+        if (!skipRender) {
+          renderApp();
+        }
+
+        return true;
+      }
+
       async function saveBrowserCredential(name, email, password) {
         if (
           !window.PasswordCredential ||
@@ -13547,14 +13613,18 @@
           return cloudState;
         }
 
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          return await rehydrateState(JSON.parse(saved));
-        }
-
         const cloudBootstrapState = await getCloudBootstrapState();
         if (cloudBootstrapState) {
           return cloudBootstrapState;
+        }
+
+        if (requiresSharedBackend()) {
+          return buildHostedBlankState();
+        }
+
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          return await rehydrateState(JSON.parse(saved));
         }
 
         const seeded = await getSeedState();
@@ -23323,6 +23393,12 @@
           }
         }
 
+        if (requiresSharedBackend()) {
+          setFlash("error", getSharedBackendUnavailableMessage());
+          renderApp();
+          return;
+        }
+
         const user = state.users.find((entry) => entry.email === email);
 
         if (!user) {
@@ -23452,6 +23528,12 @@
           }
         }
 
+        if (requiresSharedBackend()) {
+          setFlash("error", getSharedBackendUnavailableMessage());
+          renderApp();
+          return;
+        }
+
         const user = await buildUser(name, email, "member", password, {
           createdSource: "self_signup",
           createdBy: normalizeEmail(email),
@@ -23508,6 +23590,8 @@
           state = await rehydrateState(result.state);
           session.userEmail = normalizeEmail(email);
           session.cloudSessionToken = String(result.sessionToken || "").trim();
+        } else if (requiresSharedBackend()) {
+          throw new Error(getSharedBackendUnavailableMessage());
         } else if (existingUser) {
           if (!existingUser.active) {
             throw new Error("This account has been disabled by the manager.");
@@ -23767,6 +23851,15 @@
           },
           "Team registration saved. Your access links are ready.",
         );
+
+        try {
+          await persistStateToCloudNow({
+            skipRender: true,
+          });
+        } catch (error) {
+          setFlash("error", error.message || "The team registration could not be saved to the shared system.");
+          renderApp();
+        }
       }
 
       async function registerJudgeForTournament(formData) {
@@ -23844,6 +23937,15 @@
           },
           "Judge registration saved. Your access links are ready.",
         );
+
+        try {
+          await persistStateToCloudNow({
+            skipRender: true,
+          });
+        } catch (error) {
+          setFlash("error", error.message || "The judge registration could not be saved to the shared system.");
+          renderApp();
+        }
       }
 
       async function initializeCloudFromBackup(formData) {
@@ -24055,6 +24157,7 @@
           return;
         }
 
+        const previousState = clone(state);
         state.users.push(
           await buildUser(name, email, globalRole, password, {
             createdSource: "manager_created",
@@ -24062,7 +24165,19 @@
           }),
         );
 
-        persist("success", "Account created for " + email + ".");
+        try {
+          await persistStateToCloudNow({
+            skipRender: true,
+          });
+          setFlash("success", "Account created for " + email + ".");
+        } catch (error) {
+          state = previousState;
+          setFlash("error", error.message || "The account could not be saved to the shared system.");
+        }
+
+        saveState();
+        saveSession();
+        renderApp();
       }
 
       async function resetUserPassword(targetEmail, password) {
