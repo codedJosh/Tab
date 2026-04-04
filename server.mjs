@@ -95,6 +95,20 @@ function normalizeTimestampKey(value, fallbackText = "") {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : Date.now();
 }
 
+function normalizeStringList(value, max = 200) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item || "").trim())
+        .filter(Boolean),
+    ),
+  ).slice(0, max);
+}
+
 function createPasswordSalt() {
   return crypto.randomBytes(PASSWORD_SALT_BYTES).toString("hex");
 }
@@ -178,6 +192,7 @@ function normalizeUserRecord(user = {}) {
     pinnedTournamentIds: Array.isArray(user.pinnedTournamentIds)
       ? Array.from(new Set(user.pinnedTournamentIds.map((value) => String(value || "").trim()).filter(Boolean))).slice(0, 12)
       : [],
+    registeredTournamentIds: normalizeStringList(user.registeredTournamentIds, 200),
     themePreset: String(user.themePreset || "jade_classic").trim() || "jade_classic",
     preferredLandingView:
       String(user.preferredLandingView || "overview").trim() || "overview",
@@ -206,7 +221,218 @@ function ensureWorkspaceState(state) {
   next.users = Array.isArray(next.users) ? next.users.map((user) => normalizeUserRecord(user)) : [];
   next.recoveryRequests = Array.isArray(next.recoveryRequests) ? next.recoveryRequests : [];
   next.tournaments = Array.isArray(next.tournaments) ? next.tournaments : [];
+  return synchronizeUserTournamentHistory(next);
+}
+
+function mergeRecordArrays(currentItems = [], incomingItems = [], getKey, mergeRecord) {
+  const catalog = new Map();
+
+  (Array.isArray(currentItems) ? currentItems : []).forEach((item) => {
+    const key = String(getKey(item) || "").trim();
+    if (key) {
+      catalog.set(key, clone(item));
+    }
+  });
+
+  (Array.isArray(incomingItems) ? incomingItems : []).forEach((item) => {
+    const key = String(getKey(item) || "").trim();
+    if (!key) {
+      return;
+    }
+    const existing = catalog.get(key);
+    catalog.set(key, mergeRecord ? mergeRecord(existing, item) : clone(item));
+  });
+
+  return Array.from(catalog.values());
+}
+
+function getParticipantMergeKey(participant = {}) {
+  const id = String(participant.id || "").trim();
+  if (id) return id;
+  const email = normalizeEmail(participant.email);
+  if (email) return "email:" + email;
+  return (
+    "participant:" +
+    String(participant.name || "").trim().toLowerCase() +
+    "|" +
+    String(participant.teamName || "").trim().toLowerCase()
+  );
+}
+
+function getJudgeMergeKey(judge = {}) {
+  return String(judge.id || "").trim() || "email:" + normalizeEmail(judge.email);
+}
+
+function getTeamMergeKey(team = {}) {
+  const id = String(team.id || "").trim();
+  if (id) return id;
+  return (
+    "team:" +
+    String(team.name || "").trim().toLowerCase() +
+    "|" +
+    String(team.institution || "").trim().toLowerCase()
+  );
+}
+
+function getAuditMergeKey(entry = {}) {
+  return (
+    String(entry.id || "").trim() ||
+    "audit:" + String(entry.at || "").trim() + "|" + String(entry.message || "").trim()
+  );
+}
+
+function synchronizeUserTournamentHistory(workspaceState) {
+  const next = workspaceState && typeof workspaceState === "object" ? workspaceState : {};
+  const users = Array.isArray(next.users) ? next.users.map((user) => normalizeUserRecord(user)) : [];
+  const tournaments = Array.isArray(next.tournaments) ? next.tournaments : [];
+  const historyByEmail = new Map();
+
+  tournaments.forEach((tournament) => {
+    const tournamentId = String(tournament?.id || "").trim();
+    if (!tournamentId) {
+      return;
+    }
+
+    const remember = (email) => {
+      const normalizedEmail = normalizeEmail(email);
+      if (!normalizedEmail) {
+        return;
+      }
+      if (!historyByEmail.has(normalizedEmail)) {
+        historyByEmail.set(normalizedEmail, new Set());
+      }
+      historyByEmail.get(normalizedEmail).add(tournamentId);
+    };
+
+    (tournament?.participants || []).forEach((participant) => remember(participant?.email));
+    (tournament?.judges || []).forEach((judge) => remember(judge?.email));
+    (tournament?.permissions?.debaterEmails || []).forEach(remember);
+    (tournament?.permissions?.judgeEmails || []).forEach(remember);
+  });
+
+  next.users = users.map((user) =>
+    normalizeUserRecord({
+      ...user,
+      registeredTournamentIds: normalizeStringList(
+        [
+          ...(user.registeredTournamentIds || []),
+          ...Array.from(historyByEmail.get(user.email) || []),
+        ],
+        200,
+      ),
+    }),
+  );
+
   return next;
+}
+
+function mergeTournamentRecords(currentTournament = {}, incomingTournament = {}) {
+  return {
+    ...clone(currentTournament || {}),
+    ...clone(incomingTournament || {}),
+    config: {
+      ...(currentTournament?.config || {}),
+      ...(incomingTournament?.config || {}),
+    },
+    publication: {
+      ...(currentTournament?.publication || {}),
+      ...(incomingTournament?.publication || {}),
+    },
+    permissions: {
+      ...(currentTournament?.permissions || {}),
+      ...(incomingTournament?.permissions || {}),
+    },
+    settings: {
+      ...(currentTournament?.settings || {}),
+      ...(incomingTournament?.settings || {}),
+    },
+    registration: {
+      ...(currentTournament?.registration || {}),
+      ...(incomingTournament?.registration || {}),
+    },
+    teams: mergeRecordArrays(
+      currentTournament?.teams || [],
+      incomingTournament?.teams || [],
+      getTeamMergeKey,
+      (existing, incoming) => ({
+        ...(existing || {}),
+        ...clone(incoming),
+      }),
+    ),
+    participants: mergeRecordArrays(
+      currentTournament?.participants || [],
+      incomingTournament?.participants || [],
+      getParticipantMergeKey,
+      (existing, incoming) => ({
+        ...(existing || {}),
+        ...clone(incoming),
+      }),
+    ),
+    judges: mergeRecordArrays(
+      currentTournament?.judges || [],
+      incomingTournament?.judges || [],
+      getJudgeMergeKey,
+      (existing, incoming) => ({
+        ...(existing || {}),
+        ...clone(incoming),
+      }),
+    ),
+    auditLog: mergeRecordArrays(
+      currentTournament?.auditLog || [],
+      incomingTournament?.auditLog || [],
+      getAuditMergeKey,
+      (existing, incoming) => ({
+        ...(existing || {}),
+        ...clone(incoming),
+      }),
+    ),
+  };
+}
+
+function mergeWorkspaceState(currentState, incomingState) {
+  const current = ensureWorkspaceState(currentState);
+  const incoming = ensureWorkspaceState(incomingState);
+  const merged = {
+    ...current,
+    ...incoming,
+    appSettings: {
+      ...(current.appSettings || {}),
+      ...(incoming.appSettings || {}),
+    },
+    users: mergeRecordArrays(
+      current.users || [],
+      incoming.users || [],
+      (user) => normalizeEmail(user?.email),
+      (existing, nextUser) =>
+        normalizeUserRecord({
+          ...(existing || {}),
+          ...clone(nextUser),
+          registeredTournamentIds: normalizeStringList(
+            [
+              ...((existing && existing.registeredTournamentIds) || []),
+              ...((nextUser && nextUser.registeredTournamentIds) || []),
+            ],
+            200,
+          ),
+        }),
+    ),
+    recoveryRequests: mergeRecordArrays(
+      current.recoveryRequests || [],
+      incoming.recoveryRequests || [],
+      (request) =>
+        String(request?.id || "").trim() ||
+        "recovery:" + normalizeEmail(request?.email) + "|" + String(request?.submittedAtKey || "").trim(),
+      (_existing, request) => clone(request),
+    ),
+    tournaments: mergeRecordArrays(
+      current.tournaments || [],
+      incoming.tournaments || [],
+      (tournament) => String(tournament?.id || "").trim(),
+      (existing, nextTournament) => mergeTournamentRecords(existing, nextTournament),
+    ),
+  };
+
+  return synchronizeUserTournamentHistory(merged);
 }
 
 function isSystemAdmin(state, email) {
@@ -721,7 +947,15 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        const nextState = ensureWorkspaceState(incomingState);
+        const currentState = await readWorkspaceState(client);
+        if (!currentState) {
+          const error = new Error("The shared backend workspace has not been initialized yet.");
+          error.statusCode = 409;
+          error.code = "workspace_not_initialized";
+          throw error;
+        }
+
+        const nextState = mergeWorkspaceState(currentState, incomingState);
         const user = nextState.users.find((entry) => entry.email === normalizeEmail(session.email));
         if (!user || !user.active) {
           const error = new Error("This account is no longer allowed to access JADE.");

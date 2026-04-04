@@ -6328,6 +6328,7 @@
           privateAccessIssuedAt: String(user.privateAccessIssuedAt || createdAt).trim(),
           lastPrivateAccessAt: String(user.lastPrivateAccessAt || "").trim(),
           pinnedTournamentIds: normalizeStringList(user.pinnedTournamentIds, 12),
+          registeredTournamentIds: normalizeStringList(user.registeredTournamentIds, 200),
           themePreset: String(user.themePreset || "jade_classic").trim() || "jade_classic",
           preferredLandingView:
             String(user.preferredLandingView || "overview").trim() || "overview",
@@ -6351,10 +6352,84 @@
       }
 
       function getCurrentUser() {
-        return (
-          state?.users.find((user) => user.email === normalizeEmail(session.userEmail)) ||
-          null
+        return getUserByEmail(session.userEmail);
+      }
+
+      function getUserByEmail(email) {
+        const target = normalizeEmail(email);
+        if (!target) {
+          return null;
+        }
+        return state?.users.find((user) => user.email === target) || null;
+      }
+
+      function synchronizeUserTournamentHistory(users = state?.users || [], tournaments = state?.tournaments || []) {
+        const historyByEmail = new Map();
+
+        tournaments.forEach((tournament) => {
+          const tournamentId = String(tournament?.id || "").trim();
+          if (!tournamentId) {
+            return;
+          }
+
+          const remember = (email) => {
+            const normalizedEmail = normalizeEmail(email);
+            if (!normalizedEmail) {
+              return;
+            }
+            if (!historyByEmail.has(normalizedEmail)) {
+              historyByEmail.set(normalizedEmail, new Set());
+            }
+            historyByEmail.get(normalizedEmail).add(tournamentId);
+          };
+
+          (tournament?.participants || []).forEach((participant) => remember(participant?.email));
+          (tournament?.judges || []).forEach((judge) => remember(judge?.email));
+          (tournament?.permissions?.debaterEmails || []).forEach(remember);
+          (tournament?.permissions?.judgeEmails || []).forEach(remember);
+        });
+
+        return (users || []).map((user) =>
+          normalizeUserRecord({
+            ...user,
+            registeredTournamentIds: normalizeStringList(
+              [
+                ...(user?.registeredTournamentIds || []),
+                ...Array.from(historyByEmail.get(normalizeEmail(user?.email)) || []),
+              ],
+              200,
+            ),
+          }),
         );
+      }
+
+      function rememberTournamentHistoryForEmail(email, tournamentId) {
+        const target = normalizeEmail(email);
+        const normalizedTournamentId = String(tournamentId || "").trim();
+        if (!target || !normalizedTournamentId || !Array.isArray(state?.users)) {
+          return;
+        }
+
+        state.users = state.users.map((user) =>
+          normalizeEmail(user.email) === target
+            ? normalizeUserRecord({
+                ...user,
+                registeredTournamentIds: normalizeStringList(
+                  [...(user.registeredTournamentIds || []), normalizedTournamentId],
+                  200,
+                ),
+              })
+            : normalizeUserRecord(user),
+        );
+      }
+
+      function hasHistoricalTournamentAccess(tournament, email = session.userEmail) {
+        const user = getUserByEmail(email);
+        const tournamentId = String(tournament?.id || "").trim();
+        if (!user || !tournamentId) {
+          return false;
+        }
+        return normalizeStringList(user.registeredTournamentIds, 200).includes(tournamentId);
       }
 
       function getCurrentRole() {
@@ -6386,12 +6461,20 @@
         if (isSystemAdmin(target)) return "system_admin";
         if (tournament.permissions.managerEmails.includes(target)) return "tournament_manager";
         if (tournament.permissions.tabManagerEmails.includes(target)) return "tab_manager";
-        if (tournament.permissions.judgeEmails.includes(target)) return "judge";
+        if (
+          tournament.permissions.judgeEmails.includes(target) ||
+          (tournament.judges || []).some((judge) => normalizeEmail(judge.email) === target)
+        ) {
+          return "judge";
+        }
         if (
           tournament.permissions.debaterEmails.includes(target) ||
           tournament.participants.some((participant) => participant.email === target)
         ) {
           return "debater";
+        }
+        if (hasHistoricalTournamentAccess(tournament, target)) {
+          return "registered_member";
         }
         return "viewer";
       }
@@ -6413,6 +6496,7 @@
           ) ||
           getTournamentAccess(tournament, email) === "judge" ||
           getTournamentAccess(tournament, email) === "debater" ||
+          getTournamentAccess(tournament, email) === "registered_member" ||
           tournament.publication.dashboardListed
         );
       }
@@ -12582,14 +12666,26 @@
       }
 
       function normalizeTournamentRegistrationSettings(record = {}) {
+        const hasDebaterOpenSetting =
+          Object.prototype.hasOwnProperty.call(record, "debaterOpen") ||
+          Object.prototype.hasOwnProperty.call(record, "participantOpen") ||
+          Object.prototype.hasOwnProperty.call(record, "debaterRegistrationOpen") ||
+          Object.prototype.hasOwnProperty.call(record, "participantRegistrationOpen");
+        const hasJudgeOpenSetting =
+          Object.prototype.hasOwnProperty.call(record, "judgeOpen") ||
+          Object.prototype.hasOwnProperty.call(record, "judgeRegistrationOpen");
         return {
-          debaterOpen: Boolean(
-            record.debaterOpen ||
-              record.participantOpen ||
-              record.debaterRegistrationOpen ||
-              record.participantRegistrationOpen,
-          ),
-          judgeOpen: Boolean(record.judgeOpen || record.judgeRegistrationOpen),
+          debaterOpen: hasDebaterOpenSetting
+            ? Boolean(
+                record.debaterOpen ||
+                  record.participantOpen ||
+                  record.debaterRegistrationOpen ||
+                  record.participantRegistrationOpen,
+              )
+            : true,
+          judgeOpen: hasJudgeOpenSetting
+            ? Boolean(record.judgeOpen || record.judgeRegistrationOpen)
+            : true,
           debaterNote: String(
             record.debaterNote || record.participantNote || record.debaterRegistrationNote || "",
           ).trim(),
@@ -12613,6 +12709,9 @@
         return (state.tournaments || [])
           .filter((tournament) => {
             if (String(tournament?.status || "").trim().toLowerCase() !== "open") {
+              return false;
+            }
+            if (!Boolean(tournament?.publication?.dashboardListed)) {
               return false;
             }
             const registration = getTournamentRegistrationSettings(tournament);
@@ -13394,6 +13493,8 @@
           ...request,
           knownAccount: next.users.some((user) => user.email === request.email),
         }));
+
+        next.users = synchronizeUserTournamentHistory(next.users, next.tournaments);
 
         return next;
       }
@@ -23411,6 +23512,7 @@
         const nextValues = new Set(tournament.permissions?.[key] || []);
         nextValues.add(normalizedEmail);
         tournament.permissions[key] = Array.from(nextValues);
+        rememberTournamentHistoryForEmail(normalizedEmail, tournament.id);
       }
 
       function upsertTournamentRegistrationTeam(tournament, teamName, institution, notes = "") {
@@ -24267,6 +24369,7 @@
             const list = new Set(tournament.permissions[roleKey] || []);
             list.add(targetEmail);
             tournament.permissions[roleKey] = Array.from(list);
+            rememberTournamentHistoryForEmail(targetEmail, tournament.id);
             return addAudit(
               tournament,
               "Granted " + roleKey.replace("Emails", "") + " access to " + targetEmail + ".",
@@ -24499,6 +24602,7 @@
             const debaterSet = new Set(tournament.permissions.debaterEmails || []);
             debaterSet.add(participant.email);
             tournament.permissions.debaterEmails = Array.from(debaterSet);
+            rememberTournamentHistoryForEmail(participant.email, tournament.id);
             synchronizeTournamentTeamReferences(tournament);
             return addAudit(
               tournament,
@@ -24709,6 +24813,7 @@
             tournament.permissions.judgeEmails = Array.from(
               new Set([...(tournament.permissions.judgeEmails || []), judge.email]),
             );
+            rememberTournamentHistoryForEmail(judge.email, tournament.id);
             return addAudit(
               tournament,
               (existingJudge ? "Updated judge " : "Added judge ") +
