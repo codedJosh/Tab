@@ -1,32 +1,42 @@
-# JADE Frontend
+# JADE Debate Tab
 
-This folder is the static frontend publish target for JADE.
+This repository is split into:
 
-Deploy this folder to Netlify, not the project root.
+- the backend at the repository root
+- the static frontend in `frontend/`
 
-## Files
+## Backend
 
-- `index.html`
-- `jade-logo.jpg`
-- `backend-config.js`
-- `netlify.toml`
+Key files:
 
-## Before deploying
+- `server.mjs`
+- `package.json`
+- `schema.sql`
 
-Edit `backend-config.js` so it points to your hosted backend:
+This backend is a Node + Express service backed by PostgreSQL.
+
+## Frontend
+
+Netlify should publish the `frontend/` directory.
+
+Key files:
+
+- `frontend/index.html`
+- `frontend/jade-logo.jpg`
+- `frontend/backend-config.js`
+
+Before deploying the frontend, set the backend URL in `frontend/backend-config.js`:
 
 ```js
 window.JADE_BACKEND_URL = "https://your-backend-host/api";
 ```
 
-## Netlify settings
+## Netlify
 
-- Base directory: `frontend`
-- Publish directory: `.`
+This repo now includes a root `netlify.toml` that publishes `frontend/`.
+
+Recommended settings:
+
+- Base directory: leave blank
+- Publish directory: leave blank if Netlify reads `netlify.toml`, otherwise set `frontend`
 - Build command: leave blank
-
-## Notes
-
-- This frontend is static only.
-- The backend must already be running on a normal Node host.
-- The frontend and backend can live on different domains.
