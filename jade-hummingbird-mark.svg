@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="JADE hummingbird mark">
+  <defs>
+    <linearGradient id="jadeWing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#39a36f"/>
+      <stop offset="100%" stop-color="#123f2f"/>
+    </linearGradient>
+    <linearGradient id="jadeAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f1d56b"/>
+      <stop offset="100%" stop-color="#c8a12f"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#f4fbf7"/>
+  <circle cx="22" cy="36" r="12" fill="#123f2f"/>
+  <path d="M10 33c10-4 18-4 28-2-9 2-17 4-28 2Z" fill="#123f2f"/>
+  <path d="M26 21c11 1 22-3 30-10-4 12-11 20-22 24Z" fill="url(#jadeWing)"/>
+  <path d="M30 25c8 1 15-2 22-7-3 8-8 13-16 16Z" fill="url(#jadeAccent)"/>
+  <path d="M26 32c8 7 16 11 27 12-10 3-18 2-27-3Z" fill="url(#jadeWing)"/>
+  <circle cx="26" cy="30" r="2.2" fill="#f4fbf7"/>
+</svg>
