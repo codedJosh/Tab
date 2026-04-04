@@ -1,2 +1,2 @@
 window.JADE_BACKEND_URL =
-  window.JADE_BACKEND_URL || "https://your-backend-host/api";
+  window.JADE_BACKEND_URL = "YOUR_RENDER_URL/api";
