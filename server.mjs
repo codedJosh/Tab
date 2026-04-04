@@ -327,6 +327,8 @@ function synchronizeUserTournamentHistory(workspaceState) {
 }
 
 function mergeTournamentRecords(currentTournament = {}, incomingTournament = {}) {
+  const currentPermissions = currentTournament?.permissions || {};
+  const incomingPermissions = incomingTournament?.permissions || {};
   return {
     ...clone(currentTournament || {}),
     ...clone(incomingTournament || {}),
@@ -339,8 +341,36 @@ function mergeTournamentRecords(currentTournament = {}, incomingTournament = {})
       ...(incomingTournament?.publication || {}),
     },
     permissions: {
-      ...(currentTournament?.permissions || {}),
-      ...(incomingTournament?.permissions || {}),
+      ...currentPermissions,
+      ...incomingPermissions,
+      managerEmails: normalizeStringList(
+        [
+          ...(currentPermissions.managerEmails || []),
+          ...(incomingPermissions.managerEmails || []),
+        ],
+        200,
+      ),
+      tabManagerEmails: normalizeStringList(
+        [
+          ...(currentPermissions.tabManagerEmails || []),
+          ...(incomingPermissions.tabManagerEmails || []),
+        ],
+        200,
+      ),
+      judgeEmails: normalizeStringList(
+        [
+          ...(currentPermissions.judgeEmails || []),
+          ...(incomingPermissions.judgeEmails || []),
+        ],
+        400,
+      ),
+      debaterEmails: normalizeStringList(
+        [
+          ...(currentPermissions.debaterEmails || []),
+          ...(incomingPermissions.debaterEmails || []),
+        ],
+        800,
+      ),
     },
     settings: {
       ...(currentTournament?.settings || {}),

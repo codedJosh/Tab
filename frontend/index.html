@@ -6640,6 +6640,12 @@
         );
       }
 
+      function rememberTournamentHistoryForEmails(emails = [], tournamentId) {
+        normalizeStringList(emails, 200).forEach((email) => {
+          rememberTournamentHistoryForEmail(email, tournamentId);
+        });
+      }
+
       function hasHistoricalTournamentAccess(tournament, email = session.userEmail) {
         const user = getUserByEmail(email);
         const tournamentId = String(tournament?.id || "").trim();
@@ -12953,6 +12959,40 @@
         return normalizeTournamentRegistrationSettings(tournament?.registration || {});
       }
 
+      function getTournamentRegistrationAvailability(tournament, role = "debater") {
+        const targetRole = String(role || "debater").trim().toLowerCase() === "judge"
+          ? "judge"
+          : "debater";
+        const registration = getTournamentRegistrationSettings(tournament);
+        const roleOpen = targetRole === "judge" ? registration.judgeOpen : registration.debaterOpen;
+        const issues = [];
+
+        if (String(tournament?.status || "").trim().toLowerCase() !== "open") {
+          issues.push("Tournament is closed.");
+        }
+        if (!Boolean(tournament?.publication?.dashboardListed)) {
+          issues.push("Tournament is hidden from the public dashboard.");
+        }
+        if (!roleOpen) {
+          issues.push(
+            targetRole === "judge"
+              ? "Judge registration is turned off in Setup."
+              : "Debater registration is turned off in Setup.",
+          );
+        }
+
+        return {
+          role: targetRole,
+          open: issues.length === 0,
+          roleOpen,
+          reason:
+            issues[0] ||
+            (targetRole === "judge"
+              ? "Judge registration is live."
+              : "Debater registration is live."),
+        };
+      }
+
       function getTournamentRegistrationLinks() {
         return {
           debater: getPublicScreenLink("register-debater"),
@@ -12963,16 +13003,7 @@
       function getOpenRegistrationTournaments(role = "debater") {
         const targetRole = String(role || "debater").trim().toLowerCase();
         return (state.tournaments || [])
-          .filter((tournament) => {
-            if (String(tournament?.status || "").trim().toLowerCase() !== "open") {
-              return false;
-            }
-            if (!Boolean(tournament?.publication?.dashboardListed)) {
-              return false;
-            }
-            const registration = getTournamentRegistrationSettings(tournament);
-            return targetRole === "judge" ? registration.judgeOpen : registration.debaterOpen;
-          })
+          .filter((tournament) => getTournamentRegistrationAvailability(tournament, targetRole).open)
           .sort(
             (left, right) =>
               String(left.name || "").localeCompare(String(right.name || "")) ||
@@ -15106,9 +15137,9 @@
 
       function renderPublicRegistrationTournamentCards(tournaments, role = "debater") {
         if (!tournaments.length) {
-          return `<div class="empty-state">No tournaments are currently open for ${escapeHtml(
+          return `<div class="empty-state">No tournaments are currently live for ${escapeHtml(
             role === "judge" ? "judge" : "debater",
-          )} registration.</div>`;
+          )} registration. Staff need to keep the tournament open, visible on the dashboard, and the matching registration toggle turned on in Setup.</div>`;
         }
 
         return `
@@ -17087,6 +17118,8 @@
 
       function renderTournamentRegistrationStudio(tournament) {
         const registration = getTournamentRegistrationSettings(tournament);
+        const debaterAvailability = getTournamentRegistrationAvailability(tournament, "debater");
+        const judgeAvailability = getTournamentRegistrationAvailability(tournament, "judge");
         const links = getTournamentRegistrationLinks();
         const pendingDebaters = (tournament.permissions?.debaterEmails || []).filter(
           (email) =>
@@ -17121,8 +17154,8 @@
                       Self-registration adds roster records faster and drops the competitor into their private links immediately after signup.
                     </p>
                   </div>
-                  <span class="mini-pill ${registration.debaterOpen ? "success" : "warning"}">${escapeHtml(
-                    registration.debaterOpen ? "Open" : "Closed",
+                  <span class="mini-pill ${debaterAvailability.open ? "success" : "warning"}">${escapeHtml(
+                    debaterAvailability.open ? "Live Publicly" : "Not Live",
                   )}</span>
                 </div>
                 <div class="workspace-chip-row">
@@ -17141,6 +17174,7 @@
                     ? `<p class="muted">${escapeHtml(registration.debaterNote)}</p>`
                     : ""
                 }
+                <p class="fine-print">${escapeHtml(debaterAvailability.reason)}</p>
                 <a class="token-link" href="${escapeHtml(links.debater)}" target="_blank" rel="noreferrer">${escapeHtml(
                   links.debater,
                 )}</a>
@@ -17162,8 +17196,8 @@
                       Judges can declare whether they are independent or institutionally affiliated, and JADE will enforce institution clashes in allocations.
                     </p>
                   </div>
-                  <span class="mini-pill ${registration.judgeOpen ? "success" : "warning"}">${escapeHtml(
-                    registration.judgeOpen ? "Open" : "Closed",
+                  <span class="mini-pill ${judgeAvailability.open ? "success" : "warning"}">${escapeHtml(
+                    judgeAvailability.open ? "Live Publicly" : "Not Live",
                   )}</span>
                 </div>
                 <div class="workspace-chip-row">
@@ -17182,6 +17216,7 @@
                     ? `<p class="muted">${escapeHtml(registration.judgeNote)}</p>`
                     : ""
                 }
+                <p class="fine-print">${escapeHtml(judgeAvailability.reason)}</p>
                 <a class="token-link" href="${escapeHtml(links.judge)}" target="_blank" rel="noreferrer">${escapeHtml(
                   links.judge,
                 )}</a>
@@ -17197,7 +17232,7 @@
               </div>
             </div>
             <div class="alert info">
-              Registration availability is controlled from <strong>Setup</strong>. Open or close debater and judge intake there whenever the event moves between invitation, live registration, and locked roster stages.
+              Public registration only appears when the tournament is <strong>open</strong>, <strong>listed on the dashboard</strong>, and the matching debater or judge toggle is on in <strong>Setup</strong>.
             </div>
           </section>
         `;
@@ -20491,6 +20526,14 @@
                   <input type="checkbox" name="usePublicTeamAliases" />
                   <span>Use public team aliases on public boards</span>
                 </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" name="registrationDebaterOpen" checked />
+                  <span>Open debater registration publicly</span>
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" name="registrationJudgeOpen" checked />
+                  <span>Open judge registration publicly</span>
+                </label>
               </div>
               <label>
                 Notes
@@ -20917,6 +20960,17 @@
           );
       }
 
+      function getPeopleAccountCards() {
+        return [...(state.users || [])].sort(
+          (left, right) =>
+            Number(right.createdAtKey || 0) - Number(left.createdAtKey || 0) ||
+            String(right.createdAt || "").localeCompare(String(left.createdAt || "")) ||
+            String(left.name || left.email || "").localeCompare(
+              String(right.name || right.email || ""),
+            ),
+        );
+      }
+
       function getSignupStats() {
         return getTrackedSignupUsers().reduce(
           (totals, user) => {
@@ -20947,6 +21001,7 @@
         const signupStats = getSignupStats();
         const appointees = getTournamentAppointeeDashboard();
         const appointeeStats = getTournamentAppointeeStats();
+        const peopleAccounts = getPeopleAccountCards();
         return `
           <section class="surface">
             <div class="section-heading">
@@ -21044,13 +21099,20 @@
               trackedSignups.length
                 ? `<div class="leaderboard-list">
                     ${trackedSignups
-                      .slice(0, 12)
                       .map(
                         (user) => `
                           <div class="leaderboard-row">
                             <div class="stack">
                               <strong>${escapeHtml(user.name || user.email)}</strong>
                               <span class="muted">${escapeHtml(user.email)}</span>
+                              <span class="fine-print">${escapeHtml(
+                                normalizeStringList(user.registeredTournamentIds, 200).length +
+                                  " tournament" +
+                                  (normalizeStringList(user.registeredTournamentIds, 200).length === 1
+                                    ? ""
+                                    : "s") +
+                                  " on record",
+                              )}</span>
                             </div>
                             <div class="button-row wrap-row">
                               <span class="mini-pill success">${escapeHtml(
@@ -21203,9 +21265,13 @@
               <span class="role-pill">${escapeHtml(state.users.length)} accounts</span>
             </div>
             <div class="people-card-list">
-              ${state.users
+              ${peopleAccounts
                 .map((user) => {
                   const isManagerUser = normalizeEmail(user.email) === normalizeEmail(MANAGER_EMAIL);
+                  const historicalTournamentCount = normalizeStringList(
+                    user.registeredTournamentIds,
+                    200,
+                  ).length;
                   return `
                     <article class="people-compact-card">
                       <div class="people-compact-head">
@@ -21228,6 +21294,7 @@
                       <div class="people-meta-grid">
                         <span>Created ${escapeHtml(user.createdAt || "Unknown")}</span>
                         <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
+                        <span>Registered tournaments: ${escapeHtml(historicalTournamentCount)}</span>
                         <span>Private URL issued: ${escapeHtml(
                           user.privateAccessIssuedAt || user.createdAt || "Unknown",
                         )}</span>
@@ -23918,6 +23985,7 @@
       async function registerDebaterForTournament(formData) {
         const tournamentId = String(formData.get("tournamentId") || "").trim();
         const tournament = getTournamentById(tournamentId);
+        const availability = getTournamentRegistrationAvailability(tournament, "debater");
         const name = String(formData.get("name") || "").trim();
         const email = normalizeEmail(formData.get("email"));
         const password = String(formData.get("password") || "");
@@ -23934,8 +24002,8 @@
           return;
         }
 
-        if (!getTournamentRegistrationSettings(tournament).debaterOpen) {
-          setFlash("error", "Debater registration is not open for that tournament.");
+        if (!availability.open) {
+          setFlash("error", availability.reason);
           renderApp();
           return;
         }
@@ -23964,6 +24032,8 @@
           renderApp();
           return;
         }
+
+        rememberTournamentHistoryForEmails([email, teammateEmail], tournamentId);
 
         updateTournament(
           tournamentId,
@@ -24013,6 +24083,7 @@
       async function registerJudgeForTournament(formData) {
         const tournamentId = String(formData.get("tournamentId") || "").trim();
         const tournament = getTournamentById(tournamentId);
+        const availability = getTournamentRegistrationAvailability(tournament, "judge");
         const name = String(formData.get("name") || "").trim();
         const email = normalizeEmail(formData.get("email"));
         const password = String(formData.get("password") || "");
@@ -24027,8 +24098,8 @@
           return;
         }
 
-        if (!getTournamentRegistrationSettings(tournament).judgeOpen) {
-          setFlash("error", "Judge registration is not open for that tournament.");
+        if (!availability.open) {
+          setFlash("error", availability.reason);
           renderApp();
           return;
         }
@@ -24063,6 +24134,8 @@
           renderApp();
           return;
         }
+
+        rememberTournamentHistoryForEmails([email], tournamentId);
 
         updateTournament(
           tournamentId,
@@ -24616,6 +24689,10 @@
           publicDraw: boolFromForm(formData, "publicDraw"),
           usePublicTeamAliases: boolFromForm(formData, "usePublicTeamAliases"),
           dashboardListed: boolFromForm(formData, "dashboardListed"),
+          registration: {
+            debaterOpen: boolFromForm(formData, "registrationDebaterOpen"),
+            judgeOpen: boolFromForm(formData, "registrationJudgeOpen"),
+          },
           breakSize: normalizeOptionalBreakSize(
             optionalNumberFromForm(formData, "breakSize", null),
             null,
@@ -24738,12 +24815,15 @@
       function removeTournamentAppointee(tournamentId, email) {
         const targetEmail = normalizeEmail(email);
         if (!targetEmail) return;
-        if (!ensureTournamentManagerById(tournamentId)) return;
+        const tournament = ensureTournamentManagerById(tournamentId);
+        if (!tournament) return;
         if (targetEmail === normalizeEmail(MANAGER_EMAIL)) {
           setFlash("error", "The primary manager account cannot be removed from tournament appointments.");
           renderApp();
           return;
         }
+
+        rememberTournamentHistoryForEmail(targetEmail, tournament.id);
 
         updateTournament(
           tournamentId,
@@ -24762,7 +24842,9 @@
       }
 
       function removeTournamentRole(tournamentId, roleKey, email) {
-        if (!ensureTournamentManagerById(tournamentId)) return;
+        const tournament = ensureTournamentManagerById(tournamentId);
+        if (!tournament) return;
+        rememberTournamentHistoryForEmail(email, tournament.id);
 
         updateTournament(
           tournamentId,
@@ -25135,7 +25217,9 @@
       }
 
       function removeJudge(tournamentId, judgeEmail) {
-        if (!ensureTournamentManagerById(tournamentId)) return;
+        const tournament = ensureTournamentManagerById(tournamentId);
+        if (!tournament) return;
+        rememberTournamentHistoryForEmail(judgeEmail, tournament.id);
 
         updateTournament(
           tournamentId,
@@ -26270,7 +26354,12 @@
       }
 
       function deleteParticipant(tournamentId, participantId) {
-        if (!ensureTournamentManagerById(tournamentId)) return;
+        const tournament = ensureTournamentManagerById(tournamentId);
+        if (!tournament) return;
+        const target = tournament.participants.find((entry) => entry.id === participantId);
+        if (target?.email) {
+          rememberTournamentHistoryForEmail(target.email, tournament.id);
+        }
 
         updateTournament(
           tournamentId,
