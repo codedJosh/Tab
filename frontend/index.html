@@ -1650,6 +1650,24 @@
         height: 18px;
       }
 
+      .skip-link {
+        position: absolute;
+        left: 16px;
+        top: -64px;
+        z-index: 40;
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: #fff;
+        color: #10201b;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+      }
+
+      .skip-link:focus {
+        top: 16px;
+      }
+
       .menu-panel {
         position: sticky;
         top: 18px;
@@ -6682,16 +6700,28 @@
         if (!target) return "viewer";
         if (isManager(target)) return "manager";
         if (isSystemAdmin(target)) return "system_admin";
-        if (tournament.permissions.managerEmails.includes(target)) return "tournament_manager";
-        if (tournament.permissions.tabManagerEmails.includes(target)) return "tab_manager";
+        const permissions = normalizeTournamentPermissions(tournament?.permissions || {});
+        if (permissions.caTeamEmails.includes(target)) return "ca_team";
         if (
-          tournament.permissions.judgeEmails.includes(target) ||
+          permissions.tabDirectorEmails.includes(target) ||
+          permissions.managerEmails.includes(target) ||
+          permissions.tabManagerEmails.includes(target)
+        ) {
+          return "tab_director";
+        }
+        if (permissions.tournamentDirectorEmails.includes(target)) return "tournament_director";
+        if (permissions.convenorEmails.includes(target)) return "convenor";
+        if (permissions.registrationOfficerEmails.includes(target)) return "registration_officer";
+        if (permissions.financeOfficerEmails.includes(target)) return "finance_officer";
+        if (permissions.equityOfficerEmails.includes(target)) return "equity_officer";
+        if (
+          permissions.judgeEmails.includes(target) ||
           (tournament.judges || []).some((judge) => normalizeEmail(judge.email) === target)
         ) {
           return "judge";
         }
         if (
-          tournament.permissions.debaterEmails.includes(target) ||
+          permissions.debaterEmails.includes(target) ||
           tournament.participants.some((participant) => participant.email === target)
         ) {
           return "debater";
@@ -6703,9 +6733,35 @@
       }
 
       function canManageTournament(tournament) {
-        return ["manager", "system_admin", "tournament_manager", "tab_manager"].includes(
-          getTournamentAccess(tournament),
-        );
+        return hasFullTournamentAdminAccess(getTournamentAccess(tournament));
+      }
+
+      function canOperateTournament(tournament) {
+        return hasTournamentOperationsAccess(getTournamentAccess(tournament));
+      }
+
+      function canAccessTournamentBackstage(tournament) {
+        return hasTournamentBackstageAccess(getTournamentAccess(tournament));
+      }
+
+      function canAccessTournamentPeopleView(tournament) {
+        return hasTournamentPeopleAccess(getTournamentAccess(tournament));
+      }
+
+      function canEditTournamentRoster(tournament) {
+        return hasTournamentOperationsAccess(getTournamentAccess(tournament));
+      }
+
+      function canEditTournamentJudges(tournament) {
+        return hasTournamentOperationsAccess(getTournamentAccess(tournament));
+      }
+
+      function canSanctionTournamentParticipants(tournament) {
+        return hasTournamentSanctionAccess(getTournamentAccess(tournament));
+      }
+
+      function canViewManagerOnlyTournamentFeedback(tournament) {
+        return hasFullTournamentAdminAccess(getTournamentAccess(tournament));
       }
 
       function canJudgeTournament(tournament) {
@@ -6713,13 +6769,12 @@
       }
 
       function canSeeTournament(tournament, email = session.userEmail) {
+        const access = getTournamentAccess(tournament, email);
         return (
-          ["manager", "system_admin", "tournament_manager", "tab_manager"].includes(
-            getTournamentAccess(tournament, email),
-          ) ||
-          getTournamentAccess(tournament, email) === "judge" ||
-          getTournamentAccess(tournament, email) === "debater" ||
-          getTournamentAccess(tournament, email) === "registered_member" ||
+          hasTournamentBackstageAccess(access) ||
+          access === "judge" ||
+          access === "debater" ||
+          access === "registered_member" ||
           tournament.publication.dashboardListed
         );
       }
@@ -7161,11 +7216,7 @@
           access: getTournamentAccess(tournament, target),
         }));
         const managedTournaments = accessRecords
-          .filter((record) =>
-            ["manager", "system_admin", "tournament_manager", "tab_manager"].includes(
-              record.access,
-            ),
-          )
+          .filter((record) => hasTournamentBackstageAccess(record.access))
           .map((record) => record.tournament);
         const judgedTournaments = accessRecords
           .filter((record) => record.access === "judge")
@@ -7191,11 +7242,15 @@
           canJudgeAny,
           competitorOnly,
           judgeOnly,
-          canViewPeople: globalManager || systemAdmin,
+          canViewPeople:
+            globalManager ||
+            systemAdmin ||
+            accessRecords.some((record) => hasTournamentPeopleAccess(record.access)),
           canViewLinks: Boolean(target),
           canViewJudging: canJudgeAny,
           canViewSearch: Boolean(target),
           canViewSettings: Boolean(target),
+          canLaunchTournaments: canCreateTournaments(),
         };
       }
 
@@ -7209,8 +7264,14 @@
         if (capabilities.canViewJudging) {
           options.push("judging");
         }
+        if (capabilities.canViewPeople) {
+          options.push("people");
+        }
         if (capabilities.canViewLinks) {
           options.push("links");
+        }
+        if (capabilities.canLaunchTournaments) {
+          options.push("launch");
         }
 
         return Array.from(new Set(options));
@@ -7219,26 +7280,24 @@
       function getTournamentAppointeeStats() {
         return state.tournaments.reduce(
           (totals, tournament) => {
-            const permissions = tournament.permissions || {};
+            const permissions = normalizeTournamentPermissions(tournament.permissions || {});
             totals.tournaments += 1;
-            totals.managers += (permissions.managerEmails || []).length;
-            totals.tabManagers += (permissions.tabManagerEmails || []).length;
-            totals.judges += (permissions.judgeEmails || []).length;
-            totals.debaters += (permissions.debaterEmails || []).length;
-            totals.totalAppointments =
-              totals.managers +
-              totals.tabManagers +
-              totals.judges +
-              totals.debaters;
+            getTournamentPermissionKeys({ includeLegacy: true }).forEach((key) => {
+              totals[key] += (permissions[key] || []).length;
+            });
+            totals.totalAppointments = getTournamentPermissionKeys({ includeLegacy: true }).reduce(
+              (sum, key) => sum + Number(totals[key] || 0),
+              0,
+            );
             return totals;
           },
           {
             tournaments: 0,
-            managers: 0,
-            tabManagers: 0,
-            judges: 0,
-            debaters: 0,
             totalAppointments: 0,
+            ...getTournamentPermissionKeys({ includeLegacy: true }).reduce((result, key) => {
+              result[key] = 0;
+              return result;
+            }, {}),
           },
         );
       }
@@ -7280,7 +7339,7 @@
             {
               key: "about",
               label: "About",
-              count: "JADE",
+              count: "Info",
             },
             {
               key: "settings",
@@ -7320,7 +7379,7 @@
             {
               key: "about",
               label: "About",
-              count: "JADE",
+              count: "Info",
             },
             {
               key: "settings",
@@ -7335,6 +7394,10 @@
           { key: "overview", label: "Overview", count: stats.visibleTournaments },
           { key: "tournaments", label: "Tournaments", count: stats.openTournaments },
         ];
+
+        if (capabilities.canLaunchTournaments) {
+          items.push({ key: "launch", label: "Launcher", count: "New" });
+        }
 
         if (capabilities.canViewSearch) {
           items.push({ key: "search", label: "Search", count: "Find" });
@@ -7356,7 +7419,7 @@
           items.push({ key: "links", label: "Private Links", count: stats.privateLinks });
         }
 
-        items.push({ key: "about", label: "About", count: "JADE" });
+        items.push({ key: "about", label: "About", count: "Info" });
 
         if (capabilities.canViewSettings) {
           items.push({ key: "settings", label: "Settings", count: "All" });
@@ -8673,6 +8736,7 @@
           wins: normalizeNonNegative(record.wins, 0),
           losses: normalizeNonNegative(record.losses, 0),
           points: normalizeNonNegative(record.points, 0),
+          speaks: normalizeNonNegative(record.speaks, 0),
           firsts: normalizeNonNegative(record.firsts, 0),
           seconds: normalizeNonNegative(record.seconds, 0),
           thirds: normalizeNonNegative(record.thirds, 0),
@@ -8714,6 +8778,7 @@
           fourths: normalizeNonNegative(record.fourths, 0),
           speakerScore: normalizeNonNegative(record.speakerScore, 0),
           feedback: Array.isArray(record.feedback) ? clone(record.feedback) : [],
+          sanctions: Array.isArray(record.sanctions) ? clone(record.sanctions) : [],
         };
       }
 
@@ -8726,6 +8791,7 @@
             if (profile.mode === "bp_team") {
               return (
                 Number(right.points) - Number(left.points) ||
+                Number(right.speaks) - Number(left.speaks) ||
                 Number(right.firsts) - Number(left.firsts) ||
                 Number(right.seconds) - Number(left.seconds) ||
                 Number(right.thirds) - Number(left.thirds) ||
@@ -8737,6 +8803,7 @@
             if (profile.mode === "win_loss_team") {
               return (
                 Number(right.points) - Number(left.points) ||
+                Number(right.speaks) - Number(left.speaks) ||
                 Number(right.wins) - Number(left.wins) ||
                 Number(left.losses) - Number(right.losses) ||
                 String(left.name).localeCompare(String(right.name))
@@ -8746,6 +8813,7 @@
             if (profile.mode === "mixed_team") {
               return (
                 Number(right.points) - Number(left.points) ||
+                Number(right.speaks) - Number(left.speaks) ||
                 Number(right.wins) - Number(left.wins) ||
                 Number(right.firsts) - Number(left.firsts) ||
                 Number(right.seconds) - Number(left.seconds) ||
@@ -8761,7 +8829,8 @@
                 ? Number(right.points) - Number(left.points) ||
                   Number(right.wins) - Number(left.wins)
                 : Number(right.wins) - Number(left.wins) ||
-                  Number(right.points) - Number(left.points)) ||
+                  Number(right.points) - Number(left.points) ||
+                  Number(right.speaks) - Number(left.speaks)) ||
               String(left.name).localeCompare(String(right.name))
             );
           }),
@@ -8798,6 +8867,7 @@
         if (profile.mode === "bp_team") {
           return (
             Number(first.points) === Number(second.points) &&
+            Number(first.speaks) === Number(second.speaks) &&
             Number(first.firsts) === Number(second.firsts) &&
             Number(first.seconds) === Number(second.seconds) &&
             Number(first.thirds) === Number(second.thirds) &&
@@ -8808,6 +8878,7 @@
         if (profile.mode === "win_loss_team") {
           return (
             Number(first.points) === Number(second.points) &&
+            Number(first.speaks) === Number(second.speaks) &&
             Number(first.wins) === Number(second.wins) &&
             Number(first.losses) === Number(second.losses)
           );
@@ -8816,6 +8887,7 @@
         if (profile.mode === "mixed_team") {
           return (
             Number(first.points) === Number(second.points) &&
+            Number(first.speaks) === Number(second.speaks) &&
             Number(first.wins) === Number(second.wins) &&
             Number(first.firsts) === Number(second.firsts) &&
             Number(first.seconds) === Number(second.seconds) &&
@@ -8834,7 +8906,8 @@
 
         return (
           Number(first.wins) === Number(second.wins) &&
-          Number(first.points) === Number(second.points)
+          Number(first.points) === Number(second.points) &&
+          Number(first.speaks) === Number(second.speaks)
         );
       }
 
@@ -8854,6 +8927,7 @@
           return [
             { key: "rank", label: "Rank" },
             { key: "name", label: "Entry" },
+            { key: "speaks", label: "Speaks" },
             { key: "firsts", label: "1sts" },
             { key: "seconds", label: "2nds" },
             { key: "thirds", label: "3rds" },
@@ -8866,6 +8940,7 @@
           return [
             { key: "rank", label: "Rank" },
             { key: "name", label: "Entry" },
+            { key: "speaks", label: "Speaks" },
             { key: "wins", label: "Wins" },
             { key: "losses", label: "Losses" },
             { key: "points", label: "Team points" },
@@ -8877,6 +8952,7 @@
             { key: "rank", label: "Rank" },
             { key: "name", label: "Entry" },
             { key: "points", label: "Team points" },
+            { key: "speaks", label: "Speaks" },
             { key: "wins", label: "Wins" },
             { key: "losses", label: "Losses" },
             { key: "firsts", label: "1sts" },
@@ -8916,6 +8992,9 @@
         if (["points", "speakerScore"].includes(String(key || "").trim())) {
           return formatScoreValue(value);
         }
+        if (String(key || "").trim() === "speaks") {
+          return formatScoreValue(value);
+        }
         return value;
       }
 
@@ -8927,6 +9006,8 @@
           return (
             formatScoreValue(normalized.points) +
             " team points • " +
+            formatScoreValue(normalized.speaks) +
+            " speaks • " +
             normalized.firsts +
             " firsts, " +
             normalized.seconds +
@@ -8942,6 +9023,8 @@
           return (
             formatScoreValue(normalized.points) +
             " team points • " +
+            formatScoreValue(normalized.speaks) +
+            " speaks • " +
             normalized.wins +
             " wins and " +
             normalized.losses +
@@ -8953,6 +9036,8 @@
           return (
             formatScoreValue(normalized.points) +
             " team points • " +
+            formatScoreValue(normalized.speaks) +
+            " speaks • " +
             normalized.wins +
             " wins • " +
             normalized.firsts +
@@ -10475,6 +10560,7 @@
             wins: 0,
             losses: 0,
             points: 0,
+            speaks: 0,
             firsts: 0,
             seconds: 0,
             thirds: 0,
@@ -10505,6 +10591,7 @@
                 wins: 0,
                 losses: 0,
                 points: 0,
+                speaks: 0,
                 firsts: 0,
                 seconds: 0,
                 thirds: 0,
@@ -10550,6 +10637,7 @@
                   wins: 0,
                   losses: 0,
                   points: 0,
+                  speaks: 0,
                   firsts: 0,
                   seconds: 0,
                   thirds: 0,
@@ -10594,6 +10682,8 @@
               rankedOfficialSlots.forEach((slot, index) => {
                 const record = teamMap.get(slot.key);
                 if (!record) return;
+                const rankedSlot = rankedSlots.find((entry) => entry.key === slot.key);
+                record.speaks += Number(rankedSlot?.averageScore || 0);
                 record[placementKeys[index] || "fourths"] += 1;
                 record.points += placementPoints[index] ?? 0;
               });
@@ -10610,6 +10700,7 @@
             rankedSlots.forEach((slot, index) => {
               const record = teamMap.get(slot.key);
               if (!record) return;
+              record.speaks += Number(slot.averageScore || 0);
               record[placementKeys[index] || "fourths"] += 1;
               record.points += placementPoints[index] ?? 0;
             });
@@ -10629,6 +10720,8 @@
             officialOutcomeSlots.forEach((slot) => {
               const record = teamMap.get(slot.key);
               if (!record) return;
+              const rankedSlot = rankedSlots.find((entry) => entry.key === slot.key);
+              record.speaks += Number(rankedSlot?.averageScore || 0);
               if (slot.result.outcome === "win") {
                 record.wins += 1;
                 record.points += 3;
@@ -10652,6 +10745,8 @@
           if (!firstRecord || !secondRecord) {
             return;
           }
+          firstRecord.speaks += Number(first.averageScore || 0);
+          secondRecord.speaks += Number(second.averageScore || 0);
 
           if (Number(first.averageScore || 0) === Number(second.averageScore || 0)) {
             firstRecord.points += 2;
@@ -10885,18 +10980,13 @@
       }
 
       function getAssignmentRoleOptions(currentValue = "") {
-        return [
-          { value: "managerEmails", label: "Tournament manager" },
-          { value: "tabManagerEmails", label: "Tab manager" },
-          { value: "judgeEmails", label: "Judge" },
-          { value: "debaterEmails", label: "Debater" },
-        ]
+        return getTournamentPermissionRoleConfigs()
           .map(
             (item) =>
-              `<option value="${item.value}" ${selected(
-                item.value,
+              `<option value="${item.key}" ${selected(
+                item.key,
                 currentValue,
-              )}>${escapeHtml(item.label)}</option>`,
+              )}>${escapeHtml(item.assignmentLabel)}</option>`,
           )
           .join("");
       }
@@ -12659,7 +12749,7 @@
         const records = new Map();
         const teams = getTournamentTeams(tournament);
         const standings = getComputedStandings(tournament);
-        const speakerStandings = getSpeakerStandings(tournament);
+        const judges = getTournamentJudges(tournament);
 
         function getRecord(institution) {
           const key = String(institution || "").trim();
@@ -12669,43 +12759,15 @@
           if (!records.has(key)) {
             records.set(key, {
               institution: key,
-              speakers: 0,
               teams: 0,
-              avgSpeakerScore: 0,
-              totalSpeakerScore: 0,
-              bestSpeakerRank: null,
-              bestTeamRank: null,
+              judges: 0,
               teamPoints: 0,
+              speaks: 0,
+              finish: null,
             });
           }
           return records.get(key);
         }
-
-        (tournament.participants || []).forEach((participant) => {
-          const team =
-            (participant.teamId &&
-              teams.find((entry) => entry.id === String(participant.teamId).trim())) ||
-            findTournamentTeamByName(tournament, participant.teamName || "");
-          const institution = String(
-            participant.institution || team?.institution || "",
-          ).trim();
-          const record = getRecord(institution);
-          if (!record) {
-            return;
-          }
-          record.speakers += 1;
-          record.totalSpeakerScore += Number(
-            getParticipantComputedSpeakerScore(tournament, participant) || 0,
-          );
-          const speakerStanding = speakerStandings.find((entry) => entry.id === participant.id);
-          if (speakerStanding?.speakerRank) {
-            record.bestSpeakerRank =
-              record.bestSpeakerRank === null ||
-              Number(speakerStanding.speakerRank) < Number(record.bestSpeakerRank)
-                ? speakerStanding.speakerRank
-                : record.bestSpeakerRank;
-          }
-        });
 
         teams.forEach((team) => {
           const institution = String(team.institution || "").trim();
@@ -12719,36 +12781,48 @@
           );
           if (standing) {
             record.teamPoints += Number(standing.points || 0);
-            if (standing.rank) {
-              record.bestTeamRank =
-                record.bestTeamRank === null || Number(standing.rank) < Number(record.bestTeamRank)
-                  ? standing.rank
-                  : record.bestTeamRank;
-            }
+            record.speaks += Number(standing.speaks || 0);
           }
         });
 
-        return Array.from(records.values())
-          .map((record) => ({
-            ...record,
-            avgSpeakerScore: record.speakers
-              ? roundScoreValue(record.totalSpeakerScore / record.speakers)
-              : 0,
-          }))
-          .sort(
+        judges.forEach((judge) => {
+          const record = getRecord(judge.institution);
+          if (record) {
+            record.judges += 1;
+          }
+        });
+
+        return applyCompetitionRanks(
+          Array.from(records.values()).sort(
             (left, right) =>
               Number(right.teamPoints || 0) - Number(left.teamPoints || 0) ||
-              Number(right.avgSpeakerScore || 0) - Number(left.avgSpeakerScore || 0) ||
+              Number(right.speaks || 0) - Number(left.speaks || 0) ||
               String(left.institution).localeCompare(String(right.institution)),
-          );
+          ),
+          (left, right) =>
+            Number(left.teamPoints || 0) === Number(right.teamPoints || 0) &&
+            Number(left.speaks || 0) === Number(right.speaks || 0),
+          "finish",
+        );
       }
 
       function getJudgeAnalytics(tournament) {
         const judges = getTournamentJudges(tournament);
         const allocations = getJudgeAllocationsForTournament(tournament);
+        const managerFeedbackEntries = getTournamentFeedbackLedgerEntries(tournament);
         const records = judges.map((judge) => {
           const judgeAllocations = allocations.filter(
             (allocation) => normalizeEmail(allocation.judgeEmail) === normalizeEmail(judge.email),
+          );
+          const judgeFeedbackEntries = managerFeedbackEntries.filter(
+            (entry) =>
+              normalizeEmail(entry.targetEmail) === normalizeEmail(judge.email) &&
+              entry.type === "team_to_judge",
+          );
+          const peerFeedbackEntries = managerFeedbackEntries.filter(
+            (entry) =>
+              normalizeEmail(entry.targetEmail) === normalizeEmail(judge.email) &&
+              ["wing_to_chair", "chair_to_wing"].includes(String(entry.type || "").trim()),
           );
           const chairAssignments = judgeAllocations.filter(
             (allocation) => normalizeJudgeAllocationRole(allocation.panelRole, "panelist") === "chair",
@@ -12781,6 +12855,42 @@
               return Math.round((submittedKey - publishedKey) / 60000);
             })
             .filter((value) => value !== null);
+          const improvementSamples = judgeAllocations
+            .flatMap((allocation) => {
+              const drawEntry = getDrawEntryById(tournament, allocation.drawId);
+              const slots = Array.isArray(drawEntry?.slots) ? drawEntry.slots : [];
+              return slots
+                .map((slot) => {
+                  const participantIds = Array.isArray(slot.participantIds) ? slot.participantIds : [];
+                  const currentScores = participantIds
+                    .map((participantId) =>
+                      getParticipantAverageSpeakerScoreForDraw(tournament, participantId, drawEntry?.id),
+                    )
+                    .filter((value) => value !== null);
+                  if (!currentScores.length) {
+                    return null;
+                  }
+                  const priorScores = participantIds
+                    .flatMap((participantId) => {
+                      const participant = getParticipantById(tournament, participantId);
+                      return getParticipantSpeakerScoreBreakdown(tournament, participant).filter(
+                        (entry) => Number(entry.round || 0) < Number(allocation.round || 0),
+                      );
+                    })
+                    .map((entry) => Number(entry.score || 0))
+                    .filter((value) => Number.isFinite(value));
+                  if (!priorScores.length) {
+                    return null;
+                  }
+                  return (
+                    currentScores.reduce((sum, value) => sum + Number(value || 0), 0) /
+                      currentScores.length -
+                    priorScores.reduce((sum, value) => sum + Number(value || 0), 0) /
+                      priorScores.length
+                  );
+                })
+                .filter((value) => value !== null);
+            });
 
           return {
             judge,
@@ -12798,6 +12908,37 @@
                   0,
                 )
               : 0,
+            teamFeedbackCount: judgeFeedbackEntries.length,
+            avgTeamFeedback: judgeFeedbackEntries.length
+              ? roundScoreValue(
+                  judgeFeedbackEntries.reduce((sum, entry) => sum + Number(entry.rating || 0), 0) /
+                    judgeFeedbackEntries.length,
+                  2,
+                )
+              : 0,
+            peerFeedbackCount: peerFeedbackEntries.length,
+            avgPeerFeedback: peerFeedbackEntries.length
+              ? roundScoreValue(
+                  peerFeedbackEntries.reduce((sum, entry) => sum + Number(entry.rating || 0), 0) /
+                    peerFeedbackEntries.length,
+                  2,
+                )
+              : 0,
+            improvementSignal: improvementSamples.length
+              ? roundScoreValue(
+                  improvementSamples.reduce((sum, value) => sum + Number(value || 0), 0) /
+                    improvementSamples.length,
+                  2,
+                )
+              : 0,
+            strengthLabel:
+              judgeFeedbackEntries.length && judgeFeedbackEntries.length >= 2
+                ? judgeFeedbackEntries.reduce((sum, entry) => sum + Number(entry.rating || 0), 0) /
+                    judgeFeedbackEntries.length >=
+                  4
+                  ? "Strong"
+                  : "Needs review"
+                : "Building",
           };
         });
 
@@ -12854,6 +12995,74 @@
         return (participant?.feedback || []).filter((entry) =>
           isOfficialFeedbackEntry(tournament, entry),
         );
+      }
+
+      function getParticipantVisibleFeedbackEntries(tournament, participant) {
+        return [...(participant?.feedback || [])].sort(
+          (left, right) =>
+            Number(normalizeTimestampKey(right?.createdAtKey, right?.createdAt) || 0) -
+              Number(normalizeTimestampKey(left?.createdAtKey, left?.createdAt) || 0) ||
+            String(right?.judgeEmail || "").localeCompare(String(left?.judgeEmail || "")),
+        );
+      }
+
+      function normalizeTournamentFeedbackLedgerEntry(entry = {}) {
+        const visibility = String(entry.visibility || "manager_only").trim() || "manager_only";
+        return {
+          id: String(entry.id || createId("ledger")).trim(),
+          type: String(entry.type || "team_to_judge").trim(),
+          tournamentId: String(entry.tournamentId || "").trim(),
+          drawId: String(entry.drawId || "").trim(),
+          allocationId: String(entry.allocationId || "").trim(),
+          round: normalizeRoundCount(entry.round, 1),
+          room: String(entry.room || "").trim(),
+          sourceEmail: normalizeEmail(entry.sourceEmail),
+          sourceName: String(entry.sourceName || "").trim(),
+          targetEmail: normalizeEmail(entry.targetEmail),
+          targetName: String(entry.targetName || "").trim(),
+          participantId: String(entry.participantId || "").trim(),
+          participantName: String(entry.participantName || "").trim(),
+          teamName: String(entry.teamName || "").trim(),
+          institution: String(entry.institution || "").trim(),
+          rating: normalizeOptionalCount(entry.rating, null, 5),
+          note: String(entry.note || "").trim(),
+          visibility,
+          createdAt: String(entry.createdAt || timestamp()).trim(),
+          createdAtKey:
+            normalizeTimestampKey(entry.createdAtKey, entry.createdAt) || Date.now(),
+        };
+      }
+
+      function getTournamentFeedbackLedgerEntries(tournament, filters = {}) {
+        return ((tournament?.feedbackLedger || []).map((entry) =>
+          normalizeTournamentFeedbackLedgerEntry(entry),
+        ))
+          .filter((entry) => {
+            if (filters.type && String(filters.type).trim() !== String(entry.type).trim()) {
+              return false;
+            }
+            if (
+              filters.targetEmail &&
+              normalizeEmail(filters.targetEmail) !== normalizeEmail(entry.targetEmail)
+            ) {
+              return false;
+            }
+            if (
+              filters.allocationId &&
+              String(filters.allocationId).trim() !== String(entry.allocationId).trim()
+            ) {
+              return false;
+            }
+            if (filters.drawId && String(filters.drawId).trim() !== String(entry.drawId).trim()) {
+              return false;
+            }
+            return true;
+          })
+          .sort(
+            (left, right) =>
+              Number(right.createdAtKey || 0) - Number(left.createdAtKey || 0) ||
+              String(right.note || "").localeCompare(String(left.note || "")),
+          );
       }
 
       function getExistingJudgeFeedback(participant, allocationId, judgeEmail) {
@@ -12923,8 +13132,113 @@
         return assignments.sort(
           (left, right) =>
             Number(left.allocation.round) - Number(right.allocation.round) ||
-            String(left.allocation.room).localeCompare(String(right.allocation.room)),
+          String(left.allocation.room).localeCompare(String(right.allocation.room)),
         );
+      }
+
+      function canJudgeAllocationSubmitBallot(tournament, allocation) {
+        const normalizedRole = normalizeJudgeAllocationRole(allocation?.panelRole, "panelist");
+        if (normalizedRole === "chair") {
+          return true;
+        }
+        return allowsWingBallotsForFormat(getRoundFormat(tournament, allocation?.round));
+      }
+
+      function getPeerJudgeAllocationsForRoom(tournament, allocation, role = "panelist") {
+        return getJudgeAllocationsForTournament(tournament).filter((entry) => {
+          if (String(entry.drawId || "").trim() !== String(allocation?.drawId || "").trim()) {
+            return false;
+          }
+          if (String(entry.id || "").trim() === String(allocation?.id || "").trim()) {
+            return false;
+          }
+          return normalizeJudgeAllocationRole(entry.panelRole, "panelist") === role;
+        });
+      }
+
+      function renderInternalJudgeFeedbackForms(tournament, allocation) {
+        if (!canJudgeAllocationSubmitBallot(tournament, allocation)) {
+          return "";
+        }
+        const role = normalizeJudgeAllocationRole(allocation.panelRole, "panelist");
+        const feedbackTargets =
+          role === "chair"
+            ? getPeerJudgeAllocationsForRoom(tournament, allocation, "panelist").map((entry) => ({
+                allocation: entry,
+                judge: getJudgeByEmail(tournament, entry.judgeEmail),
+                type: "chair_to_wing",
+                title: "Manager-only wing feedback",
+                prompt: "Share how the wing handled collaboration, reliability, and adjudication quality.",
+              }))
+            : (() => {
+                const chair = getChairAllocationForDrawEntry(tournament, allocation.drawId);
+                if (!chair || String(chair.id || "").trim() === String(allocation.id || "").trim()) {
+                  return [];
+                }
+                return [
+                  {
+                    allocation: chair,
+                    judge: getJudgeByEmail(tournament, chair.judgeEmail),
+                    type: "wing_to_chair",
+                    title: "Manager-only chair feedback",
+                    prompt: "Share how the chair handled deliberation, leadership, and ballot quality.",
+                  },
+                ];
+              })();
+
+        if (!feedbackTargets.length) {
+          return "";
+        }
+
+        return `
+          <div class="stack">
+            ${feedbackTargets
+              .map(
+                ({ allocation: targetAllocation, judge, type, title, prompt }) => `
+                  <form class="flat-panel stack" data-form="submit-judge-peer-feedback" data-id="${escapeHtml(
+                    tournament.id,
+                  )}" data-allocation-id="${escapeHtml(allocation.id)}" data-target-allocation-id="${escapeHtml(
+                    targetAllocation.id,
+                  )}" data-feedback-type="${escapeHtml(type)}">
+                    <div class="section-heading">
+                      <div>
+                        <strong>${escapeHtml(title)}</strong>
+                        <p class="muted">${escapeHtml(
+                          judge?.name || targetAllocation.judgeEmail,
+                        )}</p>
+                      </div>
+                      <span class="mini-pill success">Managers only</span>
+                    </div>
+                    <p class="fine-print">${escapeHtml(prompt)}</p>
+                    <div class="field-grid two">
+                      <label>
+                        Rating
+                        <select name="rating">
+                          <option value="5">5 • Excellent</option>
+                          <option value="4">4 • Strong</option>
+                          <option value="3">3 • Solid</option>
+                          <option value="2">2 • Weak</option>
+                          <option value="1">1 • Poor</option>
+                        </select>
+                      </label>
+                      <label>
+                        Subject
+                        <input type="text" name="targetName" value="${escapeHtml(
+                          judge?.name || targetAllocation.judgeEmail,
+                        )}" />
+                      </label>
+                    </div>
+                    <label>
+                      Feedback
+                      <textarea name="note" rows="3" placeholder="Add concise manager-only feedback."></textarea>
+                    </label>
+                    <button type="submit">Send to managers</button>
+                  </form>
+                `,
+              )
+              .join("")}
+          </div>
+        `;
       }
 
       function normalizeTournamentRegistrationSettings(record = {}) {
@@ -13120,18 +13434,16 @@
             showDrawInPrivatePortal: true,
             showFeedbackInPrivatePortal: state.appSettings.portal.showFeedbackInPrivatePortal,
           },
-          permissions: {
+          permissions: normalizeTournamentPermissions({
             managerEmails: [normalizeEmail(MANAGER_EMAIL)],
-            tabManagerEmails: [],
-            judgeEmails: [],
-            debaterEmails: [],
-          },
+          }),
           settings: {
             feedbackCategories: clone(state.appSettings.feedback.categories),
           },
           notices: [],
           roundControls: buildRoundControls(rounds),
           registration: normalizeTournamentRegistrationSettings(payload.registration),
+          feedbackLedger: Array.isArray(payload.feedbackLedger) ? clone(payload.feedbackLedger) : [],
           judges: [],
           judgeAllocations: [],
           teams: Array.isArray(payload.teams)
@@ -13684,13 +13996,10 @@
               showFeedbackInPrivatePortal: true,
               ...(tournament.publication || {}),
             },
-            permissions: {
+            permissions: normalizeTournamentPermissions({
               managerEmails: [normalizeEmail(MANAGER_EMAIL)],
-              tabManagerEmails: [],
-              judgeEmails: [],
-              debaterEmails: [],
               ...(tournament.permissions || {}),
-            },
+            }),
             settings: {
               feedbackCategories: clone(DEFAULT_SETTINGS.feedback.categories),
               ...(tournament.settings || {}),
@@ -13698,6 +14007,7 @@
             notices: Array.isArray(tournament.notices) ? tournament.notices : [],
             roundControls: Array.isArray(tournament.roundControls) ? tournament.roundControls : [],
             registration: normalizeTournamentRegistrationSettings(tournament.registration),
+            feedbackLedger: Array.isArray(tournament.feedbackLedger) ? tournament.feedbackLedger : [],
             judges: Array.isArray(tournament.judges) ? tournament.judges : [],
             judgeAllocations: Array.isArray(tournament.judgeAllocations)
               ? tournament.judgeAllocations
@@ -13813,7 +14123,9 @@
 
       function renderFlash() {
         if (!flash.text) return "";
-        return `<div class="alert ${escapeHtml(flash.type || "info")}">${escapeHtml(
+        return `<div class="alert ${escapeHtml(
+          flash.type || "info",
+        )}" role="status" aria-live="polite">${escapeHtml(
           flash.text,
         )}</div>`;
       }
@@ -14625,7 +14937,7 @@
       }
 
       function getPortalFeedbackEntries(tournament, participant) {
-        const entries = getOfficialParticipantFeedbackEntries(tournament, participant);
+        const entries = getParticipantVisibleFeedbackEntries(tournament, participant).reverse();
         return state.appSettings.portal.showOnlyLatestFeedback ? entries.slice(-1) : entries;
       }
 
@@ -14652,6 +14964,93 @@
             return searchTerms.some((term) => matchup.includes(term));
           })
           .sort((left, right) => Number(right.round || 0) - Number(left.round || 0));
+      }
+
+      function getFeedbackEligibleJudgeAllocationsForParticipant(tournament, participant) {
+        const participantId = String(participant?.id || "").trim();
+        if (!participantId) {
+          return [];
+        }
+
+        return getParticipantDrawEntries(tournament, participant)
+          .flatMap((drawEntry) =>
+            getJudgeAllocationsForTournament(tournament)
+              .filter((allocation) => String(allocation.drawId || "").trim() === String(drawEntry.id || "").trim())
+              .map((allocation) => ({
+                allocation,
+                drawEntry,
+                judge: getJudgeByEmail(tournament, allocation.judgeEmail),
+              })),
+          )
+          .filter(({ allocation }) =>
+            Array.isArray(allocation.participantIds) && allocation.participantIds.includes(participantId),
+          );
+      }
+
+      function renderParticipantJudgeFeedbackForms(tournament, participant) {
+        const eligibleAllocations = getFeedbackEligibleJudgeAllocationsForParticipant(
+          tournament,
+          participant,
+        );
+        if (!eligibleAllocations.length) {
+          return "";
+        }
+
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Judge Feedback</p>
+                <h3>Share how the adjudication felt from your team’s side</h3>
+              </div>
+              <span class="role-pill">Manager-only review</span>
+            </div>
+            <div class="stack">
+              ${eligibleAllocations
+                .map(({ allocation, drawEntry, judge }) => `
+                  <form class="flat-panel stack" data-form="submit-participant-judge-feedback" data-id="${escapeHtml(
+                    tournament.id,
+                  )}" data-participant-id="${escapeHtml(participant.id)}" data-allocation-id="${escapeHtml(
+                    allocation.id,
+                  )}">
+                    <div class="section-heading">
+                      <div>
+                        <strong>${escapeHtml(judge?.name || allocation.judgeEmail)}</strong>
+                        <p class="muted">${escapeHtml(
+                          "Round " + allocation.round + " • " + allocation.room + " • " + getJudgeAllocationRoleLabel(allocation.panelRole),
+                        )}</p>
+                      </div>
+                      <span class="mini-pill success">Managers only</span>
+                    </div>
+                    <div class="field-grid two">
+                      <label>
+                        Rating
+                        <select name="rating">
+                          <option value="5">5 • Excellent</option>
+                          <option value="4">4 • Strong</option>
+                          <option value="3">3 • Solid</option>
+                          <option value="2">2 • Weak</option>
+                          <option value="1">1 • Poor</option>
+                        </select>
+                      </label>
+                      <label>
+                        Team label
+                        <input type="text" name="teamName" value="${escapeHtml(
+                          participant.teamName || participant.name || "",
+                        )}" />
+                      </label>
+                    </div>
+                    <label>
+                      Feedback
+                      <textarea name="note" rows="3" placeholder="What did the adjudication help or hinder?"></textarea>
+                    </label>
+                    <button type="submit">Send feedback to managers</button>
+                  </form>
+                `)
+                .join("")}
+            </div>
+          </section>
+        `;
       }
 
       function getPrimaryParticipantDrawEntry(tournament, participant) {
@@ -15441,7 +15840,8 @@
             : "Staff workspace for permissions, publishing, and tournament operations.";
 
         return `
-          <aside class="menu-panel">
+          <a class="skip-link" href="#workspace-main">Skip to main content</a>
+          <aside class="menu-panel" role="navigation" aria-label="Primary workspace navigation">
             <div class="menu-brand">
               ${renderBrandLockup({
                 kicker: "Hummingbird Menu",
@@ -15458,13 +15858,13 @@
               </div>
               <div class="menu-side-section">
                 <span class="theme-section-label">Workspace</span>
-                <div class="menu-nav-list">
+                <div class="menu-nav-list" role="list">
                   ${items
                   .map(
                     (item) => `
                       <button class="menu-nav-link ${currentView === item.key ? "is-active" : ""}" type="button" data-action="set-view" data-view="${escapeHtml(
                         item.key,
-                      )}">
+                      )}" aria-current="${currentView === item.key ? "page" : "false"}">
                         <span class="menu-nav-copy">
                           <strong>${escapeHtml(item.label)}</strong>
                           <span>${escapeHtml(
@@ -15472,6 +15872,8 @@
                               ? "Start here"
                               : item.key === "tournaments"
                                 ? "Events and tab rooms"
+                                : item.key === "launch"
+                                  ? "Create and stage new events"
                                 : item.key === "search"
                                   ? "Profiles and history"
                                   : item.key === "judging"
@@ -15481,7 +15883,7 @@
                                       : item.key === "links"
                                         ? "Private access URLs"
                                         : item.key === "about"
-                                          ? "JADE mission and context"
+                                          ? "Platform context"
                                           : "Personal workspace setup",
                           )}</span>
                         </span>
@@ -16495,7 +16897,7 @@
       }
 
       function renderPermissionChips(tournament, key, label, removable) {
-        const emails = tournament.permissions[key] || [];
+        const emails = normalizePermissionEmailList(tournament.permissions[key] || []);
         return `
           <div class="flat-panel">
             <div class="section-heading">
@@ -16537,6 +16939,7 @@
         }
 
         const speakerStandings = getSpeakerStandings(tournament);
+        const canSanction = canSanctionTournamentParticipants(tournament);
         return `
           <div class="directory-grid registration-speaker-grid">
             ${tournament.participants
@@ -16550,6 +16953,10 @@
                   tournament,
                   participant,
                 );
+                const latestSanction =
+                  Array.isArray(participant.sanctions) && participant.sanctions.length
+                    ? participant.sanctions[participant.sanctions.length - 1]
+                    : null;
                 return `
                   <div class="directory-card registration-speaker-card">
                     <div class="section-heading">
@@ -16626,6 +17033,42 @@
                           </div>
                         `
                         : `<p class="muted">No judge feedback yet.</p>`
+                    }
+                    ${
+                      latestSanction
+                        ? `<p class="fine-print">${escapeHtml(
+                            "Latest sanction: " +
+                              String(latestSanction.level || "Notice") +
+                              " • " +
+                              String(latestSanction.note || "Recorded by staff"),
+                          )}</p>`
+                        : ""
+                    }
+                    ${
+                      canSanction
+                        ? `
+                          <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
+                            tournament.id,
+                          )}" data-participant-id="${escapeHtml(participant.id)}">
+                            <div class="field-grid two">
+                              <label>
+                                Sanction
+                                <select name="level">
+                                  <option value="Notice">Notice</option>
+                                  <option value="Warning">Warning</option>
+                                  <option value="Penalty">Penalty</option>
+                                  <option value="Removal">Removal</option>
+                                </select>
+                              </label>
+                              <label>
+                                Note
+                                <input type="text" name="note" placeholder="Brief reason" required />
+                              </label>
+                            </div>
+                            <button class="secondary-button" type="submit">Record Sanction</button>
+                          </form>
+                        `
+                        : ""
                     }
                   </div>
                 `;
@@ -17075,6 +17518,7 @@
       }
 
       function renderPermissionPanel(tournament, access, canManage) {
+        const permissionConfigs = getTournamentPermissionRoleConfigs();
         return `
           ${
             canManage
@@ -17098,20 +17542,11 @@
               : `<p class="muted">You can view your assigned role, but only managers can change permissions.</p>`
           }
           <div class="stack">
-            ${renderPermissionChips(
-              tournament,
-              "managerEmails",
-              "Tournament managers",
-              canManage,
-            )}
-            ${renderPermissionChips(
-              tournament,
-              "tabManagerEmails",
-              "Tab managers",
-              canManage,
-            )}
-            ${renderPermissionChips(tournament, "judgeEmails", "Judges", canManage)}
-            ${renderPermissionChips(tournament, "debaterEmails", "Debaters", canManage)}
+            ${permissionConfigs
+              .map((config) =>
+                renderPermissionChips(tournament, config.key, config.label, canManage),
+              )
+              .join("")}
           </div>
         `;
       }
@@ -18602,8 +19037,14 @@
         const teams = getTournamentTeams(tournament).length;
         const standings = getComputedStandings(tournament);
         const noticeCount = Array.isArray(tournament.notices) ? tournament.notices.length : 0;
+        const access = getTournamentAccess(tournament);
+        const fullAdmin = hasFullTournamentAdminAccess(access);
+        const operations = hasTournamentOperationsAccess(access);
+        const backstage = hasTournamentBackstageAccess(access);
+        const peopleAccess = hasTournamentPeopleAccess(access);
+        const judgeAccess = access === "judge";
 
-        return [
+        const sections = [
           {
             key: "spotlight",
             label: "Spotlight",
@@ -18743,6 +19184,25 @@
               ),
           },
         ];
+        const allowedKeys = new Set(["spotlight", "results", "notices"]);
+        if (peopleAccess || judgeAccess) {
+          allowedKeys.add("roster");
+          allowedKeys.add("directory");
+        }
+        if (backstage) {
+          allowedKeys.add("judges");
+          allowedKeys.add("motions");
+        }
+        if (operations) {
+          allowedKeys.add("registration");
+          allowedKeys.add("draw");
+        }
+        if (fullAdmin) {
+          allowedKeys.add("setup");
+          allowedKeys.add("access");
+          allowedKeys.add("history");
+        }
+        return sections.filter((section) => allowedKeys.has(section.key));
       }
 
       function getFocusedTournamentSectionState(
@@ -19525,10 +19985,9 @@
                         <tr>
                           <th>Institution</th>
                           <th>Teams</th>
-                          <th>Speakers</th>
+                          <th>Judges</th>
                           <th>Team Points</th>
-                          <th>Best Team</th>
-                          <th>Best Speaker</th>
+                          <th>Finish</th>
                           <th>Search</th>
                         </tr>
                       </thead>
@@ -19539,13 +19998,10 @@
                               <tr>
                                 <td>${escapeHtml(record.institution)}</td>
                                 <td>${escapeHtml(record.teams)}</td>
-                                <td>${escapeHtml(record.speakers)}</td>
-                                <td>${escapeHtml(record.teamPoints)}</td>
+                                <td>${escapeHtml(record.judges)}</td>
+                                <td>${escapeHtml(formatScoreValue(record.teamPoints))}</td>
                                 <td>${escapeHtml(
-                                  record.bestTeamRank ? "#" + record.bestTeamRank : "Awaiting",
-                                )}</td>
-                                <td>${escapeHtml(
-                                  record.bestSpeakerRank ? "#" + record.bestSpeakerRank : "Awaiting",
+                                  record.finish ? "#" + record.finish : "Awaiting",
                                 )}</td>
                                 <td><button class="secondary-button" type="button" data-action="apply-search-recommendation" data-query="${escapeAttributeValue(
                                   record.institution,
@@ -19565,12 +20021,13 @@
 
       function renderJudgeAnalyticsPanel(tournament) {
         const analytics = getJudgeAnalytics(tournament);
+        const canSeeManagerOnly = canViewManagerOnlyTournamentFeedback(tournament);
         return `
           <div class="flat-panel">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Judge Analytics</p>
-                <h3>Allocation quality and return pace</h3>
+                <h3>Allocation quality, feedback, and judge impact</h3>
               </div>
               <span class="role-pill">${escapeHtml(analytics.records.length)} judges</span>
             </div>
@@ -19620,7 +20077,31 @@
                                   ? "Priority " + record.avgPriority
                                   : "Priority building",
                               )}</span>
+                              <span class="mini-pill ${escapeHtml(
+                                record.strengthLabel === "Needs review" ? "warning" : "success",
+                              )}">${escapeHtml(record.strengthLabel)}</span>
                             </div>
+                            ${
+                              canSeeManagerOnly
+                                ? `<div class="stack">
+                                    <span class="fine-print">${escapeHtml(
+                                      record.teamFeedbackCount
+                                        ? "Team feedback " + formatScoreValue(record.avgTeamFeedback) + " / 5 across " + record.teamFeedbackCount + " notes"
+                                        : "No team feedback yet",
+                                    )}</span>
+                                    <span class="fine-print">${escapeHtml(
+                                      record.peerFeedbackCount
+                                        ? "Peer feedback " + formatScoreValue(record.avgPeerFeedback) + " / 5 across " + record.peerFeedbackCount + " notes"
+                                        : "No chair/wing feedback yet",
+                                    )}</span>
+                                    <span class="fine-print">${escapeHtml(
+                                      "Improvement signal " +
+                                        (record.improvementSignal > 0 ? "+" : "") +
+                                        formatScoreValue(record.improvementSignal),
+                                    )}</span>
+                                  </div>`
+                                : ""
+                            }
                           </div>
                         `,
                       )
@@ -20568,6 +21049,28 @@
         `;
       }
 
+      function renderLaunchView() {
+        const visible = getVisibleTournaments();
+        const openTournaments = visible.filter(
+          (tournament) => String(tournament.status || "").trim().toLowerCase() === "open",
+        );
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Tournament Launcher</p>
+                <h2>Launch a new event without crowding tournament management</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(openTournaments.length)} open now</span>
+            </div>
+            <p class="fine-print">
+              Use this dashboard only for creating and staging new tournaments. Ongoing tab work stays inside each tournament room.
+            </p>
+          </section>
+          ${renderCreateTournamentForm()}
+        `;
+      }
+
       function setTournamentFormFieldValue(form, name, value) {
         const field = form?.querySelector(`[name="${name}"]`);
         if (!field) {
@@ -20919,7 +21422,6 @@
                 </section>
               `
           }
-          ${renderCreateTournamentForm()}
         `;
       }
 
@@ -20927,7 +21429,7 @@
         const registered = new Set(state.users.map((user) => user.email));
         const pending = new Set();
         state.tournaments.forEach((tournament) => {
-          ["managerEmails", "tabManagerEmails", "judgeEmails", "debaterEmails"].forEach((key) => {
+          getTournamentPermissionKeys({ includeLegacy: true }).forEach((key) => {
             (tournament.permissions[key] || []).forEach((email) => {
               if (!registered.has(email)) {
                 pending.add(email);
@@ -21145,20 +21647,20 @@
                 <strong>${escapeHtml(appointeeStats.totalAppointments)}</strong>
               </div>
               <div class="stat-card">
-                <span class="muted">Managers</span>
-                <strong>${escapeHtml(appointeeStats.managers)}</strong>
+                <span class="muted">Tab Directors</span>
+                <strong>${escapeHtml(appointeeStats.tabDirectorEmails)}</strong>
               </div>
               <div class="stat-card">
-                <span class="muted">Tab managers</span>
-                <strong>${escapeHtml(appointeeStats.tabManagers)}</strong>
+                <span class="muted">Tournament Directors</span>
+                <strong>${escapeHtml(appointeeStats.tournamentDirectorEmails)}</strong>
               </div>
               <div class="stat-card">
                 <span class="muted">Judges</span>
-                <strong>${escapeHtml(appointeeStats.judges)}</strong>
+                <strong>${escapeHtml(appointeeStats.judgeEmails)}</strong>
               </div>
               <div class="stat-card">
                 <span class="muted">Debaters</span>
-                <strong>${escapeHtml(appointeeStats.debaters)}</strong>
+                <strong>${escapeHtml(appointeeStats.debaterEmails)}</strong>
               </div>
               <div class="stat-card">
                 <span class="muted">Tracked tournaments</span>
@@ -21474,6 +21976,8 @@
             "Overview keeps your current tournaments, judging workload, and saved access points in one refined landing space.",
           tournaments:
             "Tournaments stay separated into focused workspaces so roster, boards, judging, and results remain easy to control.",
+          launch:
+            "Launcher is reserved for creating and staging new tournaments so the active tournament workspace stays leaner.",
           search:
             "Search links together tournaments, people, teams, institutions, and accounts so you can move through the system without getting stuck.",
           judging:
@@ -22219,12 +22723,7 @@
       function getTournamentAppointeeDashboard() {
         return state.tournaments
           .map((tournament) => {
-            const sections = [
-              { key: "managerEmails", label: "Managers" },
-              { key: "tabManagerEmails", label: "Tab Managers" },
-              { key: "judgeEmails", label: "Judges" },
-              { key: "debaterEmails", label: "Debaters" },
-            ]
+            const sections = getTournamentPermissionRoleConfigs({ includeLegacy: true })
               .map((section) => ({
                 ...section,
                 entries: (tournament.permissions?.[section.key] || [])
@@ -22337,6 +22836,7 @@
         );
         const feedbackCategories = tournament.settings.feedbackCategories || [];
         const isChair = normalizeJudgeAllocationRole(allocation.panelRole, "panelist") === "chair";
+        const canSubmitBallot = canJudgeAllocationSubmitBallot(tournament, allocation);
         const ballotLocked = Boolean(allocation.submittedAt);
         const resultMode = getDrawOfficialResultMode(tournament, drawEntry);
         const roomSlots = Array.isArray(drawEntry?.slots) ? drawEntry.slots : [];
@@ -22442,11 +22942,11 @@
             }
             ${
               orderedParticipants.length
-                ? isChair
+                ? canSubmitBallot
                   ? ballotLocked
                     ? `
                   <div class="alert success">
-                    This official ballot was submitted on ${escapeHtml(
+                    This ${escapeHtml(isChair ? "official" : "panel")} ballot was submitted on ${escapeHtml(
                       allocation.submittedAt,
                     )} and is now locked. Only tournament managers can reopen it for corrections.
                   </div>
@@ -22504,7 +23004,7 @@
                   )}" data-allocation-id="${escapeHtml(allocation.id)}">
                     <div class="ballot-grid">
                       ${
-                        resultMode !== "speaker_only" && roomSlots.length
+                        isChair && resultMode !== "speaker_only" && roomSlots.length
                           ? `
                             <section class="ballot-speaker-card ballot-room-result-card">
                               <div class="section-heading">
@@ -22655,10 +23155,11 @@
                       <button type="submit"><span>Submit Ballot</span></button>
                     </div>
                   </form>
+                  ${renderInternalJudgeFeedbackForms(tournament, allocation)}
                 `
                   : `
                     <div class="alert info">
-                      Only the assigned chair can submit the official ballot, speaker scores, and competitor feedback for this room.
+                      This format keeps ballot submission with the chair only. Review the room here and coordinate with the official chair.
                     </div>
                     <div class="flat-panel">
                       <strong>Assigned Speakers</strong>
@@ -22693,6 +23194,7 @@
                           : `<p class="fine-print">No chair has been assigned to this room yet.</p>`
                       }
                     </div>
+                    ${renderInternalJudgeFeedbackForms(tournament, allocation)}
                   `
                 : `<div class="empty-state">This room does not yet have rostered participants attached. Rebuild or re-save the draw from the tournament tab room.</div>`
             }
@@ -22713,7 +23215,7 @@
               <span class="role-pill">${escapeHtml(assignments.length)} rooms</span>
             </div>
             <div class="alert info">
-              You only see rooms explicitly assigned to your email. Check in from your room card when you arrive. Only the assigned chair can submit the official ballot that updates standings, speaker rankings, and competitor feedback, and once it is submitted only tournament managers can reopen it.
+              You only see rooms explicitly assigned to your email. Check in from your room card when you arrive. Chair ballots remain official for room results, and formats like World Schools can also let wings file panel ballots. Once a ballot is submitted, only tournament managers can reopen it.
             </div>
           </section>
           <section class="judge-grid">
@@ -23014,6 +23516,8 @@
             ? renderOverviewView()
             : currentView === "tournaments"
               ? renderTournamentsView()
+            : currentView === "launch"
+              ? renderLaunchView()
             : currentView === "search"
               ? renderSearchView()
             : currentView === "judging"
@@ -23030,7 +23534,7 @@
           <div class="page-shell">
             <div class="workspace-shell">
               ${renderMenu()}
-              <section class="content-panel">
+              <section id="workspace-main" class="content-panel" role="main">
                 <div class="workspace-topbar surface">
                   ${renderBrandLockup({
                     kicker: "Hummingbird Workspace",
@@ -23392,7 +23896,8 @@
                   <div class="portal-body">
                     ${
                       canShowFeedback
-                        ? renderPortalFeedbackCards(feedbackEntries)
+                        ? renderPortalFeedbackCards(feedbackEntries) +
+                          renderParticipantJudgeFeedbackForms(tournament, participant)
                         : `<div class="empty-state">Feedback is hidden for this portal.</div>`
                     }
                   </div>
@@ -24741,20 +25246,23 @@
         updateTournament(
           tournamentId,
           (tournament) => {
-            ["managerEmails", "tabManagerEmails", "judgeEmails", "debaterEmails"].forEach(
-              (key) => {
-                tournament.permissions[key] = (tournament.permissions[key] || []).filter(
-                  (entry) => normalizeEmail(entry) !== targetEmail || key === roleKey,
-                );
-              },
-            );
+            getTournamentPermissionKeys({ includeLegacy: true }).forEach((key) => {
+              tournament.permissions[key] = (tournament.permissions[key] || []).filter(
+                (entry) => normalizeEmail(entry) !== targetEmail || key === roleKey,
+              );
+            });
             const list = new Set(tournament.permissions[roleKey] || []);
             list.add(targetEmail);
             tournament.permissions[roleKey] = Array.from(list);
             rememberTournamentHistoryForEmail(targetEmail, tournament.id);
+            const permissionConfig = getTournamentPermissionConfigByKey(roleKey);
             return addAudit(
               tournament,
-              "Granted " + roleKey.replace("Emails", "") + " access to " + targetEmail + ".",
+              "Granted " +
+                String(permissionConfig?.assignmentLabel || roleKey).trim() +
+                " access to " +
+                targetEmail +
+                ".",
             );
           },
           "Tournament permissions updated.",
@@ -24763,12 +25271,7 @@
 
       function getTournamentRoleKeyForEmail(tournament, email) {
         const targetEmail = normalizeEmail(email);
-        const entries = [
-          "managerEmails",
-          "tabManagerEmails",
-          "judgeEmails",
-          "debaterEmails",
-        ];
+        const entries = getTournamentPermissionKeys({ includeLegacy: true });
         return (
           entries.find((key) =>
             (tournament.permissions?.[key] || []).includes(targetEmail),
@@ -24789,22 +25292,21 @@
         updateTournament(
           tournamentId,
           (tournament) => {
-            ["managerEmails", "tabManagerEmails", "judgeEmails", "debaterEmails"].forEach(
-              (key) => {
-                tournament.permissions[key] = (tournament.permissions[key] || []).filter(
-                  (entry) => normalizeEmail(entry) !== targetEmail,
-                );
-              },
-            );
+            getTournamentPermissionKeys({ includeLegacy: true }).forEach((key) => {
+              tournament.permissions[key] = (tournament.permissions[key] || []).filter(
+                (entry) => normalizeEmail(entry) !== targetEmail,
+              );
+            });
             const list = new Set(tournament.permissions[roleKey] || []);
             list.add(targetEmail);
             tournament.permissions[roleKey] = Array.from(list);
+            const permissionConfig = getTournamentPermissionConfigByKey(roleKey);
             return addAudit(
               tournament,
               "Moved " +
                 targetEmail +
                 " to " +
-                roleKey.replace("Emails", "").replace(/([A-Z])/g, " $1").trim() +
+                String(permissionConfig?.assignmentLabel || roleKey).trim() +
                 ".",
             );
           },
@@ -24828,13 +25330,11 @@
         updateTournament(
           tournamentId,
           (tournament) => {
-            ["managerEmails", "tabManagerEmails", "judgeEmails", "debaterEmails"].forEach(
-              (key) => {
-                tournament.permissions[key] = (tournament.permissions[key] || []).filter(
-                  (entry) => normalizeEmail(entry) !== targetEmail,
-                );
-              },
-            );
+            getTournamentPermissionKeys({ includeLegacy: true }).forEach((key) => {
+              tournament.permissions[key] = (tournament.permissions[key] || []).filter(
+                (entry) => normalizeEmail(entry) !== targetEmail,
+              );
+            });
             return addAudit(tournament, "Removed " + targetEmail + " from tournament appointments.");
           },
           "Tournament appointee removed.",
@@ -24852,9 +25352,14 @@
             tournament.permissions[roleKey] = (tournament.permissions[roleKey] || []).filter(
               (entry) => entry !== normalizeEmail(email),
             );
+            const permissionConfig = getTournamentPermissionConfigByKey(roleKey);
             return addAudit(
               tournament,
-              "Removed " + roleKey.replace("Emails", "") + " access from " + normalizeEmail(email) + ".",
+              "Removed " +
+                String(permissionConfig?.assignmentLabel || roleKey).trim() +
+                " access from " +
+                normalizeEmail(email) +
+                ".",
             );
           },
           "Permission removed.",
@@ -24997,6 +25502,48 @@
             );
           },
           "Participant added.",
+        );
+      }
+
+      function addParticipantSanction(tournamentId, participantId, formData) {
+        const tournament = getTournamentById(tournamentId);
+        if (!tournament || !canSanctionTournamentParticipants(tournament)) {
+          setFlash("error", "You do not have access to sanction participants in this tournament.");
+          renderApp();
+          return;
+        }
+
+        updateTournament(
+          tournamentId,
+          (currentTournament) => {
+            currentTournament.participants = (currentTournament.participants || []).map((participant) =>
+              participant.id === participantId
+                ? {
+                    ...participant,
+                    sanctions: [
+                      ...(Array.isArray(participant.sanctions) ? participant.sanctions : []),
+                      {
+                        id: createId("sanction"),
+                        level: String(formData.get("level") || "Notice").trim(),
+                        note: String(formData.get("note") || "").trim(),
+                        createdAt: timestamp(),
+                        createdBy: normalizeEmail(session.userEmail),
+                      },
+                    ],
+                  }
+                : participant,
+            );
+            const participant = getParticipantById(currentTournament, participantId);
+            return addAudit(
+              currentTournament,
+              "Recorded a " +
+                String(formData.get("level") || "Notice").trim() +
+                " sanction for " +
+                String(participant?.name || participantId).trim() +
+                ".",
+            );
+          },
+          "Sanction recorded.",
         );
       }
 
@@ -25671,8 +26218,14 @@
               drawEntry.id === currentAllocation.drawId
                 ? {
                     ...drawEntry,
-                    officialResults: {},
-                    ballotCheckedIn: false,
+                    officialResults:
+                      normalizeJudgeAllocationRole(currentAllocation.panelRole, "panelist") === "chair"
+                        ? {}
+                        : normalizeDrawOfficialResults(drawEntry.officialResults),
+                    ballotCheckedIn:
+                      normalizeJudgeAllocationRole(currentAllocation.panelRole, "panelist") === "chair"
+                        ? false
+                        : Boolean(drawEntry.ballotCheckedIn),
                   }
                 : drawEntry,
             );
@@ -26588,7 +27141,9 @@
           return;
         }
 
-        if (normalizeJudgeAllocationRole(targetAllocation.panelRole, "panelist") !== "chair") {
+        const canSubmitBallot = canJudgeAllocationSubmitBallot(tournament, targetAllocation);
+        const isChair = normalizeJudgeAllocationRole(targetAllocation.panelRole, "panelist") === "chair";
+        if (!canSubmitBallot) {
           setFlash("error", "Only the assigned chair can submit the official ballot for that room.");
           renderApp();
           return;
@@ -26608,7 +27163,7 @@
         const resultMode = getDrawOfficialResultMode(tournament, targetDrawEntry);
         let officialResults = {};
 
-        if (resultMode === "bp_rank" && roomSlots.length) {
+        if (isChair && resultMode === "bp_rank" && roomSlots.length) {
           const roomPlacements = roomSlots.map((slot) => {
             const slotKey = getDrawSlotCheckInKey(slot);
             return {
@@ -26639,7 +27194,7 @@
           }, {});
         }
 
-        if (resultMode === "win_loss" && roomSlots.length) {
+        if (isChair && resultMode === "win_loss" && roomSlots.length) {
           const roomOutcomes = roomSlots.map((slot) => {
             const slotKey = getDrawSlotCheckInKey(slot);
             return {
@@ -26777,7 +27332,7 @@
                         !(
                           String(entry.allocationId || "") === String(targetAllocation.id) &&
                           normalizeEmail(entry.judgeEmail) ===
-                            normalizeEmail(targetAllocation.judgeEmail)
+                    normalizeEmail(targetAllocation.judgeEmail)
                         ),
                     ),
                     nextEntry,
@@ -26807,7 +27362,7 @@
                 ? {
                     ...entry,
                     officialResults:
-                      resultMode !== "speaker_only"
+                      isChair && resultMode !== "speaker_only"
                         ? normalizeDrawOfficialResults(officialResults)
                         : normalizeDrawOfficialResults(entry.officialResults),
                     ballotCheckedIn: true,
@@ -26825,6 +27380,121 @@
             );
           },
           "Judge ballot submitted.",
+        );
+      }
+
+      function submitParticipantJudgeFeedback(tournamentId, participantId, allocationId, formData) {
+        const tournament = getTournamentById(tournamentId);
+        const participant = tournament ? getParticipantById(tournament, participantId) : null;
+        const allocation = tournament
+          ? getJudgeAllocationsForTournament(tournament).find(
+              (entry) => String(entry.id || "").trim() === String(allocationId || "").trim(),
+            )
+          : null;
+        if (!tournament || !participant || !allocation) {
+          setFlash("error", "That judge feedback target could not be found.");
+          renderApp();
+          return;
+        }
+
+        updateTournament(
+          tournamentId,
+          (currentTournament) => {
+            const judge = getJudgeByEmail(currentTournament, allocation.judgeEmail);
+            currentTournament.feedbackLedger = [
+              normalizeTournamentFeedbackLedgerEntry({
+                type: "team_to_judge",
+                tournamentId,
+                drawId: allocation.drawId,
+                allocationId: allocation.id,
+                round: allocation.round,
+                room: allocation.room,
+                sourceEmail: participant.email,
+                sourceName: participant.name,
+                targetEmail: allocation.judgeEmail,
+                targetName: judge?.name || allocation.judgeEmail,
+                participantId: participant.id,
+                participantName: participant.name,
+                teamName: String(formData.get("teamName") || participant.teamName || participant.name).trim(),
+                institution: participant.institution,
+                rating: formData.get("rating"),
+                note: formData.get("note"),
+                visibility: "manager_only",
+              }),
+              ...(currentTournament.feedbackLedger || []),
+            ].slice(0, 1000);
+            return addAudit(
+              currentTournament,
+              "A participant feedback note was submitted about adjudication in Round " +
+                allocation.round +
+                ", " +
+                allocation.room +
+                ".",
+            );
+          },
+          "Judge feedback sent to tournament managers.",
+        );
+      }
+
+      function submitJudgePeerFeedback(
+        tournamentId,
+        allocationId,
+        targetAllocationId,
+        feedbackType,
+        formData,
+      ) {
+        const tournament = ensureJudgeAccessById(tournamentId);
+        if (!tournament) return;
+        const allocation = getJudgeAllocationsForTournament(tournament).find(
+          (entry) => String(entry.id || "").trim() === String(allocationId || "").trim(),
+        );
+        const targetAllocation = getJudgeAllocationsForTournament(tournament).find(
+          (entry) => String(entry.id || "").trim() === String(targetAllocationId || "").trim(),
+        );
+        if (!allocation || !targetAllocation) {
+          setFlash("error", "That judge feedback target could not be found.");
+          renderApp();
+          return;
+        }
+        if (normalizeEmail(allocation.judgeEmail) !== normalizeEmail(session.userEmail)) {
+          setFlash("error", "You can only submit manager-only adjudication feedback for your own assignment.");
+          renderApp();
+          return;
+        }
+
+        updateTournament(
+          tournamentId,
+          (currentTournament) => {
+            const sourceJudge = getJudgeByEmail(currentTournament, allocation.judgeEmail);
+            const targetJudge = getJudgeByEmail(currentTournament, targetAllocation.judgeEmail);
+            currentTournament.feedbackLedger = [
+              normalizeTournamentFeedbackLedgerEntry({
+                type: String(feedbackType || "wing_to_chair").trim(),
+                tournamentId,
+                drawId: allocation.drawId,
+                allocationId: targetAllocation.id,
+                round: allocation.round,
+                room: allocation.room,
+                sourceEmail: allocation.judgeEmail,
+                sourceName: sourceJudge?.name || allocation.judgeEmail,
+                targetEmail: targetAllocation.judgeEmail,
+                targetName: String(formData.get("targetName") || targetJudge?.name || targetAllocation.judgeEmail).trim(),
+                rating: formData.get("rating"),
+                note: formData.get("note"),
+                visibility: "manager_only",
+              }),
+              ...(currentTournament.feedbackLedger || []),
+            ].slice(0, 1000);
+            return addAudit(
+              currentTournament,
+              "A manager-only adjudication feedback note was submitted for Round " +
+                allocation.round +
+                ", " +
+                allocation.room +
+                ".",
+            );
+          },
+          "Manager-only adjudication feedback saved.",
         );
       }
 
@@ -26898,21 +27568,10 @@
             : request,
         );
         state.tournaments = state.tournaments.map((tournament) => {
-          const updatedPermissions = {
-            ...tournament.permissions,
-            managerEmails: (tournament.permissions.managerEmails || []).filter(
-              (entry) => entry !== target,
-            ),
-            tabManagerEmails: (tournament.permissions.tabManagerEmails || []).filter(
-              (entry) => entry !== target,
-            ),
-            judgeEmails: (tournament.permissions.judgeEmails || []).filter(
-              (entry) => entry !== target,
-            ),
-            debaterEmails: (tournament.permissions.debaterEmails || []).filter(
-              (entry) => entry !== target,
-            ),
-          };
+          const updatedPermissions = normalizeTournamentPermissions(tournament.permissions || {});
+          getTournamentPermissionKeys({ includeLegacy: true }).forEach((key) => {
+            updatedPermissions[key] = (updatedPermissions[key] || []).filter((entry) => entry !== target);
+          });
           return addAudit(
             {
               ...tournament,
@@ -27825,6 +28484,11 @@
             return;
           }
 
+          if (form.dataset.form === "add-sanction") {
+            addParticipantSanction(form.dataset.id, form.dataset.participantId, formData);
+            return;
+          }
+
           if (form.dataset.form === "add-judge") {
             addJudge(form.dataset.id, formData);
             return;
@@ -27886,6 +28550,27 @@
 
           if (form.dataset.form === "submit-judge-ballot") {
             submitJudgeBallot(form.dataset.id, form.dataset.allocationId, formData);
+            return;
+          }
+
+          if (form.dataset.form === "submit-participant-judge-feedback") {
+            submitParticipantJudgeFeedback(
+              form.dataset.id,
+              form.dataset.participantId,
+              form.dataset.allocationId,
+              formData,
+            );
+            return;
+          }
+
+          if (form.dataset.form === "submit-judge-peer-feedback") {
+            submitJudgePeerFeedback(
+              form.dataset.id,
+              form.dataset.allocationId,
+              form.dataset.targetAllocationId,
+              form.dataset.feedbackType,
+              formData,
+            );
             return;
           }
 
