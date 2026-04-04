@@ -4766,14 +4766,14 @@
 
       .people-card-list {
         display: grid;
-        gap: 12px;
+        gap: 10px;
       }
 
       .people-compact-card {
         display: grid;
-        gap: 12px;
-        padding: 16px 18px;
-        border-radius: 18px;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 15px;
         background:
           radial-gradient(circle at top right, rgba(225, 191, 67, 0.07), transparent 26%),
           linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 249, 245, 0.9));
@@ -4785,36 +4785,78 @@
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        gap: 12px;
+        gap: 10px;
+      }
+
+      .people-compact-head .stack {
+        gap: 2px;
+      }
+
+      .people-compact-head strong {
+        font-size: 0.98rem;
+        line-height: 1.15;
+      }
+
+      .people-compact-head .muted {
+        font-size: 0.84rem;
       }
 
       .people-pill-cluster {
         display: flex;
         flex-wrap: wrap;
         justify-content: flex-end;
-        gap: 8px;
+        gap: 6px;
       }
 
       .people-meta-grid {
-        display: grid;
-        gap: 8px 12px;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
       }
 
       .people-meta-grid span {
         color: var(--muted);
-        font-size: 0.92rem;
+        font-size: 0.82rem;
+        line-height: 1.25;
       }
 
       .people-card-forms {
         display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         align-items: start;
       }
 
       .people-compact-card .compact-inline-form {
         align-items: end;
+        gap: 6px;
+      }
+
+      .people-compact-card .button-row {
+        gap: 6px;
+      }
+
+      .people-compact-card .token-link {
+        padding: 8px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        line-height: 1.15;
+      }
+
+      .people-compact-card .secondary-button,
+      .people-compact-card .danger-button,
+      .people-compact-card .ghost-button,
+      .people-compact-card button,
+      .people-compact-card select,
+      .people-compact-card input {
+        font-size: 0.84rem;
+      }
+
+      .people-compact-card .secondary-button,
+      .people-compact-card .danger-button,
+      .people-compact-card .ghost-button,
+      .people-compact-card button {
+        padding: 8px 10px;
       }
 
       .leaderboard-row {
@@ -20983,38 +21025,38 @@
                       </div>
                       <a class="token-link" href="${escapeHtml(
                         getUserAccessLink(user.privateAccessToken),
-                      )}" target="_blank" rel="noreferrer">${escapeHtml(
+                      )}" target="_blank" rel="noreferrer" title="${escapeAttributeValue(
                         getUserAccessLink(user.privateAccessToken),
-                      )}</a>
+                      )}">Open Private URL</a>
                       ${
                         canAccessGlobalSettings() && !isManagerUser
                           ? `
                             <div class="button-row wrap-row">
                               <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
                                 user.email,
-                              )}">Copy Access URL</button>
+                              )}">Copy Link</button>
                               <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
                                 user.email,
-                              )}">Rotate URL</button>
+                              )}">Rotate</button>
                               <button class="${user.active ? "danger-button" : "secondary-button"}" type="button" data-action="toggle-user-active" data-email="${escapeHtml(
                                 user.email,
-                              )}">${escapeHtml(user.active ? "Disable Account" : "Enable Account")}</button>
+                              )}">${escapeHtml(user.active ? "Disable" : "Enable")}</button>
                               <button class="danger-button" type="button" data-action="delete-user" data-email="${escapeHtml(
                                 user.email,
-                              )}">Delete User</button>
+                              )}">Delete</button>
                             </div>
                             <div class="people-card-forms">
                               <form class="compact-inline-form" data-form="update-user-role" data-email="${escapeHtml(
                                 user.email,
                               )}">
                                 <select name="globalRole">${getGlobalRoleOptions(user.globalRole)}</select>
-                                <button class="secondary-button" type="submit">Save Role</button>
+                                <button class="secondary-button" type="submit">Save</button>
                               </form>
                               <form class="compact-inline-form" data-form="reset-user-password" data-email="${escapeHtml(
                                 user.email,
                               )}">
-                                <input type="password" name="password" placeholder="Reset password" required />
-                                <button class="secondary-button" type="submit">Save Password</button>
+                                <input type="password" name="password" placeholder="New password" required />
+                                <button class="secondary-button" type="submit">Save</button>
                               </form>
                             </div>
                           `
