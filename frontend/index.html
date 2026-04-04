@@ -4764,6 +4764,59 @@
         gap: 10px;
       }
 
+      .people-card-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .people-compact-card {
+        display: grid;
+        gap: 12px;
+        padding: 16px 18px;
+        border-radius: 18px;
+        background:
+          radial-gradient(circle at top right, rgba(225, 191, 67, 0.07), transparent 26%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 249, 245, 0.9));
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .people-compact-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .people-pill-cluster {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .people-meta-grid {
+        display: grid;
+        gap: 8px 12px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+
+      .people-meta-grid span {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .people-card-forms {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        align-items: start;
+      }
+
+      .people-compact-card .compact-inline-form {
+        align-items: end;
+      }
+
       .leaderboard-row {
         display: flex;
         align-items: flex-start;
@@ -11402,12 +11455,59 @@
           .join("");
       }
 
+      function getJudgeAffiliationOptionsMarkup(currentValue = "institutional") {
+        const current = normalizeJudgeAffiliationType(currentValue);
+        return [
+          { value: "institutional", label: "Institutionally Affiliated" },
+          { value: "independent", label: "Independent Judge" },
+        ]
+          .map(
+            (option) =>
+              `<option value="${option.value}" ${selected(
+                option.value,
+                current,
+              )}>${escapeHtml(option.label)}</option>`,
+          )
+          .join("");
+      }
+
+      function normalizeJudgeAffiliationType(value, institution = "") {
+        const normalized = String(value || "")
+          .trim()
+          .toLowerCase()
+          .replace(/[_-]+/g, " ");
+
+        if (["independent", "independent judge", "ind"].includes(normalized)) {
+          return "independent";
+        }
+
+        if (
+          [
+            "institutional",
+            "institutionally affiliated",
+            "institutional judge",
+            "affiliated",
+            "institution",
+          ].includes(normalized)
+        ) {
+          return "institutional";
+        }
+
+        return String(institution || "").trim() ? "institutional" : "independent";
+      }
+
       function createJudgeRecord(name, email, institution = "", extras = {}) {
+        const normalizedInstitution = String(institution || "").trim();
+        const affiliationType = normalizeJudgeAffiliationType(
+          extras.affiliationType || extras.affiliation,
+          normalizedInstitution,
+        );
         return {
           id: extras.id || createId("judge"),
           name: String(name || "").trim() || String(email || "").trim().split("@")[0],
           email: normalizeEmail(email),
-          institution: String(institution || "").trim(),
+          institution: affiliationType === "independent" ? "" : normalizedInstitution,
+          affiliationType,
           panelQuality: normalizeJudgePanelQuality(
             extras.panelQuality || extras.qualityTrack || extras.capability,
             "wing",
@@ -11429,6 +11529,7 @@
           record?.institution || "",
           {
             id: record?.id,
+            affiliationType: record?.affiliationType || record?.affiliation,
             panelQuality:
               record?.panelQuality || record?.qualityTrack || record?.capability || record?.panelRole,
             qualityTier: record?.qualityTier || record?.ranking || record?.rating,
@@ -11441,7 +11542,14 @@
 
       function getJudgeDisplayLabel(judge) {
         const name = String(judge?.name || judge?.email || "").trim();
+        const affiliationType = normalizeJudgeAffiliationType(
+          judge?.affiliationType,
+          judge?.institution,
+        );
         const institution = String(judge?.institution || "").trim();
+        if (affiliationType === "independent") {
+          return name ? name + " • Independent" : "Independent Judge";
+        }
         return institution ? name + " • " + institution : name;
       }
 
@@ -11450,7 +11558,9 @@
         if (judge?.email) {
           parts.push(judge.email);
         }
-        if (judge?.institution) {
+        if (normalizeJudgeAffiliationType(judge?.affiliationType, judge?.institution) === "independent") {
+          parts.push("Independent Judge");
+        } else if (judge?.institution) {
           parts.push(judge.institution);
         }
         parts.push(getJudgePanelQualityLabel(judge?.panelQuality));
@@ -11883,6 +11993,54 @@
         return "";
       }
 
+      function getJudgeInstitutionConflict(tournament, drawEntry, judgeRecordOrEmail) {
+        if (!drawEntry) {
+          return null;
+        }
+
+        const judge =
+          typeof judgeRecordOrEmail === "string"
+            ? getJudgeByEmail(tournament, judgeRecordOrEmail)
+            : judgeRecordOrEmail;
+        const judgeInstitution = String(judge?.institution || "").trim();
+        if (!judgeInstitution) {
+          return null;
+        }
+
+        const matchingLabels = Array.from(
+          new Set(
+            (Array.isArray(drawEntry.slots) ? drawEntry.slots : [])
+              .map((slot, index) => ({
+                slot,
+                index,
+                institution: getDrawSlotInstitution(tournament, slot),
+              }))
+              .filter(
+                (record) =>
+                  normalizeTextKey(record.institution) === normalizeTextKey(judgeInstitution),
+              )
+              .map((record) =>
+                getDrawSlotDisplayLabel(tournament, record.slot, {
+                  drawEntry,
+                  slotIndex: record.index,
+                  forcePrivate: true,
+                }),
+              )
+              .filter(Boolean),
+          ),
+        );
+
+        if (!matchingLabels.length) {
+          return null;
+        }
+
+        return {
+          judge,
+          institution: judgeInstitution,
+          matchingLabels,
+        };
+      }
+
       function getDrawEntryConflictReport(tournament, drawEntry) {
         if (!drawEntry) {
           return [];
@@ -11938,17 +12096,18 @@
 
         getAllocationsForDrawEntry(tournament, drawEntry.id).forEach((allocation) => {
           const judge = getJudgeByEmail(tournament, allocation.judgeEmail);
-          const judgeInstitution = String(judge?.institution || "").trim();
-          if (
-            judgeInstitution &&
-            Array.from(institutionMap.keys()).includes(judgeInstitution)
-          ) {
+          const judgeConflict = getJudgeInstitutionConflict(tournament, drawEntry, judge);
+          if (judgeConflict) {
             issues.push({
               tone: "danger",
               label: "Judge conflict",
               detail:
                 (judge?.name || allocation.judgeEmail) +
-                " shares an institution with a team or speaker in this room.",
+                " shares " +
+                judgeConflict.institution +
+                " with " +
+                judgeConflict.matchingLabels.join(", ") +
+                ".",
             });
           }
 
@@ -12422,6 +12581,69 @@
         );
       }
 
+      function normalizeTournamentRegistrationSettings(record = {}) {
+        return {
+          debaterOpen: Boolean(
+            record.debaterOpen ||
+              record.participantOpen ||
+              record.debaterRegistrationOpen ||
+              record.participantRegistrationOpen,
+          ),
+          judgeOpen: Boolean(record.judgeOpen || record.judgeRegistrationOpen),
+          debaterNote: String(
+            record.debaterNote || record.participantNote || record.debaterRegistrationNote || "",
+          ).trim(),
+          judgeNote: String(record.judgeNote || record.judgeRegistrationNote || "").trim(),
+        };
+      }
+
+      function getTournamentRegistrationSettings(tournament) {
+        return normalizeTournamentRegistrationSettings(tournament?.registration || {});
+      }
+
+      function getTournamentRegistrationLinks() {
+        return {
+          debater: getPublicScreenLink("register-debater"),
+          judge: getPublicScreenLink("register-judge"),
+        };
+      }
+
+      function getOpenRegistrationTournaments(role = "debater") {
+        const targetRole = String(role || "debater").trim().toLowerCase();
+        return (state.tournaments || [])
+          .filter((tournament) => {
+            if (String(tournament?.status || "").trim().toLowerCase() !== "open") {
+              return false;
+            }
+            const registration = getTournamentRegistrationSettings(tournament);
+            return targetRole === "judge" ? registration.judgeOpen : registration.debaterOpen;
+          })
+          .sort(
+            (left, right) =>
+              String(left.name || "").localeCompare(String(right.name || "")) ||
+              String(left.code || "").localeCompare(String(right.code || "")),
+          );
+      }
+
+      function getRegistrationTournamentOptionsMarkup(role = "debater", currentId = "") {
+        const tournaments = getOpenRegistrationTournaments(role);
+        if (!tournaments.length) {
+          return `<option value="">No open tournaments available</option>`;
+        }
+
+        return tournaments
+          .map(
+            (tournament) =>
+              `<option value="${escapeHtml(tournament.id)}" ${selected(
+                tournament.id,
+                currentId,
+              )}>${escapeHtml(
+                tournament.name + " • " + tournament.code + " • " + getFormatLabel(tournament),
+              )}</option>`,
+          )
+          .join("");
+      }
+
       function createTournamentRecord(payload) {
         const defaults = clone(state.appSettings.defaults);
         const formatPreset = FORMAT_PRESETS[payload.format] || FORMAT_PRESETS["No Standard Format"];
@@ -12523,6 +12745,7 @@
           },
           notices: [],
           roundControls: buildRoundControls(rounds),
+          registration: normalizeTournamentRegistrationSettings(payload.registration),
           judges: [],
           judgeAllocations: [],
           teams: Array.isArray(payload.teams)
@@ -13079,6 +13302,7 @@
             },
             notices: Array.isArray(tournament.notices) ? tournament.notices : [],
             roundControls: Array.isArray(tournament.roundControls) ? tournament.roundControls : [],
+            registration: normalizeTournamentRegistrationSettings(tournament.registration),
             judges: Array.isArray(tournament.judges) ? tournament.judges : [],
             judgeAllocations: Array.isArray(tournament.judgeAllocations)
               ? tournament.judgeAllocations
@@ -13616,6 +13840,7 @@
       function getPrivateLink(token) {
         const url = new URL(window.location.href);
         url.searchParams.delete("access");
+        url.searchParams.delete("screen");
         url.searchParams.set("token", token);
         return url.toString();
       }
@@ -13623,6 +13848,7 @@
       function getUserAccessLink(token) {
         const url = new URL(window.location.href);
         url.searchParams.delete("token");
+        url.searchParams.delete("screen");
         url.searchParams.set("access", token);
         return url.toString();
       }
@@ -13631,7 +13857,29 @@
         const url = new URL(window.location.href);
         url.searchParams.delete("token");
         url.searchParams.delete("access");
+        url.searchParams.delete("screen");
         return url.toString();
+      }
+
+      function getPublicScreenLink(screen = "") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("token");
+        url.searchParams.delete("access");
+        if (screen) {
+          url.searchParams.set("screen", screen);
+        } else {
+          url.searchParams.delete("screen");
+        }
+        return url.toString();
+      }
+
+      function getPublicScreenView() {
+        const url = new URL(window.location.href);
+        const screen = String(url.searchParams.get("screen") || "").trim().toLowerCase();
+        if (["about", "register-debater", "register-judge"].includes(screen)) {
+          return screen;
+        }
+        return "";
       }
 
       function getUserAccessRecord(email = session.userEmail) {
@@ -14445,6 +14693,27 @@
                       }
                     </section>
                     <section class="auth-support-card">
+                      <div class="section-heading">
+                        <div>
+                          <p class="eyebrow">Tournament Registration</p>
+                          <h3>Register directly for an event</h3>
+                        </div>
+                      </div>
+                      <p>
+                        Debaters can register teams and judges can declare affiliation before signing in, then JADE drops them straight into their private access links.
+                      </p>
+                      <div class="button-row wrap-row">
+                        <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Debater Registration</button>
+                        <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-judge">Judge Registration</button>
+                      </div>
+                      <p class="auth-footer">${escapeHtml(
+                        getOpenRegistrationTournaments("debater").length +
+                          " debater events and " +
+                          getOpenRegistrationTournaments("judge").length +
+                          " judge events are currently accepting registrations.",
+                      )}</p>
+                    </section>
+                    <section class="auth-support-card">
                       <p class="eyebrow">Security</p>
                       <h3>Access notes</h3>
                       <p>
@@ -14459,6 +14728,289 @@
                   </div>
                 </div>
               </section>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderPublicRegistrationTournamentCards(tournaments, role = "debater") {
+        if (!tournaments.length) {
+          return `<div class="empty-state">No tournaments are currently open for ${escapeHtml(
+            role === "judge" ? "judge" : "debater",
+          )} registration.</div>`;
+        }
+
+        return `
+          <div class="leaderboard-list">
+            ${tournaments
+              .map((tournament) => {
+                const registration = getTournamentRegistrationSettings(tournament);
+                const note = role === "judge" ? registration.judgeNote : registration.debaterNote;
+                return `
+                  <div class="leaderboard-row">
+                    <div class="stack">
+                      <strong>${escapeHtml(tournament.name)}</strong>
+                      <span class="muted">${escapeHtml(
+                        tournament.code + " • " + getFormatLabel(tournament),
+                      )}</span>
+                      <span class="fine-print">${escapeHtml(
+                        note ||
+                          (role === "judge"
+                            ? "Judges can self-register here and will be clash-checked against affiliated teams."
+                            : "Debaters can self-register teams here for faster roster setup."),
+                      )}</span>
+                    </div>
+                    <div class="workspace-chip-row">
+                      <span class="mini-pill success">${escapeHtml(
+                        role === "judge"
+                          ? getTournamentJudges(tournament).length + " judges logged"
+                          : tournament.participants.length + " speakers logged",
+                      )}</span>
+                      <span class="mini-pill">${escapeHtml(
+                        role === "judge"
+                          ? getTournamentJudges(tournament).length + " judges"
+                          : getTournamentTeams(tournament).length + " teams",
+                      )}</span>
+                    </div>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+        `;
+      }
+
+      function renderPublicRegistrationView(role = "debater") {
+        const normalizedRole = String(role || "debater").trim().toLowerCase() === "judge"
+          ? "judge"
+          : "debater";
+        const tournaments = getOpenRegistrationTournaments(normalizedRole);
+        const isJudge = normalizedRole === "judge";
+        const links = getTournamentRegistrationLinks();
+
+        return `
+          <div class="auth-page">
+            <div class="auth-top-ticker" aria-label="JADE motto ticker">
+              <div class="auth-top-ticker-track">
+                ${new Array(14)
+                  .fill("Fuelling a Thinking Revolution")
+                  .map(
+                    (item, index) =>
+                      `<span class="auth-top-ticker-item" ${index > 6 ? 'aria-hidden="true"' : ""}>${escapeHtml(
+                        item,
+                      )}</span>`,
+                  )
+                  .join("")}
+              </div>
+            </div>
+            <div class="page-shell">
+              <div class="auth-shell">
+                <section class="hero-panel auth-hero">
+                  <div class="stack">
+                    ${renderBrandLockup({
+                      kicker: isJudge ? "Judge Registration" : "Debater Registration",
+                      size: "hero featured",
+                      subtitle: isJudge
+                        ? "Independent and institutionally affiliated judges can register cleanly, with clash-aware allocations built in."
+                        : "Debaters can register themselves, a teammate, and a team record without waiting for manual roster entry.",
+                    })}
+                    <div>
+                      <p class="eyebrow">Separate Registration Dashboard</p>
+                      <h1>${escapeHtml(
+                        isJudge
+                          ? "Register as a judge for an open tournament."
+                          : "Register your debate team for an open tournament.",
+                      )}</h1>
+                      <p class="hero-copy">
+                        ${escapeHtml(
+                          isJudge
+                            ? "Choose an available event, declare whether you are institutionally affiliated or independent, and JADE will route you straight into your private access once registration is complete."
+                            : "Choose an available event, enter your team details, and JADE will create the roster entry faster while sending you directly to your private access links.",
+                        )}
+                      </p>
+                    </div>
+                    <div class="button-row wrap-row">
+                      <button class="${isJudge ? "secondary-button" : ""}" type="button" data-action="set-public-view" data-view="register-debater">Debater Registration</button>
+                      <button class="${isJudge ? "" : "secondary-button"}" type="button" data-action="set-public-view" data-view="register-judge">Judge Registration</button>
+                      <button class="secondary-button" type="button" data-action="set-public-view" data-view="auth">Back To Sign In</button>
+                    </div>
+                  </div>
+                  <div class="stack">
+                    <div class="hero-stat-band">
+                      <div class="hero-stat-chip">
+                        <span class="muted">Open events</span>
+                        <strong>${escapeHtml(tournaments.length)}</strong>
+                      </div>
+                      <div class="hero-stat-chip">
+                        <span class="muted">Private access</span>
+                        <strong>Issued after signup</strong>
+                      </div>
+                      <div class="hero-stat-chip">
+                        <span class="muted">Clash safety</span>
+                        <strong>${escapeHtml(
+                          isJudge ? "Institution-aware" : "Team-ready",
+                        )}</strong>
+                      </div>
+                    </div>
+                    <div class="inline-card auth-about-card">
+                      <h3>${escapeHtml(
+                        isJudge ? "Open judging opportunities" : "Open tournaments for registration",
+                      )}</h3>
+                      ${renderPublicRegistrationTournamentCards(tournaments, normalizedRole)}
+                    </div>
+                  </div>
+                </section>
+                <section class="auth-card">
+                  <div class="auth-layout">
+                    <div class="auth-primary">
+                      <div class="form-shell">
+                        <div class="section-heading">
+                          <div>
+                            <p class="eyebrow">${escapeHtml(
+                              isJudge ? "Judge Intake" : "Team Intake",
+                            )}</p>
+                            <h2>${escapeHtml(
+                              isJudge ? "Register as a judge" : "Register as a debater",
+                            )}</h2>
+                          </div>
+                          <span class="role-pill">${escapeHtml(
+                            tournaments.length
+                              ? tournaments.length + " open"
+                              : "Closed right now",
+                          )}</span>
+                        </div>
+                        ${renderFlash()}
+                        ${
+                          tournaments.length
+                            ? `
+                              <form class="stack" data-form="${escapeHtml(
+                                isJudge
+                                  ? "public-judge-registration"
+                                  : "public-debater-registration",
+                              )}" autocomplete="on">
+                                <label>
+                                  Tournament
+                                  <select name="tournamentId" required>${getRegistrationTournamentOptionsMarkup(
+                                    normalizedRole,
+                                  )}</select>
+                                </label>
+                                <div class="field-grid two">
+                                  <label>
+                                    Full name
+                                    <input type="text" name="name" placeholder="${escapeHtml(
+                                      isJudge ? "Judge name" : "Your name",
+                                    )}" autocomplete="name" required />
+                                  </label>
+                                  <label>
+                                    Email address
+                                    <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
+                                  </label>
+                                </div>
+                                <div class="field-grid two">
+                                  <label>
+                                    Password
+                                    <input type="password" name="password" placeholder="Create or enter your password" autocomplete="new-password" required />
+                                  </label>
+                                  <label>
+                                    Confirm password
+                                    <input type="password" name="confirmPassword" placeholder="Repeat password" autocomplete="new-password" required />
+                                  </label>
+                                </div>
+                                ${
+                                  isJudge
+                                    ? `
+                                      <div class="field-grid two">
+                                        <label>
+                                          Affiliation
+                                          <select name="affiliationType">
+                                            <option value="institutional">Institutionally affiliated</option>
+                                            <option value="independent">Independent judge</option>
+                                          </select>
+                                        </label>
+                                        <label>
+                                          Institution
+                                          <input type="text" name="institution" placeholder="Required if institutionally affiliated" />
+                                        </label>
+                                      </div>
+                                      <label>
+                                        Notes
+                                        <textarea name="notes" rows="2" placeholder="Optional note for the tab team, such as experience or scheduling constraints."></textarea>
+                                      </label>
+                                    `
+                                    : `
+                                      <div class="field-grid two">
+                                        <label>
+                                          Institution
+                                          <input type="text" name="institution" placeholder="School, university, or club" required />
+                                        </label>
+                                        <label>
+                                          Team name
+                                          <input type="text" name="teamName" placeholder="Team name" required />
+                                        </label>
+                                      </div>
+                                      <div class="field-grid two">
+                                        <label>
+                                          Team-mate name
+                                          <input type="text" name="teammateName" placeholder="Optional team-mate name" />
+                                        </label>
+                                        <label>
+                                          Team-mate email
+                                          <input type="email" name="teammateEmail" placeholder="Optional team-mate email" />
+                                        </label>
+                                      </div>
+                                      <label>
+                                        Registration note
+                                        <textarea name="notes" rows="2" placeholder="Optional note for the tab team, such as preferred spellings or accessibility needs."></textarea>
+                                      </label>
+                                    `
+                                }
+                                <button type="submit">${escapeHtml(
+                                  isJudge ? "Complete Judge Registration" : "Complete Team Registration",
+                                )}</button>
+                              </form>
+                            `
+                            : `<div class="alert info">No tournaments are currently open for this registration flow. Check back later or contact the tab team.</div>`
+                        }
+                        <p class="auth-footer">
+                          ${escapeHtml(
+                            isJudge
+                              ? "If you already have an account, use the same email and password here and JADE will attach this judge registration to your existing access."
+                              : "If you already have an account, use the same email and password here and JADE will add this tournament registration to your existing access.",
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="auth-support-grid">
+                      <section class="auth-support-card">
+                        <p class="eyebrow">Direct links</p>
+                        <h3>Share the right registration page</h3>
+                        <p class="manager-note">
+                          Send debaters and judges to the matching page so they only see the intake that matters to them.
+                        </p>
+                        <a class="token-link" href="${escapeHtml(links.debater)}">${escapeHtml(
+                          links.debater,
+                        )}</a>
+                        <a class="token-link" href="${escapeHtml(links.judge)}">${escapeHtml(
+                          links.judge,
+                        )}</a>
+                      </section>
+                      <section class="auth-support-card">
+                        <p class="eyebrow">What happens next</p>
+                        <h3>${escapeHtml(
+                          isJudge ? "Judge access becomes clash-aware" : "Team access becomes live immediately",
+                        )}</h3>
+                        <p>
+                          ${escapeHtml(
+                            isJudge
+                              ? "Once saved, your institution is used to block chair or panel assignments into rooms containing an affiliated team."
+                              : "Once saved, JADE creates your roster record, links your team where possible, and sends you straight to your personal access links.",
+                          )}
+                        </p>
+                      </section>
+                    </div>
+                  </div>
+                </section>
               </div>
             </div>
           </div>
@@ -16051,6 +16603,32 @@
                 )} />
                 <span>Show feedback in private competitor links</span>
               </label>
+              <label class="checkbox-row">
+                <input type="checkbox" name="registrationDebaterOpen" ${checked(
+                  getTournamentRegistrationSettings(tournament).debaterOpen,
+                )} />
+                <span>Open debater registration publicly</span>
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" name="registrationJudgeOpen" ${checked(
+                  getTournamentRegistrationSettings(tournament).judgeOpen,
+                )} />
+                <span>Open judge registration publicly</span>
+              </label>
+            </div>
+            <div class="field-grid two">
+              <label>
+                Debater registration note
+                <textarea name="registrationDebaterNote" rows="2" placeholder="Optional public note for debaters">${escapeHtml(
+                  getTournamentRegistrationSettings(tournament).debaterNote,
+                )}</textarea>
+              </label>
+              <label>
+                Judge registration note
+                <textarea name="registrationJudgeNote" rows="2" placeholder="Optional public note for judges">${escapeHtml(
+                  getTournamentRegistrationSettings(tournament).judgeNote,
+                )}</textarea>
+              </label>
             </div>
             <label>
               Notes
@@ -16134,6 +16712,124 @@
             ${renderPermissionChips(tournament, "judgeEmails", "Judges", canManage)}
             ${renderPermissionChips(tournament, "debaterEmails", "Debaters", canManage)}
           </div>
+        `;
+      }
+
+      function renderTournamentRegistrationStudio(tournament) {
+        const registration = getTournamentRegistrationSettings(tournament);
+        const links = getTournamentRegistrationLinks();
+        const pendingDebaters = (tournament.permissions?.debaterEmails || []).filter(
+          (email) =>
+            normalizeEmail(email) &&
+            !state.users.some((user) => normalizeEmail(user.email) === normalizeEmail(email)),
+        ).length;
+        const pendingJudges = (tournament.permissions?.judgeEmails || []).filter(
+          (email) =>
+            normalizeEmail(email) &&
+            !state.users.some((user) => normalizeEmail(user.email) === normalizeEmail(email)),
+        ).length;
+
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Registration</p>
+                <h2>Public intake and quick roster building</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(
+                [registration.debaterOpen ? "Debaters open" : "", registration.judgeOpen ? "Judges open" : ""]
+                  .filter(Boolean)
+                  .join(" • ") || "Closed",
+              )}</span>
+            </div>
+            <div class="leaderboard-grid">
+              <div class="leaderboard-card">
+                <div class="section-heading">
+                  <div>
+                    <h3>Debater registration</h3>
+                    <p class="fine-print">
+                      Self-registration adds roster records faster and drops the competitor into their private links immediately after signup.
+                    </p>
+                  </div>
+                  <span class="mini-pill ${registration.debaterOpen ? "success" : "warning"}">${escapeHtml(
+                    registration.debaterOpen ? "Open" : "Closed",
+                  )}</span>
+                </div>
+                <div class="workspace-chip-row">
+                  <span class="role-pill">${escapeHtml(
+                    tournament.participants.length + " participants",
+                  )}</span>
+                  <span class="mini-pill">${escapeHtml(
+                    getTournamentTeams(tournament).length + " teams",
+                  )}</span>
+                  <span class="mini-pill ${pendingDebaters ? "warning" : "success"}">${escapeHtml(
+                    pendingDebaters ? pendingDebaters + " pending accounts" : "All linked",
+                  )}</span>
+                </div>
+                ${
+                  registration.debaterNote
+                    ? `<p class="muted">${escapeHtml(registration.debaterNote)}</p>`
+                    : ""
+                }
+                <a class="token-link" href="${escapeHtml(links.debater)}" target="_blank" rel="noreferrer">${escapeHtml(
+                  links.debater,
+                )}</a>
+                <div class="button-row wrap-row">
+                  <button class="secondary-button" type="button" data-action="copy-public-registration-link" data-url="${escapeAttributeValue(
+                    links.debater,
+                  )}" data-label="Debater registration link">Copy Debater Link</button>
+                  <a class="secondary-button inline-link" href="${escapeHtml(
+                    links.debater,
+                  )}" target="_blank" rel="noreferrer">Open Page</a>
+                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="roster">Open Roster</button>
+                </div>
+              </div>
+              <div class="leaderboard-card">
+                <div class="section-heading">
+                  <div>
+                    <h3>Judge registration</h3>
+                    <p class="fine-print">
+                      Judges can declare whether they are independent or institutionally affiliated, and JADE will enforce institution clashes in allocations.
+                    </p>
+                  </div>
+                  <span class="mini-pill ${registration.judgeOpen ? "success" : "warning"}">${escapeHtml(
+                    registration.judgeOpen ? "Open" : "Closed",
+                  )}</span>
+                </div>
+                <div class="workspace-chip-row">
+                  <span class="role-pill">${escapeHtml(
+                    getTournamentJudges(tournament).length + " judges",
+                  )}</span>
+                  <span class="mini-pill">${escapeHtml(
+                    (tournament.judgeAllocations || []).length + " allocations",
+                  )}</span>
+                  <span class="mini-pill ${pendingJudges ? "warning" : "success"}">${escapeHtml(
+                    pendingJudges ? pendingJudges + " pending accounts" : "All linked",
+                  )}</span>
+                </div>
+                ${
+                  registration.judgeNote
+                    ? `<p class="muted">${escapeHtml(registration.judgeNote)}</p>`
+                    : ""
+                }
+                <a class="token-link" href="${escapeHtml(links.judge)}" target="_blank" rel="noreferrer">${escapeHtml(
+                  links.judge,
+                )}</a>
+                <div class="button-row wrap-row">
+                  <button class="secondary-button" type="button" data-action="copy-public-registration-link" data-url="${escapeAttributeValue(
+                    links.judge,
+                  )}" data-label="Judge registration link">Copy Judge Link</button>
+                  <a class="secondary-button inline-link" href="${escapeHtml(
+                    links.judge,
+                  )}" target="_blank" rel="noreferrer">Open Page</a>
+                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="judges">Open Judges</button>
+                </div>
+              </div>
+            </div>
+            <div class="alert info">
+              Registration availability is controlled from <strong>Setup</strong>. Open or close debater and judge intake there whenever the event moves between invitation, live registration, and locked roster stages.
+            </div>
+          </section>
         `;
       }
 
@@ -16253,7 +16949,13 @@
                       <input type="text" name="institution" placeholder="Optional institution" />
                     </label>
                   </div>
-                  <div class="field-grid two">
+                  <div class="field-grid three">
+                    <label>
+                      Affiliation
+                      <select name="affiliationType">${getJudgeAffiliationOptionsMarkup(
+                        "institutional",
+                      )}</select>
+                    </label>
                     <label>
                       Judge Quality
                       <select name="panelQuality">${getJudgePanelQualityOptionsMarkup("wing")}</select>
@@ -17516,6 +18218,23 @@
             render: () => renderTournamentRosterStudio(tournament),
           },
           {
+            key: "registration",
+            label: "Registration",
+            note: "Public debater and judge intake, quick links, and live registration status.",
+            badge: (
+              getTournamentRegistrationSettings(tournament).debaterOpen ||
+              getTournamentRegistrationSettings(tournament).judgeOpen
+            )
+              ? [
+                  getTournamentRegistrationSettings(tournament).debaterOpen ? "Debaters" : "",
+                  getTournamentRegistrationSettings(tournament).judgeOpen ? "Judges" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" • ")
+              : "Closed",
+            render: () => renderTournamentRegistrationStudio(tournament),
+          },
+          {
             key: "draw",
             label: "Draw Lab",
             note: "Pairings, round controls, conflict review, and release flow.",
@@ -17692,7 +18411,16 @@
       }
 
       function getFocusedSectionShortcutKeys(activeKey = "") {
-        const ordered = ["spotlight", "roster", "draw", "motions", "results", "judges", "setup"];
+        const ordered = [
+          "spotlight",
+          "roster",
+          "registration",
+          "draw",
+          "motions",
+          "results",
+          "judges",
+          "setup",
+        ];
         return ordered.filter((key) => key !== activeKey).slice(0, 3);
       }
 
@@ -20096,90 +20824,101 @@
                 : `<div class="empty-state">No tournament appointments have been created yet.</div>`
             }
           </section>
-          <section class="directory-grid">
-            ${state.users
-              .map((user) => {
-                const isManagerUser = normalizeEmail(user.email) === normalizeEmail(MANAGER_EMAIL);
-                return `
-                  <div class="directory-card">
-                    <div class="section-heading">
-                      <strong>${escapeHtml(user.name)}</strong>
-                      <div class="button-row wrap-row">
-                        <span class="role-pill">${escapeHtml(
-                          toTitleLabel(user.globalRole),
-                        )}</span>
-                        <span class="mini-pill success">${escapeHtml(
-                          getUserCreationLabel(user),
-                        )}</span>
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Accounts</p>
+                <h2>Compact account management</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(state.users.length)} accounts</span>
+            </div>
+            <div class="people-card-list">
+              ${state.users
+                .map((user) => {
+                  const isManagerUser = normalizeEmail(user.email) === normalizeEmail(MANAGER_EMAIL);
+                  return `
+                    <article class="people-compact-card">
+                      <div class="people-compact-head">
+                        <div class="stack">
+                          <strong>${escapeHtml(user.name)}</strong>
+                          <span class="muted">${escapeHtml(user.email)}</span>
+                        </div>
+                        <div class="people-pill-cluster">
+                          <span class="role-pill">${escapeHtml(
+                            toTitleLabel(user.globalRole),
+                          )}</span>
+                          <span class="mini-pill success">${escapeHtml(
+                            getUserCreationLabel(user),
+                          )}</span>
+                          <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
+                            user.active ? "Active" : "Disabled",
+                          )}</span>
+                        </div>
                       </div>
-                    </div>
-                    <p class="muted">${escapeHtml(user.email)}</p>
-                    <p class="muted">Created ${escapeHtml(user.createdAt || "Unknown")}</p>
-                    ${
-                      user.createdBy
-                        ? `<p class="muted">Created by: ${escapeHtml(
-                            user.createdBy === normalizeEmail(user.email)
-                              ? "Self"
-                              : user.createdBy,
-                          )}</p>`
-                        : ""
-                    }
-                    <p class="muted">Last login: ${escapeHtml(user.lastLoginAt || "Never")}</p>
-                    <p class="muted">Private URL issued: ${escapeHtml(
-                      user.privateAccessIssuedAt || user.createdAt || "Unknown",
-                    )}</p>
-                    <p class="muted">Status: ${escapeHtml(user.active ? "Active" : "Disabled")}</p>
-                    <a class="token-link" href="${escapeHtml(
-                      getUserAccessLink(user.privateAccessToken),
-                    )}" target="_blank" rel="noreferrer">${escapeHtml(
-                      getUserAccessLink(user.privateAccessToken),
-                    )}</a>
-                    ${
-                      canAccessGlobalSettings() && !isManagerUser
-                        ? `
-                          <div class="button-row">
-                            <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
-                              user.email,
-                            )}">Copy Access URL</button>
-                            <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
-                              user.email,
-                            )}">Rotate URL</button>
-                          </div>
-                          <form class="stack" data-form="update-user-role" data-email="${escapeHtml(
-                            user.email,
-                          )}">
-                            <label>
-                              Global role
-                              <select name="globalRole">${getGlobalRoleOptions(user.globalRole)}</select>
-                            </label>
-                            <button type="submit">Save role</button>
-                          </form>
-                          <form class="stack" data-form="reset-user-password" data-email="${escapeHtml(
-                            user.email,
-                          )}">
-                            <label>
-                              Reset password
-                              <input type="password" name="password" placeholder="Enter a new password" required />
-                            </label>
-                            <button type="submit">Save password</button>
-                          </form>
-                          <button class="${user.active ? "danger-button" : "secondary-button"}" type="button" data-action="toggle-user-active" data-email="${escapeHtml(
-                            user.email,
-                          )}">${escapeHtml(user.active ? "Disable Account" : "Enable Account")}</button>
-                          <button class="danger-button" type="button" data-action="delete-user" data-email="${escapeHtml(
-                            user.email,
-                          )}">Delete User</button>
-                        `
-                        : `<div class="alert info">${
-                            isManagerUser
-                              ? "This protected account cannot be disabled or deleted."
-                              : "This account is read-only for your access level."
-                          }</div>`
-                    }
-                  </div>
-                `;
-              })
-              .join("")}
+                      <div class="people-meta-grid">
+                        <span>Created ${escapeHtml(user.createdAt || "Unknown")}</span>
+                        <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
+                        <span>Private URL issued: ${escapeHtml(
+                          user.privateAccessIssuedAt || user.createdAt || "Unknown",
+                        )}</span>
+                        ${
+                          user.createdBy
+                            ? `<span>Created by: ${escapeHtml(
+                                user.createdBy === normalizeEmail(user.email)
+                                  ? "Self"
+                                  : user.createdBy,
+                              )}</span>`
+                            : `<span>Created by: Unrecorded</span>`
+                        }
+                      </div>
+                      <a class="token-link" href="${escapeHtml(
+                        getUserAccessLink(user.privateAccessToken),
+                      )}" target="_blank" rel="noreferrer">${escapeHtml(
+                        getUserAccessLink(user.privateAccessToken),
+                      )}</a>
+                      ${
+                        canAccessGlobalSettings() && !isManagerUser
+                          ? `
+                            <div class="button-row wrap-row">
+                              <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
+                                user.email,
+                              )}">Copy Access URL</button>
+                              <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
+                                user.email,
+                              )}">Rotate URL</button>
+                              <button class="${user.active ? "danger-button" : "secondary-button"}" type="button" data-action="toggle-user-active" data-email="${escapeHtml(
+                                user.email,
+                              )}">${escapeHtml(user.active ? "Disable Account" : "Enable Account")}</button>
+                              <button class="danger-button" type="button" data-action="delete-user" data-email="${escapeHtml(
+                                user.email,
+                              )}">Delete User</button>
+                            </div>
+                            <div class="people-card-forms">
+                              <form class="compact-inline-form" data-form="update-user-role" data-email="${escapeHtml(
+                                user.email,
+                              )}">
+                                <select name="globalRole">${getGlobalRoleOptions(user.globalRole)}</select>
+                                <button class="secondary-button" type="submit">Save Role</button>
+                              </form>
+                              <form class="compact-inline-form" data-form="reset-user-password" data-email="${escapeHtml(
+                                user.email,
+                              )}">
+                                <input type="password" name="password" placeholder="Reset password" required />
+                                <button class="secondary-button" type="submit">Save Password</button>
+                              </form>
+                            </div>
+                          `
+                          : `<div class="alert info">${
+                              isManagerUser
+                                ? "This protected account cannot be disabled or deleted."
+                                : "This account is read-only for your access level."
+                            }</div>`
+                      }
+                    </article>
+                  `;
+                })
+                .join("")}
+            </div>
           </section>
         `;
       }
@@ -22286,13 +23025,25 @@
 
         applyBranding();
         const token = new URL(window.location.href).searchParams.get("token");
+        const publicView =
+          getPublicScreenView() ||
+          (["about", "register-debater", "register-judge"].includes(session.view)
+            ? session.view
+            : "auth");
+        if (!getCurrentUser() && session.view !== publicView) {
+          session.view = publicView;
+        }
         const appMarkup = token
           ? renderPrivatePortal(token)
           : getCurrentUser()
             ? renderWorkspace()
-            : session.view === "about"
+            : publicView === "about"
               ? renderAboutView(true)
-              : renderAuthView();
+              : publicView === "register-debater"
+                ? renderPublicRegistrationView("debater")
+                : publicView === "register-judge"
+                  ? renderPublicRegistrationView("judge")
+                  : renderAuthView();
         document.querySelector("#app").innerHTML = appMarkup + renderConfirmationDialog();
         if (pendingTournamentSectionJumpId) {
           const targetId = pendingTournamentSectionJumpId;
@@ -22570,6 +23321,376 @@
           removePasswordFromDeviceVault(email);
         }
         persist("success", "Account created and signed in. Your private access URL is now ready.");
+      }
+
+      async function ensureAuthenticatedRegistrationUser({
+        name,
+        email,
+        password,
+        createdSource = "self_signup",
+      }) {
+        const existingUser = (state.users || []).find(
+          (user) => normalizeEmail(user.email) === normalizeEmail(email),
+        );
+
+        if (String(password || "").length < state.appSettings.auth.minimumPasswordLength) {
+          throw new Error(
+            "Password must be at least " +
+              state.appSettings.auth.minimumPasswordLength +
+              " characters long.",
+          );
+        }
+
+        if (await probeCloudBackend(true)) {
+          const result = existingUser
+            ? await callCloud("sign_in", {
+                email,
+                password,
+              })
+            : await callCloud("sign_up", {
+                name,
+                email,
+                password,
+              });
+          cloudRuntime.initialized = true;
+          state = await rehydrateState(result.state);
+          session.userEmail = normalizeEmail(email);
+          session.cloudSessionToken = String(result.sessionToken || "").trim();
+        } else if (existingUser) {
+          if (!existingUser.active) {
+            throw new Error("This account has been disabled by the manager.");
+          }
+          const passwordCheck = await verifyUserPassword(existingUser, password);
+          if (!passwordCheck.ok) {
+            throw new Error("That password is not correct for the existing account.");
+          }
+          if (passwordCheck.needsUpgrade) {
+            Object.assign(existingUser, await buildSecurePasswordRecord(password));
+          }
+          existingUser.lastLoginAt = timestamp();
+          session.userEmail = normalizeEmail(email);
+          session.cloudSessionToken = "";
+        } else {
+          const user = await buildUser(name, email, "member", password, {
+            createdSource,
+            createdBy: normalizeEmail(email),
+          });
+          user.lastLoginAt = timestamp();
+          state.users.push(user);
+          session.userEmail = normalizeEmail(email);
+          session.cloudSessionToken = "";
+        }
+
+        session.view = "links";
+        session.managedTournamentId = "";
+        session.selectedTournamentId = "";
+        recordRecentView(session.view);
+        updateAuthPrefsAfterCredentialChoice(email, false);
+        removePasswordFromDeviceVault(email);
+        clearFlash();
+        saveState();
+        saveSession();
+
+        return getCurrentUser();
+      }
+
+      function ensureTournamentPermissionEmail(tournament, key, email) {
+        const normalizedEmail = normalizeEmail(email);
+        if (!normalizedEmail) {
+          return;
+        }
+        const nextValues = new Set(tournament.permissions?.[key] || []);
+        nextValues.add(normalizedEmail);
+        tournament.permissions[key] = Array.from(nextValues);
+      }
+
+      function upsertTournamentRegistrationTeam(tournament, teamName, institution, notes = "") {
+        const normalizedTeamName = String(teamName || "").trim();
+        const normalizedInstitution = String(institution || "").trim();
+        if (!normalizedTeamName) {
+          return null;
+        }
+
+        const candidate = createTeamRecord(normalizedTeamName, normalizedInstitution, {
+          notes,
+          source: "manual",
+        });
+        const existingTeam =
+          getTournamentTeams(tournament).find((team) => teamsLookEquivalent(team, candidate)) || null;
+
+        if (existingTeam) {
+          tournament.teams = (tournament.teams || []).map((team) =>
+            team.id === existingTeam.id
+              ? normalizeTeamRecord({
+                  ...team,
+                  institution: team.institution || normalizedInstitution,
+                  notes: team.notes || notes,
+                })
+              : normalizeTeamRecord(team),
+          );
+          return (tournament.teams || []).find((team) => team.id === existingTeam.id) || existingTeam;
+        }
+
+        tournament.teams = [...(tournament.teams || []), candidate];
+        return candidate;
+      }
+
+      function upsertTournamentParticipantRegistration(
+        tournament,
+        { name, email, institution, team, teamName },
+      ) {
+        const normalizedName = String(name || "").trim();
+        const normalizedEmail = normalizeEmail(email);
+        if (!normalizedName && !normalizedEmail) {
+          return null;
+        }
+
+        const existingIndex = (tournament.participants || []).findIndex((participant) =>
+          normalizedEmail
+            ? normalizeEmail(participant.email) === normalizedEmail
+            : normalizeTextKey(participant.name) === normalizeTextKey(normalizedName) &&
+              normalizeTextKey(participant.teamName || "") === normalizeTextKey(teamName),
+        );
+        const existing = existingIndex >= 0 ? tournament.participants[existingIndex] : null;
+        const nextParticipant = createParticipant(
+          normalizedEmail,
+          normalizedName || normalizedEmail,
+          {
+            wins: normalizeNonNegative(existing?.wins, 0),
+            losses: normalizeNonNegative(existing?.losses, 0),
+            points: normalizeNonNegative(existing?.points, 0),
+            firsts: normalizeNonNegative(existing?.firsts, 0),
+            seconds: normalizeNonNegative(existing?.seconds, 0),
+            thirds: normalizeNonNegative(existing?.thirds, 0),
+            fourths: normalizeNonNegative(existing?.fourths, 0),
+            speakerScore: normalizeNonNegative(existing?.speakerScore, 0),
+          },
+          0,
+          String(team?.name || teamName || "").trim(),
+          {
+            institution: String(institution || team?.institution || "").trim(),
+            teamId: String(team?.id || "").trim(),
+            feedback: Array.isArray(existing?.feedback) ? existing.feedback : [],
+          },
+        );
+        const mergedParticipant = existing
+          ? {
+              ...existing,
+              ...nextParticipant,
+              id: existing.id,
+              token: existing.token || nextParticipant.token,
+              feedback: Array.isArray(existing.feedback) ? existing.feedback : nextParticipant.feedback,
+            }
+          : nextParticipant;
+
+        if (existingIndex >= 0) {
+          tournament.participants[existingIndex] = mergedParticipant;
+        } else {
+          tournament.participants.push(mergedParticipant);
+        }
+
+        ensureTournamentPermissionEmail(tournament, "debaterEmails", normalizedEmail);
+        return mergedParticipant;
+      }
+
+      function upsertTournamentJudgeRegistration(
+        tournament,
+        { name, email, institution, affiliationType, notes },
+      ) {
+        const normalizedEmail = normalizeEmail(email);
+        if (!normalizedEmail) {
+          return null;
+        }
+
+        const existingJudge =
+          (tournament.judges || []).find(
+            (judge) => normalizeEmail(judge.email) === normalizedEmail,
+          ) || null;
+        const judge = createJudgeRecord(
+          String(name || "").trim(),
+          normalizedEmail,
+          String(institution || "").trim(),
+          {
+            id: existingJudge?.id,
+            affiliationType,
+            panelQuality: existingJudge?.panelQuality || "wing",
+            qualityTier: existingJudge?.qualityTier || "solid",
+            notes: String(existingJudge?.notes || notes || "").trim(),
+            createdAt: existingJudge?.createdAt,
+          },
+        );
+
+        tournament.judges = existingJudge
+          ? (tournament.judges || []).map((entry) =>
+              normalizeEmail(entry.email) === normalizedEmail ? { ...entry, ...judge } : entry,
+            )
+          : [...(tournament.judges || []), judge];
+
+        ensureTournamentPermissionEmail(tournament, "judgeEmails", normalizedEmail);
+        return judge;
+      }
+
+      async function registerDebaterForTournament(formData) {
+        const tournamentId = String(formData.get("tournamentId") || "").trim();
+        const tournament = getTournamentById(tournamentId);
+        const name = String(formData.get("name") || "").trim();
+        const email = normalizeEmail(formData.get("email"));
+        const password = String(formData.get("password") || "");
+        const confirmPassword = String(formData.get("confirmPassword") || "");
+        const institution = String(formData.get("institution") || "").trim();
+        const teamName = String(formData.get("teamName") || "").trim();
+        const teammateName = String(formData.get("teammateName") || "").trim();
+        const teammateEmail = normalizeEmail(formData.get("teammateEmail"));
+        const notes = String(formData.get("notes") || "").trim();
+
+        if (!tournament) {
+          setFlash("error", "Choose a tournament before registering.");
+          renderApp();
+          return;
+        }
+
+        if (!getTournamentRegistrationSettings(tournament).debaterOpen) {
+          setFlash("error", "Debater registration is not open for that tournament.");
+          renderApp();
+          return;
+        }
+
+        if (!name || !email || !institution || !teamName) {
+          setFlash("error", "Tournament, name, email, institution, and team name are required.");
+          renderApp();
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          setFlash("error", "Passwords do not match.");
+          renderApp();
+          return;
+        }
+
+        try {
+          await ensureAuthenticatedRegistrationUser({
+            name,
+            email,
+            password,
+            createdSource: "self_signup",
+          });
+        } catch (error) {
+          setFlash("error", error.message || "JADE could not sign you in for registration.");
+          renderApp();
+          return;
+        }
+
+        updateTournament(
+          tournamentId,
+          (currentTournament) => {
+            const team = upsertTournamentRegistrationTeam(currentTournament, teamName, institution, notes);
+            upsertTournamentParticipantRegistration(currentTournament, {
+              name,
+              email,
+              institution,
+              team,
+              teamName,
+            });
+
+            if (teammateName || teammateEmail) {
+              upsertTournamentParticipantRegistration(currentTournament, {
+                name: teammateName || teammateEmail,
+                email: teammateEmail,
+                institution,
+                team,
+                teamName,
+              });
+            }
+
+            synchronizeTournamentTeamReferences(currentTournament);
+            return addAudit(
+              currentTournament,
+              "Registered " +
+                name +
+                " for " +
+                currentTournament.name +
+                (teamName ? " under team " + teamName + "." : "."),
+            );
+          },
+          "Team registration saved. Your access links are ready.",
+        );
+      }
+
+      async function registerJudgeForTournament(formData) {
+        const tournamentId = String(formData.get("tournamentId") || "").trim();
+        const tournament = getTournamentById(tournamentId);
+        const name = String(formData.get("name") || "").trim();
+        const email = normalizeEmail(formData.get("email"));
+        const password = String(formData.get("password") || "");
+        const confirmPassword = String(formData.get("confirmPassword") || "");
+        const affiliationType = normalizeJudgeAffiliationType(formData.get("affiliationType"));
+        const institution = String(formData.get("institution") || "").trim();
+        const notes = String(formData.get("notes") || "").trim();
+
+        if (!tournament) {
+          setFlash("error", "Choose a tournament before registering.");
+          renderApp();
+          return;
+        }
+
+        if (!getTournamentRegistrationSettings(tournament).judgeOpen) {
+          setFlash("error", "Judge registration is not open for that tournament.");
+          renderApp();
+          return;
+        }
+
+        if (!name || !email) {
+          setFlash("error", "Tournament, name, and email are required.");
+          renderApp();
+          return;
+        }
+
+        if (affiliationType === "institutional" && !institution) {
+          setFlash("error", "Institutionally affiliated judges must enter an institution.");
+          renderApp();
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          setFlash("error", "Passwords do not match.");
+          renderApp();
+          return;
+        }
+
+        try {
+          await ensureAuthenticatedRegistrationUser({
+            name,
+            email,
+            password,
+            createdSource: "self_signup",
+          });
+        } catch (error) {
+          setFlash("error", error.message || "JADE could not sign you in for registration.");
+          renderApp();
+          return;
+        }
+
+        updateTournament(
+          tournamentId,
+          (currentTournament) => {
+            upsertTournamentJudgeRegistration(currentTournament, {
+              name,
+              email,
+              institution,
+              affiliationType,
+              notes,
+            });
+            return addAudit(
+              currentTournament,
+              "Registered judge " +
+                name +
+                " for " +
+                currentTournament.name +
+                ".",
+            );
+          },
+          "Judge registration saved. Your access links are ready.",
+        );
       }
 
       async function initializeCloudFromBackup(formData) {
@@ -23310,6 +24431,12 @@
               formData,
               "showFeedbackInPrivatePortal",
             );
+            tournament.registration = normalizeTournamentRegistrationSettings({
+              debaterOpen: boolFromForm(formData, "registrationDebaterOpen"),
+              judgeOpen: boolFromForm(formData, "registrationJudgeOpen"),
+              debaterNote: String(formData.get("registrationDebaterNote") || "").trim(),
+              judgeNote: String(formData.get("registrationJudgeNote") || "").trim(),
+            });
             const categories = parseCsv(formData.get("feedbackCategories"));
             tournament.settings.feedbackCategories =
               categories.length > 0 ? categories : clone(state.appSettings.feedback.categories);
@@ -23559,6 +24686,7 @@
               email,
               String(formData.get("institution") || "").trim(),
               {
+                affiliationType: String(formData.get("affiliationType") || "institutional").trim(),
                 panelQuality: String(formData.get("panelQuality") || "wing").trim(),
                 qualityTier: String(formData.get("qualityTier") || "solid").trim(),
                 notes: String(formData.get("notes") || "").trim(),
@@ -23659,6 +24787,23 @@
 
         if (!judgeRecord) {
           setFlash("error", "That judge is not on the tournament roster.");
+          renderApp();
+          return;
+        }
+
+        const judgeConflict = getJudgeInstitutionConflict(tournament, drawEntry, judgeRecord);
+        if (judgeConflict) {
+          setFlash(
+            "error",
+            (judgeRecord.name || judgeEmail) +
+              " cannot be assigned to " +
+              drawEntry.room +
+              " because " +
+              judgeConflict.institution +
+              " matches " +
+              judgeConflict.matchingLabels.join(", ") +
+              ".",
+          );
           renderApp();
           return;
         }
@@ -23870,7 +25015,7 @@
               chairs: 0,
             };
 
-            function takeJudge(queue, cursorKey, roomUsedEmails) {
+            function takeJudge(queue, cursorKey, roomUsedEmails, targetDrawEntry) {
               if (!queue.length) {
                 return null;
               }
@@ -23879,7 +25024,8 @@
                 const candidate = queue[(cursors[cursorKey] + offset) % queue.length];
                 if (
                   !roomUsedEmails.has(candidate.email) &&
-                  !roundUsedJudgeEmails.has(candidate.email)
+                  !roundUsedJudgeEmails.has(candidate.email) &&
+                  !getJudgeInstitutionConflict(currentTournament, targetDrawEntry, candidate)
                 ) {
                   cursors[cursorKey] = (cursors[cursorKey] + offset + 1) % queue.length;
                   return candidate;
@@ -23914,8 +25060,8 @@
                 const preferredPool = panelRole === "chair" ? chairPool : rankedJudges;
                 const preferredKey = panelRole === "chair" ? "chairs" : "all";
                 const judgeRecord =
-                  takeJudge(preferredPool, preferredKey, usedEmails) ||
-                  takeJudge(rankedJudges, "all", usedEmails);
+                  takeJudge(preferredPool, preferredKey, usedEmails, drawEntry) ||
+                  takeJudge(rankedJudges, "all", usedEmails, drawEntry);
 
                 if (!judgeRecord) {
                   return;
@@ -25573,6 +26719,27 @@
             return;
           }
 
+          if (action === "set-public-view") {
+            const requestedView = String(button.dataset.view || "auth").trim().toLowerCase();
+            const nextView = ["about", "register-debater", "register-judge"].includes(requestedView)
+              ? requestedView
+              : "auth";
+            const url = new URL(window.location.href);
+            url.searchParams.delete("token");
+            url.searchParams.delete("access");
+            if (nextView === "auth") {
+              url.searchParams.delete("screen");
+            } else {
+              url.searchParams.set("screen", nextView);
+            }
+            window.history.replaceState({}, "", url.toString());
+            session.view = nextView;
+            clearFlash();
+            saveSession();
+            renderApp();
+            return;
+          }
+
           if (action === "set-view") {
             session.view = button.dataset.view || "overview";
             if (session.view === "tournaments") {
@@ -25595,6 +26762,11 @@
             session = getEmptySession();
             clearFlash();
             clearStoredSession();
+            const url = new URL(window.location.href);
+            url.searchParams.delete("screen");
+            url.searchParams.delete("access");
+            url.searchParams.delete("token");
+            window.history.replaceState({}, "", url.toString());
             renderApp();
             return;
           }
@@ -25785,6 +26957,14 @@
             await copyTextToClipboard(
               getUserAccessLink(user.privateAccessToken),
               "Private access URL copied to the clipboard.",
+            );
+            return;
+          }
+
+          if (action === "copy-public-registration-link") {
+            await copyTextToClipboard(
+              String(button.dataset.url || "").trim(),
+              String(button.dataset.label || "Registration link") + " copied to the clipboard.",
             );
             return;
           }
@@ -26059,6 +27239,16 @@
 
           if (form.dataset.form === "sign-up") {
             await signUp(formData);
+            return;
+          }
+
+          if (form.dataset.form === "public-debater-registration") {
+            await registerDebaterForTournament(formData);
+            return;
+          }
+
+          if (form.dataset.form === "public-judge-registration") {
+            await registerJudgeForTournament(formData);
             return;
           }
 
