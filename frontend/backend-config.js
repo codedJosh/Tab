@@ -1,2 +1,2 @@
-window.JADE_BACKEND_URL =
-  window.JADE_BACKEND_URL = "YOUR_RENDER_URL/api";
+window.JADE_BACKEND_URL = "https://your-actual-render-service.onrender.com/api";
+
