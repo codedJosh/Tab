@@ -2107,6 +2107,19 @@
         gap: 10px;
       }
 
+      .registration-speaker-card-primary,
+      .registration-speaker-card-side,
+      .registration-speaker-card-admin,
+      .registration-speaker-card-feedback,
+      .registration-speaker-card-footnote {
+        display: grid;
+        gap: 6px;
+      }
+
+      .registration-speaker-card-side {
+        align-content: start;
+      }
+
       .registration-speaker-card {
         display: grid;
         gap: 6px;
@@ -2148,6 +2161,93 @@
 
       .registration-speaker-card .flat-panel {
         gap: 5px;
+      }
+
+      .roster-speaker-panel .registration-speaker-shell {
+        gap: 8px;
+      }
+
+      .roster-speaker-panel .registration-speaker-grid {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 8px;
+      }
+
+      .roster-speaker-panel .registration-speaker-card {
+        grid-template-columns: minmax(0, 1.45fr) minmax(190px, 0.95fr);
+        grid-template-areas:
+          "primary side"
+          "feedback feedback"
+          "admin admin"
+          "foot foot";
+        align-items: start;
+        gap: 8px 12px;
+        padding: 9px 10px;
+        border-radius: 12px;
+      }
+
+      .roster-speaker-panel .registration-speaker-card-primary {
+        grid-area: primary;
+        min-width: 0;
+      }
+
+      .roster-speaker-panel .registration-speaker-card-side {
+        grid-area: side;
+        justify-items: end;
+        text-align: right;
+      }
+
+      .roster-speaker-panel .registration-speaker-card-admin {
+        grid-area: admin;
+      }
+
+      .roster-speaker-panel .registration-speaker-card-feedback {
+        grid-area: feedback;
+      }
+
+      .roster-speaker-panel .registration-speaker-card-footnote {
+        grid-area: foot;
+      }
+
+      .roster-speaker-panel .registration-speaker-card .section-heading {
+        gap: 6px;
+      }
+
+      .roster-speaker-panel .registration-speaker-card .section-heading strong {
+        font-size: 0.82rem;
+      }
+
+      .roster-speaker-panel .registration-speaker-card .muted,
+      .roster-speaker-panel .registration-speaker-card .fine-print,
+      .roster-speaker-panel .registration-speaker-card .token-link {
+        font-size: 0.69rem;
+        line-height: 1.2;
+      }
+
+      .roster-speaker-panel .registration-speaker-card .workspace-chip-row,
+      .roster-speaker-panel .registration-speaker-card .button-row {
+        gap: 4px;
+      }
+
+      .roster-speaker-panel .registration-speaker-card .button-row {
+        justify-content: flex-end;
+      }
+
+      .roster-speaker-panel .registration-speaker-card .role-pill,
+      .roster-speaker-panel .registration-speaker-card .mini-pill {
+        padding: 4px 7px;
+        font-size: 0.64rem;
+      }
+
+      .roster-speaker-panel .registration-speaker-card button,
+      .roster-speaker-panel .registration-speaker-card .cta-link,
+      .roster-speaker-panel .registration-speaker-card .inline-link {
+        min-height: 30px;
+        padding: 6px 9px;
+        font-size: 0.7rem;
+      }
+
+      .roster-speaker-panel .registration-speaker-card .token-link {
+        overflow-wrap: anywhere;
       }
 
       .registration-speaker-card button,
@@ -5302,6 +5402,25 @@
         .tournament-switch-actions {
           flex-direction: column;
           align-items: stretch;
+        }
+
+        .roster-speaker-panel .registration-speaker-card {
+          grid-template-columns: 1fr;
+          grid-template-areas:
+            "primary"
+            "side"
+            "feedback"
+            "admin"
+            "foot";
+        }
+
+        .roster-speaker-panel .registration-speaker-card-side {
+          justify-items: start;
+          text-align: left;
+        }
+
+        .roster-speaker-panel .registration-speaker-card .button-row {
+          justify-content: flex-start;
         }
 
         .auth-support-grid > :last-child {
