@@ -17456,23 +17456,33 @@
                   return `
                     <details class="surface people-directory-card">
                       <summary class="people-directory-summary">
-                        <div class="people-directory-summary-top">
+                        <div class="people-directory-copy">
                           <p class="eyebrow">Account</p>
+                          <h3>${escapeHtml(user.name)}</h3>
+                          <p class="people-directory-email">${escapeHtml(user.email)}</p>
+                        </div>
+                        <div class="people-directory-summary-badges">
+                          <span class="mini-pill success">${escapeHtml(getUserCreationLabel(user))}</span>
                           <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
                             user.active ? "Active" : "Disabled",
                           )}</span>
                         </div>
-                        <div class="people-directory-copy">
-                          <h3>${escapeHtml(user.name)}</h3>
-                          <p class="people-directory-summary-note">${escapeHtml(visibleRoleLabel)}</p>
+                        <div class="people-directory-summary-meta">
+                          <span class="people-directory-joined">${escapeHtml(
+                            "Joined " + joinedLabel,
+                          )}</span>
                         </div>
                         <div class="people-directory-summary-footer">
-                          <span class="mini-pill">${escapeHtml(
+                          <span class="people-directory-summary-inline">${escapeHtml(
                             historicalTournamentCount +
                               " tournament" +
-                              (historicalTournamentCount === 1 ? "" : "s"),
+                              (historicalTournamentCount === 1 ? "" : "s") +
+                              " on record",
                           )}</span>
-                          <span class="mini-pill success">${escapeHtml(getUserCreationLabel(user))}</span>
+                          <span class="people-directory-summary-divider" aria-hidden="true">•</span>
+                          <span class="people-directory-summary-inline people-directory-summary-note">${escapeHtml(
+                            visibleRoleLabel,
+                          )}</span>
                         </div>
                         <span class="people-directory-configure">${
                           user.active ? "Open profile" : "Review account"

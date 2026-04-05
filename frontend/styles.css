@@ -5129,12 +5129,12 @@
       details.surface.people-directory-card > summary.people-directory-summary,
       .people-directory-summary {
         display: grid;
-        grid-template-columns: 1fr;
-        gap: 12px;
+        grid-template-columns: minmax(0, 1.2fr) auto auto;
+        gap: 10px 18px;
         align-content: start;
-        min-height: 188px;
-        padding: 18px 20px 20px;
-        align-items: start;
+        min-height: 144px;
+        padding: 18px 22px;
+        align-items: center;
         justify-content: stretch;
         width: 100%;
       }
@@ -5144,25 +5144,22 @@
       }
 
       .people-directory-summary {
-        grid-template-columns: minmax(0, 1fr) auto;
         grid-template-areas:
-          "top top"
-          "name action"
-          "footer action";
-        column-gap: 18px;
-        row-gap: 12px;
-        align-items: start;
+          "name badges meta"
+          "footer footer action";
+        align-items: center;
       }
 
       .people-directory-summary > * {
         min-width: 0;
       }
 
-      .people-directory-summary-top {
-        grid-area: top;
+      .people-directory-summary-badges {
+        grid-area: badges;
         display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-start;
         gap: 10px;
       }
 
@@ -5176,49 +5173,79 @@
 
       .people-directory-copy h3 {
         margin: 0;
-        max-width: 14ch;
-        font-size: 1.34rem;
-        line-height: 1.04;
+        max-width: none;
+        font-size: 1.52rem;
+        line-height: 1.02;
         letter-spacing: -0.02em;
         overflow-wrap: anywhere;
       }
 
-      .people-directory-summary-note {
+      .people-directory-email {
         margin: 0;
-        max-width: 20ch;
-        font-size: 0.98rem;
-        font-weight: 700;
+        font-size: 1.02rem;
+        font-weight: 650;
         line-height: 1.35;
         color: rgba(26, 59, 47, 0.72);
         overflow-wrap: anywhere;
+      }
+
+      .people-directory-summary-meta {
+        grid-area: meta;
+        display: flex;
+        justify-self: end;
+        align-self: start;
+        text-align: right;
+      }
+
+      .people-directory-joined {
+        color: var(--muted);
+        font-size: 0.98rem;
+        font-weight: 600;
+        line-height: 1.25;
       }
 
       .people-directory-summary-footer {
         grid-area: footer;
         display: flex;
         flex-wrap: wrap;
+        align-items: center;
         gap: 8px;
-        align-self: end;
+        align-self: start;
+      }
+
+      .people-directory-summary-inline {
+        font-size: 0.96rem;
+        font-weight: 700;
+        line-height: 1.3;
+        color: rgba(26, 59, 47, 0.76);
+      }
+
+      .people-directory-summary-divider {
+        color: rgba(26, 59, 47, 0.38);
+        font-weight: 700;
+      }
+
+      .people-directory-summary-note {
+        color: rgba(26, 59, 47, 0.9);
       }
 
       .people-directory-configure {
         grid-area: action;
-        margin-top: auto;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 40px;
-        padding: 10px 14px;
+        min-height: 38px;
+        padding: 9px 14px;
         border-radius: 14px;
         background: rgba(20, 49, 38, 0.05);
         border: 1px solid rgba(20, 49, 38, 0.08);
         color: var(--ink);
-        font-size: 0.95rem;
+        font-size: 0.92rem;
         font-weight: 800;
         letter-spacing: 0.01em;
         justify-self: end;
         align-self: end;
-        width: 118px;
+        width: 122px;
         text-align: center;
       }
 
@@ -5711,15 +5738,22 @@
         .people-directory-summary {
           grid-template-columns: 1fr;
           grid-template-areas:
-            "top"
             "name"
+            "badges"
+            "meta"
             "footer"
             "action";
+          align-items: start;
         }
 
         .people-directory-configure {
           justify-self: stretch;
           width: 100%;
+        }
+
+        .people-directory-summary-meta {
+          justify-self: start;
+          text-align: left;
         }
 
         .roster-speaker-layout .registration-speaker-card {
