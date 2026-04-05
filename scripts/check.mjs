@@ -135,4 +135,4 @@ console.log("Checking shared frontend/backend regional contract...");
 checkRegionalSharedContract();
 
 checkRootLauncher();
-console.log("Hummingbird syntax checks passed.");
+console.log("JADE Hummingbird syntax checks passed.");

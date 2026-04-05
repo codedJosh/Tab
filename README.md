@@ -1,4 +1,4 @@
-# Hummingbird Tab System
+# JADE Hummingbird
 
 This repository is split into:
 

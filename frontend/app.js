@@ -461,7 +461,7 @@
 
       const DEFAULT_SETTINGS = {
         branding: {
-          appName: "Hummingbird Tab System",
+          appName: "JADE Hummingbird",
           subtitle:
             "Premium tournament operations, controlled publishing, and calm competitor access in one place.",
           accent: "#1f6a4e",
@@ -500,7 +500,7 @@
           welcomeNote:
             "This private page is designed to show only the essentials for competitors.",
           emailTemplate:
-            "Hello {{name}}, your private Hummingbird Tab System access link for {{tournament}} is {{link}}.",
+            "Hello {{name}}, your private JADE Hummingbird access link for {{tournament}} is {{link}}.",
         },
         feedback: {
           categories: ["Analysis", "Style", "Strategy"],
@@ -585,7 +585,7 @@
         startupSplashFailed = false;
         setStartupSplashProgress(
           12,
-          "Booting Hummingbird systems",
+          "Booting JADE Hummingbird systems",
           "Preparing your tournament workspace.",
         );
         clearStartupSplashTimers();
@@ -619,7 +619,7 @@
           setStartupSplashProgress(
             100,
             "Workspace ready",
-            "Ready to open Hummingbird Tab System.",
+            "Ready to open JADE Hummingbird.",
           );
         }
         const elapsed = Date.now() - STARTUP_SPLASH_STARTED_AT;
@@ -661,7 +661,7 @@
 
       function createWorkspaceContractError(context = "workspace", detail = "") {
         const error = new Error(
-          "Hummingbird blocked a workspace sync because the live data contract did not match the current system" +
+          "JADE Hummingbird blocked a workspace sync because the live data contract did not match the current system" +
             (detail ? ": " + detail : "."),
         );
         error.code = "workspace_contract_mismatch";
@@ -794,7 +794,7 @@
 
       function getSharedBackendUnavailableMessage() {
         if (cloudRuntime.contractMismatch) {
-          return "The shared Hummingbird backend is running a different data contract. Redeploy the frontend and backend together before using shared accounts.";
+          return "The shared JADE Hummingbird backend is running a different data contract. Redeploy the frontend and backend together before using shared accounts.";
         }
         return "The shared account service is unavailable right now. Please try again in a moment.";
       }
@@ -2838,7 +2838,7 @@
       }
 
       function renderBrandLockup({
-        kicker = "Hummingbird",
+        kicker = "JADE Hummingbird",
         subtitle = "",
         size = "compact",
         className = "",
@@ -2852,7 +2852,7 @@
         return `
           <div class="brand-lockup ${escapeHtml(size)} ${escapeHtml(className)}">
             <div class="jade-logo-wrap">
-              <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="Hummingbird Tab System logo" />
+              <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird logo" />
             </div>
             <div class="brand-copy">
               <p class="brand-kicker">${escapeHtml(kicker)}</p>
@@ -6299,7 +6299,7 @@
 
         if (!response.ok || result.ok === false) {
           const error = new Error(
-            String(result?.error || result?.message || "Hummingbird backend request failed."),
+            String(result?.error || result?.message || "JADE Hummingbird backend request failed."),
           );
           error.code = result?.code || String(response.status || "backend_error");
           throw error;
@@ -6396,7 +6396,7 @@
         }
       }
 
-      function queueCloudPersist() {
+      function queueCloudPersist(options = {}) {
         cloudPersistQueue = cloudPersistQueue
           .then(async () => {
             if (!(await probeCloudBackend()) || !session.cloudSessionToken || !getCurrentUser()) {
@@ -6420,7 +6420,7 @@
                 updateCurrentUserRecord();
                 saveState();
                 saveSession();
-                if (requiresSharedBackend()) {
+                if (requiresSharedBackend() && !options.skipSuccessRender) {
                   renderApp();
                 }
               }
@@ -6430,14 +6430,14 @@
                 await refreshStateFromBackend({ skipRender: true });
                 setFlash(
                   "warning",
-                  "Another device changed Hummingbird first, so this page refreshed to the newest shared version before your latest local edit could sync.",
+                  "Another device changed JADE Hummingbird first, so this page refreshed to the newest shared version before your latest local edit could sync.",
                 );
                 renderApp();
                 return;
               }
               setFlash(
                 "warning",
-                "Saved on this device, but Hummingbird Tab System could not sync to the backend right now.",
+                "Saved on this device, but JADE Hummingbird could not sync to the backend right now.",
               );
               renderApp();
             }
@@ -6493,7 +6493,7 @@
           if (error.code === "stale_revision") {
             await refreshStateFromBackend({ skipRender: true });
             const conflictError = new Error(
-              "Another device changed Hummingbird first. The page was refreshed to the latest shared version; please apply that edit again.",
+              "Another device changed JADE Hummingbird first. The page was refreshed to the latest shared version; please apply that edit again.",
             );
             conflictError.code = "stale_revision";
             throw conflictError;
@@ -6599,7 +6599,9 @@
           setFlash(type, text);
         }
         renderApp();
-        queueCloudPersist();
+        queueCloudPersist({
+          skipSuccessRender: true,
+        });
       }
 
       function createParticipant(
@@ -9037,7 +9039,8 @@
         };
         if (
           next.appSettings.branding.appName === "DebateTab Command" ||
-          next.appSettings.branding.appName === "JADE Debate Tab"
+          next.appSettings.branding.appName === "JADE Debate Tab" ||
+          next.appSettings.branding.appName === "Hummingbird Tab System"
         ) {
           next.appSettings.branding.appName = DEFAULT_SETTINGS.branding.appName;
         }
@@ -10525,7 +10528,7 @@
 
         return `
           <div class="auth-page">
-            <div class="auth-top-ticker" aria-label="Hummingbird motto ticker">
+            <div class="auth-top-ticker" aria-label="JADE Hummingbird motto ticker">
               <div class="auth-top-ticker-track">
                 ${tickerItems}
               </div>
@@ -10535,7 +10538,7 @@
               <section class="hero-panel auth-hero">
                 <div class="stack">
                   ${renderBrandLockup({
-                    kicker: "Hummingbird Platform",
+                    kicker: "JADE Hummingbird Platform",
                     size: "hero featured",
                     subtitle:
                       "Premium tournament operations, controlled publishing, and competitor access that stays calm.",
@@ -10544,7 +10547,7 @@
                     <p class="eyebrow">Designed For Serious Debate</p>
                     <h1>Run tab with polish. Keep competitor access simple.</h1>
                     <p class="hero-copy">
-                      Hummingbird Tab System gives managers fine control over tournament formats, publishing, permissions, feedback, and private links without forcing competitors through staff-heavy screens.
+                      JADE Hummingbird gives managers fine control over tournament formats, publishing, permissions, feedback, and private links without forcing competitors through staff-heavy screens.
                     </p>
                   </div>
                   <div class="hero-feature-list">
@@ -10595,7 +10598,7 @@
                       <div class="section-heading">
                         <div>
                           <p class="eyebrow">Sign In</p>
-                          <h2>Access Hummingbird Tab System</h2>
+                          <h2>Access JADE Hummingbird</h2>
                         </div>
                         <span class="role-pill">Password-protected access</span>
                       </div>
@@ -10618,7 +10621,7 @@
                         <button type="submit">Sign In</button>
                       </form>
                       <p class="auth-footer">
-                        Use the same email address that was assigned to your tournament access. If you enable device saving, Hummingbird Tab System can also bring that password back into this device-local app experience.
+                        Use the same email address that was assigned to your tournament access. If you enable device saving, JADE Hummingbird can also bring that password back into this device-local app experience.
                       </p>
                     </div>
                     <div class="auth-security-note">
@@ -10720,7 +10723,7 @@
                         </div>
                       </div>
                       <p>
-                        Debaters can register teams and judges can declare affiliation before signing in, then Hummingbird drops them straight into their private access links.
+                        Debaters can register teams and judges can declare affiliation before signing in, then JADE Hummingbird drops them straight into their private access links.
                       </p>
                       <div class="button-row wrap-row">
                         <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Debater Registration</button>
@@ -10761,7 +10764,7 @@
                       <p>
                         New passwords must be at least ${escapeHtml(
                           state.appSettings.auth.minimumPasswordLength,
-                        )} characters long, and Hummingbird Tab System stores only a salted, hardened password hash rather than the raw password.
+                        )} characters long, and JADE Hummingbird stores only a salted, hardened password hash rather than the raw password.
                       </p>
                       <p class="auth-footer">
                         If a manager has already granted your email tournament access, signing up with that same email address will attach those permissions automatically after login. Saved passwords are delegated to the device password manager when supported.
@@ -10833,7 +10836,7 @@
 
         return `
           <div class="auth-page">
-            <div class="auth-top-ticker" aria-label="Hummingbird motto ticker">
+            <div class="auth-top-ticker" aria-label="JADE Hummingbird motto ticker">
               <div class="auth-top-ticker-track">
                 ${new Array(14)
                   .fill("Fuelling a Thinking Revolution")
@@ -10867,8 +10870,8 @@
                       <p class="hero-copy">
                         ${escapeHtml(
                           isJudge
-                            ? "Choose an available event, declare whether you are institutionally affiliated or independent, and Hummingbird will route you straight into your private access once registration is complete."
-                            : "Choose an available event, enter your team details, and Hummingbird will create the roster entry faster while sending you directly to your private access links.",
+                            ? "Choose an available event, declare whether you are institutionally affiliated or independent, and JADE Hummingbird will route you straight into your private access once registration is complete."
+                            : "Choose an available event, enter your team details, and JADE Hummingbird will create the roster entry faster while sending you directly to your private access links.",
                         )}
                       </p>
                     </div>
@@ -11019,8 +11022,8 @@
                         <p class="auth-footer">
                           ${escapeHtml(
                             isJudge
-                              ? "If you already have an account, use the same email and password here and Hummingbird will attach this judge registration to your existing access."
-                              : "If you already have an account, use the same email and password here and Hummingbird will add this tournament registration to your existing access.",
+                              ? "If you already have an account, use the same email and password here and JADE Hummingbird will attach this judge registration to your existing access."
+                              : "If you already have an account, use the same email and password here and JADE Hummingbird will add this tournament registration to your existing access.",
                           )}
                         </p>
                       </div>
@@ -11048,7 +11051,7 @@
                           ${escapeHtml(
                             isJudge
                               ? "Once saved, your institution is used to block chair or panel assignments into rooms containing an affiliated team."
-                              : "Once saved, Hummingbird creates your roster record, links your team where possible, and sends you straight to your personal access links.",
+                              : "Once saved, JADE Hummingbird creates your roster record, links your team where possible, and sends you straight to your personal access links.",
                           )}
                         </p>
                       </section>
@@ -11067,7 +11070,7 @@
 
         return `
           <div class="auth-page">
-            <div class="auth-top-ticker" aria-label="Hummingbird motto ticker">
+            <div class="auth-top-ticker" aria-label="JADE Hummingbird motto ticker">
               <div class="auth-top-ticker-track">
                 ${new Array(14)
                   .fill("Fuelling a Thinking Revolution")
@@ -11161,7 +11164,7 @@
                           <button type="submit">Enter Regional Operations</button>
                         </form>
                         <p class="auth-footer">
-                          Managers and system administrators can use their existing Hummingbird credentials here. Regional Coordinators and Deputy Regional Coordinators need an account created for them by a manager first.
+                          Managers and system administrators can use their existing JADE Hummingbird credentials here. Regional Coordinators and Deputy Regional Coordinators need an account created for them by a manager first.
                         </p>
                       </div>
                     </div>
@@ -11211,7 +11214,7 @@
           : capabilities.regionalOnly
             ? "Regional reporting, stipend requests, and shared operations history in one portal."
           : capabilities.competitorOnly
-            ? "Private access for your rounds, results, feedback, and essential Hummingbird details."
+            ? "Private access for your rounds, results, feedback, and essential JADE Hummingbird details."
             : !capabilities.canManageAny
               ? "A streamlined workspace for public tournament details and your private access URL."
             : "Staff workspace for permissions, publishing, and tournament operations.";
@@ -11221,7 +11224,7 @@
           <aside class="menu-panel" role="navigation" aria-label="Primary workspace navigation">
             <div class="menu-brand">
               ${renderBrandLockup({
-                kicker: "Hummingbird Menu",
+                kicker: "JADE Hummingbird Menu",
                 size: "compact",
                 subtitle: menuSubtitle,
               })}
@@ -17324,7 +17327,7 @@
               </div>
             </div>
             <p class="fine-print">
-              Regional Operations uses the same shared backend as the rest of Hummingbird, so coordinator accounts, reports, and stipend requests persist across devices and stay attached to the same audit trail.
+              Regional Operations uses the same shared backend as the rest of JADE Hummingbird, so coordinator accounts, reports, and stipend requests persist across devices and stay attached to the same audit trail.
             </p>
           </section>
 
@@ -17969,14 +17972,14 @@
               : " • ready for quick return");
         const accessLabel = accessRecord ? "Private URL Ready" : "Session Access";
         const accessNote = accessRecord
-          ? "Your one-tap Hummingbird access link is available from Access Links."
+          ? "Your one-tap JADE Hummingbird access link is available from Access Links."
           : "Use the workspace directly or generate private access from the links area.";
 
         return `
           <div class="workspace-overview-band">
             <article class="workspace-overview-card is-primary">
               <span class="workspace-overview-label">Signed In</span>
-              <strong>${escapeHtml(user?.name || user?.email || "Hummingbird User")}</strong>
+              <strong>${escapeHtml(user?.name || user?.email || "JADE Hummingbird User")}</strong>
               <p class="muted">${escapeHtml(toTitleLabel(user?.globalRole || "member"))}</p>
             </article>
             <article class="workspace-overview-card">
@@ -18122,7 +18125,7 @@
         }
 
         const contactName = String(profile?.name || "Participant").trim() || "Participant";
-        const subject = encodeURIComponent("Hummingbird Tab System Contact | " + contactName);
+        const subject = encodeURIComponent("JADE Hummingbird Contact | " + contactName);
         return "mailto:" + email + "?subject=" + subject;
       }
 
@@ -19221,7 +19224,7 @@
                 <input type="checkbox" name="reduceMotion" ${checked(
                   settings.accessibility?.reduceMotion || REDUCED_MOTION,
                 )} />
-                <span>Reduce interface motion inside Hummingbird</span>
+                <span>Reduce interface motion inside JADE Hummingbird</span>
               </label>
               <label class="checkbox-row">
                 <input type="checkbox" name="showScreenReaderGuidance" ${checked(
@@ -19230,7 +19233,7 @@
                 <span>Show screen-reader and keyboard guidance near search/navigation</span>
               </label>
               <div class="alert info">
-                Hummingbird now includes a skip link, landmark navigation, announced flash messages, strong keyboard focus states, and competitor/judge flows designed to be readable by assistive technology.
+                JADE Hummingbird now includes a skip link, landmark navigation, announced flash messages, strong keyboard focus states, and competitor/judge flows designed to be readable by assistive technology.
               </div>
               <p class="fine-print">
                 For blind users, the most efficient path is: use the skip link, move by headings or landmarks, then use workspace search to jump between tournaments, people, and ballots.
@@ -19242,7 +19245,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Password and Device Access</p>
-                <h2>Save your password from inside Hummingbird Tab System</h2>
+                <h2>Save your password from inside JADE Hummingbird</h2>
               </div>
               <span class="role-pill">${escapeHtml(
                 devicePasswordSavingEnabled ? "Enabled" : "Not saved",
@@ -19269,11 +19272,11 @@
                 <span>Save Password Securely On This Device</span>
               </label>
               <div class="alert info">
-                This in-app control uses your browser or device password manager when supported, so Hummingbird Tab System still does not store your raw password in local app data.
+                This in-app control uses your browser or device password manager when supported, so JADE Hummingbird still does not store your raw password in local app data.
               </div>
               ${
                 devicePasswordSavingSupported
-                  ? `<p class="auth-footer">Enter your current password to save or refresh the secure device copy. If you switch this off, Hummingbird Tab System stops remembering the preference for this account on this device.</p>`
+                  ? `<p class="auth-footer">Enter your current password to save or refresh the secure device copy. If you switch this off, JADE Hummingbird stops remembering the preference for this account on this device.</p>`
                   : `<div class="alert warning">This browser does not support secure device password saving through the app.</div>`
               }
               <button type="submit" ${devicePasswordSavingSupported ? "" : "disabled"}>${
@@ -19408,7 +19411,7 @@
                 <h3>Data</h3>
               </div>
               <div class="stack">
-                <div class="alert info">Hummingbird Tab System is currently running as a local app on this device.</div>
+                <div class="alert info">JADE Hummingbird is currently running as a local app on this device.</div>
                 <p class="fine-print">
                   Export a JSON backup whenever you want a portable copy of your tournaments, users, and settings.
                 </p>
@@ -19500,7 +19503,7 @@
               <section id="workspace-main" class="content-panel" role="main">
                 <div class="workspace-topbar surface">
                   ${renderBrandLockup({
-                    kicker: "Hummingbird Workspace",
+                    kicker: "JADE Hummingbird Workspace",
                     size: "compact",
                     subtitle:
                       capabilities.regionalPortalMode
@@ -19578,7 +19581,7 @@
               <div class="private-shell">
                 <section class="surface portal-ribbon">
                   ${renderBrandLockup({
-                    kicker: "Private Hummingbird Access",
+                    kicker: "Private JADE Hummingbird Access",
                     size: "compact",
                     subtitle:
                       "This private portal is designed to stay focused on competitor essentials.",
@@ -19685,7 +19688,7 @@
               <section class="surface portal-ribbon">
                 <div class="portal-head">
                   ${renderBrandLockup({
-                    kicker: "Private Hummingbird Access",
+                    kicker: "Private JADE Hummingbird Access",
                     size: "compact",
                     subtitle:
                       "A compact competitor portal for rounds, standings, speaker scores, and feedback.",
@@ -19926,7 +19929,7 @@
       function renderApp() {
         if (!state) {
           document.querySelector("#app").innerHTML =
-            '<div class="page-shell"><section class="surface"><h2>Loading Hummingbird Tab System...</h2></section></div>';
+            '<div class="page-shell"><section class="surface"><h2>Loading JADE Hummingbird...</h2></section></div>';
           return;
         }
 
@@ -20091,18 +20094,18 @@
                 }
                 setFlash(
                   "success",
-                  "Backend workspace initialized. Hummingbird Tab System is now sharing this workspace across devices.",
+                  "Backend workspace initialized. JADE Hummingbird is now sharing this workspace across devices.",
                 );
                 renderApp();
                 return;
               } catch (initError) {
-                setFlash("error", initError.message || "Hummingbird Tab System could not initialize backend sync.");
+                setFlash("error", initError.message || "JADE Hummingbird could not initialize backend sync.");
                 renderApp();
                 return;
               }
             }
 
-            setFlash("error", error.message || "Hummingbird Tab System could not sign you in.");
+            setFlash("error", error.message || "JADE Hummingbird could not sign you in.");
             renderApp();
             return;
           }
@@ -20252,7 +20255,7 @@
               }
               workspaceNeedsInitialization = true;
             } else {
-              setFlash("error", error.message || "Hummingbird Tab System could not create your account.");
+              setFlash("error", error.message || "JADE Hummingbird could not create your account.");
               renderApp();
               return;
             }
@@ -20694,7 +20697,7 @@
             });
           }
         } catch (error) {
-          setFlash("error", error.message || "Hummingbird Tab System could not sign you in for registration.");
+          setFlash("error", error.message || "JADE Hummingbird could not sign you in for registration.");
           renderApp();
           return;
         }
@@ -20840,7 +20843,7 @@
             createdSource: "self_signup",
           });
         } catch (error) {
-          setFlash("error", error.message || "Hummingbird Tab System could not sign you in for registration.");
+          setFlash("error", error.message || "JADE Hummingbird could not sign you in for registration.");
           renderApp();
           return;
         }
@@ -20881,7 +20884,7 @@
 
       async function initializeCloudFromBackup(formData) {
         if (!(await probeCloudBackend())) {
-          setFlash("error", "Hummingbird backend setup is not available right now.");
+          setFlash("error", "JADE Hummingbird backend setup is not available right now.");
           renderApp();
           return;
         }
@@ -20903,7 +20906,7 @@
         }
 
         if (!(backupFile instanceof File) || !backupFile.size) {
-          setFlash("error", "Choose a Hummingbird backup JSON file first.");
+          setFlash("error", "Choose a JADE Hummingbird backup JSON file first.");
           renderApp();
           return;
         }
@@ -20930,13 +20933,13 @@
           saveSession();
           setFlash(
             "success",
-            "Backend workspace initialized from your backup. Hummingbird Tab System is now ready to share data across devices.",
+            "Backend workspace initialized from your backup. JADE Hummingbird is now ready to share data across devices.",
           );
           renderApp();
         } catch (error) {
           setFlash(
             "error",
-            error.message || "Hummingbird Tab System could not initialize the backend workspace from that backup.",
+            error.message || "JADE Hummingbird could not initialize the backend workspace from that backup.",
           );
           renderApp();
         }
@@ -20971,7 +20974,7 @@
           } catch (error) {
             setFlash(
               "error",
-              error.message || "Hummingbird Tab System could not submit the password reset request right now.",
+              error.message || "JADE Hummingbird could not submit the password reset request right now.",
             );
           }
           renderApp();
@@ -24262,7 +24265,7 @@
           await reduceDevicePasswordAutoSignIn();
           setFlash(
             "success",
-            "Hummingbird Tab System will stop remembering your device password preference for this account. If you want to fully delete a saved password, remove it from your browser or device password manager too.",
+            "JADE Hummingbird will stop remembering your device password preference for this account. If you want to fully delete a saved password, remove it from your browser or device password manager too.",
           );
           renderApp();
           return;
@@ -25366,10 +25369,10 @@
           setStartupSplashProgress(
             100,
             "Load interrupted",
-            "Hummingbird Tab System could not finish loading. Please refresh and try again.",
+            "JADE Hummingbird could not finish loading. Please refresh and try again.",
           );
           document.querySelector("#app").innerHTML =
-            '<div class="page-shell"><section class="surface"><h2>Hummingbird Tab System could not finish loading.</h2><p class="muted">Please refresh the page and try again.</p></section></div>';
+            '<div class="page-shell"><section class="surface"><h2>JADE Hummingbird could not finish loading.</h2><p class="muted">Please refresh the page and try again.</p></section></div>';
         } finally {
           await finishStartupSplash();
         }

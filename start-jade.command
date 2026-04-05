@@ -14,11 +14,11 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 if [ ! -d "$ROOT_DIR/node_modules" ]; then
-  echo "Installing Hummingbird backend dependencies..."
+  echo "Installing JADE Hummingbird backend dependencies..."
   npm install
 fi
 
-echo "Starting Hummingbird backend..."
+echo "Starting JADE Hummingbird backend..."
 npm run dev &
 SERVER_PID=$!
 
@@ -30,10 +30,10 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-echo "Waiting for Hummingbird to come online..."
+echo "Waiting for JADE Hummingbird to come online..."
 for _ in {1..30}; do
   if curl -fsS "$APP_URL" >/dev/null 2>&1; then
-    echo "Opening Hummingbird in your browser..."
+    echo "Opening JADE Hummingbird in your browser..."
     open "$APP_URL"
     wait "$SERVER_PID"
     exit $?
@@ -41,5 +41,5 @@ for _ in {1..30}; do
   sleep 1
 done
 
-echo "Hummingbird did not respond at $APP_URL in time."
+echo "JADE Hummingbird did not respond at $APP_URL in time."
 exit 1

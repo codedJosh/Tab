@@ -1,6 +1,6 @@
-# Hummingbird Frontend
+# JADE Hummingbird Frontend
 
-This folder is the static frontend publish target for Hummingbird Tab System.
+This folder is the static frontend publish target for JADE Hummingbird.
 
 `frontend/index.html` is the only website frontend source of truth in this repo.
 

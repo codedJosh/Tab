@@ -149,7 +149,7 @@ function normalizeEmail(value = "") {
 
 function createWorkspaceContractError(context = "workspace", detail = "") {
   const error = new Error(
-    "Hummingbird rejected a workspace payload because the live data contract did not match the current system" +
+    "JADE Hummingbird rejected a workspace payload because the live data contract did not match the current system" +
       (detail ? ": " + detail : "."),
   );
   error.statusCode = 409;
