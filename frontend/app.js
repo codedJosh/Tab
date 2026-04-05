@@ -17444,7 +17444,6 @@
                     user.registeredTournamentIds,
                     200,
                   ).length;
-                  const joinedLabel = user.createdAt || "Unknown";
                   const visibleRoleLabel = user.regionalRole
                     ? `${toTitleLabel(user.regionalRole)}${
                         user.regionalRegion ? " • " + user.regionalRegion : ""
@@ -17462,11 +17461,6 @@
                           <span class="mini-pill success">${escapeHtml(getUserCreationLabel(user))}</span>
                           <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
                             user.active ? "Active" : "Disabled",
-                          )}</span>
-                        </div>
-                        <div class="people-directory-summary-meta">
-                          <span class="people-directory-joined">${escapeHtml(
-                            "Joined " + joinedLabel,
                           )}</span>
                         </div>
                         <div class="people-directory-summary-footer">
@@ -18976,6 +18970,9 @@
         const selectedProfile = session.selectedParticipantKey
           ? getParticipantProfileByKey(session.selectedParticipantKey)
           : null;
+        if (selectedProfile) {
+          return renderParticipantProfilePanel(selectedProfile);
+        }
         const results = query ? getWorkspaceSearchResults(query) : null;
         const featuredProfiles = getParticipantDirectoryRecords()
           .sort(
@@ -18986,8 +18983,6 @@
           .slice(0, 8);
 
         return `
-          ${selectedProfile ? renderParticipantProfilePanel(selectedProfile) : ""}
-
           <section class="surface">
             <div class="section-heading">
               <div>
