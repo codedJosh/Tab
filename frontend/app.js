@@ -3002,9 +3002,17 @@
           .join("");
       }
 
-      function getRegionalOperationsRoleOptions(current = "") {
+      function getRegionalOperationsRoleOptions(current = "", options = {}) {
         const normalizedCurrent = normalizeRegionalOperationsRole(current);
-        return [
+        const roles = [
+          ...(options.allowEmpty
+            ? [
+                {
+                  value: "",
+                  label: "No Regional Access",
+                },
+              ]
+            : []),
           {
             value: "regional_coordinator",
             label: "Regional Coordinator",
@@ -3013,7 +3021,8 @@
             value: "deputy_regional_coordinator",
             label: "Deputy Regional Coordinator",
           },
-        ]
+        ];
+        return roles
           .map(
             (role) =>
               `<option value="${escapeHtml(role.value)}" ${selected(
@@ -3033,6 +3042,27 @@
               normalizedCurrent,
             )}>${escapeHtml(region)}</option>`,
         ).join("");
+      }
+
+      function getAccountStatusOptions(currentActive = true) {
+        return [
+          {
+            value: "active",
+            label: "Active",
+          },
+          {
+            value: "disabled",
+            label: "Disabled",
+          },
+        ]
+          .map(
+            (status) =>
+              `<option value="${escapeHtml(status.value)}" ${selected(
+                status.value,
+                currentActive ? "active" : "disabled",
+              )}>${escapeHtml(status.label)}</option>`,
+          )
+          .join("");
       }
 
       function getJamaicanBankOptions(current = "") {
@@ -17466,6 +17496,8 @@
         const reports = getVisibleRegionalReports();
         const requests = getVisibleRegionalFundingRequests();
         const summary = getRegionalOperationsSummary();
+        const fundingSummary = getRegionalFundingStatusSummary();
+        const latestReport = reports[0] || null;
 
         if (!canAccessRegionalOperations()) {
           return `
@@ -17541,7 +17573,7 @@
                       <div class="section-heading">
                         <div>
                           <h3>Create a regional account</h3>
-                          <p class="fine-print">Managers and system administrators can create Regional Coordinator and Deputy Regional Coordinator accounts here.</p>
+                          <p class="fine-print">Managers and system administrators can create Regional Coordinator and Deputy Regional Coordinator accounts here, or attach regional access to an existing JADE Hummingbird account.</p>
                         </div>
                       </div>
                       <form class="stack" data-form="create-regional-ops-user">
@@ -17566,10 +17598,11 @@
                           </label>
                           <label>
                             Temporary password
-                            <input type="password" name="password" placeholder="Create a temporary password" required />
+                            <input type="password" name="password" placeholder="Optional for existing accounts" />
                           </label>
                         </div>
-                        <button type="submit">Create Regional Account</button>
+                        <p class="fine-print">If the email already belongs to an existing account, this form adds regional access to that same account. Add a password here only if you want to set or reset it.</p>
+                        <button type="submit">Create Or Update Regional Account</button>
                       </form>
                     </section>
                   </div>
@@ -17628,17 +17661,40 @@
                             ${
                               canManage
                                 ? `
-                                  <form class="compact-inline-form" data-form="update-regional-ops-account" data-email="${escapeHtml(
-                                    user.email,
-                                  )}">
-                                    <select name="regionalRole">${getRegionalOperationsRoleOptions(
-                                      user.regionalRole,
-                                    )}</select>
-                                    <select name="regionalRegion">${getRegionalRegionOptions(
-                                      user.regionalRegion,
-                                    )}</select>
-                                    <button class="secondary-button" type="submit">Save</button>
-                                  </form>
+                                  <div class="regional-account-manager">
+                                    <form class="stack compact-stack" data-form="update-regional-ops-account" data-email="${escapeHtml(
+                                      user.email,
+                                    )}">
+                                      <div class="field-grid three">
+                                        <label>
+                                          Portal role
+                                          <select name="regionalRole">${getRegionalOperationsRoleOptions(
+                                            user.regionalRole,
+                                            { allowEmpty: true },
+                                          )}</select>
+                                        </label>
+                                        <label>
+                                          Region
+                                          <select name="regionalRegion">${getRegionalRegionOptions(
+                                            user.regionalRegion || "Region 1",
+                                          )}</select>
+                                        </label>
+                                        <label>
+                                          Account status
+                                          <select name="active">${getAccountStatusOptions(
+                                            user.active !== false,
+                                          )}</select>
+                                        </label>
+                                      </div>
+                                      <button class="secondary-button" type="submit">Save Account Access</button>
+                                    </form>
+                                    <form class="compact-inline-form" data-form="reset-regional-ops-password" data-email="${escapeHtml(
+                                      user.email,
+                                    )}">
+                                      <input type="password" name="password" placeholder="Set new password" required />
+                                      <button class="secondary-button" type="submit">Change Password</button>
+                                    </form>
+                                  </div>
                                 `
                                 : ""
                             }
@@ -17651,185 +17707,86 @@
             }
           </section>
 
-          ${
-            canSubmit
-              ? `
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Biweekly Reporting</p>
-                      <h2>Submit a school report for your region</h2>
-                    </div>
-                    <span class="role-pill">${escapeHtml(assignedRegion || "Regional staff")}</span>
-                  </div>
-                  <form class="stack" data-form="submit-regional-report">
-                    <div class="field-grid three">
-                      <label>
-                        Region
-                        <input type="text" name="region" value="${escapeHtml(
-                          assignedRegion || "",
-                        )}" ${assignedRegion ? "readonly" : ""} required />
-                      </label>
-                      <label>
-                        School
-                        <input type="text" name="school" placeholder="School visited or monitored" required />
-                      </label>
-                      <label>
-                        Reporting period end
-                        <input type="date" name="reportingWindowEnd" required />
-                      </label>
-                    </div>
-                    <label>
-                      Reporting period start
-                      <input type="date" name="reportingWindowStart" required />
-                    </label>
-                    <label>
-                      Summary
-                      <textarea name="summary" rows="3" placeholder="Overall update for this school and region." required></textarea>
-                    </label>
-                    <div class="field-grid two">
-                      <label>
-                        Highlights
-                        <textarea name="highlights" rows="3" placeholder="Key wins, turnout, or positive developments."></textarea>
-                      </label>
-                      <label>
-                        Challenges and support needed
-                        <textarea name="supportNeeded" rows="3" placeholder="Issues to escalate to managers and support requested."></textarea>
-                      </label>
-                    </div>
-                    <label>
-                      Additional challenges
-                      <textarea name="challenges" rows="2" placeholder="Operational blockers, school engagement issues, or scheduling concerns."></textarea>
-                    </label>
-                    <button type="submit">Submit Biweekly Report</button>
-                  </form>
-                </section>
-
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Banking Profile</p>
-                      <h2>Save the payout details attached to your account</h2>
-                    </div>
-                    <span class="role-pill">Saved with your account</span>
-                  </div>
-                  <form class="stack" data-form="save-regional-banking-profile">
-                    <div class="field-grid two">
-                      <label>
-                        Bank
-                        <select name="bankName">${getJamaicanBankOptions(
-                          currentBanking.bankName || "NCB",
-                        )}</select>
-                      </label>
-                      <label>
-                        Account holder name
-                        <input type="text" name="accountName" value="${escapeAttributeValue(
-                          currentBanking.accountName || currentUser?.name || "",
-                        )}" placeholder="Name on the bank account" required />
-                      </label>
-                    </div>
-                    <div class="field-grid two">
-                      <label>
-                        Account number
-                        <input type="text" name="accountNumber" value="${escapeAttributeValue(
-                          currentBanking.accountNumber || "",
-                        )}" placeholder="Bank account number" required />
-                      </label>
-                      <label>
-                        Branch
-                        <input type="text" name="branchName" value="${escapeAttributeValue(
-                          currentBanking.branchName || "",
-                        )}" placeholder="Branch or branch code" />
-                      </label>
-                    </div>
-                    <p class="fine-print">
-                      These details stay attached to your Regional Operations account and can be reused whenever you submit a transport stipend request.
-                    </p>
-                    <button type="submit">Save Banking Details</button>
-                  </form>
-                </section>
-
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Transport Stipends</p>
-                      <h2>Request transport funding for a school trip</h2>
-                    </div>
-                    <span class="role-pill">Sent to managers</span>
-                  </div>
-                  <form class="stack" data-form="submit-regional-funding-request">
-                    <div class="field-grid three">
-                      <label>
-                        Region
-                        <input type="text" name="region" value="${escapeHtml(
-                          assignedRegion || "",
-                        )}" ${assignedRegion ? "readonly" : ""} required />
-                      </label>
-                      <label>
-                        School
-                        <input type="text" name="school" placeholder="School visited" required />
-                      </label>
-                      <label>
-                        Trip date
-                        <input type="date" name="tripDate" required />
-                      </label>
-                    </div>
-                    <div class="field-grid two">
-                      <label>
-                        Amount requested (JMD)
-                        <input type="number" name="amountJmd" min="0" step="1" placeholder="0" required />
-                      </label>
-                      <label>
-                        Bank
-                        <select name="bankName">${getJamaicanBankOptions(
-                          currentBanking.bankName || "NCB",
-                        )}</select>
-                      </label>
-                    </div>
-                    <div class="field-grid two">
-                      <label>
-                        Account holder name
-                        <input type="text" name="accountName" value="${escapeAttributeValue(
-                          currentBanking.accountName || currentUser?.name || "",
-                        )}" placeholder="Name on the receiving account" required />
-                      </label>
-                      <label>
-                        Account number
-                        <input type="text" name="accountNumber" value="${escapeAttributeValue(
-                          currentBanking.accountNumber || "",
-                        )}" placeholder="Receiving account number" required />
-                      </label>
-                    </div>
-                    <div class="field-grid two">
-                      <label>
-                        Branch
-                        <input type="text" name="branchName" value="${escapeAttributeValue(
-                          currentBanking.branchName || "",
-                        )}" placeholder="Branch or branch code" />
-                      </label>
-                    </div>
-                    <label>
-                      Justification
-                      <textarea name="justification" rows="3" placeholder="Explain why this transport stipend amount is needed." required></textarea>
-                    </label>
-                    <p class="fine-print">
-                      The banking details above are stored with this specific request so managers and system administrators can process the stipend exactly as submitted.
-                    </p>
-                    <button type="submit">Submit Funding Request</button>
-                  </form>
-                </section>
-              `
-              : ""
-          }
-
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Report Ledger</p>
-                <h2>${escapeHtml(canManage ? "All regional reports" : "Your submitted reports")}</h2>
+                <p class="eyebrow">Reports Dashboard</p>
+                <h2>${escapeHtml(canManage ? "Regional reporting dashboard" : "Your reporting dashboard")}</h2>
               </div>
               <span class="role-pill">${escapeHtml(reports.length)} reports</span>
             </div>
+            <div class="stat-grid">
+              <div class="stat-card">
+                <span class="muted">Visible reports</span>
+                <strong>${escapeHtml(reports.length)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Assigned region</span>
+                <strong>${escapeHtml(assignedRegion || "All regions")}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Latest school</span>
+                <strong>${escapeHtml(latestReport?.school || "No reports yet")}</strong>
+              </div>
+            </div>
+            ${
+              canSubmit
+                ? `
+                  <div class="manager-tools regional-dashboard-grid">
+                    <section class="flat-panel">
+                      <div class="section-heading">
+                        <div>
+                          <p class="eyebrow">Biweekly Reporting</p>
+                          <h3>Submit a school report for your region</h3>
+                        </div>
+                        <span class="role-pill">${escapeHtml(assignedRegion || "Regional staff")}</span>
+                      </div>
+                      <form class="stack" data-form="submit-regional-report">
+                        <div class="field-grid three">
+                          <label>
+                            Region
+                            <input type="text" name="region" value="${escapeHtml(
+                              assignedRegion || "",
+                            )}" ${assignedRegion ? "readonly" : ""} required />
+                          </label>
+                          <label>
+                            School
+                            <input type="text" name="school" placeholder="School visited or monitored" required />
+                          </label>
+                          <label>
+                            Reporting period end
+                            <input type="date" name="reportingWindowEnd" required />
+                          </label>
+                        </div>
+                        <label>
+                          Reporting period start
+                          <input type="date" name="reportingWindowStart" required />
+                        </label>
+                        <label>
+                          Summary
+                          <textarea name="summary" rows="3" placeholder="Overall update for this school and region." required></textarea>
+                        </label>
+                        <div class="field-grid two">
+                          <label>
+                            Highlights
+                            <textarea name="highlights" rows="3" placeholder="Key wins, turnout, or positive developments."></textarea>
+                          </label>
+                          <label>
+                            Challenges and support needed
+                            <textarea name="supportNeeded" rows="3" placeholder="Issues to escalate to managers and support requested."></textarea>
+                          </label>
+                        </div>
+                        <label>
+                          Additional challenges
+                          <textarea name="challenges" rows="2" placeholder="Operational blockers, school engagement issues, or scheduling concerns."></textarea>
+                        </label>
+                        <button type="submit">Submit Biweekly Report</button>
+                      </form>
+                    </section>
+                  </div>
+                `
+                : ""
+            }
             ${
               reports.length
                 ? `<div class="directory-grid">
@@ -17871,11 +17828,149 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Funding Queue</p>
-                <h2>${escapeHtml(canManage ? "Transport requests awaiting review" : "Your transport requests")}</h2>
+                <p class="eyebrow">Funding Dashboard</p>
+                <h2>${escapeHtml(canManage ? "Transport funding dashboard" : "Your funding dashboard")}</h2>
               </div>
               <span class="role-pill">${escapeHtml(requests.length)} requests</span>
             </div>
+            <div class="stat-grid">
+              <div class="stat-card">
+                <span class="muted">Total requests</span>
+                <strong>${escapeHtml(fundingSummary.total)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Pending</span>
+                <strong>${escapeHtml(fundingSummary.pending)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Approved</span>
+                <strong>${escapeHtml(fundingSummary.approved)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Paid</span>
+                <strong>${escapeHtml(fundingSummary.paid)}</strong>
+              </div>
+            </div>
+            ${
+              canSubmit
+                ? `
+                  <div class="manager-tools regional-dashboard-grid">
+                    <section class="flat-panel">
+                      <div class="section-heading">
+                        <div>
+                          <p class="eyebrow">Banking Profile</p>
+                          <h3>Save the payout details attached to your account</h3>
+                        </div>
+                        <span class="role-pill">Saved with your account</span>
+                      </div>
+                      <form class="stack" data-form="save-regional-banking-profile">
+                        <div class="field-grid two">
+                          <label>
+                            Bank
+                            <select name="bankName">${getJamaicanBankOptions(
+                              currentBanking.bankName || "NCB",
+                            )}</select>
+                          </label>
+                          <label>
+                            Account holder name
+                            <input type="text" name="accountName" value="${escapeAttributeValue(
+                              currentBanking.accountName || currentUser?.name || "",
+                            )}" placeholder="Name on the bank account" required />
+                          </label>
+                        </div>
+                        <div class="field-grid two">
+                          <label>
+                            Account number
+                            <input type="text" name="accountNumber" value="${escapeAttributeValue(
+                              currentBanking.accountNumber || "",
+                            )}" placeholder="Bank account number" required />
+                          </label>
+                          <label>
+                            Branch
+                            <input type="text" name="branchName" value="${escapeAttributeValue(
+                              currentBanking.branchName || "",
+                            )}" placeholder="Branch or branch code" />
+                          </label>
+                        </div>
+                        <p class="fine-print">
+                          These details stay attached to your Regional Operations account and can be reused whenever you submit a transport stipend request.
+                        </p>
+                        <button type="submit">Save Banking Details</button>
+                      </form>
+                    </section>
+                    <section class="flat-panel">
+                      <div class="section-heading">
+                        <div>
+                          <p class="eyebrow">Transport Stipends</p>
+                          <h3>Request transport funding for a school trip</h3>
+                        </div>
+                        <span class="role-pill">Sent to managers</span>
+                      </div>
+                      <form class="stack" data-form="submit-regional-funding-request">
+                        <div class="field-grid three">
+                          <label>
+                            Region
+                            <input type="text" name="region" value="${escapeHtml(
+                              assignedRegion || "",
+                            )}" ${assignedRegion ? "readonly" : ""} required />
+                          </label>
+                          <label>
+                            School
+                            <input type="text" name="school" placeholder="School visited" required />
+                          </label>
+                          <label>
+                            Trip date
+                            <input type="date" name="tripDate" required />
+                          </label>
+                        </div>
+                        <div class="field-grid two">
+                          <label>
+                            Amount requested (JMD)
+                            <input type="number" name="amountJmd" min="0" step="1" placeholder="0" required />
+                          </label>
+                          <label>
+                            Bank
+                            <select name="bankName">${getJamaicanBankOptions(
+                              currentBanking.bankName || "NCB",
+                            )}</select>
+                          </label>
+                        </div>
+                        <div class="field-grid two">
+                          <label>
+                            Account holder name
+                            <input type="text" name="accountName" value="${escapeAttributeValue(
+                              currentBanking.accountName || currentUser?.name || "",
+                            )}" placeholder="Name on the receiving account" required />
+                          </label>
+                          <label>
+                            Account number
+                            <input type="text" name="accountNumber" value="${escapeAttributeValue(
+                              currentBanking.accountNumber || "",
+                            )}" placeholder="Receiving account number" required />
+                          </label>
+                        </div>
+                        <div class="field-grid two">
+                          <label>
+                            Branch
+                            <input type="text" name="branchName" value="${escapeAttributeValue(
+                              currentBanking.branchName || "",
+                            )}" placeholder="Branch or branch code" />
+                          </label>
+                        </div>
+                        <label>
+                          Justification
+                          <textarea name="justification" rows="3" placeholder="Explain why this transport stipend amount is needed." required></textarea>
+                        </label>
+                        <p class="fine-print">
+                          The banking details above are stored with this specific request so managers and system administrators can process the stipend exactly as submitted.
+                        </p>
+                        <button type="submit">Submit Funding Request</button>
+                      </form>
+                    </section>
+                  </div>
+                `
+                : ""
+            }
             ${
               requests.length
                 ? `<div class="directory-grid">
@@ -18824,6 +18919,31 @@
           fundingRequests: requests.length,
           pendingFundingRequests: allRequests.filter((entry) => entry.status === "pending").length,
         };
+      }
+
+      function getRegionalFundingStatusSummary(email = session.userEmail) {
+        return getVisibleRegionalFundingRequests(email).reduce(
+          (summary, entry) => {
+            summary.total += 1;
+            if (entry.status === "approved") {
+              summary.approved += 1;
+            } else if (entry.status === "rejected") {
+              summary.rejected += 1;
+            } else if (entry.status === "paid") {
+              summary.paid += 1;
+            } else {
+              summary.pending += 1;
+            }
+            return summary;
+          },
+          {
+            total: 0,
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+            paid: 0,
+          },
+        );
       }
 
       function formatCurrencyJmd(value) {
@@ -21245,6 +21365,52 @@
         return { ok: true, email };
       }
 
+      async function persistManagedPasswordChange(targetEmail, password, messages = {}) {
+        const previousState = clone(state);
+        const previousSession = normalizeSessionRecord(session);
+        let persisted = false;
+
+        try {
+          const result = await setUserPasswordInternal(targetEmail, password);
+          if (!result.ok) {
+            setFlash("error", result.message);
+            saveState();
+            saveSession();
+            renderApp();
+            return false;
+          }
+
+          await persistStateToCloudNow({
+            skipRender: true,
+          });
+          persisted = true;
+
+          if (!getUserByEmail(result.email)) {
+            await refreshStateFromBackend({ skipRender: true });
+            throw new Error(
+              messages.missing ||
+                "The updated account could not be verified in the shared backend.",
+            );
+          }
+
+          setFlash("success", messages.success || "Password updated.");
+        } catch (error) {
+          if (!persisted && error?.code !== "stale_revision") {
+            state = previousState;
+          }
+          session = previousSession;
+          setFlash(
+            error?.code === "stale_revision" ? "warning" : "error",
+            error?.message || messages.error || "The password could not be saved to the shared system.",
+          );
+        }
+
+        saveState();
+        saveSession();
+        renderApp();
+        return persisted;
+      }
+
       async function commitSharedWorkspaceMutation(mutator, messages = {}) {
         const previousState = clone(state);
         const previousSession = normalizeSessionRecord(session);
@@ -21338,17 +21504,24 @@
 
         const name = String(formData.get("name") || "").trim();
         const email = normalizeEmail(formData.get("email"));
-        const password = String(formData.get("password") || "");
+        const password = String(formData.get("password") || "").trim();
         const regionalRole = normalizeRegionalOperationsRole(formData.get("regionalRole"));
         const regionalRegion = normalizeRegionalRegion(formData.get("regionalRegion"));
+        const existingUser = getUserByEmail(email);
 
-        if (!name || !email || !password || !regionalRole || !regionalRegion) {
-          setFlash("error", "Name, email, password, role, and region are all required.");
+        if (!name || !email || !regionalRole || !regionalRegion) {
+          setFlash("error", "Name, email, role, and region are all required.");
           renderApp();
           return;
         }
 
-        if (password.length < state.appSettings.auth.minimumPasswordLength) {
+        if (!existingUser && !password) {
+          setFlash("error", "A temporary password is required when creating a brand-new regional account.");
+          renderApp();
+          return;
+        }
+
+        if (password && password.length < state.appSettings.auth.minimumPasswordLength) {
           setFlash(
             "error",
             "Passwords must be at least " +
@@ -21359,34 +21532,84 @@
           return;
         }
 
-        if (state.users.some((user) => user.email === email)) {
-          setFlash("error", "An account with that email address already exists.");
-          renderApp();
-          return;
+        const previousState = clone(state);
+        const previousSession = normalizeSessionRecord(session);
+        let persisted = false;
+
+        try {
+          const passwordRecord = password ? await buildSecurePasswordRecord(password) : null;
+
+          if (existingUser) {
+            state.users = state.users.map((user) =>
+              user.email === email
+                ? normalizeUserRecord({
+                    ...user,
+                    name: name || user.name,
+                    ...(passwordRecord || {}),
+                    active: true,
+                    regionalRole,
+                    regionalRegion,
+                  })
+                : user,
+            );
+          } else {
+            state.users.push(
+              await buildUser(name, email, "member", password, {
+                createdSource: "manager_created",
+                createdBy: normalizeEmail(session.userEmail) || normalizeEmail(MANAGER_EMAIL),
+                regionalRole,
+                regionalRegion,
+              }),
+            );
+          }
+
+          await persistStateToCloudNow({
+            skipRender: true,
+          });
+          persisted = true;
+
+          const savedUser = getUserByEmail(email);
+          if (
+            !savedUser ||
+            normalizeRegionalOperationsRole(savedUser.regionalRole) !== regionalRole ||
+            normalizeRegionalRegion(savedUser.regionalRegion) !== regionalRegion
+          ) {
+            await refreshStateFromBackend({ skipRender: true });
+            throw new Error(
+              "The regional account did not finish syncing to the shared backend. Please refresh and try again.",
+            );
+          }
+
+          setFlash(
+            "success",
+            existingUser
+              ? toTitleLabel(regionalRole) +
+                  " access updated for " +
+                  email +
+                  " in " +
+                  regionalRegion +
+                  "."
+              : toTitleLabel(regionalRole) +
+                  " account created for " +
+                  email +
+                  " in " +
+                  regionalRegion +
+                  ".",
+          );
+        } catch (error) {
+          if (!persisted && error?.code !== "stale_revision") {
+            state = previousState;
+          }
+          session = previousSession;
+          setFlash(
+            error?.code === "stale_revision" ? "warning" : "error",
+            error?.message || "The regional account could not be saved to the shared system.",
+          );
         }
 
-        const regionalUser = await buildUser(name, email, "member", password, {
-          createdSource: "manager_created",
-          createdBy: normalizeEmail(session.userEmail) || normalizeEmail(MANAGER_EMAIL),
-          regionalRole,
-          regionalRegion,
-        });
-
-        await commitSharedWorkspaceMutation(
-          () => {
-            state.users.push(regionalUser);
-          },
-          {
-            success:
-              toTitleLabel(regionalRole) +
-              " account created for " +
-              email +
-              " in " +
-              regionalRegion +
-              ".",
-            error: "The regional account could not be saved to the shared system.",
-          },
-        );
+        saveState();
+        saveSession();
+        renderApp();
       }
 
       async function updateRegionalOperationsAccount(email, formData) {
@@ -21399,9 +21622,10 @@
         const targetEmail = normalizeEmail(email);
         const regionalRole = normalizeRegionalOperationsRole(formData.get("regionalRole"));
         const regionalRegion = normalizeRegionalRegion(formData.get("regionalRegion"));
+        const active = String(formData.get("active") || "active").trim().toLowerCase() !== "disabled";
 
-        if (!targetEmail || !regionalRole || !regionalRegion) {
-          setFlash("error", "Regional role and region are required.");
+        if (!targetEmail) {
+          setFlash("error", "Choose an account before updating regional access.");
           renderApp();
           return;
         }
@@ -21413,23 +21637,52 @@
           return;
         }
 
+        if (regionalRole && !regionalRegion) {
+          setFlash("error", "A region is required whenever regional access is enabled.");
+          renderApp();
+          return;
+        }
+
+        if (isProtectedSystemManagerEmail(targetEmail) && !active) {
+          setFlash("error", "The last active System Manager cannot be disabled.");
+          renderApp();
+          return;
+        }
+
         await commitSharedWorkspaceMutation(
           () => {
             state.users = state.users.map((user) =>
               user.email === targetEmail
                 ? normalizeUserRecord({
                     ...user,
+                    active,
                     regionalRole,
-                    regionalRegion,
+                    regionalRegion: regionalRole ? regionalRegion : "",
                   })
                 : user,
             );
           },
           {
-            success: "Regional account updated for " + targetEmail + ".",
+            success: regionalRole
+              ? "Regional account updated for " + targetEmail + "."
+              : "Regional portal access removed for " + targetEmail + ".",
             error: "The regional account changes could not be saved.",
           },
         );
+      }
+
+      async function resetRegionalOperationsAccountPassword(email, password) {
+        if (!canManageRegionalOperations()) {
+          setFlash("error", "Only managers and system administrators can change regional account passwords.");
+          renderApp();
+          return;
+        }
+
+        await persistManagedPasswordChange(email, password, {
+          success: "Regional account password updated for " + normalizeEmail(email) + ".",
+          error: "The regional account password could not be saved.",
+          missing: "The updated regional account could not be verified in the shared backend.",
+        });
       }
 
       async function saveRegionalBankingProfile(formData) {
@@ -21649,14 +21902,11 @@
           return;
         }
 
-        const result = await setUserPasswordInternal(targetEmail, password);
-        if (!result.ok) {
-          setFlash("error", result.message);
-          renderApp();
-          return;
-        }
-
-        persist("success", "Password reset for " + result.email + ".");
+        await persistManagedPasswordChange(targetEmail, password, {
+          success: "Password reset for " + normalizeEmail(targetEmail) + ".",
+          error: "The password reset could not be saved to the shared system.",
+          missing: "The updated account could not be verified in the shared backend.",
+        });
       }
 
       async function resolveRecoveryRequest(requestId, password) {
@@ -25388,6 +25638,11 @@
 
           if (form.dataset.form === "update-regional-ops-account") {
             await updateRegionalOperationsAccount(form.dataset.email, formData);
+            return;
+          }
+
+          if (form.dataset.form === "reset-regional-ops-password") {
+            await resetRegionalOperationsAccountPassword(form.dataset.email, formData.get("password"));
             return;
           }
 

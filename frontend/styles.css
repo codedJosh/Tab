@@ -3241,6 +3241,25 @@
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       }
 
+      .regional-dashboard-grid,
+      .regional-account-manager {
+        display: grid;
+        gap: 12px;
+      }
+
+      .regional-dashboard-grid > *,
+      .regional-account-manager > * {
+        min-width: 0;
+      }
+
+      .regional-account-manager .compact-inline-form {
+        align-items: end;
+      }
+
+      .regional-account-manager .compact-inline-form input {
+        flex: 1 1 220px;
+      }
+
       .fine-print {
         font-size: 0.9rem;
         color: var(--muted);
