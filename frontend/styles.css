@@ -3577,13 +3577,83 @@
         box-shadow: var(--surface-shadow);
       }
 
+      .participant-track-card {
+        gap: 8px;
+        padding: 12px 14px;
+        border-radius: 16px;
+      }
+
+      .participant-track-card-top,
+      .participant-track-card-title {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .participant-track-card-title strong {
+        font-size: 1.06rem;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+        text-wrap: balance;
+      }
+
+      .participant-track-card-stamp,
+      .participant-track-card-note,
+      .participant-track-card-stats {
+        margin: 0;
+      }
+
+      .participant-track-card-stamp {
+        font-size: 0.96rem;
+        line-height: 1.35;
+      }
+
+      .participant-track-card-chips {
+        gap: 8px;
+      }
+
+      .participant-track-card-chips .mini-pill,
+      .participant-track-card-chips .role-pill {
+        min-height: 36px;
+        padding: 7px 11px;
+        font-size: 0.84rem;
+      }
+
+      .participant-track-card-footer {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px 14px;
+        align-items: end;
+      }
+
+      .participant-track-card-summary {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .participant-track-card-note {
+        font-size: 0.92rem;
+        line-height: 1.38;
+      }
+
+      .participant-track-card-stats {
+        font-size: 0.96rem;
+        line-height: 1.32;
+      }
+
+      .participant-track-card-actions {
+        justify-self: end;
+        margin: 0;
+      }
+
       .participant-team-card {
         grid-template-columns: minmax(0, 1fr) auto;
         grid-template-areas:
           "top actions"
           "count actions"
           "chips actions"
-          "note actions";
+          "note note";
         gap: 8px 14px;
         align-items: start;
         padding: 12px 14px;
@@ -3637,7 +3707,7 @@
 
       .participant-team-card-actions {
         grid-area: actions;
-        align-self: center;
+        align-self: start;
         justify-self: end;
         margin: 0;
       }
@@ -6558,12 +6628,25 @@
             "top"
             "count"
             "chips"
-            "note"
-            "actions";
+            "actions"
+            "note";
         }
 
+        .participant-track-card-footer,
         .participant-team-card-actions {
+          grid-template-columns: 1fr;
           justify-self: stretch;
+        }
+
+        .participant-track-card-actions {
+          justify-self: stretch;
+        }
+
+        .participant-track-card-actions .secondary-button,
+        .participant-track-card-actions .primary-button,
+        .participant-team-card-actions .secondary-button,
+        .participant-team-card-actions .primary-button {
+          width: 100%;
         }
 
         .people-directory-pagination,

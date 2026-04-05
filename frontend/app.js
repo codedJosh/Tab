@@ -21021,19 +21021,18 @@
                   .map(
                     (entry) => `
                       <article class="participant-track-card">
-                        <div class="section-heading">
-                          <div>
+                        <div class="participant-track-card-top">
+                          <div class="participant-track-card-title">
                             <strong>${escapeHtml(entry.tournamentName)}</strong>
-                            <p class="muted">${escapeHtml(
+                            <p class="muted participant-track-card-stamp">${escapeHtml(
                               entry.tournamentFormat + " • " + entry.tournamentStamp,
                             )}</p>
                           </div>
-                          ${renderTournamentNavigationButton(entry.tournament, "Open", true)}
                         </div>
                         <div class="participant-progress-bar" aria-hidden="true">
                           <span style="width: ${escapeHtml(entry.progressShare)}%"></span>
                         </div>
-                        <div class="workspace-chip-row">
+                        <div class="workspace-chip-row participant-track-card-chips">
                           <span class="role-pill">${escapeHtml(entry.teamName || "Independent")}</span>
                           <span class="mini-pill ${entry.speakerStanding ? "success" : "warning"}">${escapeHtml(
                             entry.speakerStanding
@@ -21046,20 +21045,24 @@
                               : "Team result pending",
                           )}</span>
                         </div>
-                        <p class="fine-print">${escapeHtml(
-                          entry.standing
-                            ? getStandingSummaryText(entry.tournament, entry.standing)
-                            : getParticipantSummaryText(entry.tournament, entry.participant),
-                        )}</p>
-                        <p class="muted">${escapeHtml(
-                          formatScoreValue(entry.speakerScore) +
-                            " speaker points • " +
-                            entry.feedbackEntries.length +
-                            " feedback item" +
-                            (entry.feedbackEntries.length === 1 ? "" : "s"),
-                        )}</p>
-                        <div class="button-row wrap-row">
-                          ${renderTournamentNavigationButton(entry.tournament, "Open Tournament", true)}
+                        <div class="participant-track-card-footer">
+                          <div class="participant-track-card-summary">
+                            <p class="fine-print participant-track-card-note">${escapeHtml(
+                              entry.standing
+                                ? getStandingSummaryText(entry.tournament, entry.standing)
+                                : getParticipantSummaryText(entry.tournament, entry.participant),
+                            )}</p>
+                            <p class="muted participant-track-card-stats">${escapeHtml(
+                              formatScoreValue(entry.speakerScore) +
+                                " speaker points • " +
+                                entry.feedbackEntries.length +
+                                " feedback item" +
+                                (entry.feedbackEntries.length === 1 ? "" : "s"),
+                            )}</p>
+                          </div>
+                          <div class="button-row wrap-row participant-track-card-actions">
+                            ${renderTournamentNavigationButton(entry.tournament, "Open Tournament", true)}
+                          </div>
                         </div>
                       </article>
                     `,
