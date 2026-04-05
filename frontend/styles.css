@@ -2315,12 +2315,9 @@
 
       .registration-speaker-card-email {
         margin: 0;
-        color: var(--ink);
+        color: rgba(26, 59, 47, 0.78);
+        font-weight: 600;
         overflow-wrap: anywhere;
-      }
-
-      .registration-speaker-card-email strong {
-        font-weight: 800;
       }
 
       .roster-speaker-layout .registration-speaker-card .workspace-chip-row,

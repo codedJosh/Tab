@@ -12464,9 +12464,9 @@
                               )}</span>`
                         }
                       </div>
-                      <p class="fine-print registration-speaker-card-email"><strong>${escapeHtml(
+                      <p class="fine-print registration-speaker-card-email">${escapeHtml(
                         participant.email,
-                      )}</strong></p>
+                      )}</p>
                       <p class="fine-print registration-speaker-card-summary">${escapeHtml(
                         compact ? compactSummaryText : summaryText + (participant.institution ? " • " + participant.institution : ""),
                       )}</p>
