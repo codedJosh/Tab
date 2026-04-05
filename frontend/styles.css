@@ -4779,6 +4779,37 @@
         align-content: start;
       }
 
+      .people-dashboard-launch-card {
+        width: 100%;
+        text-align: left;
+        justify-items: start;
+        align-content: start;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top right, rgba(225, 191, 67, 0.09), transparent 30%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 249, 245, 0.92));
+        border: 1px solid var(--line);
+        box-shadow: var(--surface-shadow);
+      }
+
+      .people-dashboard-launch-card,
+      .people-dashboard-launch-card * {
+        color: inherit;
+      }
+
+      .people-dashboard-launch-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(18, 63, 47, 0.18);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.6),
+          0 14px 24px rgba(15, 55, 39, 0.08);
+      }
+
+      .people-dashboard-focus-panel {
+        display: grid;
+        gap: 14px;
+      }
+
       .people-dashboard-section-list {
         display: grid;
         gap: 12px;

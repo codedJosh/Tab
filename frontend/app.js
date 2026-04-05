@@ -689,6 +689,7 @@
           cloudSessionToken: "",
           view: "overview",
           peopleSection: "hub",
+          peopleAppointeeTournamentId: "",
           managedTournamentId: "",
           selectedTournamentId: "",
           selectedTournamentBoardTab: "overview",
@@ -869,6 +870,7 @@
           cloudSessionToken: String(record.cloudSessionToken || "").trim(),
           view: String(record.view || "overview").trim() || "overview",
           peopleSection: "hub",
+          peopleAppointeeTournamentId: String(record.peopleAppointeeTournamentId || "").trim(),
           managedTournamentId: String(record.managedTournamentId || "").trim(),
           selectedTournamentId: String(record.selectedTournamentId || "").trim(),
           selectedTournamentBoardTab:
@@ -17167,14 +17169,29 @@
       }
 
       function renderTournamentAppointeeDashboardSection(appointees, appointeeStats) {
+        const selectedTournamentId = String(session.peopleAppointeeTournamentId || "").trim();
+        const selectedAppointeeDashboard =
+          appointees.find(({ tournament }) => tournament.id === selectedTournamentId) || null;
+
         return `
           <section class="surface spotlight-shell">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Tournament Appointees</p>
-                <h2>Dashboard for all tournament appointees</h2>
+                <h2>${
+                  selectedAppointeeDashboard
+                    ? escapeHtml(selectedAppointeeDashboard.tournament.name)
+                    : "Tournament appointment dashboard"
+                }</h2>
               </div>
-              <span class="role-pill">${escapeHtml(appointees.length)} tournaments</span>
+              <div class="button-row wrap-row">
+                <span class="role-pill">${escapeHtml(appointees.length)} tournaments</span>
+                ${
+                  selectedAppointeeDashboard
+                    ? `<button class="secondary-button" type="button" data-action="clear-people-appointee-focus">Back To Tournament Boxes</button>`
+                    : ""
+                }
+              </div>
             </div>
             <div class="spotlight-grid">
               ${renderPeopleDashboardMetricCard(
@@ -17210,91 +17227,110 @@
             </div>
             ${
               appointees.length
-                ? `<div class="spotlight-grid">
-                    ${appointees
-                      .map(
-                        ({ tournament, sections, total }) => `
-                          <article class="spotlight-card people-dashboard-card">
-                            <div class="section-heading">
-                              <div>
-                                <p class="eyebrow">${escapeHtml(tournament.code)}</p>
-                                <h3>${escapeHtml(tournament.name)}</h3>
-                                <p class="muted">${escapeHtml(getFormatLabel(tournament))}</p>
+                ? selectedAppointeeDashboard
+                  ? `
+                      <section class="surface subsurface people-dashboard-focus-panel">
+                        <div class="section-heading">
+                          <div>
+                            <p class="eyebrow">${escapeHtml(selectedAppointeeDashboard.tournament.code)}</p>
+                            <h3>${escapeHtml(selectedAppointeeDashboard.tournament.name)}</h3>
+                            <p class="muted">${escapeHtml(getFormatLabel(selectedAppointeeDashboard.tournament))}</p>
+                          </div>
+                          <div class="workspace-chip-row">
+                            <span class="role-pill">${escapeHtml(selectedAppointeeDashboard.total)} appointees</span>
+                            <button class="secondary-button" type="button" data-action="focus-tournament" data-id="${escapeHtml(
+                              selectedAppointeeDashboard.tournament.id,
+                            )}">Open Tournament</button>
+                          </div>
+                        </div>
+                        <div class="people-dashboard-section-list">
+                          ${selectedAppointeeDashboard.sections
+                            .map(
+                              (section) => `
+                                <div class="people-dashboard-section-block">
+                                  <div class="section-heading">
+                                    <strong>${escapeHtml(section.label)}</strong>
+                                    <span class="mini-pill ${section.entries.every((entry) => entry.registered) ? "success" : "warning"}">${escapeHtml(
+                                      section.entries.length,
+                                    )}</span>
+                                  </div>
+                                  <div class="spotlight-watchlist">
+                                    ${section.entries
+                                      .map(
+                                        (entry) => `
+                                          <div class="spotlight-note people-dashboard-note">
+                                            <div class="people-dashboard-note-copy">
+                                              <strong>${escapeHtml(entry.name || entry.email)}</strong>
+                                              <span class="muted">${escapeHtml(entry.email)}</span>
+                                            </div>
+                                            <div class="people-dashboard-note-meta">
+                                              <span class="mini-pill ${entry.registered ? (entry.active ? "success" : "warning") : "warning"}">${escapeHtml(
+                                                entry.registered
+                                                  ? entry.active
+                                                    ? "Registered"
+                                                    : "Disabled"
+                                                  : "Pending",
+                                              )}</span>
+                                              ${
+                                                canAccessGlobalSettings()
+                                                  ? `
+                                                      ${
+                                                        normalizeEmail(entry.email) ===
+                                                        normalizeEmail(MANAGER_EMAIL)
+                                                          ? `<span class="mini-pill success">Protected</span>`
+                                                          : `
+                                                              <form class="compact-inline-form people-dashboard-inline-form" data-form="update-tournament-appointee" data-id="${escapeHtml(
+                                                                selectedAppointeeDashboard.tournament.id,
+                                                              )}" data-email="${escapeHtml(entry.email)}">
+                                                                <select name="roleKey">${getAssignmentRoleOptions(
+                                                                  entry.roleKey,
+                                                                )}</select>
+                                                                <button class="secondary-button" type="submit">Save</button>
+                                                                <button class="ghost-button" type="button" data-action="remove-tournament-appointee" data-id="${escapeHtml(
+                                                                  selectedAppointeeDashboard.tournament.id,
+                                                                )}" data-email="${escapeHtml(
+                                                                  entry.email,
+                                                                )}">Remove</button>
+                                                              </form>
+                                                            `
+                                                      }
+                                                    `
+                                                  : ""
+                                              }
+                                            </div>
+                                          </div>
+                                        `,
+                                      )
+                                      .join("")}
+                                  </div>
+                                </div>
+                              `,
+                            )
+                            .join("")}
+                        </div>
+                      </section>
+                    `
+                  : `<div class="spotlight-grid">
+                      ${appointees
+                        .map(
+                          ({ tournament, sections, total }) => `
+                            <button class="spotlight-card people-dashboard-card people-dashboard-launch-card" type="button" data-action="open-people-appointee-tournament" data-id="${escapeHtml(
+                              tournament.id,
+                            )}">
+                              <p class="eyebrow">${escapeHtml(tournament.code)}</p>
+                              <h3>${escapeHtml(tournament.name)}</h3>
+                              <p class="muted">${escapeHtml(getFormatLabel(tournament))}</p>
+                              <div class="workspace-chip-row">
+                                <span class="role-pill">${escapeHtml(total)} appointees</span>
+                                <span class="mini-pill success">${escapeHtml(
+                                  sections.length + " groups",
+                                )}</span>
                               </div>
-                              <span class="role-pill">${escapeHtml(total)} appointees</span>
-                            </div>
-                            <div class="people-dashboard-section-list">
-                              ${sections
-                                .map(
-                                  (section) => `
-                                    <div class="people-dashboard-section-block">
-                                      <div class="section-heading">
-                                        <strong>${escapeHtml(section.label)}</strong>
-                                        <span class="mini-pill ${section.entries.every((entry) => entry.registered) ? "success" : "warning"}">${escapeHtml(
-                                          section.entries.length,
-                                        )}</span>
-                                      </div>
-                                      <div class="spotlight-watchlist">
-                                        ${section.entries
-                                          .map(
-                                            (entry) => `
-                                              <div class="spotlight-note people-dashboard-note">
-                                                <div class="people-dashboard-note-copy">
-                                                  <strong>${escapeHtml(
-                                                    entry.name || entry.email,
-                                                  )}</strong>
-                                                  <span class="muted">${escapeHtml(entry.email)}</span>
-                                                </div>
-                                                <div class="people-dashboard-note-meta">
-                                                  <span class="mini-pill ${entry.registered ? (entry.active ? "success" : "warning") : "warning"}">${escapeHtml(
-                                                    entry.registered
-                                                      ? entry.active
-                                                        ? "Registered"
-                                                        : "Disabled"
-                                                      : "Pending",
-                                                  )}</span>
-                                                  ${
-                                                    canAccessGlobalSettings()
-                                                      ? `
-                                                          ${
-                                                            normalizeEmail(entry.email) ===
-                                                            normalizeEmail(MANAGER_EMAIL)
-                                                              ? `<span class="mini-pill success">Protected</span>`
-                                                              : `
-                                                                  <form class="compact-inline-form people-dashboard-inline-form" data-form="update-tournament-appointee" data-id="${escapeHtml(
-                                                                    tournament.id,
-                                                                  )}" data-email="${escapeHtml(entry.email)}">
-                                                                    <select name="roleKey">${getAssignmentRoleOptions(
-                                                                      entry.roleKey,
-                                                                    )}</select>
-                                                                    <button class="secondary-button" type="submit">Save</button>
-                                                                    <button class="ghost-button" type="button" data-action="remove-tournament-appointee" data-id="${escapeHtml(
-                                                                      tournament.id,
-                                                                    )}" data-email="${escapeHtml(
-                                                                      entry.email,
-                                                                    )}">Remove</button>
-                                                                  </form>
-                                                                `
-                                                          }
-                                                        `
-                                                      : ""
-                                                  }
-                                                </div>
-                                              </div>
-                                            `,
-                                          )
-                                          .join("")}
-                                      </div>
-                                    </div>
-                                  `,
-                                )
-                                .join("")}
-                            </div>
-                          </article>
-                        `,
-                      )
-                      .join("")}
-                  </div>`
+                            </button>
+                          `,
+                        )
+                        .join("")}
+                    </div>`
                 : `<div class="alert success">No tournament appointments have been created yet.</div>`
             }
           </section>
@@ -25065,6 +25101,31 @@
           if (action === "open-people-section") {
             session.view = "people";
             session.peopleSection = normalizePeopleSection(button.dataset.section || "hub");
+            if (session.peopleSection !== "appointees") {
+              session.peopleAppointeeTournamentId = "";
+            }
+            recordRecentView(session.view);
+            clearFlash();
+            saveSession();
+            renderApp();
+            return;
+          }
+
+          if (action === "open-people-appointee-tournament") {
+            session.view = "people";
+            session.peopleSection = "appointees";
+            session.peopleAppointeeTournamentId = String(button.dataset.id || "").trim();
+            recordRecentView(session.view);
+            clearFlash();
+            saveSession();
+            renderApp();
+            return;
+          }
+
+          if (action === "clear-people-appointee-focus") {
+            session.view = "people";
+            session.peopleSection = "appointees";
+            session.peopleAppointeeTournamentId = "";
             recordRecentView(session.view);
             clearFlash();
             saveSession();
@@ -25076,6 +25137,7 @@
             session.view = button.dataset.view || "overview";
             if (session.view === "people") {
               session.peopleSection = "hub";
+              session.peopleAppointeeTournamentId = "";
             }
             if (session.view === "tournaments") {
               session.managedTournamentId = "";
