@@ -3890,9 +3890,6 @@
         if (options.includeParticipantModel && tournament?.participantModel) {
           parts.push(toTitleLabel(tournament.participantModel));
         }
-        if (usesFlexibleTournamentSetup(tournament) && options.includeFlexibleLabel !== false) {
-          parts.push("Flexible setup");
-        }
         return parts.filter(Boolean).join(" • ");
       }
 
@@ -3905,9 +3902,7 @@
       }
 
       function getTournamentSetupBadgeLabel(tournament) {
-        return usesFlexibleTournamentSetup(tournament)
-          ? "Flexible format"
-          : getFormatLabel(tournament) || "Setup";
+        return getTournamentFlexibleSummary(tournament, 1) || getFormatLabel(tournament) || "Setup";
       }
 
       function getRoundStructureSummary(tournament) {
@@ -4153,19 +4148,19 @@
                           Teams / Room
                           <input type="number" min="1" max="8" name="roundTeamsPerRoom-${escapeHtml(
                             profile.round,
-                          )}" value="${escapeHtml(profile.teamsPerRoom)}" placeholder="Flexible" />
+                          )}" value="${escapeHtml(profile.teamsPerRoom)}" placeholder="Default" />
                         </label>
                         <label>
                           People / Team
                           <input type="number" min="1" max="8" name="roundTeamSize-${escapeHtml(
                             profile.round,
-                          )}" value="${escapeHtml(profile.teamSize)}" placeholder="Flexible" />
+                          )}" value="${escapeHtml(profile.teamSize)}" placeholder="Default" />
                         </label>
                         <label>
                           Speakers / Side
                           <input type="number" min="1" max="8" name="roundSpeakersPerSide-${escapeHtml(
                             profile.round,
-                          )}" value="${escapeHtml(profile.speakersPerSide)}" placeholder="Flexible" />
+                          )}" value="${escapeHtml(profile.speakersPerSide)}" placeholder="Default" />
                         </label>
                         <label class="round-planner-card-notes">
                           Notes
@@ -11078,7 +11073,6 @@
               <div>
                 <p class="eyebrow">${escapeHtml(eyebrow)}</p>
                 <h2>${escapeHtml(title)}</h2>
-                <p class="muted">${escapeHtml(intro)}</p>
               </div>
               ${badgeLabel ? `<span class="role-pill">${escapeHtml(badgeLabel)}</span>` : ""}
             </div>
@@ -11100,15 +11094,9 @@
                                       item.label,
                                     )}</span>`
                                   : ""
-                              }
-                            </div>
-                            <h3>${escapeHtml(item.title || "Next action")}</h3>
-                            <p class="muted">${escapeHtml(item.body || "")}</p>
-                            ${
-                              item.support
-                                ? `<p class="fine-print">${escapeHtml(item.support)}</p>`
-                                : ""
                             }
+                          </div>
+                          <h3>${escapeHtml(item.title || "Next action")}</h3>
                             ${
                               item.actionMarkup
                                 ? `<div class="button-row wrap-row">${item.actionMarkup}</div>`
@@ -11140,15 +11128,13 @@
                 return `
                   <article class="overview-launch-card ${escapeHtml(item.tone ? "is-" + tone : "")}">
                     <div class="overview-launch-card-top">
-                      <p class="eyebrow">${escapeHtml(item.eyebrow || "Launch")}</p>
+                      <h3>${escapeHtml(item.title || "Open")}</h3>
                       ${
                         item.badge
                           ? `<span class="mini-pill ${escapeHtml(tone)}">${escapeHtml(item.badge)}</span>`
                           : ""
                       }
                     </div>
-                    <h3>${escapeHtml(item.title || "Open")}</h3>
-                    <p class="muted">${escapeHtml(item.body || "")}</p>
                     ${
                       item.actionMarkup
                         ? `<div class="button-row wrap-row">${item.actionMarkup}</div>`
@@ -13791,7 +13777,6 @@
                   <div class="kpi-line">
                     <span>${escapeHtml(
                       getTournamentFormatContextLabel(tournament, {
-                        includeFlexibleLabel: true,
                       }),
                     )}</span>
                     <span>${escapeHtml(tournament.code)}</span>
@@ -14147,81 +14132,141 @@
                   : teamLabel;
                 const compactSummaryText =
                   teamLabel + (participant.institution ? " • " + participant.institution : "");
+                const compactFeedbackLabel =
+                  feedbackEntries.length +
+                  (feedbackEntries.length === 1 ? " note" : " notes");
                 return `
-                  <div class="directory-card registration-speaker-card ${compact ? "compact" : ""}">
-                    <div class="registration-speaker-card-primary">
-                      <div class="section-heading">
-                        <strong>${escapeHtml(participant.name)}</strong>
-                        ${
-                          compact
-                            ? ""
-                            : `<span class="mini-pill success">${escapeHtml(
+                  <div class="directory-card registration-speaker-card ${compact ? "compact compact-list-card" : ""}">
+                    ${
+                      compact
+                        ? `
+                          <details class="registration-speaker-card-disclosure">
+                            <summary class="registration-speaker-card-compact-summary">
+                              <div class="registration-speaker-card-primary">
+                                <div class="section-heading">
+                                  <strong>${escapeHtml(participant.name)}</strong>
+                                </div>
+                                <p class="fine-print registration-speaker-card-email">${escapeHtml(
+                                  participant.email,
+                                )}</p>
+                                <p class="fine-print registration-speaker-card-summary">${escapeHtml(
+                                  compactSummaryText,
+                                )}</p>
+                              </div>
+                              <div class="registration-speaker-card-side">
+                                <div class="workspace-chip-row">
+                                  <span class="role-pill">${escapeHtml(teamLabel)}</span>
+                                  <span class="mini-pill ${latestFeedback ? "warning" : "success"}">${escapeHtml(
+                                    compactFeedbackLabel,
+                                  )}</span>
+                                </div>
+                              </div>
+                            </summary>
+                            <div class="registration-speaker-card-compact-body">
+                              ${
+                                latestFeedback
+                                  ? `<p class="fine-print registration-speaker-card-feedback-note">${escapeHtml(
+                                      latestFeedback.note ||
+                                        "Latest feedback is ready in the participant history.",
+                                    )}</p>`
+                                  : ""
+                              }
+                              <div class="button-row registration-speaker-card-actions">
+                                ${renderParticipantProfileButton(participant, "History")}
+                                ${renderTournamentNavigationButton(tournament, "Tournament", true)}
+                                ${
+                                  canManage
+                                    ? `
+                                        <a class="secondary-button inline-link roster-private-link" href="${escapeHtml(
+                                          getPrivateLink(participant.token),
+                                        )}" target="_blank" rel="noreferrer">Private URL</a>
+                                        <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
+                                          tournament.id,
+                                        )}" data-participant-id="${escapeHtml(participant.id)}">Rotate</button>
+                                        <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
+                                          tournament.id,
+                                        )}" data-participant-id="${escapeHtml(participant.id)}">Remove</button>
+                                      `
+                                    : ""
+                                }
+                              </div>
+                              ${
+                                canSanction
+                                  ? `<details class="registration-speaker-card-footnote compact-card-disclosure">
+                                      <summary>Sanctions</summary>
+                                      <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
+                                        tournament.id,
+                                      )}" data-participant-id="${escapeHtml(participant.id)}">
+                                        <div class="field-grid two">
+                                          <label>
+                                            Sanction
+                                            <select name="level">
+                                              <option value="Notice">Notice</option>
+                                              <option value="Warning">Warning</option>
+                                              <option value="Penalty">Penalty</option>
+                                              <option value="Removal">Removal</option>
+                                            </select>
+                                          </label>
+                                          <label>
+                                            Note
+                                            <input type="text" name="note" placeholder="Brief reason" required />
+                                          </label>
+                                        </div>
+                                        <button class="secondary-button" type="submit">Save</button>
+                                      </form>
+                                    </details>`
+                                  : ""
+                              }
+                            </div>
+                          </details>
+                        `
+                        : `
+                          <div class="registration-speaker-card-primary">
+                            <div class="section-heading">
+                              <strong>${escapeHtml(participant.name)}</strong>
+                              <span class="mini-pill success">${escapeHtml(
                                 canSeeScores
                                   ? formatScoreValue(computedSpeakerScore) + " speaker pts"
                                   : "Private",
-                              )}</span>`
-                        }
-                      </div>
-                      <p class="fine-print registration-speaker-card-email">${escapeHtml(
-                        participant.email,
-                      )}</p>
-                      <p class="fine-print registration-speaker-card-summary">${escapeHtml(
-                        compact ? compactSummaryText : summaryText + (participant.institution ? " • " + participant.institution : ""),
-                      )}</p>
-                      ${
-                        compact && latestFeedback
-                          ? `<p class="fine-print registration-speaker-card-feedback-note">${escapeHtml(
-                              "Latest feedback • " + getFeedbackTotalScore(latestFeedback),
-                            )}</p>`
-                          : ""
-                      }
-                      ${
-                        canSeeScores && speakerStanding && !compact
-                          ? `<p class="fine-print">Speaker rank #${escapeHtml(
-                              speakerStanding.speakerRank,
-                            )}</p>`
-                          : ""
-                      }
-                    </div>
-                    <div class="registration-speaker-card-side">
-                      <div class="workspace-chip-row">
-                        <span class="role-pill">${escapeHtml(teamLabel)}</span>
-                        <span class="mini-pill ${latestFeedback ? "warning" : "success"}">${escapeHtml(
-                          feedbackEntries.length +
-                            (feedbackEntries.length === 1
-                              ? " feedback entry"
-                              : " feedback entries"),
-                        )}</span>
-                      </div>
-                    </div>
-                    <div class="registration-speaker-card-admin">
-                      <div class="button-row registration-speaker-card-actions">
-                        ${renderParticipantProfileButton(
-                          participant,
-                          compact ? "History" : "Open History",
-                        )}
-                        ${renderTournamentNavigationButton(
-                          tournament,
-                          compact ? "Tournament" : "Open Tournament",
-                          true,
-                        )}
-                        ${
-                          canManage && compact
-                            ? `
-                                <a class="secondary-button inline-link roster-private-link" href="${escapeHtml(
-                                  getPrivateLink(participant.token),
-                                )}" target="_blank" rel="noreferrer">Private URL</a>
-                                <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
-                                  tournament.id,
-                                )}" data-participant-id="${escapeHtml(participant.id)}">Rotate</button>
-                                <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
-                                  tournament.id,
-                                )}" data-participant-id="${escapeHtml(participant.id)}">Remove</button>
-                              `
-                            : ""
-                        }
-                      </div>
-                    </div>
+                              )}</span>
+                            </div>
+                            <p class="fine-print registration-speaker-card-email">${escapeHtml(
+                              participant.email,
+                            )}</p>
+                            <p class="fine-print registration-speaker-card-summary">${escapeHtml(
+                              summaryText + (participant.institution ? " • " + participant.institution : ""),
+                            )}</p>
+                            ${
+                              canSeeScores && speakerStanding
+                                ? `<p class="fine-print">Speaker rank #${escapeHtml(
+                                    speakerStanding.speakerRank,
+                                  )}</p>`
+                                : ""
+                            }
+                          </div>
+                          <div class="registration-speaker-card-side">
+                            <div class="workspace-chip-row">
+                              <span class="role-pill">${escapeHtml(teamLabel)}</span>
+                              <span class="mini-pill ${latestFeedback ? "warning" : "success"}">${escapeHtml(
+                                feedbackEntries.length +
+                                  (feedbackEntries.length === 1
+                                    ? " feedback entry"
+                                    : " feedback entries"),
+                              )}</span>
+                            </div>
+                          </div>
+                          <div class="registration-speaker-card-admin">
+                            <div class="button-row registration-speaker-card-actions">
+                              ${renderParticipantProfileButton(participant, "Open History")}
+                              ${renderTournamentNavigationButton(
+                                tournament,
+                                "Open Tournament",
+                                true,
+                              )}
+                            </div>
+                          </div>
+                        `
+                    }
                     ${
                       canManage
                         ? `
@@ -14287,29 +14332,7 @@
                         ? `
                           ${
                             compact
-                              ? `<details class="registration-speaker-card-footnote compact-card-disclosure">
-                                  <summary>Sanction controls</summary>
-                                  <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
-                                    tournament.id,
-                                  )}" data-participant-id="${escapeHtml(participant.id)}">
-                                    <div class="field-grid two">
-                                      <label>
-                                        Sanction
-                                        <select name="level">
-                                          <option value="Notice">Notice</option>
-                                          <option value="Warning">Warning</option>
-                                          <option value="Penalty">Penalty</option>
-                                          <option value="Removal">Removal</option>
-                                        </select>
-                                      </label>
-                                      <label>
-                                        Note
-                                        <input type="text" name="note" placeholder="Brief reason" required />
-                                      </label>
-                                    </div>
-                                    <button class="secondary-button" type="submit">Record Sanction</button>
-                                  </form>
-                                </details>`
+                              ? ""
                               : `<form class="stack compact-stack registration-speaker-card-footnote" data-form="add-sanction" data-id="${escapeHtml(
                                   tournament.id,
                                 )}" data-participant-id="${escapeHtml(participant.id)}">
@@ -15976,7 +15999,7 @@
                   canManage
                     ? renderAdminDrawer(
                         "Tournament setup",
-                        "Flexible format",
+                        getTournamentSetupBadgeLabel(tournament),
                         renderTournamentSettingsPanel(
                           tournament,
                           feedbackCategories,
@@ -15996,7 +16019,7 @@
                           ${
                             usesFlexibleTournamentSetup(tournament)
                               ? `<li>${escapeHtml(
-                                  getTournamentFlexibleSummary(tournament, 3) || "Flexible setup enabled",
+                                  getTournamentFlexibleSummary(tournament, 3),
                                 )}</li>`
                               : ""
                           }
@@ -16597,7 +16620,7 @@
                 ${
                   usesFlexibleTournamentSetup(tournament)
                     ? `<span class="mini-pill warning">${escapeHtml(
-                        getTournamentFlexibleSummary(tournament, 1) || "Flexible setup",
+                        getTournamentFlexibleSummary(tournament, 1),
                       )}</span>`
                     : ""
                 }
@@ -18234,7 +18257,7 @@
                 <p class="eyebrow">Create Tournament</p>
                 <h2>Launch a new event</h2>
               </div>
-              <span class="role-pill">Flexible setup</span>
+              <span class="role-pill">${escapeHtml(getFormatLabel({ format: defaults.format }))}</span>
             </div>
             <form class="stack" data-form="create-tournament">
               <div class="field-grid three">
@@ -19486,9 +19509,7 @@
           <button class="people-hub-card ${active ? "is-active" : ""}" type="button" data-action="open-people-section" data-section="${escapeHtml(
             sectionKey,
           )}">
-            <p class="eyebrow">People</p>
             <h3>${escapeHtml(title)}</h3>
-            <p class="muted">${escapeHtml(description)}</p>
             <span class="mini-pill success">${escapeHtml(badge)}</span>
           </button>
         `;
@@ -19650,34 +19671,40 @@
                     : toTitleLabel(user.globalRole);
                   return `
                     <article class="surface people-directory-card">
-                      <div class="people-directory-summary">
-                        <div class="people-directory-topline">
-                          <p class="eyebrow">Account</p>
-                          <div class="people-directory-summary-badges">
-                            <span class="mini-pill success">${escapeHtml(getCompactUserCreationLabel(user))}</span>
-                            <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
-                              user.active ? "Active" : "Disabled",
-                            )}</span>
+                      <details class="compact-list-card people-directory-disclosure">
+                        <summary class="people-directory-summary">
+                          <div class="people-directory-topline">
+                            <h3>${escapeHtml(user.name)}</h3>
+                            <div class="people-directory-summary-badges">
+                              <span class="mini-pill success">${escapeHtml(getCompactUserCreationLabel(user))}</span>
+                              <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
+                                user.active ? "Active" : "Disabled",
+                              )}</span>
+                            </div>
+                          </div>
+                          <div class="people-directory-copy">
+                            <p class="people-directory-role">${escapeHtml(visibleRoleLabel)}</p>
+                            <div class="people-directory-summary-footer">
+                              <span class="mini-pill success">${escapeHtml(eventCountLabel)}</span>
+                              ${
+                                user.regionalRegion
+                                  ? `<span class="mini-pill warning">${escapeHtml(
+                                      user.regionalRegion,
+                                    )}</span>`
+                                  : ""
+                              }
+                            </div>
+                          </div>
+                        </summary>
+                        <div class="people-directory-body">
+                          <p class="people-directory-email">${escapeHtml(user.email)}</p>
+                          <div class="button-row wrap-row">
+                            <button class="secondary-button people-directory-configure" type="button" data-action="open-people-account" data-email="${escapeHtml(
+                              user.email,
+                            )}">Open profile</button>
                           </div>
                         </div>
-                        <div class="people-directory-copy">
-                          <h3>${escapeHtml(user.name)}</h3>
-                          <p class="people-directory-email">${escapeHtml(visibleRoleLabel)}</p>
-                        </div>
-                        <div class="people-directory-summary-footer">
-                          <span class="mini-pill success">${escapeHtml(eventCountLabel)}</span>
-                          ${
-                            user.regionalRegion
-                              ? `<span class="mini-pill warning">${escapeHtml(
-                                   user.regionalRegion,
-                                 )}</span>`
-                              : ""
-                          }
-                        </div>
-                        <button class="secondary-button people-directory-configure" type="button" data-action="open-people-account" data-email="${escapeHtml(
-                          user.email,
-                        )}">${user.active ? "Open" : "Review"}</button>
-                      </div>
+                      </details>
                     </article>
                   `;
                 })
@@ -21066,41 +21093,12 @@
         }
 
         return `
-          <div class="directory-grid">
+          <div class="directory-grid profile-directory-grid">
             ${profiles
               .map(
                 (profile) => `
-                  <article class="directory-card search-result-card">
-                    <div class="section-heading">
-                      <div>
-                        <strong>${escapeHtml(profile.name)}</strong>
-                        <p class="muted">${escapeHtml(
-                          "Profile history across " +
-                            profile.tournamentsCount +
-                            " tournament" +
-                            (profile.tournamentsCount === 1 ? "" : "s") +
-                            ".",
-                        )}</p>
-                      </div>
-                      <span class="mini-pill success">${escapeHtml(
-                        profile.tournamentsCount + " event" + (profile.tournamentsCount === 1 ? "" : "s"),
-                      )}</span>
-                    </div>
-                    <div class="workspace-chip-row">
-                      <span class="mini-pill ${profile.bestSpeakerRank ? "success" : "warning"}">${escapeHtml(
-                        profile.bestSpeakerRank
-                          ? "Best speaker rank #" + profile.bestSpeakerRank
-                          : "Speaker history building",
-                      )}</span>
-                      <span class="mini-pill success">${escapeHtml(
-                        "Average " + formatScoreValue(profile.averageSpeakerScore || 0),
-                      )}</span>
-                    </div>
-                    <p class="fine-print">${escapeHtml(
-                      profile.history?.length
-                        ? "Open this profile to view full tournament history and performance details."
-                        : "This profile has been created, but tournament history is still building.",
-                    )}</p>
+                  <article class="directory-card search-result-card search-result-card-compact">
+                    <strong class="search-result-card-name">${escapeHtml(profile.name)}</strong>
                     <div class="button-row wrap-row">
                       ${renderParticipantProfileButton(profile.latest?.participant || profile, "Open Profile")}
                     </div>
@@ -21140,7 +21138,6 @@
               <div class="participant-profile-heading">
                 <p class="eyebrow">Profile</p>
                 <h2>${escapeHtml(profile.name)}</h2>
-                <p class="muted">Tournament-by-tournament performance history for this account.</p>
               </div>
               <div class="button-row wrap-row participant-profile-actions">
                 ${
@@ -21212,9 +21209,9 @@
                               entry.tournamentFormat + " • " + entry.tournamentStamp,
                             )}</p>
                           </div>
-                        </div>
-                        <div class="participant-progress-bar" aria-hidden="true">
-                          <span style="width: ${escapeHtml(entry.progressShare)}%"></span>
+                          <div class="button-row wrap-row participant-track-card-actions">
+                            ${renderTournamentNavigationButton(entry.tournament, "Open", true)}
+                          </div>
                         </div>
                         <div class="workspace-chip-row participant-track-card-chips">
                           <span class="role-pill">${escapeHtml(entry.teamName || "Independent")}</span>
@@ -21244,9 +21241,6 @@
                                 (entry.feedbackEntries.length === 1 ? "" : "s"),
                             )}</p>
                           </div>
-                          <div class="button-row wrap-row participant-track-card-actions">
-                            ${renderTournamentNavigationButton(entry.tournament, "Open Tournament", true)}
-                          </div>
                         </div>
                       </article>
                     `,
@@ -21268,16 +21262,29 @@
                     (teamRecord, index) => `
                       <div class="participant-team-card">
                         <div class="participant-team-card-top">
-                          <strong class="participant-team-card-name">${escapeHtml(teamRecord.teamName)}</strong>
-                          <span class="mini-pill ${index === 0 ? "success" : "warning"}">${escapeHtml(
-                            index === 0 ? "Current team" : "Previous team",
-                          )}</span>
+                          <div class="participant-team-card-heading">
+                            <strong class="participant-team-card-name">${escapeHtml(teamRecord.teamName)}</strong>
+                            <p class="muted participant-team-card-count">${escapeHtml(
+                              teamRecord.tournaments.length +
+                                " tournament" +
+                                (teamRecord.tournaments.length === 1 ? "" : "s"),
+                            )}</p>
+                          </div>
+                          <div class="button-row wrap-row participant-team-card-actions">
+                            <span class="mini-pill ${index === 0 ? "success" : "warning"}">${escapeHtml(
+                              index === 0 ? "Current team" : "Previous team",
+                            )}</span>
+                            ${
+                              teamRecord.tournaments[0]
+                                ? renderTournamentNavigationButton(
+                                    teamRecord.tournaments[0].tournament,
+                                    "Open",
+                                    true,
+                                  )
+                                : ""
+                            }
+                          </div>
                         </div>
-                        <p class="muted participant-team-card-count">${escapeHtml(
-                          teamRecord.tournaments.length +
-                            " tournament" +
-                            (teamRecord.tournaments.length === 1 ? "" : "s"),
-                        )}</p>
                         <div class="workspace-chip-row participant-team-card-chips">
                           <span class="mini-pill success">${escapeHtml(
                             teamRecord.bestRank ? "Best finish #" + teamRecord.bestRank : "Best finish pending",
@@ -21294,17 +21301,6 @@
                               )
                             : "This team record is still building.",
                         )}</p>
-                        <div class="button-row wrap-row participant-team-card-actions">
-                          ${
-                            teamRecord.tournaments[0]
-                              ? renderTournamentNavigationButton(
-                                  teamRecord.tournaments[0].tournament,
-                                  "Open Latest Tournament",
-                                  true,
-                                )
-                              : ""
-                          }
-                        </div>
                       </div>
                     `,
                   )
@@ -21354,9 +21350,6 @@
               </div>
             </form>
             ${renderSearchAssist(query, "search-view-suggestions")}
-            <p class="fine-print">
-              Search now resolves to a single profile card for each person, even when they have registered across multiple tournaments. Open a profile to view tournament history and performance details.
-            </p>
           </section>
 
           ${
