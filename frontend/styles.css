@@ -7,7 +7,7 @@
         --panel-dark: #12372b;
         --panel-dark-soft: rgba(18, 55, 43, 0.9);
         --ink: #143126;
-        --muted: #5a7467;
+        --muted: #50675b;
         --accent: #1f6a4e;
         --accent-deep: #123f2f;
         --accent-soft: rgba(31, 106, 78, 0.12);
@@ -43,6 +43,18 @@
         --button-bottom: var(--accent-deep);
         --button-hover-top: var(--accent);
         --button-hover-bottom: var(--accent-deep);
+        --text-display: clamp(3rem, 6vw, 5.2rem);
+        --text-title-1: clamp(1.82rem, 3vw, 2.28rem);
+        --text-title-2: clamp(1.42rem, 2.4vw, 1.82rem);
+        --text-title-3: 1.18rem;
+        --text-body-lg: 1.02rem;
+        --text-body: 0.96rem;
+        --text-body-sm: 0.88rem;
+        --text-caption: 0.8rem;
+        --text-overline: 0.74rem;
+        --weight-heavy: 800;
+        --weight-strong: 700;
+        --weight-body: 600;
       }
 
       * {
@@ -80,6 +92,9 @@
         scrollbar-width: thin;
         scrollbar-color: rgba(18, 63, 47, 0.34) rgba(255, 255, 255, 0.3);
         text-rendering: optimizeLegibility;
+        font-size: var(--text-body);
+        line-height: 1.52;
+        font-weight: 500;
       }
 
       #app {
@@ -868,7 +883,8 @@
           linear-gradient(180deg, var(--button-top), var(--button-bottom)) border-box;
         color: white;
         padding: 10px 14px;
-        font-weight: 800;
+        font-size: var(--text-body-sm);
+        font-weight: var(--weight-strong);
         letter-spacing: 0.005em;
         cursor: pointer;
         transition:
@@ -943,7 +959,8 @@
         color: var(--ink);
         border: 1px solid rgba(18, 63, 47, 0.12);
         box-shadow: none;
-        font-weight: 800;
+        font-size: var(--text-body-sm);
+        font-weight: var(--weight-strong);
       }
 
       .secondary-button:hover,
@@ -1303,7 +1320,7 @@
       .hero-panel .manager-note,
       .hero-panel .fine-print {
         color: rgba(243, 249, 245, 0.9);
-        font-weight: 600;
+        font-weight: 650;
       }
 
       .hero-panel .eyebrow {
@@ -1362,11 +1379,12 @@
 
       .eyebrow {
         margin: 0 0 10px;
-        color: var(--accent-deep);
+        color: var(--accent);
         text-transform: uppercase;
-        letter-spacing: 0.16em;
-        font-size: 0.76rem;
-        font-weight: 800;
+        letter-spacing: 0.14em;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-heavy);
+        line-height: 1.1;
       }
 
       h1,
@@ -1375,36 +1393,47 @@
       h4 {
         margin: 0;
         font-family: inherit;
-        letter-spacing: -0.04em;
-        font-weight: 800;
+        letter-spacing: -0.03em;
+        font-weight: var(--weight-heavy);
+        line-height: 1.04;
+        text-wrap: balance;
       }
 
       h1 {
-        font-size: clamp(3rem, 6vw, 5.4rem);
+        font-size: var(--text-display);
         line-height: 0.94;
       }
 
       h2 {
-        font-size: 2rem;
+        font-size: var(--text-title-1);
+        line-height: 1;
       }
 
       h3 {
-        font-size: 1.25rem;
+        font-size: var(--text-title-2);
+        line-height: 1.08;
+      }
+
+      h4 {
+        font-size: var(--text-title-3);
+        line-height: 1.12;
       }
 
       p,
       li {
-        line-height: 1.5;
+        line-height: 1.58;
       }
 
       .muted {
         color: var(--muted);
+        font-weight: var(--weight-body);
       }
 
       .hero-copy {
         max-width: 56ch;
         color: var(--muted);
-        font-size: 1.04rem;
+        font-size: var(--text-body-lg);
+        line-height: 1.62;
       }
 
       .hero-grid,
@@ -1450,9 +1479,9 @@
       .hero-feature strong {
         display: block;
         margin-bottom: 6px;
-        font-size: 1rem;
+        font-size: 1.02rem;
         color: #ffffff;
-        font-weight: 800;
+        font-weight: var(--weight-heavy);
       }
 
       .hero-stat-band {
@@ -1470,9 +1499,9 @@
       .hero-stat-chip strong {
         display: block;
         margin-top: 6px;
-        font-size: 1.15rem;
+        font-size: 1.12rem;
         color: #ffffff;
-        font-weight: 800;
+        font-weight: var(--weight-heavy);
       }
 
       .hero-feature .muted,
@@ -1480,7 +1509,7 @@
       .hero-feature .fine-print,
       .hero-stat-chip .fine-print {
         color: rgba(243, 249, 245, 0.92);
-        font-weight: 700;
+        font-weight: 650;
       }
 
       .surface-grid {
@@ -2142,11 +2171,11 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 6px 9px;
+        padding: 6px 10px;
         border-radius: 10px;
-        font-size: 0.76rem;
+        font-size: var(--text-overline);
         line-height: 1.15;
-        font-weight: 700;
+        font-weight: var(--weight-strong);
         border: 1px solid rgba(18, 63, 47, 0.1);
         background: rgba(247, 249, 247, 0.98);
         color: var(--ink);
@@ -2319,14 +2348,14 @@
       }
 
       .registration-speaker-card .section-heading strong {
-        font-size: 0.98rem;
-        line-height: 1.1;
+        font-size: 1rem;
+        line-height: 1.14;
       }
 
       .registration-speaker-card .muted,
       .registration-speaker-card .fine-print {
-        font-size: 0.84rem;
-        line-height: 1.28;
+        font-size: var(--text-body-sm);
+        line-height: 1.42;
       }
 
       .registration-speaker-card-summary {
@@ -2341,12 +2370,12 @@
       .registration-speaker-card .role-pill,
       .registration-speaker-card .mini-pill {
         padding: 4px 8px;
-        font-size: 0.74rem;
+        font-size: var(--text-overline);
       }
 
       .registration-speaker-card .token-link {
-        font-size: 0.68rem;
-        line-height: 1.25;
+        font-size: var(--text-overline);
+        line-height: 1.34;
       }
 
       .registration-speaker-card .flat-panel {
@@ -2405,20 +2434,23 @@
       }
 
       .roster-speaker-layout .registration-speaker-card .section-heading strong {
-        font-size: 1.02rem;
+        font-size: 1.04rem;
+        line-height: 1.14;
       }
 
       .roster-speaker-layout .registration-speaker-card .muted,
       .roster-speaker-layout .registration-speaker-card .fine-print,
       .roster-speaker-layout .registration-speaker-card .token-link {
-        font-size: 0.86rem;
-        line-height: 1.28;
+        font-size: var(--text-body-sm);
+        line-height: 1.42;
       }
 
       .registration-speaker-card-email {
         margin: 0;
-        color: rgba(26, 59, 47, 0.78);
-        font-weight: 600;
+        color: rgba(26, 59, 47, 0.8);
+        font-size: var(--text-body-sm);
+        font-weight: var(--weight-body);
+        line-height: 1.36;
         overflow-wrap: anywhere;
       }
 
@@ -2435,7 +2467,7 @@
       .roster-speaker-layout .registration-speaker-card .role-pill,
       .roster-speaker-layout .registration-speaker-card .mini-pill {
         padding: 4px 8px;
-        font-size: 0.76rem;
+        font-size: var(--text-overline);
       }
 
       .roster-speaker-layout .registration-speaker-card button,
@@ -2443,7 +2475,7 @@
       .roster-speaker-layout .registration-speaker-card .inline-link {
         min-height: 31px;
         padding: 5px 9px;
-        font-size: 0.8rem;
+        font-size: var(--text-caption);
       }
 
       .roster-speaker-layout .registration-speaker-card .token-link {
@@ -2481,7 +2513,7 @@
       .registration-speaker-card .inline-link {
         min-height: 34px;
         padding: 8px 10px;
-        font-size: 0.74rem;
+        font-size: var(--text-caption);
       }
 
       .surface:hover,
@@ -2863,8 +2895,8 @@
         border-radius: 999px;
         background: rgba(31, 106, 78, 0.07);
         color: var(--accent-deep);
-        font-size: 0.7rem;
-        font-weight: 800;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-heavy);
         letter-spacing: 0.06em;
         text-transform: uppercase;
       }
@@ -2909,8 +2941,8 @@
         background: rgba(255, 255, 255, 0.14);
         border: 1px solid rgba(255, 255, 255, 0.12);
         color: rgba(245, 251, 247, 0.96);
-        font-size: 0.68rem;
-        font-weight: 800;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-heavy);
         letter-spacing: 0.06em;
         text-transform: uppercase;
         backdrop-filter: blur(8px);
@@ -2941,14 +2973,14 @@
       }
 
       .tournament-rail-card strong {
-        font-size: 1rem;
+        font-size: 1.02rem;
         letter-spacing: -0.02em;
-        line-height: 1.12;
+        line-height: 1.14;
       }
 
       .tournament-rail-body .muted {
-        font-size: 0.84rem;
-        line-height: 1.4;
+        font-size: var(--text-body-sm);
+        line-height: 1.48;
       }
 
       .tournament-rail-stats {
@@ -2974,13 +3006,14 @@
 
       .tournament-rail-stat span {
         color: var(--muted);
-        font-size: 0.73rem;
-        font-weight: 700;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-strong);
       }
 
       .tournament-rail-meta {
         color: var(--muted);
-        font-size: 0.8rem;
+        font-size: var(--text-caption);
+        font-weight: var(--weight-body);
       }
 
       .tournament-rail-footer {
@@ -2997,8 +3030,8 @@
         align-items: center;
         gap: 8px;
         color: var(--ink);
-        font-size: 0.78rem;
-        font-weight: 800;
+        font-size: var(--text-caption);
+        font-weight: var(--weight-heavy);
         letter-spacing: 0.03em;
         text-transform: uppercase;
       }
@@ -3078,8 +3111,8 @@
 
       .context-label,
       .theme-section-label {
-        font-size: 0.78rem;
-        font-weight: 800;
+        font-size: var(--text-caption);
+        font-weight: var(--weight-heavy);
         letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--muted);
@@ -3093,7 +3126,8 @@
         border-radius: 999px;
         background: var(--accent-soft);
         color: var(--accent-deep);
-        font-weight: 800;
+        font-size: var(--text-body-sm);
+        font-weight: var(--weight-strong);
       }
 
       .context-separator {
@@ -3146,8 +3180,8 @@
       }
 
       .workspace-overview-label {
-        font-size: 0.72rem;
-        font-weight: 800;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-heavy);
         letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--muted);
@@ -3155,7 +3189,7 @@
 
       .workspace-overview-card strong {
         display: block;
-        font-size: 1rem;
+        font-size: 1.04rem;
         line-height: 1.14;
         letter-spacing: -0.03em;
         text-wrap: balance;
@@ -3163,8 +3197,8 @@
 
       .workspace-overview-card p {
         margin: 0;
-        font-size: 0.84rem;
-        line-height: 1.4;
+        font-size: var(--text-body-sm);
+        line-height: 1.5;
       }
 
       .theme-switch-pill,
@@ -3390,8 +3424,10 @@
       }
 
       .fine-print {
-        font-size: 0.9rem;
+        font-size: var(--text-body-sm);
         color: var(--muted);
+        font-weight: var(--weight-body);
+        line-height: 1.45;
       }
 
       .portal-head {
@@ -3416,7 +3452,7 @@
       .portal-ribbon .fine-print,
       .portal-ribbon .portal-meta {
         color: rgba(238, 247, 241, 0.88);
-        font-weight: 600;
+        font-weight: 650;
       }
 
       .portal-ribbon .alert.info,
@@ -4374,8 +4410,8 @@
         color: var(--accent-deep);
         border-radius: 999px;
         padding: 7px 11px;
-        font-size: 0.76rem;
-        font-weight: 800;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-heavy);
         cursor: pointer;
         transition:
           transform 180ms ease,
@@ -4425,16 +4461,17 @@
 
       .tournament-switch-header strong {
         display: block;
-        font-size: 1.12rem;
+        font-size: 1.08rem;
         letter-spacing: -0.02em;
-        line-height: 1.12;
+        line-height: 1.16;
       }
 
       .tournament-switch-meta-line {
         margin: 2px 0 0;
         color: var(--muted);
-        font-size: 0.78rem;
-        line-height: 1.35;
+        font-size: var(--text-caption);
+        line-height: 1.42;
+        font-weight: var(--weight-body);
       }
 
       .tournament-switch-stats {
@@ -4467,7 +4504,8 @@
       }
 
       .tournament-switch-stat .muted {
-        font-size: 0.74rem;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-body);
       }
 
       .tournament-switch-flags {
@@ -4483,8 +4521,8 @@
 
       .tournament-switch-note-label {
         color: var(--muted);
-        font-size: 0.7rem;
-        font-weight: 800;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-heavy);
         letter-spacing: 0.06em;
         text-transform: uppercase;
       }
@@ -4585,13 +4623,15 @@
       }
 
       .focus-nav-button strong {
-        font-size: 0.96rem;
+        font-size: 1rem;
         letter-spacing: -0.02em;
+        line-height: 1.12;
       }
 
       .focus-nav-button .muted {
         color: var(--muted);
-        font-size: 0.84rem;
+        font-size: var(--text-body-sm);
+        line-height: 1.45;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
@@ -4606,8 +4646,8 @@
         border-radius: 999px;
         background: rgba(31, 106, 78, 0.08);
         color: var(--accent-deep);
-        font-size: 0.76rem;
-        font-weight: 800;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-heavy);
       }
 
       .focus-nav-button.is-active .muted {
@@ -4767,8 +4807,8 @@
         border-radius: 999px;
         background: rgba(31, 106, 78, 0.08);
         color: var(--accent-deep);
-        font-size: 0.74rem;
-        font-weight: 800;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-heavy);
       }
 
       .tournament-board-tab.is-active .tournament-board-badge {
@@ -4938,14 +4978,14 @@
       }
 
       .people-dashboard-note-copy strong {
-        font-size: 0.95rem;
-        line-height: 1.15;
+        font-size: 0.98rem;
+        line-height: 1.18;
       }
 
       .people-dashboard-note-copy .muted,
       .people-dashboard-note-copy .fine-print {
-        font-size: 0.84rem;
-        line-height: 1.25;
+        font-size: var(--text-body-sm);
+        line-height: 1.42;
       }
 
       .people-dashboard-note-meta {
@@ -5195,14 +5235,14 @@
 
       .people-hub-card h3 {
         margin: 0;
-        font-size: 1.34rem;
-        line-height: 1.05;
+        font-size: 1.24rem;
+        line-height: 1.08;
       }
 
       .people-hub-card .muted {
-        font-size: 0.96rem;
-        font-weight: 600;
-        line-height: 1.4;
+        font-size: var(--text-body);
+        font-weight: var(--weight-body);
+        line-height: 1.48;
       }
 
       .people-section-actions {
@@ -5255,8 +5295,8 @@
         border: 1px solid rgba(20, 49, 38, 0.09);
         background: rgba(20, 49, 38, 0.03);
         color: rgba(26, 59, 47, 0.78);
-        font-size: 0.82rem;
-        font-weight: 800;
+        font-size: var(--text-caption);
+        font-weight: var(--weight-heavy);
         letter-spacing: 0.01em;
       }
 
@@ -5319,8 +5359,8 @@
       .people-directory-copy h3 {
         margin: 0;
         max-width: none;
-        font-size: 1.02rem;
-        line-height: 1.08;
+        font-size: 0.98rem;
+        line-height: 1.12;
         letter-spacing: -0.02em;
         overflow-wrap: break-word;
         word-break: normal;
@@ -5329,10 +5369,10 @@
 
       .people-directory-email {
         margin: 0;
-        font-size: 0.78rem;
-        font-weight: 700;
-        line-height: 1.2;
-        color: rgba(26, 59, 47, 0.7);
+        font-size: var(--text-caption);
+        font-weight: var(--weight-body);
+        line-height: 1.32;
+        color: rgba(26, 59, 47, 0.76);
         overflow-wrap: break-word;
         word-break: normal;
       }
@@ -5347,9 +5387,9 @@
       }
 
       .people-directory-summary-inline {
-        font-size: 0.78rem;
-        font-weight: 700;
-        line-height: 1.2;
+        font-size: var(--text-caption);
+        font-weight: var(--weight-body);
+        line-height: 1.32;
         color: rgba(26, 59, 47, 0.76);
       }
 
@@ -5373,8 +5413,8 @@
         background: rgba(20, 49, 38, 0.05);
         border: 1px solid rgba(20, 49, 38, 0.08);
         color: var(--ink);
-        font-size: 0.78rem;
-        font-weight: 800;
+        font-size: var(--text-caption);
+        font-weight: var(--weight-heavy);
         letter-spacing: 0.005em;
         justify-self: end;
         align-self: end;
@@ -5411,8 +5451,8 @@
         border: 1px solid rgba(20, 49, 38, 0.09);
         background: rgba(20, 49, 38, 0.03);
         color: rgba(26, 59, 47, 0.82);
-        font-size: 0.82rem;
-        font-weight: 800;
+        font-size: var(--text-caption);
+        font-weight: var(--weight-heavy);
       }
 
       .people-directory-page-button.is-active,
@@ -5451,9 +5491,9 @@
 
       .people-meta-grid span {
         color: var(--muted);
-        font-size: 0.94rem;
-        font-weight: 600;
-        line-height: 1.32;
+        font-size: var(--text-body-sm);
+        font-weight: var(--weight-body);
+        line-height: 1.4;
       }
 
       .people-private-link {
@@ -5492,7 +5532,7 @@
       .people-directory-card button,
       .people-directory-card select,
       .people-directory-card input {
-        font-size: 0.9rem;
+        font-size: var(--text-body-sm);
       }
 
       .people-directory-card .secondary-button,
@@ -5648,8 +5688,8 @@
 
       .timeline-label {
         color: var(--muted);
-        font-size: 0.74rem;
-        font-weight: 800;
+        font-size: var(--text-overline);
+        font-weight: var(--weight-heavy);
         letter-spacing: 0.08em;
         text-transform: uppercase;
       }
