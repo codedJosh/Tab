@@ -4675,6 +4675,67 @@
         border: 1px solid var(--line);
       }
 
+      .people-dashboard-metric h3 {
+        font-size: 1.32rem;
+      }
+
+      .people-dashboard-card {
+        align-content: start;
+      }
+
+      .people-dashboard-section-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .people-dashboard-section-block {
+        display: grid;
+        gap: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(20, 49, 38, 0.08);
+      }
+
+      .people-dashboard-section-block:first-child {
+        padding-top: 0;
+        border-top: 0;
+      }
+
+      .people-dashboard-note {
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .people-dashboard-note-copy {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .people-dashboard-note-copy strong {
+        font-size: 0.95rem;
+        line-height: 1.15;
+      }
+
+      .people-dashboard-note-copy .muted,
+      .people-dashboard-note-copy .fine-print {
+        font-size: 0.84rem;
+        line-height: 1.25;
+      }
+
+      .people-dashboard-note-meta {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 6px 8px;
+      }
+
+      .people-dashboard-inline-form {
+        align-items: end;
+        gap: 6px;
+      }
+
       @keyframes anchorFlash {
         0% {
           transform: translateY(6px);

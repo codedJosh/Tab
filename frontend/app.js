@@ -16996,6 +16996,224 @@
         );
       }
 
+      function renderPeopleDashboardMetricCard(eyebrow, headline, support = "") {
+        return `
+          <article class="spotlight-card people-dashboard-metric">
+            <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+            <h3>${escapeHtml(headline)}</h3>
+            ${support ? `<p class="muted">${escapeHtml(support)}</p>` : ""}
+          </article>
+        `;
+      }
+
+      function renderSignupDashboardSection(trackedSignups, signupStats) {
+        return `
+          <section class="surface spotlight-shell">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Sign-Ups</p>
+                <h2>People who have registered</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(trackedSignups.length)} tracked</span>
+            </div>
+            <div class="spotlight-grid">
+              ${renderPeopleDashboardMetricCard(
+                "Tracked Accounts",
+                String(signupStats.total),
+                "All registered accounts currently preserved in the shared workspace.",
+              )}
+              ${renderPeopleDashboardMetricCard(
+                "Self Sign-Up",
+                String(signupStats.selfSignup),
+                "People who created their own accounts from the public entry flow.",
+              )}
+              ${renderPeopleDashboardMetricCard(
+                "Manager-Created",
+                String(signupStats.managerCreated),
+                "Accounts created directly by staff or managers in the system.",
+              )}
+              ${renderPeopleDashboardMetricCard(
+                "Other Registered",
+                String(signupStats.registered),
+                "Registered accounts that do not fall into the other tracked creation paths.",
+              )}
+            </div>
+            ${
+              trackedSignups.length
+                ? `<div class="spotlight-watchlist">
+                    ${trackedSignups
+                      .map(
+                        (user) => `
+                          <div class="spotlight-note people-dashboard-note">
+                            <div class="people-dashboard-note-copy">
+                              <strong>${escapeHtml(user.name || user.email)}</strong>
+                              <span class="muted">${escapeHtml(user.email)}</span>
+                              <span class="fine-print">${escapeHtml(
+                                normalizeStringList(user.registeredTournamentIds, 200).length +
+                                  " tournament" +
+                                  (normalizeStringList(user.registeredTournamentIds, 200).length === 1
+                                    ? ""
+                                    : "s") +
+                                  " on record",
+                              )}</span>
+                            </div>
+                            <div class="people-dashboard-note-meta">
+                              <span class="mini-pill success">${escapeHtml(
+                                getUserCreationLabel(user),
+                              )}</span>
+                              <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
+                                user.active ? "Active" : "Disabled",
+                              )}</span>
+                              <span class="fine-print">${escapeHtml(
+                                "Joined " + (user.createdAt || "Unknown"),
+                              )}</span>
+                            </div>
+                          </div>
+                        `,
+                      )
+                      .join("")}
+                  </div>`
+                : `<div class="alert success">New registrations will appear here as people create accounts.</div>`
+            }
+          </section>
+        `;
+      }
+
+      function renderTournamentAppointeeDashboardSection(appointees, appointeeStats) {
+        return `
+          <section class="surface spotlight-shell">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Tournament Appointees</p>
+                <h2>Dashboard for all tournament appointees</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(appointees.length)} tournaments</span>
+            </div>
+            <div class="spotlight-grid">
+              ${renderPeopleDashboardMetricCard(
+                "Appointments",
+                String(appointeeStats.totalAppointments),
+                "All tracked tournament assignments across judges, debaters, and tournament staff.",
+              )}
+              ${renderPeopleDashboardMetricCard(
+                "Tab Directors",
+                String(appointeeStats.tabDirectorEmails),
+                "Current tab director assignments across all tournaments.",
+              )}
+              ${renderPeopleDashboardMetricCard(
+                "Tournament Directors",
+                String(appointeeStats.tournamentDirectorEmails),
+                "Tournament director assignments currently on record.",
+              )}
+              ${renderPeopleDashboardMetricCard(
+                "Judges",
+                String(appointeeStats.judgeEmails),
+                "Judges who have active appointments inside tracked tournaments.",
+              )}
+              ${renderPeopleDashboardMetricCard(
+                "Debaters",
+                String(appointeeStats.debaterEmails),
+                "Debaters linked directly through tournament appointment lists.",
+              )}
+              ${renderPeopleDashboardMetricCard(
+                "Tracked Tournaments",
+                String(appointeeStats.tournaments),
+                "Tournaments currently contributing to the shared appointment dashboard.",
+              )}
+            </div>
+            ${
+              appointees.length
+                ? `<div class="spotlight-grid">
+                    ${appointees
+                      .map(
+                        ({ tournament, sections, total }) => `
+                          <article class="spotlight-card people-dashboard-card">
+                            <div class="section-heading">
+                              <div>
+                                <p class="eyebrow">${escapeHtml(tournament.code)}</p>
+                                <h3>${escapeHtml(tournament.name)}</h3>
+                                <p class="muted">${escapeHtml(getFormatLabel(tournament))}</p>
+                              </div>
+                              <span class="role-pill">${escapeHtml(total)} appointees</span>
+                            </div>
+                            <div class="people-dashboard-section-list">
+                              ${sections
+                                .map(
+                                  (section) => `
+                                    <div class="people-dashboard-section-block">
+                                      <div class="section-heading">
+                                        <strong>${escapeHtml(section.label)}</strong>
+                                        <span class="mini-pill ${section.entries.every((entry) => entry.registered) ? "success" : "warning"}">${escapeHtml(
+                                          section.entries.length,
+                                        )}</span>
+                                      </div>
+                                      <div class="spotlight-watchlist">
+                                        ${section.entries
+                                          .map(
+                                            (entry) => `
+                                              <div class="spotlight-note people-dashboard-note">
+                                                <div class="people-dashboard-note-copy">
+                                                  <strong>${escapeHtml(
+                                                    entry.name || entry.email,
+                                                  )}</strong>
+                                                  <span class="muted">${escapeHtml(entry.email)}</span>
+                                                </div>
+                                                <div class="people-dashboard-note-meta">
+                                                  <span class="mini-pill ${entry.registered ? (entry.active ? "success" : "warning") : "warning"}">${escapeHtml(
+                                                    entry.registered
+                                                      ? entry.active
+                                                        ? "Registered"
+                                                        : "Disabled"
+                                                      : "Pending",
+                                                  )}</span>
+                                                  ${
+                                                    canAccessGlobalSettings()
+                                                      ? `
+                                                          ${
+                                                            normalizeEmail(entry.email) ===
+                                                            normalizeEmail(MANAGER_EMAIL)
+                                                              ? `<span class="mini-pill success">Protected</span>`
+                                                              : `
+                                                                  <form class="compact-inline-form people-dashboard-inline-form" data-form="update-tournament-appointee" data-id="${escapeHtml(
+                                                                    tournament.id,
+                                                                  )}" data-email="${escapeHtml(entry.email)}">
+                                                                    <select name="roleKey">${getAssignmentRoleOptions(
+                                                                      entry.roleKey,
+                                                                    )}</select>
+                                                                    <button class="secondary-button" type="submit">Save</button>
+                                                                    <button class="ghost-button" type="button" data-action="remove-tournament-appointee" data-id="${escapeHtml(
+                                                                      tournament.id,
+                                                                    )}" data-email="${escapeHtml(
+                                                                      entry.email,
+                                                                    )}">Remove</button>
+                                                                  </form>
+                                                                `
+                                                          }
+                                                        `
+                                                      : ""
+                                                  }
+                                                </div>
+                                              </div>
+                                            `,
+                                          )
+                                          .join("")}
+                                      </div>
+                                    </div>
+                                  `,
+                                )
+                                .join("")}
+                            </div>
+                          </article>
+                        `,
+                      )
+                      .join("")}
+                  </div>`
+                : `<div class="alert success">No tournament appointments have been created yet.</div>`
+            }
+          </section>
+        `;
+      }
+
       function renderPeopleView() {
         const pending = getPendingEmails();
         const trackedSignups = getTrackedSignupUsers();
@@ -17070,193 +17288,8 @@
                 : `<div class="alert info">Only System Managers can change global roles, reset passwords, or assign access from this view.</div>`
             }
           </section>
-          <section class="surface">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Sign-Ups</p>
-                <h2>People who have registered</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(trackedSignups.length)} tracked</span>
-            </div>
-            <div class="stat-grid">
-              <div class="stat-card">
-                <span class="muted">Tracked Accounts</span>
-                <strong>${escapeHtml(signupStats.total)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Self Sign-Up</span>
-                <strong>${escapeHtml(signupStats.selfSignup)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Manager-Created</span>
-                <strong>${escapeHtml(signupStats.managerCreated)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Other Registered</span>
-                <strong>${escapeHtml(signupStats.registered)}</strong>
-              </div>
-            </div>
-            ${
-              trackedSignups.length
-                ? `<div class="leaderboard-list">
-                    ${trackedSignups
-                      .map(
-                        (user) => `
-                          <div class="leaderboard-row">
-                            <div class="stack">
-                              <strong>${escapeHtml(user.name || user.email)}</strong>
-                              <span class="muted">${escapeHtml(user.email)}</span>
-                              <span class="fine-print">${escapeHtml(
-                                normalizeStringList(user.registeredTournamentIds, 200).length +
-                                  " tournament" +
-                                  (normalizeStringList(user.registeredTournamentIds, 200).length === 1
-                                    ? ""
-                                    : "s") +
-                                  " on record",
-                              )}</span>
-                            </div>
-                            <div class="button-row wrap-row">
-                              <span class="mini-pill success">${escapeHtml(
-                                getUserCreationLabel(user),
-                              )}</span>
-                              <span class="mini-pill">${escapeHtml(
-                                user.active ? "Active" : "Disabled",
-                              )}</span>
-                              <span class="muted">Joined ${escapeHtml(user.createdAt || "Unknown")}</span>
-                            </div>
-                          </div>
-                        `,
-                      )
-                      .join("")}
-                  </div>`
-                : `<div class="empty-state">New registrations will appear here as people create accounts.</div>`
-            }
-          </section>
-          <section class="surface">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Tournament Appointees</p>
-                <h2>Dashboard for all tournament appointees</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(appointees.length)} tournaments</span>
-            </div>
-            <div class="stat-grid">
-              <div class="stat-card">
-                <span class="muted">Appointments</span>
-                <strong>${escapeHtml(appointeeStats.totalAppointments)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Tab Directors</span>
-                <strong>${escapeHtml(appointeeStats.tabDirectorEmails)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Tournament Directors</span>
-                <strong>${escapeHtml(appointeeStats.tournamentDirectorEmails)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Judges</span>
-                <strong>${escapeHtml(appointeeStats.judgeEmails)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Debaters</span>
-                <strong>${escapeHtml(appointeeStats.debaterEmails)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Tracked tournaments</span>
-                <strong>${escapeHtml(appointeeStats.tournaments)}</strong>
-              </div>
-            </div>
-            ${
-              appointees.length
-                ? `<div class="directory-grid">
-                    ${appointees
-                      .map(
-                        ({ tournament, sections, total }) => `
-                          <div class="directory-card">
-                            <div class="section-heading">
-                              <div>
-                                <strong>${escapeHtml(tournament.name)}</strong>
-                                <p class="muted">${escapeHtml(
-                                  tournament.code + " • " + getFormatLabel(tournament),
-                                )}</p>
-                              </div>
-                              <span class="role-pill">${escapeHtml(total)} appointees</span>
-                            </div>
-                            <div class="stack">
-                              ${sections
-                                .map(
-                                  (section) => `
-                                    <div class="appointee-section">
-                                      <div class="section-heading">
-                                        <strong>${escapeHtml(section.label)}</strong>
-                                        <span class="mini-pill ${section.entries.every((entry) => entry.registered) ? "success" : "warning"}">${escapeHtml(
-                                          section.entries.length,
-                                        )}</span>
-                                      </div>
-                                      <div class="leaderboard-list">
-                                        ${section.entries
-                                          .map(
-                                            (entry) => `
-                                            <div class="leaderboard-row">
-                                              <div class="stack">
-                                                <strong>${escapeHtml(
-                                                  entry.name || entry.email,
-                                                )}</strong>
-                                                <span class="muted">${escapeHtml(entry.email)}</span>
-                                              </div>
-                                              <div class="button-row wrap-row">
-                                                <span class="mini-pill ${entry.registered ? (entry.active ? "success" : "warning") : "warning"}">${escapeHtml(
-                                                  entry.registered
-                                                    ? entry.active
-                                                      ? "Registered"
-                                                      : "Disabled"
-                                                    : "Pending",
-                                                )}</span>
-                                                ${
-                                                  canAccessGlobalSettings()
-                                                    ? `
-                                                        ${
-                                                          normalizeEmail(entry.email) ===
-                                                          normalizeEmail(MANAGER_EMAIL)
-                                                            ? `<span class="mini-pill success">Protected</span>`
-                                                            : `
-                                                                <form class="compact-inline-form" data-form="update-tournament-appointee" data-id="${escapeHtml(
-                                                                  tournament.id,
-                                                                )}" data-email="${escapeHtml(entry.email)}">
-                                                                  <select name="roleKey">${getAssignmentRoleOptions(
-                                                                    entry.roleKey,
-                                                                  )}</select>
-                                                                  <button class="secondary-button" type="submit">Save</button>
-                                                                  <button class="ghost-button" type="button" data-action="remove-tournament-appointee" data-id="${escapeHtml(
-                                                                    tournament.id,
-                                                                  )}" data-email="${escapeHtml(
-                                                                    entry.email,
-                                                                  )}">Remove</button>
-                                                                </form>
-                                                              `
-                                                        }
-                                                      `
-                                                    : ""
-                                                }
-                                              </div>
-                                            </div>
-                                          `,
-                                          )
-                                          .join("")}
-                                      </div>
-                                    </div>
-                                  `,
-                                )
-                                .join("")}
-                            </div>
-                          </div>
-                        `,
-                      )
-                      .join("")}
-                  </div>`
-                : `<div class="empty-state">No tournament appointments have been created yet.</div>`
-            }
-          </section>
+          ${renderSignupDashboardSection(trackedSignups, signupStats)}
+          ${renderTournamentAppointeeDashboardSection(appointees, appointeeStats)}
           <section class="surface">
             <div class="section-heading">
               <div>
