@@ -2045,15 +2045,17 @@
         const systemAdmin = isSystemAdmin(target);
         const regionalRole = getRegionalOperationsRoleForEmail(target);
         const regionalAccess = Boolean(globalManager || systemAdmin || regionalRole);
+        const regionalPortalMode = Boolean(isRegionalOperationsPortalPage() && regionalAccess);
         const canManageAny = globalManager || systemAdmin || managedTournaments.length > 0;
         const canJudgeAny = judgedTournaments.length > 0;
         const competitorOnly = debaterTournaments.length > 0 && !canManageAny && !canJudgeAny;
         const judgeOnly = canJudgeAny && !canManageAny && debaterTournaments.length === 0;
         const regionalOnly =
-          regionalAccess &&
-          !canManageAny &&
-          !canJudgeAny &&
-          debaterTournaments.length === 0;
+          regionalPortalMode ||
+          (regionalAccess &&
+            !canManageAny &&
+            !canJudgeAny &&
+            debaterTournaments.length === 0);
 
         return {
           accessRecords,
@@ -2068,6 +2070,7 @@
           canJudgeAny,
           competitorOnly,
           judgeOnly,
+          regionalPortalMode,
           regionalOnly,
           canViewPeople:
             globalManager ||
@@ -2123,6 +2126,18 @@
       function getWorkspaceNavItems(email = session.userEmail) {
         const capabilities = getWorkspaceCapabilities(email);
 
+        if (capabilities.regionalPortalMode) {
+          return [
+            {
+              key: "regional",
+              label: "Regional Ops",
+              count: getRegionalOperationsRoleForEmail(email)
+                ? toTitleLabel(getRegionalOperationsRoleForEmail(email))
+                : "Portal",
+            },
+          ];
+        }
+
         if (capabilities.competitorOnly) {
           return [
             {
@@ -2166,21 +2181,6 @@
               count: getRegionalOperationsRoleForEmail(email)
                 ? toTitleLabel(getRegionalOperationsRoleForEmail(email))
                 : "Portal",
-            },
-            {
-              key: "links",
-              label: "Access Links",
-              count: 1,
-            },
-            {
-              key: "about",
-              label: "About",
-              count: "Info",
-            },
-            {
-              key: "settings",
-              label: "Settings",
-              count: "You",
             },
           ];
         }
@@ -9574,6 +9574,10 @@
         return "";
       }
 
+      function isRegionalOperationsPortalPage() {
+        return getPublicScreenView() === "regional-operations";
+      }
+
       function getUserAccessRecord(email = session.userEmail) {
         return (
           state.users.find((user) => user.email === normalizeEmail(email)) || null
@@ -10979,7 +10983,9 @@
         const menuRecentTournaments = getRecentTournaments(menuVisibleTournaments)
           .filter((tournament) => !menuPinnedTournaments.some((entry) => entry.id === tournament.id))
           .slice(0, 2);
-        const menuSubtitle = capabilities.judgeOnly
+        const menuSubtitle = capabilities.regionalPortalMode
+          ? "A dedicated regional workspace for coordinator accounts, reports, and stipend requests."
+          : capabilities.judgeOnly
           ? "Judging access with your assigned rooms, public tournament details, and private links."
           : capabilities.regionalOnly
             ? "Regional reporting, stipend requests, and shared operations history in one portal."
@@ -11045,6 +11051,9 @@
                 </div>
               </div>
               ${
+                capabilities.regionalPortalMode
+                  ? ""
+                  : (
                 menuRecentTournaments.length || menuPinnedTournaments.length
                   ? `
                     <div class="menu-side-section">
@@ -11069,6 +11078,7 @@
                     </div>
                   `
                   : ""
+              )
               }
               ${renderThemeQuickSwitch()}
               <button class="ghost-button" type="button" data-action="logout"><span>Sign Out</span></button>
@@ -17551,6 +17561,7 @@
 
       function getWorkspaceViewSupportText(view = session.view, email = session.userEmail) {
         const normalizedView = normalizeWorkspaceView(view, email);
+        const capabilities = getWorkspaceCapabilities(email);
         const messages = {
           overview:
             "Overview keeps your current tournaments, judging workload, and saved access points in one refined landing space.",
@@ -17574,6 +17585,10 @@
             "Settings is structured to keep personal workspace preferences and system-wide controls calm and consistent.",
         };
 
+        if (capabilities.regionalPortalMode) {
+          return "Regional Operations is isolated here so coordinators and managers only see regional reporting, stipend requests, and account management.";
+        }
+
         return messages[normalizedView] || messages.overview;
       }
 
@@ -17583,12 +17598,15 @@
         const visibleTournaments = getVisibleTournaments(email);
         const pinnedCount = getPinnedTournaments(visibleTournaments).length;
         const assignments = getJudgeAssignments(email).length;
+        const regionalSummary = getRegionalOperationsSummary(email);
         const activeTournament = capabilities.canManageAny
           ? getManagedTournamentForSession()
           : getSelectedTournamentForSession(email);
         const accessRecord = getUserAccessRecord(email);
 
-        const modeLabel = capabilities.canManageAny
+        const modeLabel = capabilities.regionalPortalMode
+          ? "Regional Operations Workspace"
+          : capabilities.canManageAny
           ? "System Manager Workspace"
           : capabilities.regionalOnly
             ? "Regional Operations Workspace"
@@ -17599,7 +17617,9 @@
               : capabilities.canJudgeAny
                 ? "Member And Judge Workspace"
                 : "Member Workspace";
-        const modeNote = capabilities.canManageAny
+        const modeNote = capabilities.regionalPortalMode
+          ? "Dedicated to regional coordination, account management, reporting, and stipend approvals without tournament navigation."
+          : capabilities.canManageAny
           ? "Full control over tournament structure, publishing, staffing, and access."
           : capabilities.regionalOnly
             ? "Focused on regional reporting, stipend requests, and coordinator follow-up."
@@ -17611,19 +17631,29 @@
                 ? "Search, tournament tracking, judging, and private access all stay connected."
                 : "Public tournament boards, search, and private access stay available from one place.";
 
-        const focusLabel = activeTournament ? activeTournament.code || activeTournament.name : currentNavItem.label;
-        const focusNote = activeTournament
+        const focusLabel = capabilities.regionalPortalMode
+          ? "Regional Operations"
+          : activeTournament ? activeTournament.code || activeTournament.name : currentNavItem.label;
+        const focusNote = capabilities.regionalPortalMode
+          ? "Coordinator accounts, biweekly reports, and transport support for Region 1 through Region 6."
+          : activeTournament
           ? activeTournament.name
           : getWorkspaceViewSupportText(currentNavItem.key || session.view, email);
-        const reachLabel = capabilities.canViewJudging
+        const reachLabel = capabilities.regionalPortalMode
+          ? regionalSummary.reports + " reports"
+          : capabilities.canViewJudging
           ? assignments + " assignments"
           : visibleTournaments.length + " tournaments";
-        const reachNote =
-          pinnedCount +
-          " pinned" +
-          (capabilities.canViewJudging
-            ? " • " + visibleTournaments.length + " visible"
-            : " • ready for quick return");
+        const reachNote = capabilities.regionalPortalMode
+          ? regionalSummary.pendingFundingRequests +
+            " pending stipend requests • " +
+            regionalSummary.fundingRequests +
+            " total requests"
+          : pinnedCount +
+            " pinned" +
+            (capabilities.canViewJudging
+              ? " • " + visibleTournaments.length + " visible"
+              : " • ready for quick return");
         const accessLabel = accessRecord ? "Private URL Ready" : "Session Access";
         const accessNote = accessRecord
           ? "Your one-tap Hummingbird access link is available from Access Links."
@@ -19081,6 +19111,9 @@
       }
 
       function renderWorkspaceSearchBar() {
+        if (getWorkspaceCapabilities().regionalPortalMode) {
+          return "";
+        }
         const showGuidance = Boolean(state?.appSettings?.accessibility?.showScreenReaderGuidance);
         return `
           <form class="workspace-search-form compact-top-search" data-form="workspace-search" role="search" aria-label="Workspace search">
@@ -19110,7 +19143,7 @@
 
       function renderWorkspace() {
         const capabilities = getWorkspaceCapabilities();
-        if (capabilities.competitorOnly) {
+        if (capabilities.competitorOnly && !capabilities.regionalPortalMode) {
           return renderCompetitorWorkspace();
         }
 
@@ -19157,7 +19190,9 @@
                     kicker: "Hummingbird Workspace",
                     size: "compact",
                     subtitle:
-                      capabilities.canManageAny
+                      capabilities.regionalPortalMode
+                        ? "A dedicated regional workspace for coordinator accounts, field reporting, and stipend oversight."
+                        : capabilities.canManageAny
                         ? "A refined staff workspace for tournament control, permissions, judging, and publishing."
                         : capabilities.canJudgeAny
                           ? "A focused workspace for judging assignments, tournament details, and private access."
