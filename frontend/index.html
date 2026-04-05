@@ -929,6 +929,7 @@
       }
 
       button:focus-visible,
+      a:focus-visible,
       input:focus-visible,
       select:focus-visible,
       textarea:focus-visible {
@@ -1666,6 +1667,18 @@
 
       .skip-link:focus {
         top: 16px;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
 
       .menu-panel {
@@ -5294,6 +5307,15 @@
           scroll-behavior: auto !important;
         }
       }
+
+      html[data-reduced-motion="true"] *,
+      html[data-reduced-motion="true"] *::before,
+      html[data-reduced-motion="true"] *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     </style>
   </head>
   <body>
@@ -5812,6 +5834,10 @@
         },
         manager: {
           email: MANAGER_EMAIL,
+        },
+        accessibility: {
+          reduceMotion: REDUCED_MOTION,
+          showScreenReaderGuidance: true,
         },
       };
 
@@ -11047,6 +11073,13 @@
         document.title = state.appSettings.branding.appName || DEFAULT_SETTINGS.branding.appName;
       }
 
+      function applyAccessibilityPreferences() {
+        const root = document.documentElement;
+        const reduceMotion =
+          Boolean(state?.appSettings?.accessibility?.reduceMotion) || Boolean(REDUCED_MOTION);
+        root.dataset.reducedMotion = reduceMotion ? "true" : "false";
+      }
+
       function saveSession() {
         localStorage.setItem(
           SESSION_STORAGE_KEY,
@@ -11137,6 +11170,10 @@
             manager: {
               ...clone(DEFAULT_SETTINGS.manager),
               ...(appSettings.manager || {}),
+            },
+            accessibility: {
+              ...clone(DEFAULT_SETTINGS.accessibility),
+              ...(appSettings.accessibility || {}),
             },
           },
           users: [],
@@ -13924,6 +13961,10 @@
         next.appSettings.manager = {
           ...clone(DEFAULT_SETTINGS.manager),
           ...(next.appSettings.manager || {}),
+        };
+        next.appSettings.accessibility = {
+          ...clone(DEFAULT_SETTINGS.accessibility),
+          ...(next.appSettings.accessibility || {}),
         };
         next.users = Array.isArray(next.users) ? next.users : [];
         next.users = next.users.map((user) =>
@@ -16827,7 +16868,7 @@
                         Open your event, check your latest round, and jump into your private tab without wading through staff settings or management controls.
                       </p>
                     </div>
-                    <div class="competitor-nav">
+                    <nav class="competitor-nav" aria-label="Competitor workspace navigation">
                       <button type="button" ${
                         currentView === "overview" ? "" : 'class="secondary-button"'
                       } data-action="set-view" data-view="overview">My Tab</button>
@@ -16847,7 +16888,7 @@
                         currentView === "settings" ? "" : 'class="secondary-button"'
                       } data-action="set-view" data-view="settings">Settings</button>
                       <button class="secondary-button" type="button" data-action="logout">Sign Out</button>
-                    </div>
+                    </nav>
                     ${renderWorkspaceSearchBar()}
                   </div>
                   <div class="stack">
@@ -22548,7 +22589,7 @@
               </div>
               <span class="role-pill">${escapeHtml(query ? "Live results" : "Directory mode")}</span>
             </div>
-            <form class="workspace-search-form" data-form="workspace-search">
+            <form class="workspace-search-form" data-form="workspace-search" role="search" aria-label="Advanced workspace search">
               <label class="workspace-search-field">
                 Search
                 <input type="search" name="query" value="${escapeHtml(
@@ -23289,6 +23330,36 @@
           <section class="surface">
             <div class="section-heading">
               <div>
+                <p class="eyebrow">Accessibility</p>
+                <h2>Support screen readers, keyboard flow, and calmer motion</h2>
+              </div>
+              <span class="role-pill">Inclusive access</span>
+            </div>
+            <form class="stack" data-form="update-accessibility">
+              <label class="checkbox-row">
+                <input type="checkbox" name="reduceMotion" ${checked(
+                  settings.accessibility?.reduceMotion || REDUCED_MOTION,
+                )} />
+                <span>Reduce interface motion inside Hummingbird</span>
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" name="showScreenReaderGuidance" ${checked(
+                  settings.accessibility?.showScreenReaderGuidance,
+                )} />
+                <span>Show screen-reader and keyboard guidance near search/navigation</span>
+              </label>
+              <div class="alert info">
+                Hummingbird now includes a skip link, landmark navigation, announced flash messages, strong keyboard focus states, and competitor/judge flows designed to be readable by assistive technology.
+              </div>
+              <p class="fine-print">
+                For blind users, the most efficient path is: use the skip link, move by headings or landmarks, then use workspace search to jump between tournaments, people, and ballots.
+              </p>
+              <button type="submit">Save accessibility settings</button>
+            </form>
+          </section>
+          <section class="surface">
+            <div class="section-heading">
+              <div>
                 <p class="eyebrow">Password and Device Access</p>
                 <h2>Save your password from inside Hummingbird Tab System</h2>
               </div>
@@ -23472,8 +23543,9 @@
       }
 
       function renderWorkspaceSearchBar() {
+        const showGuidance = Boolean(state?.appSettings?.accessibility?.showScreenReaderGuidance);
         return `
-          <form class="workspace-search-form compact-top-search" data-form="workspace-search">
+          <form class="workspace-search-form compact-top-search" data-form="workspace-search" role="search" aria-label="Workspace search">
             <label class="workspace-search-field">
               Search The Workspace
               <input type="search" name="query" value="${escapeHtml(
@@ -23489,6 +23561,11 @@
               }
             </div>
           </form>
+          ${
+            showGuidance
+              ? `<p class="fine-print">Screen reader tip: use the skip link first, then landmark navigation and this search field to move quickly between tournaments, people, and judging records.</p>`
+              : ""
+          }
           ${renderSearchAssist(session.searchQuery, "workspace-top-suggestions")}
         `;
       }
@@ -23966,6 +24043,7 @@
         }
 
         applyBranding();
+        applyAccessibilityPreferences();
         const token = new URL(window.location.href).searchParams.get("token");
         const publicView =
           getPublicScreenView() ||
@@ -27781,6 +27859,14 @@
         persist("success", "Portal defaults saved.");
       }
 
+      function updateAccessibility(formData) {
+        state.appSettings.accessibility = {
+          reduceMotion: boolFromForm(formData, "reduceMotion"),
+          showScreenReaderGuidance: boolFromForm(formData, "showScreenReaderGuidance"),
+        };
+        persist("success", "Accessibility settings saved.");
+      }
+
       function exportData() {
         if (!canAccessGlobalSettings()) {
           setFlash("error", "Only System Managers can export the full data backup.");
@@ -28629,6 +28715,12 @@
 
           if (form.dataset.form === "update-portal") {
             updatePortal(formData);
+            return;
+          }
+
+          if (form.dataset.form === "update-accessibility") {
+            updateAccessibility(formData);
+            return;
           }
         });
 
