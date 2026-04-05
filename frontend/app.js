@@ -11494,6 +11494,7 @@
           (tournament) => tournament.publication.showPublicDraw,
         ).length;
         const judgeAssignments = capabilities.canJudgeAny ? getJudgeAssignments() : [];
+        const openRecoveryRequests = getOpenRecoveryRequests();
         const recentLogs = getVisibleTournaments()
           .flatMap((tournament) =>
             (tournament.auditLog || []).map((entry) => ({
@@ -11506,15 +11507,9 @@
 
         if (!capabilities.canManageAny) {
           return `
-            ${renderUserAccessLinksSection({
-              title: "Your Private Access URL",
-              eyebrow: "Private Access",
-              records: getUserAccessLinkRecords(),
-              compact: true,
-            })}
-            <section class="surface">
-              <div class="section-heading">
-                <div>
+            <section class="surface overview-panel">
+              <div class="overview-quick-row">
+                <div class="summary-main">
                   <p class="eyebrow">${
                     capabilities.canJudgeAny ? "Judging Overview" : "Tournament Tracking"
                   }</p>
@@ -11523,8 +11518,13 @@
                       ? "Assigned rooms and live tournament access"
                       : "Follow the tournaments that matter to you"
                   }</h2>
+                  <p class="muted">${
+                    capabilities.canJudgeAny
+                      ? "Everything you need for judging and public tournament tracking stays in one clean landing view."
+                      : "Use this landing view to jump into live tournaments, public boards, and your private access."
+                  }</p>
                 </div>
-                <div class="toolbar-row">
+                <div class="quick-access-strip overview-quick-actions">
                   <button class="secondary-button" data-action="set-view" data-view="search">Search Profiles</button>
                   <button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournaments</button>
                   ${
@@ -11533,183 +11533,173 @@
                       : ""
                   }
                   <button class="secondary-button" data-action="set-view" data-view="links">Open Access Links</button>
-                  <button class="secondary-button" data-action="set-view" data-view="about">About JADE</button>
                 </div>
               </div>
-              <div class="stat-grid">
-                <div class="stat-card">
-                  <span class="muted">Visible tournaments</span>
-                  <strong>${escapeHtml(stats.visibleTournaments)}</strong>
-                </div>
-                <div class="stat-card">
-                  <span class="muted">Open tournaments</span>
-                  <strong>${escapeHtml(stats.openTournaments)}</strong>
-                </div>
-                <div class="stat-card">
-                  <span class="muted">Public standings</span>
-                  <strong>${escapeHtml(stats.publicStandings)}</strong>
-                </div>
-                <div class="stat-card">
-                  <span class="muted">Public draws</span>
-                  <strong>${escapeHtml(publicDraws)}</strong>
+              <div class="spotlight-grid overview-spotlight-grid">
+                <article class="spotlight-card">
+                  <p class="eyebrow">Visible tournaments</p>
+                  <h3>${escapeHtml(stats.visibleTournaments)}</h3>
+                  <p class="muted">Tournaments currently available to this account.</p>
+                </article>
+                <article class="spotlight-card">
+                  <p class="eyebrow">Open tournaments</p>
+                  <h3>${escapeHtml(stats.openTournaments)}</h3>
+                  <p class="muted">Events that are actively open right now.</p>
+                </article>
+                <article class="spotlight-card">
+                  <p class="eyebrow">Public standings</p>
+                  <h3>${escapeHtml(stats.publicStandings)}</h3>
+                  <p class="muted">Visible leaderboards already published.</p>
+                </article>
+                <article class="spotlight-card">
+                  <p class="eyebrow">${
+                    capabilities.canJudgeAny ? "Assigned rooms" : "Public draws"
+                  }</p>
+                  <h3>${escapeHtml(
+                    capabilities.canJudgeAny ? judgeAssignments.length : publicDraws,
+                  )}</h3>
+                  <p class="muted">${
+                    capabilities.canJudgeAny
+                      ? "Current judging allocations tied to your account."
+                      : "Public draw boards currently visible to you."
+                  }</p>
+                </article>
+              </div>
+            </section>
+            ${renderUserAccessLinksSection({
+              title: "Your Private Access URL",
+              eyebrow: "Private Access",
+              records: getUserAccessLinkRecords(),
+              compact: true,
+            })}
+            <section class="surface-grid">
+              <section class="surface">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Live tournaments</p>
+                    <h3>What is currently visible</h3>
+                  </div>
+                  <span class="role-pill">${escapeHtml(visibleTournaments.length)} visible</span>
                 </div>
                 ${
-                  capabilities.canJudgeAny
-                    ? `
-                      <div class="stat-card">
-                        <span class="muted">Assigned rooms</span>
-                        <strong>${escapeHtml(judgeAssignments.length)}</strong>
-                      </div>
-                    `
-                    : ""
-                }
-              </div>
-            </section>
-            <section class="surface">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">At A Glance</p>
-                  <h2>Most important tournament details</h2>
-                </div>
-                <span class="role-pill">${escapeHtml(visibleTournaments.length)} visible</span>
-              </div>
-              ${
-                visibleTournaments.length
-                  ? `<div class="workspace-stat-grid">
-                      ${visibleTournaments
-                        .slice(0, 6)
-                        .map((tournament) => {
-                          const topStanding = tournament.publication.showPublicStandings
-                            ? getComputedStandings(tournament)[0] || null
-                            : null;
-                          const publishedDraws = (tournament.draw || []).filter(
-                            (entry) =>
-                              tournament.publication.showPublicDraw &&
-                              String(entry.status || "").toLowerCase() === "published",
-                          );
-                          const latestRound = publishedDraws.length
-                            ? publishedDraws.reduce((latest, entry) =>
-                                Number(entry.round) > Number(latest.round) ? entry : latest,
-                              )
-                            : null;
-                          return `
-                            <div class="workspace-stat">
-                              <span class="muted">${escapeHtml(tournament.name)}</span>
-                              <strong>${escapeHtml(getFormatLabel(tournament))}</strong>
-                              <p class="fine-print">${escapeHtml(
-                                latestRound
-                                  ? "Latest public draw: Round " +
-                                      latestRound.round +
-                                      " • " +
-                                      latestRound.room
-                                  : "No public draw posted yet.",
-                              )}</p>
-                              ${
-                                latestRound
-                                  ? `<p class="fine-print">${escapeHtml(
-                                      getDrawMatchupForDisplay(tournament, latestRound),
-                                    )}</p>`
-                                  : ""
-                              }
-                              <p class="fine-print">${escapeHtml(
-                                topStanding
-                                  ? "Top standing: #" +
-                                      topStanding.rank +
-                                      " " +
-                                      getStandingDisplayName(tournament, topStanding)
-                                  : tournament.publication.showPublicStandings
-                                    ? "Standings will appear once results are posted."
-                                    : "Standings are private for this tournament.",
-                              )}</p>
-                              <p class="fine-print">${escapeHtml(
-                                "Your access: " + toTitleLabel(getTournamentAccess(tournament)),
-                              )}</p>
-                              <div class="button-row">
+                  visibleTournaments.length
+                    ? `<div class="leaderboard-list">
+                        ${visibleTournaments
+                          .slice(0, 6)
+                          .map((tournament) => `
+                            <div class="leaderboard-row">
+                              <div class="stack">
+                                <strong>${escapeHtml(tournament.name)}</strong>
+                                <span class="muted">${escapeHtml(getFormatLabel(tournament))}</span>
+                              </div>
+                              <div class="button-row wrap-row">
                                 ${renderTournamentNavigationButton(
                                   tournament,
-                                  "Open Tournament",
-                                  true,
+                                  canManageTournament(tournament) ? "Open" : "View",
+                                  !canManageTournament(tournament),
                                 )}
+                                <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
+                                  toTitleLabel(tournament.status),
+                                )}</span>
                               </div>
                             </div>
-                          `;
-                        })
-                        .join("")}
-                    </div>`
-                  : `<div class="empty-state">No tournaments are visible to this account yet.</div>`
-              }
-            </section>
-            ${
-              capabilities.canJudgeAny
-                ? `
-                  <section class="surface">
-                    <div class="section-heading">
-                      <div>
-                        <p class="eyebrow">Assigned Rooms</p>
-                        <h2>Your current judging allocations</h2>
+                          `)
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">No tournaments are visible to this account yet.</div>`
+                }
+              </section>
+              ${
+                capabilities.canJudgeAny
+                  ? `
+                    <section class="surface">
+                      <div class="section-heading">
+                        <div>
+                          <p class="eyebrow">Assigned rooms</p>
+                          <h3>Your current judging allocations</h3>
+                        </div>
+                        <span class="role-pill">${escapeHtml(judgeAssignments.length)} rooms</span>
                       </div>
-                      <span class="role-pill">${escapeHtml(judgeAssignments.length)} rooms</span>
-                    </div>
-                    ${
-                      judgeAssignments.length
-                        ? `<div class="leaderboard-list">
-                            ${judgeAssignments
-                              .slice(0, 6)
-                              .map(
-                                (assignment) => `
-                                  <div class="leaderboard-row">
-                                    <div class="stack">
-                                      <strong>${escapeHtml(
-                                        assignment.tournament.name +
-                                          " • Round " +
-                                          assignment.allocation.round +
-                                          " • " +
-                                          assignment.allocation.room,
-                                      )}</strong>
-                                      <span class="muted">${escapeHtml(
-                                        (assignment.drawEntry
-                                          ? getDrawMatchupForDisplay(
-                                              assignment.tournament,
-                                              assignment.drawEntry,
-                                              { forcePrivate: true },
-                                            )
-                                          : "") ||
-                                          assignment.allocation.matchup ||
-                                          "Matchup pending",
+                      ${
+                        judgeAssignments.length
+                          ? `<div class="leaderboard-list">
+                              ${judgeAssignments
+                                .slice(0, 6)
+                                .map(
+                                  (assignment) => `
+                                    <div class="leaderboard-row">
+                                      <div class="stack">
+                                        <strong>${escapeHtml(
+                                          assignment.tournament.name +
+                                            " • Round " +
+                                            assignment.allocation.round +
+                                            " • " +
+                                            assignment.allocation.room,
+                                        )}</strong>
+                                        <span class="muted">${escapeHtml(
+                                          (assignment.drawEntry
+                                            ? getDrawMatchupForDisplay(
+                                                assignment.tournament,
+                                                assignment.drawEntry,
+                                                { forcePrivate: true },
+                                              )
+                                            : "") ||
+                                            assignment.allocation.matchup ||
+                                            "Matchup pending",
+                                        )}</span>
+                                      </div>
+                                      <span class="judge-status-pill">${escapeHtml(
+                                        getJudgeAllocationRoleLabel(assignment.allocation.panelRole),
                                       )}</span>
                                     </div>
-                                    <span class="judge-status-pill">${escapeHtml(
-                                      getJudgeAllocationRoleLabel(assignment.allocation.panelRole),
-                                    )}</span>
-                                  </div>
-                                `,
-                              )
-                              .join("")}
-                          </div>`
-                        : `<div class="empty-state">No judging rooms are currently assigned to this account.</div>`
-                    }
-                  </section>
-                `
-                : ""
-            }
+                                  `,
+                                )
+                                .join("")}
+                            </div>`
+                          : `<div class="empty-state">No judging rooms are currently assigned to this account.</div>`
+                      }
+                    </section>
+                  `
+                  : `
+                    <section class="surface">
+                      <div class="section-heading">
+                        <div>
+                          <p class="eyebrow">Recent actions</p>
+                          <h3>Latest visible updates</h3>
+                        </div>
+                      </div>
+                      ${
+                        recentLogs.length
+                          ? `<ul class="audit-list">
+                              ${recentLogs
+                                .map(
+                                  (item) =>
+                                    `<li><strong>${escapeHtml(item.tournament)}</strong>: ${escapeHtml(
+                                      item.entry.message,
+                                    )} <span class="muted">(${escapeHtml(item.entry.at)})</span></li>`,
+                                )
+                                .join("")}
+                            </ul>`
+                          : `<div class="empty-state">No recent audit events yet.</div>`
+                      }
+                    </section>
+                  `
+              }
+            </section>
           `;
         }
 
         return `
-          <section class="flat-panel">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Overview</p>
-                <h2>Tournament operations</h2>
+          <section class="surface overview-panel">
+            <div class="overview-quick-row">
+              <div class="summary-main">
+                <p class="eyebrow">Operations overview</p>
+                <h2>Tournaments, people, and access</h2>
+                <p class="muted">Start with a quick action, then scan the live totals and the current manager queue.</p>
               </div>
-              <div class="toolbar-row">
+              <div class="quick-access-strip overview-quick-actions">
                 <button class="secondary-button" data-action="set-view" data-view="search">Search Profiles</button>
                 <button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournaments</button>
-                ${
-                  capabilities.canViewJudging
-                    ? `<button class="secondary-button" data-action="set-view" data-view="judging">Open Judging</button>`
-                    : ""
-                }
                 ${
                   capabilities.canViewLinks
                     ? `<button class="secondary-button" data-action="set-view" data-view="links">Review Private Links</button>`
@@ -11722,235 +11712,280 @@
                 }
               </div>
             </div>
-            <div class="stat-grid">
-              <div class="stat-card">
-                <span class="muted">Visible tournaments</span>
-                <strong>${escapeHtml(stats.visibleTournaments)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Open tournaments</span>
-                <strong>${escapeHtml(stats.openTournaments)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Registered users</span>
-                <strong>${escapeHtml(stats.registeredUsers)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Public standings boards</span>
-                <strong>${escapeHtml(stats.publicStandings)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Private debater links</span>
-                <strong>${escapeHtml(stats.privateLinks)}</strong>
-              </div>
+            <div class="spotlight-grid overview-spotlight-grid">
+              <article class="spotlight-card">
+                <p class="eyebrow">Visible tournaments</p>
+                <h3>${escapeHtml(stats.visibleTournaments)}</h3>
+                <p class="muted">All tournaments currently visible in this workspace.</p>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Open tournaments</p>
+                <h3>${escapeHtml(stats.openTournaments)}</h3>
+                <p class="muted">Events that are actively open right now.</p>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Registered users</p>
+                <h3>${escapeHtml(stats.registeredUsers)}</h3>
+                <p class="muted">Accounts currently stored in the shared workspace.</p>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Private links</p>
+                <h3>${escapeHtml(stats.privateLinks)}</h3>
+                <p class="muted">Private debater access links currently issued.</p>
+              </article>
             </div>
           </section>
           ${
             canAccessGlobalSettings()
               ? `
+                <section class="surface-grid">
+                  <section class="surface">
+                    <div class="section-heading">
+                      <div>
+                        <p class="eyebrow">Live tournaments</p>
+                        <h3>What is currently visible</h3>
+                      </div>
+                      <span class="role-pill">${escapeHtml(visibleTournaments.length)} visible</span>
+                    </div>
+                    ${
+                      visibleTournaments.length
+                        ? `<div class="leaderboard-list">
+                            ${visibleTournaments
+                              .map(
+                                (tournament) => `
+                                  <div class="leaderboard-row">
+                                    <div class="stack">
+                                      <strong>${escapeHtml(tournament.name)}</strong>
+                                      <span class="muted">${escapeHtml(getFormatLabel(tournament))}</span>
+                                    </div>
+                                    <div class="button-row wrap-row">
+                                      ${renderTournamentNavigationButton(
+                                        tournament,
+                                        canManageTournament(tournament) ? "Open" : "View",
+                                        !canManageTournament(tournament),
+                                      )}
+                                      <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
+                                        toTitleLabel(tournament.status),
+                                      )}</span>
+                                    </div>
+                                  </div>
+                                `,
+                              )
+                              .join("")}
+                          </div>`
+                        : `<div class="empty-state">No tournaments are visible in this workspace yet.</div>`
+                    }
+                  </section>
+                  <section class="surface">
+                    <div class="section-heading">
+                      <div>
+                        <p class="eyebrow">Manager queue</p>
+                        <h3>What needs attention</h3>
+                      </div>
+                      <span class="role-pill">Manager tools</span>
+                    </div>
+                    ${
+                      managerMetrics.pendingAccounts ||
+                      managerMetrics.passwordResetRequests ||
+                      managerMetrics.hiddenStandings ||
+                      managerMetrics.inactiveUsers ||
+                      managerMetrics.archivedTournaments
+                        ? `<div class="spotlight-watchlist overview-queue-list">
+                            <div class="spotlight-note">
+                              <div class="overview-queue-copy">
+                                <strong>Pending sign-ups</strong>
+                                <span class="muted">Accounts with permissions but no password yet.</span>
+                              </div>
+                              <span class="mini-pill warning">${escapeHtml(
+                                managerMetrics.pendingAccounts,
+                              )}</span>
+                            </div>
+                            <div class="spotlight-note">
+                              <div class="overview-queue-copy">
+                                <strong>Password reset requests</strong>
+                                <span class="muted">Open recovery requests waiting on manager action.</span>
+                              </div>
+                              <span class="mini-pill warning">${escapeHtml(
+                                openRecoveryRequests.length,
+                              )}</span>
+                            </div>
+                            <div class="spotlight-note">
+                              <div class="overview-queue-copy">
+                                <strong>Hidden standings</strong>
+                                <span class="muted">Tournaments where standings are still private.</span>
+                              </div>
+                              <span class="mini-pill success">${escapeHtml(
+                                managerMetrics.hiddenStandings,
+                              )}</span>
+                            </div>
+                            <div class="spotlight-note">
+                              <div class="overview-queue-copy">
+                                <strong>Inactive accounts</strong>
+                                <span class="muted">Accounts currently disabled in the workspace.</span>
+                              </div>
+                              <span class="mini-pill warning">${escapeHtml(
+                                managerMetrics.inactiveUsers,
+                              )}</span>
+                            </div>
+                            <div class="spotlight-note">
+                              <div class="overview-queue-copy">
+                                <strong>Archived tournaments</strong>
+                                <span class="muted">Tournaments moved out of the live rotation.</span>
+                              </div>
+                              <span class="mini-pill success">${escapeHtml(
+                                managerMetrics.archivedTournaments,
+                              )}</span>
+                            </div>
+                          </div>`
+                        : `<div class="alert success">Nothing urgent is waiting right now.</div>`
+                    }
+                    <div class="button-row wrap-row">
+                      <button class="secondary-button" data-action="set-view" data-view="people">Open People</button>
+                      <button class="secondary-button" data-action="set-view" data-view="settings">Open Settings</button>
+                      <button class="secondary-button" data-action="set-view" data-view="links">Open Access Links</button>
+                    </div>
+                  </section>
+                </section>
                 <section class="surface">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Manager Console</p>
-                      <h2>High-priority controls</h2>
-                    </div>
-                    <span class="role-pill">Manager tools</span>
-                  </div>
-                  <div class="manager-grid">
-                    <div class="stat-card">
-                      <span class="muted">Pending sign-ups</span>
-                      <strong>${escapeHtml(managerMetrics.pendingAccounts)}</strong>
-                    </div>
-                    <div class="stat-card">
-                      <span class="muted">Hidden standings</span>
-                      <strong>${escapeHtml(managerMetrics.hiddenStandings)}</strong>
-                    </div>
-                    <div class="stat-card">
-                      <span class="muted">Archived tournaments</span>
-                      <strong>${escapeHtml(managerMetrics.archivedTournaments)}</strong>
-                    </div>
-                    <div class="stat-card">
-                      <span class="muted">Inactive accounts</span>
-                      <strong>${escapeHtml(managerMetrics.inactiveUsers)}</strong>
-                    </div>
-                    <div class="stat-card">
-                      <span class="muted">Reset requests</span>
-                      <strong>${escapeHtml(managerMetrics.passwordResetRequests)}</strong>
+                      <p class="eyebrow">Recent actions</p>
+                      <h3>Latest tournament activity</h3>
                     </div>
                   </div>
-                  <div class="manager-tools">
-                    <section class="flat-panel">
-                      <div class="section-heading">
-                        <div>
-                          <h3>Create an account</h3>
-                          <p class="fine-print">Create staff accounts directly from the manager console.</p>
-                        </div>
-                      </div>
-                      <form class="stack" data-form="create-managed-user">
-                        <div class="field-grid two">
-                          <label>
-                            Full name
-                            <input type="text" name="name" placeholder="Staff member name" required />
-                          </label>
-                          <label>
-                            Email address
-                            <input type="email" name="email" placeholder="staff@example.com" required />
-                          </label>
-                        </div>
-                        <div class="field-grid two">
-                          <label>
-                            Global role
-                            <select name="globalRole">${getGlobalRoleOptions("member")}</select>
-                          </label>
-                          <label>
-                            Temporary password
-                            <input type="password" name="password" placeholder="Create a temporary password" required />
-                          </label>
-                        </div>
-                        <button type="submit">Create Account</button>
-                      </form>
-                    </section>
-                    <section class="flat-panel">
-                      <div class="section-heading">
-                        <div>
-                          <h3>Reset a password</h3>
-                          <p class="fine-print">Issue a fresh password for any non-manager account.</p>
-                        </div>
-                      </div>
-                      <form class="stack" data-form="manager-reset-password">
-                        <label>
-                          Account
-                          <select name="email">${getNonManagerUserOptionsMarkup()}</select>
-                        </label>
-                        <label>
-                          New password
-                          <input type="password" name="password" placeholder="Enter a new password" required />
-                        </label>
-                        <button type="submit">Reset password</button>
-                      </form>
-                    </section>
-                    <section class="flat-panel">
-                      <div class="section-heading">
-                        <div>
-                          <h3>Password reset requests</h3>
-                          <p class="fine-print">Review forgot-password requests and resolve them without leaving the dashboard.</p>
-                        </div>
-                      </div>
-                      ${
-                        getOpenRecoveryRequests().length
-                          ? `<div class="request-list">
-                              ${getOpenRecoveryRequests()
-                                .map(
-                                  (request) => `
-                                    <div class="flat-panel">
-                                      <div class="section-heading">
-                                        <strong>${escapeHtml(request.email)}</strong>
-                                        <span class="mini-pill ${
-                                          request.knownAccount ? "success" : "warning"
-                                        }">${escapeHtml(
-                                          request.knownAccount ? "Known account" : "Unknown account",
-                                        )}</span>
-                                      </div>
-                                      <p class="fine-print">Submitted ${escapeHtml(request.submittedAt)}</p>
-                                      <p class="muted">${escapeHtml(
-                                        request.note || "No note was added.",
-                                      )}</p>
-                                      ${
-                                        request.knownAccount
-                                          ? `
-                                            <form class="stack" data-form="resolve-recovery-request" data-request-id="${escapeHtml(
-                                              request.id,
-                                            )}">
-                                              <label>
-                                                Temporary password
-                                                <input type="password" name="password" placeholder="Set a temporary password" required />
-                                              </label>
-                                              <button type="submit">Resolve and set password</button>
-                                            </form>
-                                          `
-                                          : `<div class="alert info">No account currently matches this email address. You can create an account or dismiss the request.</div>`
-                                      }
-                                      <button class="secondary-button" type="button" data-action="dismiss-recovery-request" data-request-id="${escapeHtml(
-                                        request.id,
-                                      )}">Dismiss request</button>
-                                    </div>
-                                  `,
-                                )
-                                .join("")}
-                            </div>`
-                          : `<div class="empty-state">There are no open password reset requests.</div>`
-                      }
-                    </section>
-                  </div>
+                  ${
+                    recentLogs.length
+                      ? `<ul class="audit-list">
+                          ${recentLogs
+                            .map(
+                              (item) =>
+                                `<li><strong>${escapeHtml(item.tournament)}</strong>: ${escapeHtml(
+                                  item.entry.message,
+                                )} <span class="muted">(${escapeHtml(item.entry.at)})</span></li>`,
+                            )
+                            .join("")}
+                        </ul>`
+                      : `<div class="empty-state">No recent audit events yet.</div>`
+                  }
                 </section>
+                <details class="surface overview-admin-details">
+                  <summary>
+                    <div class="summary-main">
+                      <p class="eyebrow">Manager controls</p>
+                      <h3>Open account and recovery tools</h3>
+                      <p class="muted">Create accounts, issue resets, and resolve recovery requests only when you need them.</p>
+                    </div>
+                  </summary>
+                  <div class="details-content">
+                    <div class="manager-tools">
+                      <section class="flat-panel">
+                        <div class="section-heading">
+                          <div>
+                            <h3>Create an account</h3>
+                            <p class="fine-print">Create staff accounts directly from the manager console.</p>
+                          </div>
+                        </div>
+                        <form class="stack" data-form="create-managed-user">
+                          <div class="field-grid two">
+                            <label>
+                              Full name
+                              <input type="text" name="name" placeholder="Staff member name" required />
+                            </label>
+                            <label>
+                              Email address
+                              <input type="email" name="email" placeholder="staff@example.com" required />
+                            </label>
+                          </div>
+                          <div class="field-grid two">
+                            <label>
+                              Global role
+                              <select name="globalRole">${getGlobalRoleOptions("member")}</select>
+                            </label>
+                            <label>
+                              Temporary password
+                              <input type="password" name="password" placeholder="Create a temporary password" required />
+                            </label>
+                          </div>
+                          <button type="submit">Create Account</button>
+                        </form>
+                      </section>
+                      <section class="flat-panel">
+                        <div class="section-heading">
+                          <div>
+                            <h3>Reset a password</h3>
+                            <p class="fine-print">Issue a fresh password for any non-manager account.</p>
+                          </div>
+                        </div>
+                        <form class="stack" data-form="manager-reset-password">
+                          <label>
+                            Account
+                            <select name="email">${getNonManagerUserOptionsMarkup()}</select>
+                          </label>
+                          <label>
+                            New password
+                            <input type="password" name="password" placeholder="Enter a new password" required />
+                          </label>
+                          <button type="submit">Reset password</button>
+                        </form>
+                      </section>
+                      <section class="flat-panel">
+                        <div class="section-heading">
+                          <div>
+                            <h3>Password reset requests</h3>
+                            <p class="fine-print">Review forgot-password requests and resolve them without leaving the dashboard.</p>
+                          </div>
+                        </div>
+                        ${
+                          openRecoveryRequests.length
+                            ? `<div class="request-list">
+                                ${openRecoveryRequests
+                                  .map(
+                                    (request) => `
+                                      <div class="flat-panel">
+                                        <div class="section-heading">
+                                          <strong>${escapeHtml(request.email)}</strong>
+                                          <span class="mini-pill ${
+                                            request.knownAccount ? "success" : "warning"
+                                          }">${escapeHtml(
+                                            request.knownAccount ? "Known account" : "Unknown account",
+                                          )}</span>
+                                        </div>
+                                        <p class="fine-print">Submitted ${escapeHtml(request.submittedAt)}</p>
+                                        <p class="muted">${escapeHtml(
+                                          request.note || "No note was added.",
+                                        )}</p>
+                                        ${
+                                          request.knownAccount
+                                            ? `
+                                              <form class="stack" data-form="resolve-recovery-request" data-request-id="${escapeHtml(
+                                                request.id,
+                                              )}">
+                                                <label>
+                                                  Temporary password
+                                                  <input type="password" name="password" placeholder="Set a temporary password" required />
+                                                </label>
+                                                <button type="submit">Resolve and set password</button>
+                                              </form>
+                                            `
+                                            : `<div class="alert info">No account currently matches this email address. You can create an account or dismiss the request.</div>`
+                                        }
+                                        <button class="secondary-button" type="button" data-action="dismiss-recovery-request" data-request-id="${escapeHtml(
+                                          request.id,
+                                        )}">Dismiss request</button>
+                                      </div>
+                                    `,
+                                  )
+                                  .join("")}
+                              </div>`
+                            : `<div class="empty-state">There are no open password reset requests.</div>`
+                        }
+                      </section>
+                    </div>
+                  </div>
+                </details>
               `
               : ""
           }
-          <section class="surface-grid">
-            <section class="surface">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Live tournaments</p>
-                  <h3>What is currently visible</h3>
-                </div>
-              </div>
-              <div class="leaderboard-list">
-                ${getVisibleTournaments()
-                  .map(
-                    (tournament) => `
-                      <div class="leaderboard-row">
-                        <div class="stack">
-                          <strong>${escapeHtml(tournament.name)}</strong>
-                          <span class="muted">${escapeHtml(getFormatLabel(tournament))}</span>
-                        </div>
-                        <div class="button-row wrap-row">
-                          ${renderTournamentNavigationButton(
-                            tournament,
-                            canManageTournament(tournament) ? "Open" : "View",
-                            !canManageTournament(tournament),
-                          )}
-                          <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
-                            toTitleLabel(tournament.status),
-                          )}</span>
-                          <span class="mini-pill success">${escapeHtml(
-                            tournament.rounds,
-                          )} rounds</span>
-                          <span class="mini-pill success">${escapeHtml(
-                            tournament.participants.length,
-                          )} participants</span>
-                          <span class="mini-pill success">${escapeHtml(
-                            toTitleLabel(getTournamentAccess(tournament)),
-                          )}</span>
-                        </div>
-                      </div>
-                    `,
-                  )
-                  .join("")}
-              </div>
-            </section>
-            <section class="surface">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Audit trail</p>
-                  <h3>Recent actions</h3>
-                </div>
-              </div>
-              ${
-                recentLogs.length
-                  ? `<ul class="audit-list">
-                      ${recentLogs
-                        .map(
-                          (item) =>
-                            `<li><strong>${escapeHtml(item.tournament)}</strong>: ${escapeHtml(
-                              item.entry.message,
-                            )} <span class="muted">(${escapeHtml(item.entry.at)})</span></li>`,
-                        )
-                        .join("")}
-                    </ul>`
-                  : `<div class="empty-state">No recent audit events yet.</div>`
-              }
-            </section>
-          </section>
         `;
       }
 
@@ -19639,6 +19674,8 @@
             key: "overview",
             label: "Workspace",
           };
+        const showOverviewBand = currentView !== "overview";
+        const showWorkspaceSearch = currentView !== "overview";
 
         const viewMarkup =
           currentView === "overview"
@@ -19688,8 +19725,8 @@
                       )}</p>
                     </div>
                   </div>
-                  ${renderWorkspaceStatusBand(currentNavItem, session.userEmail)}
-                  ${renderWorkspaceSearchBar()}
+                  ${showOverviewBand ? renderWorkspaceStatusBand(currentNavItem, session.userEmail) : ""}
+                  ${showWorkspaceSearch ? renderWorkspaceSearchBar() : ""}
                 </div>
                 ${renderFlash()}
                 ${viewMarkup}

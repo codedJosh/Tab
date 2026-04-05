@@ -1956,6 +1956,54 @@
         box-shadow: 0 12px 24px rgba(133, 39, 39, 0.18);
       }
 
+      .overview-panel {
+        display: grid;
+        gap: 16px;
+      }
+
+      .overview-quick-row {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+        align-items: start;
+      }
+
+      .overview-quick-actions {
+        align-self: start;
+      }
+
+      .overview-quick-actions > button {
+        min-height: 46px;
+      }
+
+      .overview-spotlight-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      }
+
+      .overview-queue-list {
+        gap: 10px;
+      }
+
+      .overview-queue-copy {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .overview-queue-copy strong {
+        font-size: 0.96rem;
+        line-height: 1.15;
+      }
+
+      .overview-queue-copy .muted {
+        font-size: 0.84rem;
+        line-height: 1.25;
+      }
+
+      .overview-admin-details > summary {
+        padding: 18px 20px;
+      }
+
       .menu-side-section {
         display: grid;
         gap: 10px;
@@ -5455,6 +5503,10 @@
         .workspace-overview-band,
         .focus-nav-grid,
         .quick-access-strip {
+          grid-template-columns: 1fr;
+        }
+
+        .overview-quick-row {
           grid-template-columns: 1fr;
         }
 
