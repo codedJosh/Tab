@@ -5046,6 +5046,40 @@
         border: 1px solid var(--line);
       }
 
+      .smart-insight-shell {
+        gap: 14px;
+      }
+
+      .smart-insight-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+      }
+
+      .smart-insight-card {
+        align-content: start;
+        min-height: 0;
+      }
+
+      .smart-insight-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .smart-insight-card .eyebrow {
+        margin: 0;
+      }
+
+      .smart-insight-card .fine-print {
+        margin: -2px 0 0;
+      }
+
+      .smart-insight-card .button-row {
+        margin-top: auto;
+      }
+
       .people-dashboard-metric h3 {
         font-size: 1.32rem;
       }

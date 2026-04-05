@@ -10277,6 +10277,710 @@
           );
       }
 
+      function renderSmartActionLink(label, href) {
+        const target = String(href || "").trim();
+        if (!target) {
+          return "";
+        }
+        return `<a class="secondary-button inline-link" href="${escapeHtml(target)}">${escapeHtml(
+          label,
+        )}</a>`;
+      }
+
+      function renderSmartInsightSection({
+        eyebrow = "Hummingbird Intelligence",
+        title = "What needs attention next",
+        intro = "The workspace is reading the live state and surfacing the strongest next actions.",
+        items = [],
+        badgeLabel = "",
+        emptyMessage = "Everything looks steady right now.",
+      } = {}) {
+        const insights = Array.isArray(items) ? items.filter(Boolean).slice(0, 4) : [];
+        return `
+          <section class="surface spotlight-shell smart-insight-shell">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+                <h2>${escapeHtml(title)}</h2>
+                <p class="muted">${escapeHtml(intro)}</p>
+              </div>
+              ${badgeLabel ? `<span class="role-pill">${escapeHtml(badgeLabel)}</span>` : ""}
+            </div>
+            ${
+              insights.length
+                ? `<div class="smart-insight-grid">
+                    ${insights
+                      .map((item) => {
+                        const tone = ["danger", "warning", "success"].includes(item.tone)
+                          ? item.tone
+                          : "success";
+                        return `
+                          <article class="spotlight-card smart-insight-card">
+                            <div class="smart-insight-card-top">
+                              <p class="eyebrow">${escapeHtml(item.eyebrow || "Smart prompt")}</p>
+                              ${
+                                item.label
+                                  ? `<span class="mini-pill ${escapeHtml(tone)}">${escapeHtml(
+                                      item.label,
+                                    )}</span>`
+                                  : ""
+                              }
+                            </div>
+                            <h3>${escapeHtml(item.title || "Next action")}</h3>
+                            <p class="muted">${escapeHtml(item.body || "")}</p>
+                            ${
+                              item.support
+                                ? `<p class="fine-print">${escapeHtml(item.support)}</p>`
+                                : ""
+                            }
+                            ${
+                              item.actionMarkup
+                                ? `<div class="button-row wrap-row">${item.actionMarkup}</div>`
+                                : ""
+                            }
+                          </article>
+                        `;
+                      })
+                      .join("")}
+                  </div>`
+                : `<div class="alert success">${escapeHtml(emptyMessage)}</div>`
+            }
+          </section>
+        `;
+      }
+
+      function getManagedTournamentSnapshotList(visibleTournaments = getVisibleTournaments()) {
+        return (Array.isArray(visibleTournaments) ? visibleTournaments : [])
+          .filter((tournament) => canManageTournament(tournament))
+          .map((tournament) => ({
+            tournament,
+            snapshot: getTournamentOpsSnapshot(tournament),
+          }))
+          .sort((left, right) => {
+            const leftWeight =
+              left.snapshot.attentionCount * 100 +
+              left.snapshot.pendingBallotRooms * 25 +
+              left.snapshot.draftRooms * 10 +
+              left.snapshot.conflictFlags * 5;
+            const rightWeight =
+              right.snapshot.attentionCount * 100 +
+              right.snapshot.pendingBallotRooms * 25 +
+              right.snapshot.draftRooms * 10 +
+              right.snapshot.conflictFlags * 5;
+            return (
+              rightWeight - leftWeight ||
+              String(left.tournament.name || "").localeCompare(String(right.tournament.name || ""))
+            );
+          });
+      }
+
+      function getWorkspaceSmartInsights({
+        capabilities = getWorkspaceCapabilities(),
+        visibleTournaments = getVisibleTournaments(),
+        judgeAssignments = getJudgeAssignments(),
+        openRecoveryRequests = getOpenRecoveryRequests(),
+        stats = getOverviewStats(),
+        managerMetrics = getManagerMetrics(),
+      } = {}) {
+        const insights = [];
+
+        if (capabilities.canManageAny) {
+          const managedSnapshots = getManagedTournamentSnapshotList(visibleTournaments);
+          const hottestTournament = managedSnapshots[0] || null;
+          const releaseReady = managedSnapshots.find(
+            ({ tournament, snapshot }) =>
+              snapshot.publishedRooms &&
+              !snapshot.pendingBallotRooms &&
+              !tournament.publication.showPublicStandings,
+          );
+          const regionalSummary = canAccessRegionalOperations()
+            ? getRegionalOperationsSummary()
+            : null;
+
+          if (hottestTournament && hottestTournament.snapshot.attentionCount) {
+            insights.push({
+              tone:
+                hottestTournament.snapshot.pendingBallotRooms ||
+                hottestTournament.snapshot.chairlessRooms ||
+                hottestTournament.snapshot.conflictFlags
+                  ? "danger"
+                  : "warning",
+              label:
+                hottestTournament.snapshot.attentionCount +
+                " watchpoint" +
+                (hottestTournament.snapshot.attentionCount === 1 ? "" : "s"),
+              eyebrow: "Tournament focus",
+              title: hottestTournament.tournament.name + " needs intervention",
+              body:
+                hottestTournament.snapshot.attention[0] ||
+                "This tournament has multiple live blockers in its workflow.",
+              support:
+                "Open the focused tournament workspace and clear the bottleneck before moving to the next queue.",
+              actionMarkup: renderTournamentNavigationButton(
+                hottestTournament.tournament,
+                "Open " + (hottestTournament.tournament.code || "Tournament"),
+                true,
+              ),
+            });
+          }
+
+          if (managerMetrics.pendingAccounts || openRecoveryRequests.length) {
+            insights.push({
+              tone: "warning",
+              label:
+                managerMetrics.pendingAccounts +
+                " pending • " +
+                openRecoveryRequests.length +
+                " resets",
+              eyebrow: "Account queue",
+              title: "People and access need a pass",
+              body:
+                managerMetrics.pendingAccounts +
+                " account" +
+                (managerMetrics.pendingAccounts === 1 ? " is" : "s are") +
+                " still waiting to be claimed, and " +
+                openRecoveryRequests.length +
+                " recovery request" +
+                (openRecoveryRequests.length === 1 ? " is" : "s are") +
+                " still open.",
+              support:
+                "Use People and Access Control before registrations or permissions start drifting.",
+              actionMarkup:
+                `<button class="secondary-button" type="button" data-action="set-view" data-view="people">Open People</button>` +
+                `<button class="secondary-button" type="button" data-action="set-view" data-view="settings">Open Settings</button>`,
+            });
+          }
+
+          if (regionalSummary && regionalSummary.pendingFundingRequests) {
+            insights.push({
+              tone: regionalSummary.pendingFundingRequests > 3 ? "danger" : "warning",
+              label:
+                regionalSummary.pendingFundingRequests +
+                " pending stipend" +
+                (regionalSummary.pendingFundingRequests === 1 ? "" : "s"),
+              eyebrow: "Regional operations",
+              title: "Transport support is backing up",
+              body:
+                regionalSummary.pendingFundingRequests +
+                " regional funding request" +
+                (regionalSummary.pendingFundingRequests === 1 ? " is" : "s are") +
+                " still waiting on manager review.",
+              support:
+                "The regional portal is now part of the same operating picture, so unresolved field support should surface here too.",
+              actionMarkup: renderSmartActionLink(
+                "Open Regional Ops",
+                getPublicScreenLink("regional-operations"),
+              ),
+            });
+          }
+
+          if (releaseReady) {
+            insights.push({
+              tone: "success",
+              label: "Ready to publish",
+              eyebrow: "Visibility",
+              title: releaseReady.tournament.name + " can now go public",
+              body:
+                "Ballots are settled, but public standings are still hidden for this event.",
+              support:
+                "Open the results area and decide whether to publish the current standings.",
+              actionMarkup: renderTournamentNavigationButton(
+                releaseReady.tournament,
+                "Open Results",
+                true,
+              ),
+            });
+          }
+        } else {
+          const primaryAssignment = Array.isArray(judgeAssignments)
+            ? judgeAssignments[0] || null
+            : null;
+          const liveTournament =
+            visibleTournaments.find(
+              (tournament) => String(tournament.status || "").trim().toLowerCase() === "open",
+            ) ||
+            visibleTournaments[0] ||
+            null;
+
+          if (primaryAssignment) {
+            insights.push({
+              tone: "warning",
+              label: getJudgeAllocationRoleLabel(primaryAssignment.allocation.panelRole),
+              eyebrow: "Judging lane",
+              title: "A live judging room is waiting",
+              body:
+                primaryAssignment.tournament.name +
+                " • Round " +
+                primaryAssignment.allocation.round +
+                " • " +
+                primaryAssignment.allocation.room,
+              support:
+                "Open Judging to submit the next ballot or check the latest room instructions.",
+              actionMarkup:
+                `<button class="secondary-button" type="button" data-action="set-view" data-view="judging">Open Judging</button>` +
+                renderTournamentNavigationButton(
+                  primaryAssignment.tournament,
+                  "Open Tournament",
+                  true,
+                ),
+            });
+          }
+
+          if (liveTournament) {
+            const liveSnapshot = getTournamentOpsSnapshot(liveTournament);
+            insights.push({
+              tone: liveSnapshot.attentionCount ? "warning" : "success",
+              label:
+                String(liveTournament.status || "").trim().toLowerCase() === "open"
+                  ? "Open now"
+                  : "Available",
+              eyebrow: "Tournament focus",
+              title: liveTournament.name + " is the clearest next stop",
+              body:
+                liveSnapshot.latestPublishedRound
+                  ? "Latest released round: " + liveSnapshot.latestPublishedRound + "."
+                  : "Use this tournament as your main live workspace entry point.",
+              support:
+                "The landing page is now steering you toward the most relevant active tournament first.",
+              actionMarkup: renderTournamentNavigationButton(
+                liveTournament,
+                "Open Tournament",
+                true,
+              ),
+            });
+          }
+
+          if (stats.privateLinks) {
+            insights.push({
+              tone: "success",
+              label: stats.privateLinks + " live links",
+              eyebrow: "Access",
+              title: "Private access is ready without extra searching",
+              body:
+                "Open your access links when you want the quickest route back into a tournament, round, or personal portal.",
+              support:
+                "This is especially useful when you want to resume exactly where you left off without hunting through dashboards.",
+              actionMarkup:
+                `<button class="secondary-button" type="button" data-action="set-view" data-view="links">Open Access Links</button>`,
+            });
+          }
+
+          if (canAccessRegionalOperations()) {
+            insights.push({
+              tone: "success",
+              label: "Separate portal",
+              eyebrow: "Regional operations",
+              title: "Your field operations tools stay isolated",
+              body:
+                "Regional reporting and transport funding live in their own portal so they do not crowd your main tournament workspace.",
+              support:
+                "Open the regional portal only when you want reporting, stipends, or regional oversight.",
+              actionMarkup: renderSmartActionLink(
+                "Open Regional Ops",
+                getPublicScreenLink("regional-operations"),
+              ),
+            });
+          }
+        }
+
+        if (!insights.length) {
+          insights.push({
+            tone: "success",
+            label: "Calm workspace",
+            eyebrow: "Hummingbird intelligence",
+            title: "Nothing urgent is fighting you right now",
+            body:
+              "The workspace looks stable, so the smartest move is simply to open the area you want and keep momentum.",
+            support:
+              "Use this breathing room to check tournaments, review people, or clean up publication settings before the next rush.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">Open Tournaments</button>` +
+              `<button class="secondary-button" type="button" data-action="set-view" data-view="search">Search Profiles</button>`,
+          });
+        }
+
+        return insights.slice(0, 4);
+      }
+
+      function getTournamentSmartInsights(tournament) {
+        const snapshot = getTournamentOpsSnapshot(tournament);
+        const insights = [];
+
+        if (!snapshot.teams && !snapshot.speakers) {
+          insights.push({
+            tone: "warning",
+            label: "Start here",
+            eyebrow: "Registration",
+            title: "The roster still needs its first entries",
+            body:
+              "No participants have been added yet, so everything downstream is blocked behind roster setup.",
+            support:
+              "Open the roster, add teams or speakers, then the rest of the tab room can begin to move.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="roster">Open Roster</button>`,
+          });
+        }
+
+        if (!snapshot.judges) {
+          insights.push({
+            tone: "warning",
+            label: "Judge gap",
+            eyebrow: "Judge readiness",
+            title: "Adjudicators still need to be added",
+            body:
+              "This tournament does not yet have a judge roster, so panels and clash-safe allocations cannot settle.",
+            support:
+              "Add judges now so allocations, chairs, and panel balance stop being bottlenecks later.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="judges">Open Judges</button>`,
+          });
+        }
+
+        if (!snapshot.totalRooms) {
+          insights.push({
+            tone: "warning",
+            label: "No rooms",
+            eyebrow: "Pairings",
+            title: "The next round still needs to be built",
+            body:
+              snapshot.nextUnbuiltRound
+                ? "Round " + snapshot.nextUnbuiltRound + " is ready to be paired."
+                : "No draw rooms have been created yet for this tournament.",
+            support:
+              "Build the next room set so motions, ballots, and judging can move forward.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Draw Lab</button>`,
+          });
+        }
+
+        if (snapshot.conflictFlags) {
+          insights.push({
+            tone: "danger",
+            label:
+              snapshot.conflictFlags +
+              " conflict" +
+              (snapshot.conflictFlags === 1 ? "" : "s"),
+            eyebrow: "Draw safety",
+            title: "The draw needs a clash review",
+            body:
+              "Some room allocations are flagged, so the next public release should be checked before it goes live.",
+            support:
+              "Open the draw lab, inspect the flagged rooms, and resolve conflicts before the next release.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Review Draw</button>`,
+          });
+        }
+
+        if (snapshot.draftRooms && snapshot.nextDraftRound) {
+          insights.push({
+            tone: "warning",
+            label:
+              snapshot.draftRooms +
+              " draft room" +
+              (snapshot.draftRooms === 1 ? "" : "s"),
+            eyebrow: "Release queue",
+            title: "A round is staged and waiting",
+            body:
+              "Round " + snapshot.nextDraftRound + " is drafted but not public yet.",
+            support:
+              "Release it once the chairing, conflicts, and motion state look right.",
+            actionMarkup: `<button type="button" data-action="release-round-now" data-id="${escapeHtml(
+              tournament.id,
+            )}" data-round="${escapeHtml(snapshot.nextDraftRound)}">Release Round ${escapeHtml(
+              snapshot.nextDraftRound,
+            )}</button>`,
+          });
+        }
+
+        if (snapshot.chairlessRooms) {
+          insights.push({
+            tone: "danger",
+            label:
+              snapshot.chairlessRooms +
+              " unchaired room" +
+              (snapshot.chairlessRooms === 1 ? "" : "s"),
+            eyebrow: "Panel integrity",
+            title: "Some rooms still do not have chairs",
+            body:
+              "Judges exist, but at least one room still lacks an official chair assignment.",
+            support:
+              "Open Judges and finish the panel allocations before the round goes live.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="judges">Assign Chairs</button>`,
+          });
+        }
+
+        if (snapshot.pendingBallotRooms) {
+          insights.push({
+            tone: "danger",
+            label:
+              snapshot.pendingBallotRooms +
+              " pending ballot" +
+              (snapshot.pendingBallotRooms === 1 ? "" : "s"),
+            eyebrow: "Results",
+            title: "Published rooms are still waiting on official ballots",
+            body:
+              "Standings and speaker rankings cannot fully settle until those chair ballots come in.",
+            support:
+              "Open Results to review which published rooms still need their official submission.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Review Results</button>`,
+          });
+        }
+
+        if (
+          snapshot.publishedRooms &&
+          !snapshot.pendingBallotRooms &&
+          !tournament.publication.showPublicStandings
+        ) {
+          insights.push({
+            tone: "success",
+            label: "Ready to reveal",
+            eyebrow: "Publishing",
+            title: "The standings can now go public cleanly",
+            body:
+              "Ballots have settled, but public standings are still switched off for this tournament.",
+            support:
+              "If managers are comfortable with the current results, the tournament is ready for a cleaner public release.",
+            actionMarkup: `<button class="secondary-button" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
+              tournament.id,
+            )}">Show Public Standings</button>`,
+          });
+        }
+
+        if (!insights.length) {
+          insights.push({
+            tone: "success",
+            label: "Healthy",
+            eyebrow: "Flight control",
+            title: "This tournament is currently in a stable rhythm",
+            body:
+              "Registration, judging, room creation, and results are all in a good state right now.",
+            support:
+              "Use the focused workspace for fine-grained management, but there is no urgent blocker demanding intervention.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Open Results</button>`,
+          });
+        }
+
+        return insights.slice(0, 4);
+      }
+
+      function getPeopleSmartInsights({
+        pending = getPendingEmails(),
+        trackedSignups = getTrackedSignupUsers(),
+        appointees = getTournamentAppointeeDashboard(),
+        peopleAccounts = getPeopleAccountCards(),
+      } = {}) {
+        const insights = [];
+        const disabledAccounts = (peopleAccounts || []).filter((user) => user.active === false).length;
+        const selfSignups = (trackedSignups || []).filter(
+          (user) => String(user.createdSource || "").trim().toLowerCase() === "self_signup",
+        ).length;
+        const busiestAppointeeDashboard = [...(appointees || [])].sort(
+          (left, right) => Number(right.total || 0) - Number(left.total || 0),
+        )[0] || null;
+
+        if (pending.length) {
+          insights.push({
+            tone: "warning",
+            label: pending.length + " pending",
+            eyebrow: "Access control",
+            title: "Some invitations still have no claimed password",
+            body:
+              pending.length +
+              " permission-bearing email" +
+              (pending.length === 1 ? " is" : "s are") +
+              " still waiting for the user to finish account setup.",
+            support:
+              "Open Access Control to review the pending queue before tournament permissions start to feel inconsistent.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="open-people-section" data-section="access">Open Access Control</button>`,
+          });
+        }
+
+        if (selfSignups) {
+          insights.push({
+            tone: "success",
+            label: selfSignups + " self sign-up" + (selfSignups === 1 ? "" : "s"),
+            eyebrow: "Registrations",
+            title: "New self-registrations are now part of the live directory",
+            body:
+              "The sign-up dashboard is the fastest way to review who just entered the system and whether their account state looks healthy.",
+            support:
+              "Use it as the first stop when you want to confirm that public registration is flowing cleanly into the backend.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="open-people-section" data-section="signups">Open Sign-Ups</button>`,
+          });
+        }
+
+        if (busiestAppointeeDashboard) {
+          insights.push({
+            tone: "warning",
+            label:
+              busiestAppointeeDashboard.total +
+              " appointment" +
+              (busiestAppointeeDashboard.total === 1 ? "" : "s"),
+            eyebrow: "Tournament staffing",
+            title: busiestAppointeeDashboard.tournament.name + " has the densest people load",
+            body:
+              "This tournament currently has the largest live appointee footprint across debaters, judges, and staff.",
+            support:
+              "Use the focused appointee dashboard when you want to review role coverage without opening every tournament one by one.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="open-people-section" data-section="appointees">Open Appointees</button>`,
+          });
+        }
+
+        if (disabledAccounts) {
+          insights.push({
+            tone: "warning",
+            label: disabledAccounts + " disabled",
+            eyebrow: "Directory health",
+            title: "Some accounts are intentionally inactive",
+            body:
+              "Disabled accounts are preserved, but they are still worth reviewing so they do not confuse future permissions or profile lookups.",
+            support:
+              "Open the directory and use the Disabled filter when you want to clean up the inactive edge cases.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="open-people-section" data-section="directory">Open Directory</button>`,
+          });
+        }
+
+        if (!insights.length) {
+          insights.push({
+            tone: "success",
+            label: "Healthy",
+            eyebrow: "Directory intelligence",
+            title: "People records look orderly right now",
+            body:
+              "The shared account directory, registration flow, and appointment queues do not currently show any obvious pressure points.",
+            support:
+              "Use the directory when you want to drill into a specific person, or keep the hub closed until the next operational spike arrives.",
+            actionMarkup:
+              `<button class="secondary-button" type="button" data-action="open-people-section" data-section="directory">Open Directory</button>`,
+          });
+        }
+
+        return insights.slice(0, 4);
+      }
+
+      function getRegionalOperationsSmartInsights({
+        canManage = canManageRegionalOperations(),
+        canSubmit = canSubmitRegionalOperationsWork(),
+        summary = getRegionalOperationsSummary(),
+        fundingSummary = getRegionalFundingStatusSummary(),
+        reports = getVisibleRegionalReports(),
+        requests = getVisibleRegionalFundingRequests(),
+        latestReport = reports[0] || null,
+      } = {}) {
+        const insights = [];
+        const totalRegionalStaff = Number(summary.coordinators || 0) + Number(summary.deputies || 0);
+
+        if (canManage && !totalRegionalStaff) {
+          insights.push({
+            tone: "warning",
+            label: "No staff yet",
+            eyebrow: "Regional staffing",
+            title: "Regional Operations still needs its first coordinators",
+            body:
+              "Managers have the portal ready, but no Regional Coordinator or Deputy Regional Coordinator accounts exist yet.",
+            support:
+              "Create the first regional staff accounts here so reports and funding can begin flowing through the same shared backend.",
+            actionMarkup: renderSmartActionLink("Create Staff Account", "#regional-staff-create"),
+          });
+        }
+
+        if (summary.pendingFundingRequests) {
+          insights.push({
+            tone: summary.pendingFundingRequests > 3 ? "danger" : "warning",
+            label: summary.pendingFundingRequests + " pending",
+            eyebrow: "Funding queue",
+            title: "Transport stipends are waiting on review",
+            body:
+              summary.pendingFundingRequests +
+              " request" +
+              (summary.pendingFundingRequests === 1 ? " is" : "s are") +
+              " still open, while " +
+              fundingSummary.paid +
+              " have already been resolved as paid.",
+            support:
+              "Use the funding dashboard to review, approve, or move requests toward payment without losing the banking trail.",
+            actionMarkup: renderSmartActionLink(
+              "Open Funding Dashboard",
+              "#regional-funding-dashboard",
+            ),
+          });
+        }
+
+        if (canSubmit && !reports.length) {
+          insights.push({
+            tone: "warning",
+            label: "Report due",
+            eyebrow: "Reporting rhythm",
+            title: "Your regional report queue is empty",
+            body:
+              "No biweekly report is on record for this account yet, so the managers will not see fresh field intelligence from your region.",
+            support:
+              "File the next school report here so the regional dashboard starts to build a reliable operating history.",
+            actionMarkup: renderSmartActionLink(
+              "Open Reports Dashboard",
+              "#regional-reports-dashboard",
+            ),
+          });
+        } else if (latestReport) {
+          insights.push({
+            tone: "success",
+            label: latestReport.region || "Latest report",
+            eyebrow: "Recent signal",
+            title: "The latest field report is from " + (latestReport.school || "your region"),
+            body:
+              "The most recent reporting window closed on " +
+              (latestReport.reportingWindowEnd || latestReport.createdAt || "the latest cycle") +
+              ".",
+            support:
+              "Use the reports dashboard when you want to review what is already on record before sending the next update.",
+            actionMarkup: renderSmartActionLink("Review Reports", "#regional-reports-dashboard"),
+          });
+        }
+
+        if (canSubmit && !requests.length) {
+          insights.push({
+            tone: "success",
+            label: "Ready",
+            eyebrow: "Transport support",
+            title: "No stipend request is currently open for this account",
+            body:
+              "When a school trip needs transport support, the funding dashboard is ready to capture it with banking details and justification.",
+            support:
+              "The portal now remembers banking info, so repeat requests should feel faster instead of repetitive.",
+            actionMarkup: renderSmartActionLink(
+              "Open Funding Dashboard",
+              "#regional-funding-dashboard",
+            ),
+          });
+        }
+
+        if (!insights.length) {
+          insights.push({
+            tone: "success",
+            label: "Steady",
+            eyebrow: "Field signals",
+            title: "Regional Operations is in a calm state right now",
+            body:
+              "Staff accounts, reports, and stipend requests are all in a workable place with no obvious backlog demanding action.",
+            support:
+              "Use the portal when you need to file the next report, check funding, or review staff records by region.",
+            actionMarkup: renderSmartActionLink(
+              "Review Staff",
+              "#regional-staff-dashboard",
+            ),
+          });
+        }
+
+        return insights.slice(0, 4);
+      }
+
       function buildInvitationMessage(tournament, participant) {
         return state.appSettings.portal.emailTemplate
           .replaceAll("{{name}}", participant.name)
@@ -11641,6 +12345,14 @@
           )
           .sort((left, right) => (left.entry.at < right.entry.at ? 1 : -1))
           .slice(0, 8);
+        const workspaceSmartInsights = getWorkspaceSmartInsights({
+          capabilities,
+          visibleTournaments,
+          judgeAssignments,
+          openRecoveryRequests,
+          stats,
+          managerMetrics,
+        });
 
         if (!capabilities.canManageAny) {
           return `
@@ -11703,6 +12415,16 @@
                 </article>
               </div>
             </section>
+            ${renderSmartInsightSection({
+              eyebrow: "Smart Focus",
+              title: "What the workspace thinks you should do next",
+              intro:
+                "JADE Hummingbird is scanning your live access, rooms, tournaments, and private links to surface the cleanest next move.",
+              items: workspaceSmartInsights,
+              badgeLabel: workspaceSmartInsights.length + " live cues",
+              emptyMessage:
+                "No urgent signals are firing right now. Open the area you want and keep moving.",
+            })}
             ${renderUserAccessLinksSection({
               title: "Your Private Access URL",
               eyebrow: "Private Access",
@@ -11872,6 +12594,16 @@
               </article>
             </div>
           </section>
+          ${renderSmartInsightSection({
+            eyebrow: "Hummingbird Intelligence",
+            title: "What deserves attention next",
+            intro:
+              "The workspace is now reading tournament pressure, people queues, and access flow to suggest the strongest manager moves first.",
+            items: workspaceSmartInsights,
+            badgeLabel: workspaceSmartInsights.length + " live priorities",
+            emptyMessage:
+              "Nothing urgent is pushing back right now. This is a good moment to clean up or prepare the next release.",
+          })}
           ${
             canAccessGlobalSettings()
               ? `
@@ -14991,6 +15723,7 @@
       function renderTournamentSpotlight(tournament) {
         const snapshot = getTournamentOpsSnapshot(tournament);
         const topStanding = getComputedStandings(tournament)[0] || null;
+        const smartInsights = getTournamentSmartInsights(tournament);
         const cards = [
           {
             eyebrow: "Registration",
@@ -15077,7 +15810,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Ops Spotlight</p>
-                <h2>What this tournament needs next</h2>
+                <h2>Tournament snapshot</h2>
               </div>
               <span class="role-pill">${escapeHtml(snapshot.attentionCount)} watchpoints</span>
             </div>
@@ -15115,6 +15848,16 @@
                 : `<div class="alert success">This tournament currently looks healthy across registration, judging, publishing, and results.</div>`
             }
           </section>
+          ${renderSmartInsightSection({
+            eyebrow: "Flight Control",
+            title: "What the tournament needs next",
+            intro:
+              "This focused workspace is reading roster progress, judge readiness, release state, clashes, and result flow to keep the next move obvious.",
+            items: smartInsights,
+            badgeLabel: smartInsights.length + " smart cues",
+            emptyMessage:
+              "This tournament is currently flowing cleanly. Keep operating from the focused tabs as needed.",
+          })}
         `;
       }
 
@@ -18164,6 +18907,12 @@
         const appointees = getTournamentAppointeeDashboard();
         const appointeeStats = getTournamentAppointeeStats();
         const peopleAccounts = getPeopleAccountCards();
+        const peopleSmartInsights = getPeopleSmartInsights({
+          pending,
+          trackedSignups,
+          appointees,
+          peopleAccounts,
+        });
         const peopleSection = normalizePeopleSection(session.peopleSection);
         const selectedPeopleAccount =
           peopleSection === "directory" ? getUserByEmail(session.selectedPeopleEmail) : null;
@@ -18215,6 +18964,16 @@
               }
             </div>
           </section>
+          ${renderSmartInsightSection({
+            eyebrow: "Directory Intelligence",
+            title: "What the People workspace thinks needs attention",
+            intro:
+              "Accounts, sign-ups, appointments, and pending invitations are being read together so you can move to the right queue immediately.",
+            items: peopleSmartInsights,
+            badgeLabel: peopleSmartInsights.length + " live queues",
+            emptyMessage:
+              "The people side of the system looks stable right now, so you can open exactly the dashboard you want.",
+          })}
           ${
             peopleSection === "directory"
               ? renderPeopleDirectorySection(peopleAccounts)
@@ -18248,6 +19007,15 @@
         const summary = getRegionalOperationsSummary();
         const fundingSummary = getRegionalFundingStatusSummary();
         const latestReport = reports[0] || null;
+        const regionalSmartInsights = getRegionalOperationsSmartInsights({
+          canManage,
+          canSubmit,
+          summary,
+          fundingSummary,
+          reports,
+          requests,
+          latestReport,
+        });
         const pagedStaff = getPagedCollection(
           getFilteredRegionalStaffRecords(staff),
           session.regionalStaffPage,
@@ -18322,10 +19090,21 @@
             </p>
           </section>
 
+          ${renderSmartInsightSection({
+            eyebrow: "Field Signals",
+            title: "What Regional Operations thinks needs attention",
+            intro:
+              "This portal is watching staffing, reporting rhythm, and stipend backlog so regional work can feel guided instead of manual.",
+            items: regionalSmartInsights,
+            badgeLabel: regionalSmartInsights.length + " live signals",
+            emptyMessage:
+              "Regional Operations looks calm right now. Use the dashboards below when the next report or funding request is ready.",
+          })}
+
           ${
             canManage
               ? `
-                <section class="surface">
+                <section class="surface" id="regional-staff-create">
                   <div class="section-heading">
                     <div>
                       <p class="eyebrow">Regional Staff Accounts</p>
@@ -18376,7 +19155,7 @@
               : ""
           }
 
-          <section class="surface">
+          <section class="surface" id="regional-staff-dashboard">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Regional Directory</p>
@@ -18480,7 +19259,7 @@
             ${renderCollectionPagination("set-regional-staff-page", pagedStaff)}
           </section>
 
-          <section class="surface">
+          <section class="surface" id="regional-reports-dashboard">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Reports Dashboard</p>
@@ -18606,7 +19385,7 @@
             ${renderCollectionPagination("set-regional-reports-page", pagedReports)}
           </section>
 
-          <section class="surface">
+          <section class="surface" id="regional-funding-dashboard">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Funding Dashboard</p>
