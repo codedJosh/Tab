@@ -34,6 +34,13 @@ const REQUIRED_USER_CONTRACT_KEYS = [
   "registeredTournamentIds",
   "pinnedTournamentIds",
 ];
+const DEFAULT_BRANDING = {
+  appName: "JADE Hummingbird",
+  subtitle:
+    "Premium tournament operations, controlled publishing, and calm competitor access in one place.",
+  accent: "#1f6a4e",
+  accentDeep: "#123f2f",
+};
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const configuredFrontendDir = String(process.env.FRONTEND_DIR || "").trim();
@@ -145,6 +152,53 @@ function nowText() {
 
 function normalizeEmail(value = "") {
   return String(value || "").trim().toLowerCase();
+}
+
+function shouldResetLegacyBrandingName(value = "") {
+  const normalized = normalizeTextKey(value);
+  return (
+    normalized === "debatetab command" ||
+    normalized === "jade debate tab" ||
+    normalized === "hummingbird tab system" ||
+    normalized === "jade corporate tab" ||
+    normalized === "corporate tab"
+  );
+}
+
+function normalizeBrandingSettings(record = {}) {
+  const next = {
+    ...DEFAULT_BRANDING,
+    ...(record && typeof record === "object" ? record : {}),
+  };
+
+  if (shouldResetLegacyBrandingName(next.appName)) {
+    next.appName = DEFAULT_BRANDING.appName;
+  }
+
+  if (
+    String(next.subtitle || "").trim() ===
+    "Professional debate tournament operations, permissions, publishing, and private access."
+  ) {
+    next.subtitle = DEFAULT_BRANDING.subtitle;
+  }
+
+  if (String(next.accent || "").trim() === "#a33a2b") {
+    next.accent = DEFAULT_BRANDING.accent;
+  }
+
+  if (String(next.accent || "").trim() === "#163b6d") {
+    next.accent = DEFAULT_BRANDING.accent;
+  }
+
+  if (String(next.accentDeep || "").trim() === "#7b251a") {
+    next.accentDeep = DEFAULT_BRANDING.accentDeep;
+  }
+
+  if (String(next.accentDeep || "").trim() === "#0b274d") {
+    next.accentDeep = DEFAULT_BRANDING.accentDeep;
+  }
+
+  return next;
 }
 
 function createWorkspaceContractError(context = "workspace", detail = "") {
@@ -772,6 +826,7 @@ function ensureWorkspaceState(state) {
   }
   next.workspaceContractVersion = WORKSPACE_CONTRACT_VERSION;
   next.appSettings = next.appSettings && typeof next.appSettings === "object" ? next.appSettings : {};
+  next.appSettings.branding = normalizeBrandingSettings(next.appSettings.branding || {});
   next.users = Array.isArray(next.users) ? next.users.map((user) => normalizeUserRecord(user)) : [];
   next.recoveryRequests = Array.isArray(next.recoveryRequests) ? next.recoveryRequests : [];
   next.tournaments = Array.isArray(next.tournaments) ? next.tournaments : [];

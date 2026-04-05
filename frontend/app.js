@@ -516,6 +516,53 @@
         },
       };
 
+      function shouldResetLegacyBrandingName(value = "") {
+        const normalized = normalizeTextKey(value);
+        return (
+          normalized === "debatetab command" ||
+          normalized === "jade debate tab" ||
+          normalized === "hummingbird tab system" ||
+          normalized === "jade corporate tab" ||
+          normalized === "corporate tab"
+        );
+      }
+
+      function normalizeBrandingSettings(record = {}) {
+        const next = {
+          ...clone(DEFAULT_SETTINGS.branding),
+          ...(record && typeof record === "object" ? record : {}),
+        };
+
+        if (shouldResetLegacyBrandingName(next.appName)) {
+          next.appName = DEFAULT_SETTINGS.branding.appName;
+        }
+
+        if (
+          String(next.subtitle || "").trim() ===
+          "Professional debate tournament operations, permissions, publishing, and private access."
+        ) {
+          next.subtitle = DEFAULT_SETTINGS.branding.subtitle;
+        }
+
+        if (String(next.accent || "").trim() === "#a33a2b") {
+          next.accent = DEFAULT_SETTINGS.branding.accent;
+        }
+
+        if (String(next.accent || "").trim() === "#163b6d") {
+          next.accent = DEFAULT_SETTINGS.branding.accent;
+        }
+
+        if (String(next.accentDeep || "").trim() === "#7b251a") {
+          next.accentDeep = DEFAULT_SETTINGS.branding.accentDeep;
+        }
+
+        if (String(next.accentDeep || "").trim() === "#0b274d") {
+          next.accentDeep = DEFAULT_SETTINGS.branding.accentDeep;
+        }
+
+        return next;
+      }
+
       let state = null;
       let session = getEmptySession();
       let authPrefs = loadAuthPrefs();
@@ -9033,35 +9080,7 @@
         next.workspaceContractVersion = WORKSPACE_CONTRACT_VERSION;
         next.version = next.version || 1;
         next.appSettings = next.appSettings || clone(DEFAULT_SETTINGS);
-        next.appSettings.branding = {
-          ...clone(DEFAULT_SETTINGS.branding),
-          ...(next.appSettings.branding || {}),
-        };
-        if (
-          next.appSettings.branding.appName === "DebateTab Command" ||
-          next.appSettings.branding.appName === "JADE Debate Tab" ||
-          next.appSettings.branding.appName === "Hummingbird Tab System"
-        ) {
-          next.appSettings.branding.appName = DEFAULT_SETTINGS.branding.appName;
-        }
-        if (
-          next.appSettings.branding.subtitle ===
-          "Professional debate tournament operations, permissions, publishing, and private access."
-        ) {
-          next.appSettings.branding.subtitle = DEFAULT_SETTINGS.branding.subtitle;
-        }
-        if (next.appSettings.branding.accent === "#a33a2b") {
-          next.appSettings.branding.accent = DEFAULT_SETTINGS.branding.accent;
-        }
-        if (next.appSettings.branding.accent === "#163b6d") {
-          next.appSettings.branding.accent = DEFAULT_SETTINGS.branding.accent;
-        }
-        if (next.appSettings.branding.accentDeep === "#7b251a") {
-          next.appSettings.branding.accentDeep = DEFAULT_SETTINGS.branding.accentDeep;
-        }
-        if (next.appSettings.branding.accentDeep === "#0b274d") {
-          next.appSettings.branding.accentDeep = DEFAULT_SETTINGS.branding.accentDeep;
-        }
+        next.appSettings.branding = normalizeBrandingSettings(next.appSettings.branding || {});
         next.appSettings.auth = {
           ...clone(DEFAULT_SETTINGS.auth),
           ...(next.appSettings.auth || {}),
