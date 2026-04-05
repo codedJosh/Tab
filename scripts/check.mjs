@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 const ROOT_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const SERVER_FILE = path.join(ROOT_DIR, "server.mjs");
 const FRONTEND_FILE = path.join(ROOT_DIR, "frontend", "index.html");
+const REGIONAL_FRONTEND_FILE = path.join(ROOT_DIR, "frontend", "regional-operations.html");
 const FRONTEND_SCRIPT_FILE = path.join(ROOT_DIR, "frontend", "app.js");
 const LOCAL_FILE = path.join(ROOT_DIR, "index.html");
 
@@ -20,13 +21,25 @@ function runCheck(args, label) {
   }
 }
 
-function checkFrontendShell() {
-  const html = readFileSync(FRONTEND_FILE, "utf8");
+function assertFrontendShell(html, label) {
   if (!html.includes('href="styles.css"')) {
-    throw new Error("frontend/index.html is missing the styles.css reference.");
+    throw new Error(`${label} is missing the styles.css reference.`);
   }
   if (!html.includes('src="app.js"')) {
-    throw new Error("frontend/index.html is missing the app.js module reference.");
+    throw new Error(`${label} is missing the app.js module reference.`);
+  }
+}
+
+function checkFrontendShell() {
+  const html = readFileSync(FRONTEND_FILE, "utf8");
+  assertFrontendShell(html, "frontend/index.html");
+
+  const regionalHtml = readFileSync(REGIONAL_FRONTEND_FILE, "utf8");
+  assertFrontendShell(regionalHtml, "frontend/regional-operations.html");
+  if (!regionalHtml.includes('window.HUMMINGBIRD_PUBLIC_SCREEN = "regional-operations"')) {
+    throw new Error(
+      "frontend/regional-operations.html is missing the dedicated regional public screen bootstrap.",
+    );
   }
 }
 

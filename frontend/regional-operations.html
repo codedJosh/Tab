@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hummingbird Tab System | Regional Operations</title>
+    <meta
+      name="description"
+      content="Regional Operations for Hummingbird Tab System gives managers, regional coordinators, and deputy regional coordinators a dedicated portal for reports and transport stipend requests."
+    />
+    <meta name="theme-color" content="#123f2f" />
+    <link rel="icon" type="image/svg+xml" href="jade-hummingbird-mark.svg" />
+    <link rel="shortcut icon" href="jade-hummingbird-mark.svg" />
+    <link rel="apple-touch-icon" href="jade-hummingbird-mark.svg" />
+    <script>
+      window.HUMMINGBIRD_PUBLIC_SCREEN = "regional-operations";
+      window.HUMMINGBIRD_DASHBOARD_PATH = "./";
+    </script>
+    <script src="backend-config.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="startup-splash" class="startup-splash" role="status" aria-live="polite">
+      <div class="startup-grid"></div>
+      <div class="startup-beam startup-beam-one"></div>
+      <div class="startup-beam startup-beam-two"></div>
+      <div class="startup-splash-inner">
+        <div class="startup-logo-stage">
+          <span class="startup-orbit-ring outer"></span>
+          <span class="startup-orbit-ring inner"></span>
+          <span class="startup-orbit-dot one"></span>
+          <span class="startup-orbit-dot two"></span>
+          <div class="startup-logo-card">
+            <img class="startup-logo" src="jade-logo.jpg" alt="Hummingbird Tab System logo" />
+          </div>
+        </div>
+        <div class="startup-wordmark">
+          <p class="startup-kicker">Hummingbird Regional Operations</p>
+          <strong class="startup-title">Regional Coordination Portal</strong>
+          <p class="startup-motto">Fuelling a Thinking Revolution</p>
+          <span class="startup-subtitle" id="startup-progress-label">Preparing regional operations workspace...</span>
+        </div>
+        <div class="startup-status-stack">
+          <div class="startup-chip-row" aria-hidden="true">
+            <span class="startup-chip">Reports</span>
+            <span class="startup-chip">Field Visits</span>
+            <span class="startup-chip">Support</span>
+          </div>
+          <div class="startup-progress-shell">
+            <div class="startup-progress-meta">
+              <span id="startup-progress-stage">Booting regional systems</span>
+              <strong id="startup-progress-value" class="startup-progress-value">12%</strong>
+            </div>
+            <div class="startup-progress-track">
+              <span id="startup-progress-bar" class="startup-progress-bar"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="app"></div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

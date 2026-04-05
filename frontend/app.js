@@ -9517,15 +9517,34 @@
       }
 
       function getDashboardLink() {
-        const url = new URL(window.location.href);
+        const configuredBase = String(window.HUMMINGBIRD_DASHBOARD_PATH || "").trim();
+        const url = configuredBase
+          ? new URL(configuredBase, window.location.href)
+          : new URL(window.location.href);
+        if (!configuredBase) {
+          if (url.pathname.endsWith("/regional-operations.html")) {
+            url.pathname = url.pathname.slice(0, -"/regional-operations.html".length) || "/";
+          } else if (url.pathname.endsWith("regional-operations.html")) {
+            url.pathname = url.pathname.slice(0, -"regional-operations.html".length) || "/";
+          } else if (url.pathname.endsWith("/index.html")) {
+            url.pathname = url.pathname.slice(0, -"/index.html".length) || "/";
+          } else if (url.pathname.endsWith("index.html")) {
+            url.pathname = url.pathname.slice(0, -"index.html".length) || "/";
+          }
+        }
         url.searchParams.delete("token");
         url.searchParams.delete("access");
         url.searchParams.delete("screen");
+        url.hash = "";
         return url.toString();
       }
 
       function getPublicScreenLink(screen = "") {
-        const url = new URL(window.location.href);
+        if (screen === "regional-operations") {
+          return new URL("regional-operations.html", getDashboardLink()).toString();
+        }
+
+        const url = new URL(getDashboardLink());
         url.searchParams.delete("token");
         url.searchParams.delete("access");
         if (screen) {
@@ -9537,6 +9556,16 @@
       }
 
       function getPublicScreenView() {
+        const forcedScreen = String(window.HUMMINGBIRD_PUBLIC_SCREEN || "")
+          .trim()
+          .toLowerCase();
+        if (
+          ["about", "register-debater", "register-judge", "regional-operations"].includes(
+            forcedScreen,
+          )
+        ) {
+          return forcedScreen;
+        }
         const url = new URL(window.location.href);
         const screen = String(url.searchParams.get("screen") || "").trim().toLowerCase();
         if (["about", "register-debater", "register-judge", "regional-operations"].includes(screen)) {
@@ -10490,7 +10519,9 @@
                         Regional Coordinators and Deputy Regional Coordinators sign in here to file biweekly school reports and request transport stipends for their assigned region.
                       </p>
                       <div class="button-row wrap-row">
-                        <button class="secondary-button" type="button" data-action="set-public-view" data-view="regional-operations">Open Regional Operations</button>
+                        <a class="secondary-button" href="${escapeHtml(
+                          getRegionalOperationsLandingLink(),
+                        )}">Open Regional Operations</a>
                       </div>
                       <p class="auth-footer">${escapeHtml(
                         getRegionalOperationsUsers().length +
@@ -10619,7 +10650,9 @@
                     <div class="button-row wrap-row">
                       <button class="${isJudge ? "secondary-button" : ""}" type="button" data-action="set-public-view" data-view="register-debater">Debater Registration</button>
                       <button class="${isJudge ? "" : "secondary-button"}" type="button" data-action="set-public-view" data-view="register-judge">Judge Registration</button>
-                      <button class="secondary-button" type="button" data-action="set-public-view" data-view="auth">Back To Sign In</button>
+                      <a class="secondary-button" href="${escapeHtml(
+                        getDashboardLink(),
+                      )}">Back To Sign In</a>
                     </div>
                   </div>
                   <div class="stack">
@@ -24030,6 +24063,10 @@
 
           if (action === "set-public-view") {
             const requestedView = String(button.dataset.view || "auth").trim().toLowerCase();
+            if (requestedView === "regional-operations") {
+              window.location.assign(getRegionalOperationsLandingLink());
+              return;
+            }
             const nextView = ["about", "register-debater", "register-judge", "regional-operations"].includes(requestedView)
               ? requestedView
               : "auth";
