@@ -691,6 +691,9 @@
           view: "overview",
           peopleSection: "hub",
           peopleAppointeeTournamentId: "",
+          peopleDirectoryQuery: "",
+          peopleDirectoryFilter: "all",
+          peopleDirectoryPage: 1,
           selectedPeopleEmail: "",
           managedTournamentId: "",
           selectedTournamentId: "",
@@ -873,6 +876,9 @@
           view: String(record.view || "overview").trim() || "overview",
           peopleSection: "hub",
           peopleAppointeeTournamentId: String(record.peopleAppointeeTournamentId || "").trim(),
+          peopleDirectoryQuery: String(record.peopleDirectoryQuery || "").trim(),
+          peopleDirectoryFilter: normalizePeopleDirectoryFilter(record.peopleDirectoryFilter),
+          peopleDirectoryPage: Math.max(1, Number.parseInt(record.peopleDirectoryPage, 10) || 1),
           selectedPeopleEmail: normalizeEmail(record.selectedPeopleEmail),
           managedTournamentId: String(record.managedTournamentId || "").trim(),
           selectedTournamentId: String(record.selectedTournamentId || "").trim(),
@@ -899,6 +905,24 @@
           return normalized;
         }
         return "hub";
+      }
+
+      function normalizePeopleDirectoryFilter(value = "") {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (
+          [
+            "all",
+            "active",
+            "disabled",
+            "staff",
+            "regional",
+            "manager_created",
+            "self_signup",
+          ].includes(normalized)
+        ) {
+          return normalized;
+        }
+        return "all";
       }
 
       function timestamp() {
@@ -17039,6 +17063,88 @@
         return "Registered";
       }
 
+      function getCompactUserCreationLabel(user = {}) {
+        const source = String(user.createdSource || "registered").trim().toLowerCase();
+        if (source === "self_signup") return "Self";
+        if (source === "manager_created") return "Manager";
+        if (source === "seeded") return "Seeded";
+        return "Registered";
+      }
+
+      function isPeopleDirectoryStaffAccount(user = {}) {
+        if (normalizeRegionalOperationsRole(user.regionalRole)) {
+          return true;
+        }
+        return !["member", "debater", "judge"].includes(normalizeGlobalRole(user.globalRole));
+      }
+
+      function matchesPeopleDirectoryFilter(user = {}, filter = session.peopleDirectoryFilter) {
+        const normalizedFilter = normalizePeopleDirectoryFilter(filter);
+        const createdSource = String(user.createdSource || "").trim().toLowerCase();
+        if (normalizedFilter === "active") {
+          return Boolean(user.active);
+        }
+        if (normalizedFilter === "disabled") {
+          return !user.active;
+        }
+        if (normalizedFilter === "staff") {
+          return isPeopleDirectoryStaffAccount(user);
+        }
+        if (normalizedFilter === "regional") {
+          return Boolean(normalizeRegionalOperationsRole(user.regionalRole));
+        }
+        if (normalizedFilter === "manager_created") {
+          return createdSource === "manager_created";
+        }
+        if (normalizedFilter === "self_signup") {
+          return createdSource === "self_signup";
+        }
+        return true;
+      }
+
+      function matchesPeopleDirectoryQuery(user = {}, query = session.peopleDirectoryQuery) {
+        const normalizedQuery = normalizeTextKey(query);
+        if (!normalizedQuery) {
+          return true;
+        }
+        const regionalRole = normalizeRegionalOperationsRole(user.regionalRole);
+        const searchable = [
+          user.name,
+          user.email,
+          user.globalRole,
+          toTitleLabel(user.globalRole),
+          regionalRole ? toTitleLabel(regionalRole) : "",
+          user.regionalRegion,
+          getUserCreationLabel(user),
+        ]
+          .map((value) => normalizeTextKey(value))
+          .filter(Boolean)
+          .join(" ");
+        return searchable.includes(normalizedQuery);
+      }
+
+      function getPeopleDirectoryRecords(peopleAccounts = []) {
+        return peopleAccounts.filter(
+          (user) =>
+            matchesPeopleDirectoryFilter(user, session.peopleDirectoryFilter) &&
+            matchesPeopleDirectoryQuery(user, session.peopleDirectoryQuery),
+        );
+      }
+
+      function renderPeopleDirectoryFilterButton(filter, label) {
+        const active = normalizePeopleDirectoryFilter(session.peopleDirectoryFilter) === filter;
+        return `
+          <button
+            class="people-directory-filter ${active ? "is-active" : ""}"
+            type="button"
+            data-action="set-people-directory-filter"
+            data-filter="${escapeHtml(filter)}"
+          >
+            ${escapeHtml(label)}
+          </button>
+        `;
+      }
+
       function getTrackedSignupUsers() {
         return (state.users || [])
           .filter(
@@ -17425,6 +17531,24 @@
       }
 
       function renderPeopleDirectorySection(peopleAccounts) {
+        const pageSize = 24;
+        const filteredAccounts = getPeopleDirectoryRecords(peopleAccounts);
+        const totalMatches = filteredAccounts.length;
+        const totalPages = Math.max(1, Math.ceil(totalMatches / pageSize));
+        const currentPage = Math.min(
+          totalPages,
+          Math.max(1, Number.parseInt(session.peopleDirectoryPage, 10) || 1),
+        );
+        const startIndex = (currentPage - 1) * pageSize;
+        const pageAccounts = filteredAccounts.slice(startIndex, startIndex + pageSize);
+        const pageStartLabel = totalMatches ? startIndex + 1 : 0;
+        const pageEndLabel = totalMatches ? startIndex + pageAccounts.length : 0;
+        const visiblePages = Array.from({ length: totalPages }, (_, index) => index + 1).filter(
+          (pageNumber) =>
+            pageNumber === 1 ||
+            pageNumber === totalPages ||
+            Math.abs(pageNumber - currentPage) <= 1,
+        );
         return `
           <section class="surface">
             <div class="section-heading">
@@ -17433,12 +17557,48 @@
                 <h2>People directory</h2>
               </div>
               <div class="button-row wrap-row">
-                <span class="role-pill">${escapeHtml(state.users.length)} accounts</span>
+                <span class="role-pill">${escapeHtml(totalMatches)} shown</span>
                 <button class="secondary-button" type="button" data-action="open-people-section" data-section="hub">Back To People</button>
               </div>
             </div>
-            <div class="people-directory-grid">
-              ${peopleAccounts
+            <div class="people-directory-toolbar">
+              <form class="compact-inline-form people-directory-search" data-form="people-directory-search" role="search" aria-label="Search the people directory">
+                <input
+                  type="search"
+                  name="query"
+                  value="${escapeHtml(session.peopleDirectoryQuery || "")}"
+                  autocomplete="off"
+                  placeholder="Search names, roles, regions, or emails"
+                />
+                <button type="submit">Find</button>
+                ${
+                  String(session.peopleDirectoryQuery || "").trim()
+                    ? `<button class="secondary-button" type="button" data-action="clear-people-directory-query">Clear</button>`
+                    : ""
+                }
+              </form>
+              <div class="people-directory-toolbar-meta">
+                <span class="mini-pill success">${escapeHtml(
+                  pageStartLabel && pageEndLabel
+                    ? `${pageStartLabel}-${pageEndLabel} of ${totalMatches}`
+                    : "0 matches",
+                )}</span>
+                <span class="role-pill">${escapeHtml(`Page ${currentPage} of ${totalPages}`)}</span>
+              </div>
+            </div>
+            <div class="people-directory-filter-row" role="toolbar" aria-label="Filter people directory">
+              ${renderPeopleDirectoryFilterButton("all", "All")}
+              ${renderPeopleDirectoryFilterButton("active", "Active")}
+              ${renderPeopleDirectoryFilterButton("staff", "Staff")}
+              ${renderPeopleDirectoryFilterButton("regional", "Regional")}
+              ${renderPeopleDirectoryFilterButton("manager_created", "Manager-Created")}
+              ${renderPeopleDirectoryFilterButton("self_signup", "Self Sign-Up")}
+              ${renderPeopleDirectoryFilterButton("disabled", "Disabled")}
+            </div>
+            ${
+              pageAccounts.length
+                ? `<div class="people-directory-grid">
+              ${pageAccounts
                 .map((user) => {
                   const historicalTournamentCount = normalizeStringList(
                     user.registeredTournamentIds,
@@ -17458,7 +17618,7 @@
                           <p class="people-directory-email">${escapeHtml(visibleRoleLabel)}</p>
                         </div>
                         <div class="people-directory-summary-badges">
-                          <span class="mini-pill success">${escapeHtml(getUserCreationLabel(user))}</span>
+                          <span class="mini-pill success">${escapeHtml(getCompactUserCreationLabel(user))}</span>
                           <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
                             user.active ? "Active" : "Disabled",
                           )}</span>
@@ -17470,10 +17630,14 @@
                               (historicalTournamentCount === 1 ? "" : "s") +
                               " on record",
                           )}</span>
-                          <span class="people-directory-summary-divider" aria-hidden="true">•</span>
-                          <span class="people-directory-summary-inline people-directory-summary-note">${escapeHtml(
-                            visibleRoleLabel,
-                          )}</span>
+                          ${
+                            user.regionalRegion
+                              ? `<span class="people-directory-summary-divider" aria-hidden="true">•</span>
+                                 <span class="people-directory-summary-inline people-directory-summary-note">${escapeHtml(
+                                   user.regionalRegion,
+                                 )}</span>`
+                              : ""
+                          }
                         </div>
                         <button class="secondary-button people-directory-configure" type="button" data-action="open-people-account" data-email="${escapeHtml(
                           user.email,
@@ -17483,7 +17647,55 @@
                   `;
                 })
                 .join("")}
-            </div>
+            </div>`
+                : `<div class="empty-state">No accounts match that search and filter combination.</div>`
+            }
+            ${
+              totalPages > 1
+                ? `<div class="people-directory-pagination" aria-label="People directory pages">
+                    <button
+                      class="secondary-button"
+                      type="button"
+                      data-action="set-people-directory-page"
+                      data-page="${escapeHtml(Math.max(1, currentPage - 1))}"
+                      ${currentPage === 1 ? "disabled" : ""}
+                    >
+                      Previous
+                    </button>
+                    <div class="people-directory-page-list">
+                      ${visiblePages
+                        .map((pageNumber, index) => {
+                          const previousPage = visiblePages[index - 1];
+                          const gapMarkup =
+                            previousPage && pageNumber - previousPage > 1
+                              ? `<span class="people-directory-page-gap" aria-hidden="true">…</span>`
+                              : "";
+                          return (
+                            gapMarkup +
+                            `<button
+                              class="people-directory-page-button ${pageNumber === currentPage ? "is-active" : ""}"
+                              type="button"
+                              data-action="set-people-directory-page"
+                              data-page="${escapeHtml(pageNumber)}"
+                            >
+                              ${escapeHtml(pageNumber)}
+                            </button>`
+                          );
+                        })
+                        .join("")}
+                    </div>
+                    <button
+                      class="secondary-button"
+                      type="button"
+                      data-action="set-people-directory-page"
+                      data-page="${escapeHtml(Math.min(totalPages, currentPage + 1))}"
+                      ${currentPage === totalPages ? "disabled" : ""}
+                    >
+                      Next
+                    </button>
+                  </div>`
+                : ""
+            }
           </section>
         `;
       }
@@ -25242,6 +25454,47 @@
             return;
           }
 
+          if (action === "set-people-directory-filter") {
+            session.view = "people";
+            session.peopleSection = "directory";
+            session.peopleDirectoryFilter = normalizePeopleDirectoryFilter(button.dataset.filter);
+            session.peopleDirectoryPage = 1;
+            session.selectedPeopleEmail = "";
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "clear-people-directory-query") {
+            session.view = "people";
+            session.peopleSection = "directory";
+            session.peopleDirectoryQuery = "";
+            session.peopleDirectoryPage = 1;
+            session.selectedPeopleEmail = "";
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "set-people-directory-page") {
+            session.view = "people";
+            session.peopleSection = "directory";
+            session.peopleDirectoryPage = Math.max(
+              1,
+              Number.parseInt(button.dataset.page, 10) || 1,
+            );
+            session.selectedPeopleEmail = "";
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
           if (action === "open-people-appointee-tournament") {
             session.view = "people";
             session.peopleSection = "appointees";
@@ -25823,6 +26076,19 @@
             session.view = "search";
             clearFlash();
             saveSession();
+            renderApp();
+            return;
+          }
+
+          if (form.dataset.form === "people-directory-search") {
+            session.view = "people";
+            session.peopleSection = "directory";
+            session.peopleDirectoryQuery = String(formData.get("query") || "").trim();
+            session.peopleDirectoryPage = 1;
+            session.selectedPeopleEmail = "";
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
             renderApp();
             return;
           }

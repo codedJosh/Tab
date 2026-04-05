@@ -5210,10 +5210,60 @@
         margin-bottom: 14px;
       }
 
+      .people-directory-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px 14px;
+        margin-bottom: 10px;
+      }
+
+      .people-directory-search {
+        flex: 1 1 360px;
+      }
+
+      .people-directory-search input {
+        flex: 1 1 220px;
+        min-width: 0;
+      }
+
+      .people-directory-toolbar-meta {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .people-directory-filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .people-directory-filter {
+        min-height: 34px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(20, 49, 38, 0.09);
+        background: rgba(20, 49, 38, 0.03);
+        color: rgba(26, 59, 47, 0.78);
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+      }
+
+      .people-directory-filter.is-active {
+        background: linear-gradient(160deg, rgba(20, 68, 49, 0.98), rgba(35, 94, 68, 0.94));
+        border-color: rgba(18, 63, 47, 0.12);
+        color: #f8fbf9;
+      }
+
       .people-directory-grid {
         display: grid;
         gap: 10px;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
       }
 
       .people-directory-card {
@@ -5232,7 +5282,7 @@
           "footer action";
         gap: 8px 12px;
         min-height: 0;
-        padding: 14px 16px;
+        padding: 12px 14px;
         align-items: start;
         width: 100%;
       }
@@ -5247,8 +5297,8 @@
         flex-wrap: wrap;
         align-items: center;
         justify-content: flex-end;
-        gap: 6px;
-        max-width: 148px;
+        gap: 5px;
+        max-width: 132px;
       }
 
       .people-directory-copy {
@@ -5262,19 +5312,19 @@
       .people-directory-copy h3 {
         margin: 0;
         max-width: none;
-        font-size: 1.16rem;
-        line-height: 1.05;
+        font-size: 1.02rem;
+        line-height: 1.08;
         letter-spacing: -0.02em;
         overflow-wrap: break-word;
         word-break: normal;
-        text-wrap: balance;
+        text-wrap: pretty;
       }
 
       .people-directory-email {
         margin: 0;
-        font-size: 0.88rem;
+        font-size: 0.78rem;
         font-weight: 700;
-        line-height: 1.25;
+        line-height: 1.2;
         color: rgba(26, 59, 47, 0.7);
         overflow-wrap: break-word;
         word-break: normal;
@@ -5290,7 +5340,7 @@
       }
 
       .people-directory-summary-inline {
-        font-size: 0.84rem;
+        font-size: 0.78rem;
         font-weight: 700;
         line-height: 1.2;
         color: rgba(26, 59, 47, 0.76);
@@ -5310,20 +5360,64 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 34px;
-        padding: 8px 12px;
-        border-radius: 12px;
+        min-height: 32px;
+        padding: 7px 11px;
+        border-radius: 11px;
         background: rgba(20, 49, 38, 0.05);
         border: 1px solid rgba(20, 49, 38, 0.08);
         color: var(--ink);
-        font-size: 0.84rem;
+        font-size: 0.78rem;
         font-weight: 800;
         letter-spacing: 0.005em;
         justify-self: end;
         align-self: end;
         width: auto;
-        min-width: 96px;
+        min-width: 88px;
         text-align: center;
+      }
+
+      .people-directory-pagination {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .people-directory-page-list {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+        flex: 1 1 auto;
+      }
+
+      .people-directory-page-button {
+        min-width: 34px;
+        min-height: 34px;
+        padding: 6px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(20, 49, 38, 0.09);
+        background: rgba(20, 49, 38, 0.03);
+        color: rgba(26, 59, 47, 0.82);
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+
+      .people-directory-page-button.is-active {
+        background: linear-gradient(160deg, rgba(20, 68, 49, 0.98), rgba(35, 94, 68, 0.94));
+        border-color: rgba(18, 63, 47, 0.12);
+        color: #f8fbf9;
+      }
+
+      .people-directory-page-gap {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        color: rgba(26, 59, 47, 0.5);
+        font-weight: 800;
       }
 
       .people-directory-body {
@@ -5803,6 +5897,14 @@
           grid-template-columns: 1fr;
         }
 
+        .people-directory-toolbar {
+          align-items: stretch;
+        }
+
+        .people-directory-toolbar-meta {
+          justify-content: flex-start;
+        }
+
         .people-directory-summary {
           grid-template-columns: 1fr;
           grid-template-areas:
@@ -5816,6 +5918,15 @@
         .people-directory-configure {
           justify-self: stretch;
           width: 100%;
+        }
+
+        .people-directory-pagination {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .people-directory-page-list {
+          justify-content: flex-start;
         }
 
         .roster-speaker-layout .registration-speaker-card {
