@@ -3407,7 +3407,48 @@
 
       .participant-profile-shell {
         display: grid;
-        gap: 18px;
+        gap: 14px;
+      }
+
+      .participant-profile-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: start;
+      }
+
+      .participant-profile-heading {
+        display: grid;
+        gap: 6px;
+      }
+
+      .participant-profile-heading > * {
+        min-width: 0;
+      }
+
+      .participant-profile-actions {
+        justify-content: flex-end;
+        align-self: start;
+        max-width: 100%;
+      }
+
+      .participant-profile-stat-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 8px;
+      }
+
+      .participant-profile-stat-grid .stat-card {
+        padding: 10px 12px;
+      }
+
+      .participant-profile-stat-grid .stat-card strong {
+        margin-top: 4px;
+        font-size: 1.18rem;
+        line-height: 1.1;
+      }
+
+      .participant-profile-stat-grid .stat-card .muted {
+        line-height: 1.22;
       }
 
       .people-account-profile-header {
@@ -3503,16 +3544,16 @@
 
       .participant-track-grid {
         display: grid;
-        gap: 14px;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       }
 
       .participant-track-card,
       .participant-team-card {
         display: grid;
-        gap: 12px;
-        padding: 18px 20px;
-        border-radius: 22px;
+        gap: 10px;
+        padding: 14px 16px;
+        border-radius: 18px;
         border: 1px solid var(--line);
         background:
           radial-gradient(circle at top right, rgba(225, 191, 67, 0.08), transparent 30%),
@@ -5481,7 +5522,7 @@
       .people-directory-grid {
         display: grid;
         gap: 8px;
-        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
       }
 
       .people-directory-card {
@@ -5496,13 +5537,27 @@
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         grid-template-areas:
-          "name badges"
+          "top top"
+          "name action"
           "footer action";
-        gap: 8px 12px;
+        gap: 6px 10px;
         min-height: 0;
-        padding: 10px 12px;
+        padding: 9px 10px;
         align-items: start;
         width: 100%;
+      }
+
+      .people-directory-topline {
+        grid-area: top;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .people-directory-topline .eyebrow {
+        margin: 0;
       }
 
       .people-directory-summary > * {
@@ -5510,42 +5565,44 @@
       }
 
       .people-directory-summary-badges {
-        grid-area: badges;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         justify-content: flex-end;
-        gap: 5px;
-        max-width: 132px;
+        gap: 4px;
+        max-width: 126px;
       }
 
       .people-directory-copy {
         grid-area: name;
         display: grid;
         min-width: 0;
-        gap: 4px;
+        gap: 3px;
         align-content: start;
       }
 
       .people-directory-copy h3 {
         margin: 0;
         max-width: none;
-        font-size: 0.98rem;
-        line-height: 1.12;
+        font-size: 0.94rem;
+        line-height: 1.08;
         letter-spacing: -0.02em;
-        overflow-wrap: break-word;
-        word-break: normal;
-        text-wrap: pretty;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-wrap: balance;
       }
 
       .people-directory-email {
         margin: 0;
         font-size: var(--text-caption);
         font-weight: var(--weight-body);
-        line-height: 1.32;
+        line-height: 1.2;
         color: rgba(26, 59, 47, 0.76);
-        overflow-wrap: break-word;
-        word-break: normal;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .people-directory-summary-footer {
@@ -5553,24 +5610,8 @@
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         align-self: end;
-      }
-
-      .people-directory-summary-inline {
-        font-size: var(--text-caption);
-        font-weight: var(--weight-body);
-        line-height: 1.32;
-        color: rgba(26, 59, 47, 0.76);
-      }
-
-      .people-directory-summary-divider {
-        color: rgba(26, 59, 47, 0.38);
-        font-weight: 700;
-      }
-
-      .people-directory-summary-note {
-        color: rgba(26, 59, 47, 0.9);
       }
 
       .people-directory-configure {
@@ -5578,9 +5619,9 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 32px;
-        padding: 7px 11px;
-        border-radius: 11px;
+        min-height: 30px;
+        padding: 6px 12px;
+        border-radius: 999px;
         background: rgba(20, 49, 38, 0.05);
         border: 1px solid rgba(20, 49, 38, 0.08);
         color: var(--ink);
@@ -5588,9 +5629,9 @@
         font-weight: var(--weight-heavy);
         letter-spacing: 0.005em;
         justify-self: end;
-        align-self: end;
+        align-self: center;
         width: auto;
-        min-width: 88px;
+        min-width: 72px;
         text-align: center;
       }
 
@@ -6149,8 +6190,8 @@
         .people-directory-summary {
           grid-template-columns: 1fr;
           grid-template-areas:
+            "top"
             "name"
-            "badges"
             "footer"
             "action";
           align-items: start;
@@ -6159,6 +6200,14 @@
         .people-directory-configure {
           justify-self: stretch;
           width: 100%;
+        }
+
+        .participant-profile-head {
+          grid-template-columns: 1fr;
+        }
+
+        .participant-profile-actions {
+          justify-content: flex-start;
         }
 
         .people-directory-pagination,

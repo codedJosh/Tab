@@ -18636,6 +18636,10 @@
                     user.registeredTournamentIds,
                     200,
                   ).length;
+                  const eventCountLabel =
+                    historicalTournamentCount +
+                    " event" +
+                    (historicalTournamentCount === 1 ? "" : "s");
                   const visibleRoleLabel = user.regionalRole
                     ? `${toTitleLabel(user.regionalRole)}${
                         user.regionalRegion ? " • " + user.regionalRegion : ""
@@ -18644,28 +18648,24 @@
                   return `
                     <article class="surface people-directory-card">
                       <div class="people-directory-summary">
-                        <div class="people-directory-copy">
+                        <div class="people-directory-topline">
                           <p class="eyebrow">Account</p>
+                          <div class="people-directory-summary-badges">
+                            <span class="mini-pill success">${escapeHtml(getCompactUserCreationLabel(user))}</span>
+                            <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
+                              user.active ? "Active" : "Disabled",
+                            )}</span>
+                          </div>
+                        </div>
+                        <div class="people-directory-copy">
                           <h3>${escapeHtml(user.name)}</h3>
                           <p class="people-directory-email">${escapeHtml(visibleRoleLabel)}</p>
                         </div>
-                        <div class="people-directory-summary-badges">
-                          <span class="mini-pill success">${escapeHtml(getCompactUserCreationLabel(user))}</span>
-                          <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
-                            user.active ? "Active" : "Disabled",
-                          )}</span>
-                        </div>
                         <div class="people-directory-summary-footer">
-                          <span class="people-directory-summary-inline">${escapeHtml(
-                            historicalTournamentCount +
-                              " tournament" +
-                              (historicalTournamentCount === 1 ? "" : "s") +
-                              " on record",
-                          )}</span>
+                          <span class="mini-pill success">${escapeHtml(eventCountLabel)}</span>
                           ${
                             user.regionalRegion
-                              ? `<span class="people-directory-summary-divider" aria-hidden="true">•</span>
-                                 <span class="people-directory-summary-inline people-directory-summary-note">${escapeHtml(
+                              ? `<span class="mini-pill warning">${escapeHtml(
                                    user.regionalRegion,
                                  )}</span>`
                               : ""
@@ -18673,7 +18673,7 @@
                         </div>
                         <button class="secondary-button people-directory-configure" type="button" data-action="open-people-account" data-email="${escapeHtml(
                           user.email,
-                        )}">${user.active ? "Open profile" : "Review account"}</button>
+                        )}">${user.active ? "Open" : "Review"}</button>
                       </div>
                     </article>
                   `;
@@ -20128,13 +20128,13 @@
 
         return `
           <section class="surface participant-profile-shell">
-            <div class="section-heading">
-              <div>
+            <div class="participant-profile-head">
+              <div class="participant-profile-heading">
                 <p class="eyebrow">Profile</p>
                 <h2>${escapeHtml(profile.name)}</h2>
                 <p class="muted">Tournament-by-tournament performance history for this account.</p>
               </div>
-              <div class="button-row wrap-row">
+              <div class="button-row wrap-row participant-profile-actions">
                 ${
                   latest
                     ? renderTournamentNavigationButton(
@@ -20156,31 +20156,31 @@
                 <button class="secondary-button" type="button" data-action="clear-participant-profile">Close Profile</button>
               </div>
             </div>
-            <div class="stat-grid">
+            <div class="stat-grid participant-profile-stat-grid">
               <div class="stat-card">
-                <span class="muted">Tournaments</span>
+                <span class="muted">Events</span>
                 <strong>${escapeHtml(profile.tournamentsCount)}</strong>
               </div>
               <div class="stat-card">
-                <span class="muted">Tracked teams</span>
+                <span class="muted">Teams</span>
                 <strong>${escapeHtml(profile.teams.length || 0)}</strong>
               </div>
               <div class="stat-card">
-                <span class="muted">Average speaker score</span>
+                <span class="muted">Avg. speaker</span>
                 <strong>${escapeHtml(profile.averageSpeakerScore)}</strong>
               </div>
               <div class="stat-card">
-                <span class="muted">Best speaker rank</span>
+                <span class="muted">Best speaker</span>
                 <strong>${escapeHtml(
                   profile.bestSpeakerRank ? "#" + profile.bestSpeakerRank : "Awaiting",
                 )}</strong>
               </div>
               <div class="stat-card">
-                <span class="muted">Best team finish</span>
+                <span class="muted">Best team</span>
                 <strong>${escapeHtml(bestTeamFinish ? "#" + bestTeamFinish : "Awaiting")}</strong>
               </div>
               <div class="stat-card">
-                <span class="muted">Feedback items</span>
+                <span class="muted">Feedback</span>
                 <strong>${escapeHtml(feedbackTotal)}</strong>
               </div>
             </div>
