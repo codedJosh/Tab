@@ -2168,21 +2168,21 @@
       }
 
       .roster-speaker-panel .registration-speaker-grid {
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 8px;
+        grid-template-columns: 1fr;
+        gap: 7px;
       }
 
       .roster-speaker-panel .registration-speaker-card {
-        grid-template-columns: minmax(0, 1.45fr) minmax(190px, 0.95fr);
+        grid-template-columns: minmax(0, 1.8fr) minmax(220px, 0.9fr);
         grid-template-areas:
           "primary side"
           "feedback feedback"
           "admin admin"
           "foot foot";
         align-items: start;
-        gap: 8px 12px;
-        padding: 9px 10px;
-        border-radius: 12px;
+        gap: 7px 14px;
+        padding: 8px 11px;
+        border-radius: 10px;
       }
 
       .roster-speaker-panel .registration-speaker-card-primary {
@@ -2213,14 +2213,14 @@
       }
 
       .roster-speaker-panel .registration-speaker-card .section-heading strong {
-        font-size: 0.82rem;
+        font-size: 0.8rem;
       }
 
       .roster-speaker-panel .registration-speaker-card .muted,
       .roster-speaker-panel .registration-speaker-card .fine-print,
       .roster-speaker-panel .registration-speaker-card .token-link {
-        font-size: 0.69rem;
-        line-height: 1.2;
+        font-size: 0.67rem;
+        line-height: 1.16;
       }
 
       .roster-speaker-panel .registration-speaker-card .workspace-chip-row,
@@ -2234,16 +2234,16 @@
 
       .roster-speaker-panel .registration-speaker-card .role-pill,
       .roster-speaker-panel .registration-speaker-card .mini-pill {
-        padding: 4px 7px;
-        font-size: 0.64rem;
+        padding: 3px 7px;
+        font-size: 0.62rem;
       }
 
       .roster-speaker-panel .registration-speaker-card button,
       .roster-speaker-panel .registration-speaker-card .cta-link,
       .roster-speaker-panel .registration-speaker-card .inline-link {
-        min-height: 30px;
-        padding: 6px 9px;
-        font-size: 0.7rem;
+        min-height: 28px;
+        padding: 5px 8px;
+        font-size: 0.68rem;
       }
 
       .roster-speaker-panel .registration-speaker-card .token-link {
