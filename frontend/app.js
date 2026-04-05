@@ -17416,7 +17416,7 @@
                             user.active ? "Active" : "Disabled",
                           )}</span>
                         </div>
-                        <div class="summary-main people-directory-copy">
+                        <div class="people-directory-copy">
                           <h3>${escapeHtml(user.name)}</h3>
                           <p class="people-directory-summary-note">${escapeHtml(visibleRoleLabel)}</p>
                         </div>

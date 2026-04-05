@@ -5078,7 +5078,7 @@
           linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 245, 0.94));
       }
 
-      .people-directory-card > summary,
+      details.surface.people-directory-card > summary.people-directory-summary,
       .people-directory-summary {
         display: grid;
         grid-template-columns: 1fr;
@@ -5086,9 +5086,12 @@
         align-content: start;
         min-height: 188px;
         padding: 18px 20px 20px;
+        align-items: start;
+        justify-content: stretch;
+        width: 100%;
       }
 
-      .people-directory-card > summary::after {
+      details.surface.people-directory-card > summary.people-directory-summary::after {
         display: none;
       }
 
@@ -5103,6 +5106,10 @@
         align-items: start;
       }
 
+      .people-directory-summary > * {
+        min-width: 0;
+      }
+
       .people-directory-summary-top {
         grid-area: top;
         display: flex;
@@ -5113,6 +5120,7 @@
 
       .people-directory-copy {
         grid-area: name;
+        display: grid;
         min-width: 0;
         gap: 6px;
         align-content: start;
@@ -5647,7 +5655,7 @@
           grid-template-columns: 1fr;
         }
 
-        .people-directory-card > summary {
+        details.surface.people-directory-card > summary.people-directory-summary {
           min-height: 0;
           grid-template-columns: 1fr;
         }
