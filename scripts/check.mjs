@@ -36,16 +36,15 @@ function extractFrontendModule() {
   return { tempDir, tempFile };
 }
 
-function compareSourceCopies() {
-  const frontend = readFileSync(FRONTEND_FILE, "utf8");
+function checkRootLauncher() {
   const local = readFileSync(LOCAL_FILE, "utf8");
 
-  if (frontend !== local) {
+  if (local.includes('<script type="module">') || local.length > 15000) {
     console.warn(
       [
-        "Warning: frontend/index.html and index.html differ.",
+        "Warning: root index.html looks too large to be a simple launcher.",
         "frontend/index.html is the live website source of truth.",
-        "If you still use the root file for local fallback, update it deliberately rather than assuming it matches.",
+        "Keep the root index as a thin local launcher rather than a second application copy.",
       ].join("\n"),
     );
   }
@@ -62,5 +61,5 @@ try {
   rmSync(tempDir, { recursive: true, force: true });
 }
 
-compareSourceCopies();
+checkRootLauncher();
 console.log("Hummingbird syntax checks passed.");

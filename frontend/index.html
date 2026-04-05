@@ -5401,7 +5401,6 @@
         return Array.from(new Set(endpoints));
       })();
       const MANAGER_EMAIL = "joshuaatkins374@gmail.com";
-      const MANAGER_PASSWORD = "manager@debate.com";
       const PASSWORD_HASH_VERSION = "pbkdf2-sha256-v1";
       const PASSWORD_HASH_ITERATIONS = 210000;
       const PASSWORD_SALT_BYTES = 16;
@@ -6706,6 +6705,43 @@
 
       function isManager(email = session.userEmail) {
         return normalizeEmail(email) === normalizeEmail(MANAGER_EMAIL);
+      }
+
+      function hasSystemAdminAccounts(users = state?.users || []) {
+        return (users || []).some((entry) => {
+          const role = normalizeGlobalRole(entry?.globalRole || "");
+          return (
+            entry?.active !== false &&
+            (normalizeEmail(entry?.email) === normalizeEmail(MANAGER_EMAIL) ||
+              role === "system_admin" ||
+              role === "manager")
+          );
+        });
+      }
+
+      function isProtectedSystemManagerEmail(email, users = state?.users || []) {
+        const target = normalizeEmail(email);
+        if (!target) {
+          return false;
+        }
+
+        const activeSystemManagerEmails = (users || [])
+          .filter((entry) => {
+            const role = normalizeGlobalRole(entry?.globalRole || "");
+            return (
+              entry?.active !== false &&
+              (normalizeEmail(entry?.email) === normalizeEmail(MANAGER_EMAIL) ||
+                role === "system_admin" ||
+                role === "manager")
+            );
+          })
+          .map((entry) => normalizeEmail(entry.email));
+
+        return activeSystemManagerEmails.length === 1 && activeSystemManagerEmails[0] === target;
+      }
+
+      function needsLocalBootstrapManagerSetup() {
+        return !requiresSharedBackend() && !hasSystemAdminAccounts(state?.users || []);
       }
 
       function isSystemAdmin(email = session.userEmail) {
@@ -13521,20 +13557,28 @@
       }
 
       async function getSeedState() {
+        return {
+          version: 1,
+          appSettings: clone(DEFAULT_SETTINGS),
+          users: [],
+          recoveryRequests: [],
+          tournaments: [],
+        };
+
         const users = await Promise.all([
-          buildUser("Joshua Atkins", MANAGER_EMAIL, "manager", MANAGER_PASSWORD, {
+          buildUser("Joshua Atkins", MANAGER_EMAIL, "manager", createTemporaryRegistrationPassword(), {
             createdSource: "seeded",
             createdBy: "system",
           }),
-          buildUser("Tab Demo", "tab@debate.org", "member", "tab@debate.com", {
+          buildUser("Tab Demo", "tab@debate.org", "member", createTemporaryRegistrationPassword(), {
             createdSource: "seeded",
             createdBy: "system",
           }),
-          buildUser("Judge Demo", "judge@debate.org", "member", "judge@debate.com", {
+          buildUser("Judge Demo", "judge@debate.org", "member", createTemporaryRegistrationPassword(), {
             createdSource: "seeded",
             createdBy: "system",
           }),
-          buildUser("Debater Demo", "debater@debate.org", "member", "debater@debate.com", {
+          buildUser("Debater Demo", "debater@debate.org", "member", createTemporaryRegistrationPassword(), {
             createdSource: "seeded",
             createdBy: "system",
           }),
@@ -14138,15 +14182,6 @@
           return normalizedTournament;
         });
 
-        if (!next.users.some((user) => normalizeEmail(user.email) === normalizeEmail(MANAGER_EMAIL))) {
-          next.users.unshift(
-            await buildUser("Joshua Atkins", MANAGER_EMAIL, "manager", MANAGER_PASSWORD, {
-              createdSource: "seeded",
-              createdBy: "system",
-            }),
-          );
-        }
-
         next.recoveryRequests = next.recoveryRequests.map((request) => ({
           ...request,
           knownAccount: next.users.some((user) => user.email === request.email),
@@ -14177,9 +14212,9 @@
           return await rehydrateState(JSON.parse(saved));
         }
 
-        const seeded = await getSeedState();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-        return seeded;
+        const starter = await getSeedState();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(starter));
+        return starter;
       }
 
       function renderFlash() {
@@ -14468,10 +14503,10 @@
         if (action === "reset-demo") {
           return {
             tone: "danger",
-            title: "Restore Demo State?",
+            title: "Reset Local Workspace?",
             message:
-              "Restore the full demo state and overwrite the current saved local data? This will reset tournaments, accounts, and configuration back to the seeded sample state.",
-            confirmLabel: "Restore Demo State",
+              "Reset the local workspace on this device back to a clean starter state? This clears locally saved tournaments, accounts, and configuration from this browser only.",
+            confirmLabel: "Reset Workspace",
           };
         }
 
@@ -15363,6 +15398,7 @@
 
       function renderAuthView() {
         const signupDisabled = !state.appSettings.auth.allowSelfSignup;
+        const needsBootstrapManager = needsLocalBootstrapManagerSetup();
         const preferredEmail = String(authPrefs?.rememberedEmail || "").trim();
         const preferredPassword =
           normalizeEmail(authAutofill?.email) === normalizeEmail(preferredEmail)
@@ -15459,7 +15495,7 @@
                       <form class="stack" data-form="sign-in" autocomplete="on">
                         <label>
                           Email Address
-                          <input type="email" name="email" value="${escapeHtml(preferredEmail)}" placeholder="${escapeHtml(MANAGER_EMAIL)}" autocomplete="username" required />
+                          <input type="email" name="email" value="${escapeHtml(preferredEmail)}" placeholder="you@example.com" autocomplete="username" required />
                         </label>
                         <label>
                           Password
@@ -15515,10 +15551,21 @@
                     <section class="auth-support-card">
                       <div class="section-heading">
                         <div>
-                          <p class="eyebrow">Create Account</p>
-                          <h3>Create your password</h3>
+                          <p class="eyebrow">${escapeHtml(
+                            needsBootstrapManager ? "First-Time Setup" : "Create Account",
+                          )}</p>
+                          <h3>${escapeHtml(
+                            needsBootstrapManager
+                              ? "Create the first system manager"
+                              : "Create your password",
+                          )}</h3>
                         </div>
                       </div>
+                      ${
+                        needsBootstrapManager
+                          ? `<div class="alert info">This local workspace does not have a System Manager yet. The first account created here will become the first System Manager for this workspace.</div>`
+                          : ""
+                      }
                       ${
                         signupDisabled
                           ? `<div class="alert warning">Self sign-up is currently disabled by the manager.</div>`
@@ -15548,7 +15595,11 @@
                                 )} />
                                 <span>Save Password Securely On This Device</span>
                               </label>
-                              <button type="submit">Create Account</button>
+                              <button type="submit">${escapeHtml(
+                                needsBootstrapManager
+                                  ? "Create System Manager"
+                                  : "Create Account",
+                              )}</button>
                             </form>
                           `
                       }
@@ -24305,8 +24356,11 @@
         }
 
         const existingUser = state.users.find((user) => user.email === email) || null;
+        const shouldBootstrapManager = needsLocalBootstrapManagerSetup();
+        const cloudAvailable = await probeCloudBackend(true);
+        let workspaceNeedsInitialization = false;
 
-        if (await probeCloudBackend(true)) {
+        if (cloudAvailable) {
           try {
             const result = await callCloud("sign_up", {
               name,
@@ -24336,19 +24390,24 @@
             return;
           } catch (error) {
             if (error.code === "workspace_not_initialized") {
-              setFlash(
-                "error",
-                "The shared backend workspace has not been initialized yet. A System Manager should sign in from the original setup device first.",
-              );
+              if (requiresSharedBackend()) {
+                setFlash(
+                  "error",
+                  "The shared backend workspace has not been initialized yet. A System Manager should sign in from the original setup device first.",
+                );
+                renderApp();
+                return;
+              }
+              workspaceNeedsInitialization = true;
             } else {
               setFlash("error", error.message || "Hummingbird Tab System could not create your account.");
+              renderApp();
+              return;
             }
-            renderApp();
-            return;
           }
         }
 
-        if (requiresSharedBackend()) {
+        if (requiresSharedBackend() && !workspaceNeedsInitialization) {
           setFlash("error", getSharedBackendUnavailableMessage());
           renderApp();
           return;
@@ -24363,15 +24422,22 @@
         if (existingUser && canClaimRegisteredUser(existingUser)) {
           Object.assign(existingUser, await buildSecurePasswordRecord(password), {
             name: name || existingUser.name,
+            globalRole: shouldBootstrapManager ? "manager" : existingUser.globalRole,
             createdSource: "self_signup",
             createdBy: normalizeEmail(email),
             lastLoginAt: timestamp(),
           });
         } else {
-          const user = await buildUser(name, email, "member", password, {
+          const user = await buildUser(
+            name,
+            email,
+            shouldBootstrapManager ? "manager" : "member",
+            password,
+            {
             createdSource: "self_signup",
             createdBy: normalizeEmail(email),
-          });
+            },
+          );
           user.lastLoginAt = timestamp();
           state.users.push(user);
         }
@@ -24389,7 +24455,36 @@
         } else {
           removePasswordFromDeviceVault(email);
         }
-        persist("success", "Account created and signed in. Your private access URL is now ready.");
+        if (workspaceNeedsInitialization) {
+          try {
+            const result = await callCloud("initialize", {
+              email,
+              password,
+              state,
+            });
+            cloudRuntime.initialized = true;
+            state = await rehydrateState(result.state);
+            session.cloudSessionToken = String(result.sessionToken || "").trim();
+            saveState();
+            saveSession();
+          } catch (error) {
+            setFlash(
+              "error",
+              error.message ||
+                "The local manager account was created, but the shared backend could not be initialized yet.",
+            );
+            renderApp();
+            return;
+          }
+        }
+        persist(
+          "success",
+          shouldBootstrapManager
+            ? workspaceNeedsInitialization
+              ? "System Manager account created, signed in, and published to the shared backend."
+              : "System Manager account created and signed in. This workspace can now be published safely from this device."
+            : "Account created and signed in. Your private access URL is now ready.",
+        );
       }
 
       async function ensureAuthenticatedRegistrationUser({
@@ -25067,13 +25162,6 @@
         const email = normalizeEmail(targetEmail);
         if (!email) {
           return { ok: false, message: "Select an account before setting a password." };
-        }
-
-        if (email === normalizeEmail(MANAGER_EMAIL)) {
-          return {
-            ok: false,
-            message: "The manager password is fixed in the seeded demo account.",
-          };
         }
 
         if (String(password || "").length < state.appSettings.auth.minimumPasswordLength) {
@@ -27785,6 +27873,14 @@
 
         const target = normalizeEmail(email);
         const role = normalizeGlobalRole(formData.get("globalRole") || "member");
+        if (
+          isProtectedSystemManagerEmail(target) &&
+          !["manager", "system_admin"].includes(role)
+        ) {
+          setFlash("error", "The last active System Manager cannot be demoted.");
+          renderApp();
+          return;
+        }
         state.users = state.users.map((user) =>
           user.email === target ? { ...user, globalRole: role } : user,
         );
@@ -27799,8 +27895,8 @@
         }
 
         const target = normalizeEmail(email);
-        if (target === normalizeEmail(MANAGER_EMAIL)) {
-          setFlash("error", "The manager account cannot be disabled.");
+        if (isProtectedSystemManagerEmail(target)) {
+          setFlash("error", "The last active System Manager cannot be disabled.");
           renderApp();
           return;
         }
@@ -27819,8 +27915,8 @@
         }
 
         const target = normalizeEmail(email);
-        if (target === normalizeEmail(MANAGER_EMAIL)) {
-          setFlash("error", "The protected manager account cannot be deleted.");
+        if (isProtectedSystemManagerEmail(target)) {
+          setFlash("error", "The last active System Manager cannot be deleted.");
           renderApp();
           return;
         }
@@ -28089,7 +28185,7 @@
 
       async function resetDemo() {
         if (!canAccessGlobalSettings()) {
-          setFlash("error", "Only System Managers can restore the demo state.");
+          setFlash("error", "Only System Managers can reset the local workspace.");
           renderApp();
           return;
         }
@@ -28098,6 +28194,7 @@
         clearFlash();
         saveState();
         clearStoredSession();
+        setFlash("success", "Local workspace reset to a clean starter state.");
         renderApp();
       }
 

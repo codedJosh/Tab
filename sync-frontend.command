@@ -7,11 +7,13 @@ FRONTEND_DIR="$ROOT_DIR/frontend"
 
 mkdir -p "$FRONTEND_DIR"
 
-cp "$ROOT_DIR/index.html" "$FRONTEND_DIR/index.html"
-cp "$ROOT_DIR/jade-logo.jpg" "$FRONTEND_DIR/jade-logo.jpg"
-
-if [ ! -f "$FRONTEND_DIR/backend-config.js" ]; then
-  cp "$ROOT_DIR/backend-config.js" "$FRONTEND_DIR/backend-config.js"
+if [ -f "$ROOT_DIR/jade-logo.jpg" ]; then
+  cp "$ROOT_DIR/jade-logo.jpg" "$FRONTEND_DIR/jade-logo.jpg"
 fi
 
-echo "Frontend files synced to $FRONTEND_DIR"
+if [ -f "$ROOT_DIR/jade-hummingbird-mark.svg" ]; then
+  cp "$ROOT_DIR/jade-hummingbird-mark.svg" "$FRONTEND_DIR/jade-hummingbird-mark.svg"
+fi
+
+echo "Shared assets synced to $FRONTEND_DIR"
+echo "frontend/index.html remains the only website source of truth."

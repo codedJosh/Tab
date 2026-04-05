@@ -1126,6 +1126,19 @@ function isSystemAdmin(state, email) {
   );
 }
 
+function hasSystemAdminAccounts(state) {
+  return (state?.users || []).some((entry) => {
+    const normalizedEmail = normalizeEmail(entry?.email);
+    const role = normalizeGlobalRole(entry?.globalRole || "");
+    return (
+      entry?.active !== false &&
+      (normalizedEmail === normalizeEmail(MANAGER_EMAIL) ||
+        role === "system_admin" ||
+        role === "manager")
+    );
+  });
+}
+
 function createSessionToken() {
   return crypto.randomBytes(32).toString("base64url");
 }
@@ -1493,6 +1506,7 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
+        const shouldBootstrapManager = !hasSystemAdminAccounts(state);
         const existingUser = state.users.find((user) => user.email === email) || null;
         if (existingUser) {
           if (!existingUser.active) {
@@ -1504,6 +1518,7 @@ app.post("/api", async (request, response) => {
           if (canClaimRegisteredAccount(existingUser)) {
             Object.assign(existingUser, buildSecurePasswordRecord(password), {
               name: name || existingUser.name,
+              globalRole: shouldBootstrapManager ? "manager" : existingUser.globalRole,
               createdSource: "self_signup",
               createdBy: normalizeEmail(email),
               lastLoginAt: nowText(),
@@ -1515,7 +1530,7 @@ app.post("/api", async (request, response) => {
             throw error;
           }
         } else {
-          const user = buildUser(name, email, "member", password, {
+          const user = buildUser(name, email, shouldBootstrapManager ? "manager" : "member", password, {
             createdSource: "self_signup",
             createdBy: normalizeEmail(email),
           });

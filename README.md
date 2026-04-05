@@ -26,7 +26,7 @@ Key files:
 - `frontend/index.html`
 - `frontend/jade-logo.jpg`
 - `frontend/backend-config.js`
-- `index.html` (legacy/local fallback copy)
+- `index.html` (thin local launcher only)
 
 Before deploying the frontend, set the backend URL in `frontend/backend-config.js`:
 
@@ -41,6 +41,7 @@ window.JADE_BACKEND_URL = "https://your-backend-host/api";
 3. Run `npm install`
 4. Run `npm run dev` or double-click `start-jade.command`
 5. Open `http://127.0.0.1:8787/`
+6. On a brand-new local workspace, create the first account through the sign-up form. That first local account becomes the first System Manager.
 
 ## Checks
 

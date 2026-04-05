@@ -2,6 +2,8 @@
 
 This folder is the static frontend publish target for Hummingbird Tab System.
 
+`frontend/index.html` is the only website frontend source of truth in this repo.
+
 Deploy this folder to Netlify, not the project root.
 
 ## Files
@@ -30,3 +32,4 @@ window.JADE_BACKEND_URL = "https://your-backend-host/api";
 - This frontend is static only.
 - The backend must already be running on a normal Node host.
 - The frontend and backend can live on different domains.
+- The root `index.html` is only a local launcher page now, not a second app copy.
