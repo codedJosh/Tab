@@ -8,6 +8,14 @@ const FRONTEND_FILE = path.join(ROOT_DIR, "frontend", "index.html");
 const REGIONAL_FRONTEND_FILE = path.join(ROOT_DIR, "frontend", "regional-operations.html");
 const FRONTEND_SCRIPT_FILE = path.join(ROOT_DIR, "frontend", "app.js");
 const LOCAL_FILE = path.join(ROOT_DIR, "index.html");
+const REGIONAL_SHARED_MARKERS = [
+  "regionalOperations",
+  "regionalRole",
+  "regionalRegion",
+  "regionalBanking",
+  "transportRequests",
+  "reports",
+];
 
 function runCheck(args, label) {
   const result = spawnSync(process.execPath, ["--check", ...args], {
@@ -57,6 +65,53 @@ function checkRootLauncher() {
   }
 }
 
+function checkRegionalSharedContract() {
+  const frontendScript = readFileSync(FRONTEND_SCRIPT_FILE, "utf8");
+  const serverScript = readFileSync(SERVER_FILE, "utf8");
+
+  REGIONAL_SHARED_MARKERS.forEach((marker) => {
+    if (!frontendScript.includes(marker)) {
+      throw new Error(
+        `frontend/app.js is missing the shared regional marker "${marker}".`,
+      );
+    }
+    if (!serverScript.includes(marker)) {
+      throw new Error(
+        `server.mjs is missing the shared regional marker "${marker}".`,
+      );
+    }
+  });
+
+  const frontendRequirements = [
+    "normalizeRegionalOperationsState",
+    "normalizeRegionalBankingInfo",
+    "data-form=\"regional-ops-sign-in\"",
+    "data-form=\"submit-regional-funding-request\"",
+  ];
+  const backendRequirements = [
+    "normalizeRegionalOperationsState",
+    "normalizeRegionalBankingInfo",
+    "invalid_workspace_payload",
+    "incomingState.regionalOperations",
+  ];
+
+  frontendRequirements.forEach((marker) => {
+    if (!frontendScript.includes(marker)) {
+      throw new Error(
+        `frontend/app.js is missing the regional frontend contract marker "${marker}".`,
+      );
+    }
+  });
+
+  backendRequirements.forEach((marker) => {
+    if (!serverScript.includes(marker)) {
+      throw new Error(
+        `server.mjs is missing the regional backend contract marker "${marker}".`,
+      );
+    }
+  });
+}
+
 console.log("Checking server syntax...");
 runCheck([SERVER_FILE], "server.mjs");
 
@@ -65,6 +120,9 @@ checkFrontendShell();
 
 console.log("Checking frontend module syntax...");
 runCheck([FRONTEND_SCRIPT_FILE], "frontend/app.js");
+
+console.log("Checking shared frontend/backend regional contract...");
+checkRegionalSharedContract();
 
 checkRootLauncher();
 console.log("Hummingbird syntax checks passed.");
