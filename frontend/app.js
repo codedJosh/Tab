@@ -2465,122 +2465,357 @@
         );
       }
 
+      function getHummingbirdCounselIntent(query = "") {
+        const normalized = normalizeTextKey(query);
+        return {
+          wantsPriority: matchesAssistantKeywords(normalized, [
+            "next",
+            "first",
+            "priority",
+            "prioritize",
+            "urgent",
+            "start",
+            "do now",
+          ]),
+          wantsDiagnosis: matchesAssistantKeywords(normalized, [
+            "why",
+            "problem",
+            "issue",
+            "broken",
+            "wrong",
+            "anomaly",
+            "stuck",
+            "blocker",
+            "diagnose",
+          ]),
+          wantsStatus: matchesAssistantKeywords(normalized, [
+            "status",
+            "currently",
+            "state",
+            "how many",
+            "what is happening",
+            "where are we",
+          ]),
+          wantsAutomation: matchesAssistantKeywords(normalized, [
+            "automatic",
+            "automate",
+            "smart",
+            "smarter",
+            "assistant",
+            "copilot",
+            "help me run",
+          ]),
+        };
+      }
+
       function getHummingbirdCounselPromptCategory(query = "", scope = "overview") {
         const normalized = normalizeTextKey(query);
         if (!normalized) {
           return "next";
         }
-        if (
-          matchesAssistantKeywords(normalized, [
-            "break",
-            "outround",
-            "out round",
-            "fold",
-            "power pair",
-            "power-pair",
-            "seed",
-            "bubble",
-          ])
-        ) {
-          return "break";
+
+        const scores = {
+          break: 0,
+          judging: 0,
+          registration: 0,
+          profile: 0,
+          regional: 0,
+          results: 0,
+          automation: 0,
+          format: 0,
+          next: 0,
+        };
+
+        const addScore = (category, keywords = [], amount = 1) => {
+          (Array.isArray(keywords) ? keywords : []).forEach((keyword) => {
+            if (normalized.includes(normalizeTextKey(keyword))) {
+              scores[category] += amount;
+            }
+          });
+        };
+
+        addScore("break", [
+          "break",
+          "outround",
+          "out round",
+          "fold",
+          "power pair",
+          "power-pair",
+          "seed",
+          "bubble",
+        ], 2);
+        addScore("judging", [
+          "judge",
+          "judging",
+          "chair",
+          "wing",
+          "panel",
+          "ballot",
+          "adjudicat",
+          "clash",
+          "conflict",
+        ], 2);
+        addScore("registration", [
+          "register",
+          "registration",
+          "signup",
+          "sign-up",
+          "sign up",
+          "access",
+          "private link",
+          "invite",
+          "account",
+        ], 2);
+        addScore("profile", [
+          "profile",
+          "history",
+          "speaker",
+          "performance",
+          "person",
+          "participant",
+          "directory",
+          "email",
+        ], 2);
+        addScore("regional", [
+          "regional",
+          "stipend",
+          "funding",
+          "bank",
+          "report",
+          "school",
+          "transport",
+        ], 2);
+        addScore("results", [
+          "publish",
+          "release",
+          "standings",
+          "results",
+          "leaderboard",
+          "feedback",
+        ], 2);
+        addScore("automation", [
+          "smart",
+          "automation",
+          "automate",
+          "assistant",
+          "autonomous",
+          "reactive",
+          "responsive",
+        ], 2);
+        addScore("format", [
+          "format",
+          "bp",
+          "wudc",
+          "wsdc",
+          "world schools",
+          "tabbycat",
+          "manual",
+          "rules",
+        ], 2);
+        addScore("next", [
+          "next",
+          "first",
+          "priority",
+          "should i",
+          "what now",
+          "what do i do",
+          "where do i start",
+        ], 2);
+
+        if (scope === "profile") {
+          scores.profile += 2;
         }
-        if (
-          matchesAssistantKeywords(normalized, [
-            "judge",
-            "judging",
-            "chair",
-            "wing",
-            "panel",
-            "ballot",
-            "adjudicat",
-            "clash",
-            "conflict",
-          ])
-        ) {
-          return "judging";
+        if (scope === "regional") {
+          scores.regional += 2;
         }
-        if (
-          matchesAssistantKeywords(normalized, [
-            "register",
-            "registration",
-            "signup",
-            "sign-up",
-            "sign up",
-            "access",
-            "private link",
-            "invite",
-            "account",
-          ])
-        ) {
-          return "registration";
+        if (scope === "people") {
+          scores.profile += 1;
+          scores.registration += 1;
         }
-        if (
-          matchesAssistantKeywords(normalized, [
-            "profile",
-            "history",
-            "speaker",
-            "performance",
-            "person",
-            "participant",
-            "directory",
-            "email",
-          ])
-        ) {
-          return "profile";
+        if (scope === "judging") {
+          scores.judging += 2;
         }
-        if (
-          matchesAssistantKeywords(normalized, [
-            "regional",
-            "stipend",
-            "funding",
-            "bank",
-            "report",
-            "school",
-            "transport",
-          ])
-        ) {
-          return "regional";
+
+        const winner = Object.entries(scores)
+          .sort((left, right) => Number(right[1] || 0) - Number(left[1] || 0))[0];
+
+        if (!winner || !winner[1]) {
+          return scope === "profile" ? "profile" : "next";
         }
-        if (
-          matchesAssistantKeywords(normalized, [
-            "publish",
-            "release",
-            "standings",
-            "results",
-            "leaderboard",
-            "feedback",
-          ])
-        ) {
-          return "results";
+
+        return winner[0];
+      }
+
+      function getReferencedTournamentForCounsel(query = "", email = session.userEmail) {
+        const normalized = normalizeTextKey(query);
+        if (!normalized) {
+          return null;
         }
-        if (
-          matchesAssistantKeywords(normalized, [
-            "smart",
-            "automation",
-            "automate",
-            "assistant",
-            "autonomous",
-            "reactive",
-            "responsive",
-          ])
-        ) {
-          return "automation";
+
+        let bestMatch = null;
+        let bestScore = 0;
+        getVisibleTournaments(email).forEach((tournament) => {
+          const fields = [
+            tournament.name,
+            tournament.code,
+            getFormatLabel(tournament),
+            tournament.notes,
+            tournament.announcement,
+          ]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean);
+
+          let score = 0;
+          fields.forEach((field) => {
+            const normalizedField = normalizeTextKey(field);
+            if (!normalizedField) {
+              return;
+            }
+            if (normalized === normalizedField) {
+              score += 12;
+            } else if (normalized.includes(normalizedField)) {
+              score += 9;
+            } else if (normalizedField.includes(normalized)) {
+              score += 6;
+            } else {
+              const fieldParts = normalizedField.split(" ").filter(Boolean);
+              const queryParts = normalized.split(" ").filter(Boolean);
+              const sharedParts = queryParts.filter(
+                (part) => part.length > 2 && fieldParts.includes(part),
+              ).length;
+              score += sharedParts * 2;
+            }
+          });
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = tournament;
+          }
+        });
+
+        return bestScore >= 6 ? bestMatch : null;
+      }
+
+      function getReferencedProfileForCounsel(query = "", email = session.userEmail) {
+        const normalized = normalizeTextKey(query);
+        if (!normalized) {
+          return null;
         }
-        if (
-          matchesAssistantKeywords(normalized, [
-            "format",
-            "bp",
-            "wudc",
-            "wsdc",
-            "world schools",
-            "tabbycat",
-            "manual",
-            "rules",
-          ])
-        ) {
-          return "format";
+
+        let bestMatch = null;
+        let bestScore = 0;
+        getParticipantDirectoryRecords(email).forEach((profile) => {
+          const fields = [
+            profile.name,
+            profile.email,
+            ...(profile.institutions || []),
+            ...(profile.teams || []),
+          ]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean);
+
+          let score = 0;
+          fields.forEach((field) => {
+            const normalizedField = normalizeTextKey(field);
+            if (!normalizedField) {
+              return;
+            }
+            if (normalized === normalizedField) {
+              score += 12;
+            } else if (normalized.includes(normalizedField)) {
+              score += 9;
+            } else if (normalizedField.includes(normalized)) {
+              score += 6;
+            } else {
+              const fieldParts = normalizedField.split(" ").filter(Boolean);
+              const queryParts = normalized.split(" ").filter(Boolean);
+              const sharedParts = queryParts.filter(
+                (part) => part.length > 2 && fieldParts.includes(part),
+              ).length;
+              score += sharedParts * 2;
+            }
+          });
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = profile;
+          }
+        });
+
+        return bestScore >= 6 ? bestMatch : null;
+      }
+
+      function getHummingbirdCounselLeadInsight({
+        scope = "overview",
+        tournament = null,
+        profile = null,
+      } = {}) {
+        if (tournament) {
+          return getTournamentSmartInsights(tournament)[0] || null;
         }
-        return scope === "profile" ? "profile" : "next";
+        if (profile) {
+          return {
+            title: "Open one profile, then stay inside that history",
+            body:
+              "This person already has a stitched cross-tournament record, so the profile should be the main operating surface instead of repeated tournament rows.",
+          };
+        }
+        if (scope === "people") {
+          return getPeopleSmartInsights()[0] || null;
+        }
+        if (scope === "regional") {
+          return getRegionalOperationsSmartInsights()[0] || null;
+        }
+        if (scope === "judging") {
+          const assignment = getJudgeAssignments()[0] || null;
+          return assignment
+            ? {
+                title: "A live judging room is waiting",
+                body:
+                  assignment.tournament.name +
+                  " • Round " +
+                  assignment.allocation.round +
+                  " • " +
+                  assignment.allocation.room,
+              }
+            : null;
+        }
+        return getWorkspaceSmartInsights()[0] || null;
+      }
+
+      function finalizeHummingbirdCounselResponse(
+        draft,
+        { scope = "overview", tournament = null, profile = null, query = "" } = {},
+      ) {
+        const response = {
+          ...draft,
+          bullets: Array.isArray(draft?.bullets) ? draft.bullets.filter(Boolean) : [],
+        };
+        const intent = getHummingbirdCounselIntent(query);
+        const leadInsight = getHummingbirdCounselLeadInsight({
+          scope,
+          tournament,
+          profile,
+        });
+
+        if (leadInsight?.title) {
+          const priorityLine = "Strongest next move: " + leadInsight.title + ".";
+          if (!response.bullets.some((item) => String(item || "").includes(priorityLine))) {
+            response.bullets = [priorityLine, ...response.bullets].slice(0, 5);
+          }
+        }
+
+        if (intent.wantsDiagnosis && leadInsight?.body) {
+          response.note = leadInsight.body;
+        } else if (intent.wantsPriority && leadInsight?.title) {
+          response.note =
+            "If you only do one thing next, make it this: " + leadInsight.title + ".";
+        } else if (!response.note) {
+          response.note =
+            "Hummingbird is reading the live workspace state before answering, so this gets sharper as registrations, ballots, pairings, and reports are recorded.";
+        }
+
+        return response;
       }
 
       function getHummingbirdCounselQuickPrompts({
@@ -2772,39 +3007,60 @@
         profile = null,
       } = {}) {
         const normalizedScope = normalizeAssistantScope(scope);
+        const resolvedTournament =
+          tournament || getReferencedTournamentForCounsel(query, session.userEmail);
+        const resolvedProfile =
+          profile ||
+          getReferencedProfileForCounsel(
+            query,
+            session.userEmail,
+          );
         const category = getHummingbirdCounselPromptCategory(query, normalizedScope);
-        const formatCounsel = tournament ? getTournamentFormatCounsel(tournament) : null;
+        const formatCounsel = resolvedTournament
+          ? getTournamentFormatCounsel(resolvedTournament)
+          : null;
+        const finalize = (draft) =>
+          finalizeHummingbirdCounselResponse(draft, {
+            scope: normalizedScope,
+            tournament: resolvedTournament,
+            profile: resolvedProfile,
+            query,
+          });
         const response = {
           eyebrow: "Hummingbird Counsel",
           title: "What the system knows right now",
           body:
-            "This answer is grounded in the live workspace state and the debate operations rules Hummingbird is following.",
+            "This answer is being built from the live workspace state, the active queues, and the operating rules Hummingbird is following.",
           bullets: [],
           note:
-            "This is a rule-grounded operating assistant, not a remote LLM. It is strongest when it is reading real tournament state.",
+            "Hummingbird is strongest when it can read live tournament state, people queues, judging flow, and regional backlog together.",
           actionMarkup: "",
           sourceIds: getHummingbirdCounselSources({
             scope: normalizedScope,
-            tournament,
+            tournament: resolvedTournament,
           }).map((source) => source.shortLabel.toLowerCase()),
         };
 
-        if (category === "format" && tournament) {
-          return {
+        if (category === "format" && resolvedTournament) {
+          return finalize({
             ...response,
             ...formatCounsel,
-            title: tournament.code + " is being run with " + getFormatLabel(tournament) + " logic",
+            title:
+              resolvedTournament.code +
+              " is being run with " +
+              getFormatLabel(resolvedTournament) +
+              " logic",
             actionMarkup:
               `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="setup">Open Setup</button>` +
               `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Draw Lab</button>`,
-          };
+          });
         }
 
         if (category === "break") {
-          if (tournament) {
-            const board = getBreakBoard(tournament);
-            const outrounds = getOutroundProfilesFromList(getRoundProfiles(tournament));
-            const snapshot = getTournamentOpsSnapshot(tournament);
+          if (resolvedTournament) {
+            const board = getBreakBoard(resolvedTournament);
+            const outrounds = getOutroundProfilesFromList(getRoundProfiles(resolvedTournament));
+            const snapshot = getTournamentOpsSnapshot(resolvedTournament);
             const nextOutround =
               outrounds.find(
                 (roundProfile) =>
@@ -2813,12 +3069,12 @@
               outrounds[0] ||
               null;
             const resolvedMethod = nextOutround
-              ? getResolvedOutroundPairingMethod(tournament, nextOutround)
+              ? getResolvedOutroundPairingMethod(resolvedTournament, nextOutround)
               : "power";
-            return {
+            return finalize({
               ...response,
               eyebrow: formatCounsel?.eyebrow || "Break logic",
-              title: tournament.code + " break and outround plan",
+              title: resolvedTournament.code + " break and outround plan",
               body: board
                 ? "Hummingbird is already ranking the break by team points first, then speaker points as the cut-line tiebreak."
                 : "Set a break size first, then Hummingbird can build the break board and outround field automatically.",
@@ -2849,12 +3105,12 @@
                 `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Draw Lab</button>`,
               sourceIds: getHummingbirdCounselSources({
                 scope: normalizedScope,
-                tournament,
+                tournament: resolvedTournament,
               }).map((source) => source.shortLabel.toLowerCase()),
-            };
+            });
           }
 
-          return {
+          return finalize({
             ...response,
             title: "Break logic needs a focused tournament context",
             body:
@@ -2867,18 +3123,18 @@
             actionMarkup:
               `<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">Open Tournaments</button>`,
             sourceIds: ["tabbycat", "wudc", "wsdc"],
-          };
+          });
         }
 
         if (category === "judging") {
-          if (tournament) {
-            const snapshot = getTournamentOpsSnapshot(tournament);
-            const format = normalizeFormatName(tournament.format);
-            return {
+          if (resolvedTournament) {
+            const snapshot = getTournamentOpsSnapshot(resolvedTournament);
+            const format = normalizeFormatName(resolvedTournament.format);
+            return finalize({
               ...response,
               eyebrow:
                 format === "World Schools" ? "WSDC-grounded judging" : "Judging control",
-              title: tournament.code + " panel and ballot guidance",
+              title: resolvedTournament.code + " panel and ballot guidance",
               body:
                 format === "World Schools"
                   ? "Hummingbird treats World Schools panels as chair-led with wing input available, but the chair ballot still controls the official room result."
@@ -2893,7 +3149,7 @@
                     (snapshot.chairlessRooms === 1 ? " still lacks" : "s still lack") +
                     " a chair."
                   : "Current rooms have chair coverage recorded.",
-                allowsWingBallotsForFormat(tournament.format)
+                allowsWingBallotsForFormat(resolvedTournament.format)
                   ? "Wings may file panel ballots in this format, but the chair remains the official result authority."
                   : "This format should still rely on the official chair path for room results.",
                 snapshot.conflictFlags
@@ -2908,13 +3164,13 @@
                 `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Open Results</button>`,
               sourceIds: getHummingbirdCounselSources({
                 scope: normalizedScope,
-                tournament,
+                tournament: resolvedTournament,
               }).map((source) => source.shortLabel.toLowerCase()),
-            };
+            });
           }
 
           const assignments = getJudgeAssignments();
-          return {
+          return finalize({
             ...response,
             title: "Hummingbird is reading your judging queue",
             body:
@@ -2931,23 +3187,23 @@
             actionMarkup:
               `<button class="secondary-button" type="button" data-action="set-view" data-view="judging">Open Judging</button>`,
             sourceIds: ["wsdc", "tabbycat"],
-          };
+          });
         }
 
         if (category === "registration") {
-          if (tournament) {
-            return {
+          if (resolvedTournament) {
+            return finalize({
               ...response,
               eyebrow: "Registration automation",
-              title: tournament.code + " registration and account flow",
+              title: resolvedTournament.code + " registration and account flow",
               body:
                 "Hummingbird is designed to turn registration into durable accounts, tournament permissions, and private-link access without creating ghost records.",
               bullets: [
-                (tournament.registration?.debaterOpen || tournament.registration?.judgeOpen)
+                (resolvedTournament.registration?.debaterOpen || resolvedTournament.registration?.judgeOpen)
                   ? "This tournament is currently open to " +
                     [
-                      tournament.registration?.debaterOpen ? "debaters" : "",
-                      tournament.registration?.judgeOpen ? "judges" : "",
+                      resolvedTournament.registration?.debaterOpen ? "debaters" : "",
+                      resolvedTournament.registration?.judgeOpen ? "judges" : "",
                     ]
                       .filter(Boolean)
                       .join(" and ") +
@@ -2961,10 +3217,10 @@
                 `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="registration">Open Registration</button>` +
                 `<button class="secondary-button" type="button" data-action="set-view" data-view="people">Open People</button>`,
               sourceIds: ["tabbycat"],
-            };
+            });
           }
 
-          return {
+          return finalize({
             ...response,
             title: "Registration should always resolve to one durable person record",
             body:
@@ -2977,12 +3233,12 @@
             actionMarkup:
               `<button class="secondary-button" type="button" data-action="set-view" data-view="people">Open People</button>`,
             sourceIds: ["tabbycat"],
-          };
+          });
         }
 
         if (category === "regional" || normalizedScope === "regional") {
           const summary = getRegionalOperationsSummary();
-          return {
+          return finalize({
             ...response,
             eyebrow: "Regional operations guidance",
             title: "Regional Operations should run like a standing field desk",
@@ -3004,43 +3260,45 @@
             actionMarkup:
               renderSmartActionLink("Open Regional Ops", getPublicScreenLink("regional-operations")),
             sourceIds: ["tabbycat"],
-          };
+          });
         }
 
         if (category === "profile" || normalizedScope === "profile") {
-          if (profile) {
-            const latestTournamentName = profile.latest?.tournamentName || "No latest event";
-            return {
+          if (resolvedProfile) {
+            const latestTournamentName =
+              resolvedProfile.latest?.tournamentName || "No latest event";
+            return finalize({
               ...response,
               eyebrow: "Profile reading",
-              title: profile.name + " should be read as one continuous tournament record",
+              title:
+                resolvedProfile.name + " should be read as one continuous tournament record",
               body:
                 "This profile is meant to replace duplicate tournament-by-tournament identity cards. It keeps one person, then shows their event history underneath.",
               bullets: [
-                profile.tournamentsCount +
+                resolvedProfile.tournamentsCount +
                   " tournament" +
-                  (profile.tournamentsCount === 1 ? "" : "s") +
+                  (resolvedProfile.tournamentsCount === 1 ? "" : "s") +
                   " are currently on this record.",
                 "Latest visible event: " + latestTournamentName + ".",
-                profile.bestSpeakerRank
-                  ? "Best speaker rank so far is #" + profile.bestSpeakerRank + "."
+                resolvedProfile.bestSpeakerRank
+                  ? "Best speaker rank so far is #" + resolvedProfile.bestSpeakerRank + "."
                   : "Speaker-rank history is still building.",
                 "Managers can move from this profile into the current tournament, account actions, or email/contact without searching again.",
               ],
               actionMarkup:
-                (profile.latest
+                (resolvedProfile.latest
                   ? renderTournamentNavigationButton(
-                      profile.latest.tournament,
+                      resolvedProfile.latest.tournament,
                       "Open Current Tournament",
                       true,
                     )
                   : "") +
                 `<button class="secondary-button" type="button" data-action="clear-participant-profile">Close Profile</button>`,
               sourceIds: ["tabbycat"],
-            };
+            });
           }
 
-          return {
+          return finalize({
             ...response,
             title: "Search results should resolve to one profile per person",
             body:
@@ -3053,16 +3311,16 @@
             actionMarkup:
               `<button class="secondary-button" type="button" data-action="set-view" data-view="search">Open Search</button>`,
             sourceIds: ["tabbycat"],
-          };
+          });
         }
 
-        if (category === "results" && tournament) {
-          const snapshot = getTournamentOpsSnapshot(tournament);
-          const board = getBreakBoard(tournament);
-          return {
+        if (category === "results" && resolvedTournament) {
+          const snapshot = getTournamentOpsSnapshot(resolvedTournament);
+          const board = getBreakBoard(resolvedTournament);
+          return finalize({
             ...response,
             eyebrow: "Publication and results",
-            title: tournament.code + " results and release discipline",
+            title: resolvedTournament.code + " results and release discipline",
             body:
               snapshot.pendingBallotRooms
                 ? "Official ballots are still missing, so publication decisions should stay cautious."
@@ -3077,7 +3335,7 @@
               board
                 ? "The break board is already separated into breaking teams and teams missing the cut."
                 : "Set a break size to unlock the break board and cut-line view.",
-              tournament.publication?.showPublicStandings
+              resolvedTournament.publication?.showPublicStandings
                 ? "Public standings are already visible."
                 : "Public standings are still hidden and can be released when managers are satisfied.",
             ],
@@ -3085,38 +3343,38 @@
               `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Open Results</button>`,
             sourceIds: getHummingbirdCounselSources({
               scope: normalizedScope,
-              tournament,
+              tournament: resolvedTournament,
             }).map((source) => source.shortLabel.toLowerCase()),
-          };
+          });
         }
 
         if (category === "automation") {
           const capabilities = getWorkspaceCapabilities();
           const stats = getOverviewStats();
-          return {
+          return finalize({
             ...response,
             eyebrow: "Automation posture",
             title: "Where Hummingbird is already acting like an operations copilot",
             body:
-              "The smart layer now reads live workspace data, tournament state, people queues, judging flow, break structure, and regional backlog before it suggests what to do next.",
+              "The smart layer now reads live workspace data, tournament state, people queues, judging flow, break structure, regional backlog, and named profile/tournament references before it suggests what to do next.",
             bullets: [
               stats.openTournaments + " live tournament" + (stats.openTournaments === 1 ? " is" : "s are") + " currently feeding the manager view.",
-              "Registration, account persistence, private-link issuance, break boards, outround pairing defaults, and clash-aware judging are already automated.",
+              "Registration, account persistence, private-link issuance, break boards, round-level pairing plans, and clash-aware judging are already automated.",
               capabilities.canManageAny
                 ? "Managers get proactive queue advice across tournaments, people, access, and regional operations."
                 : "Users get context-aware guidance tied to their visible tournaments, judging queue, and access links.",
-              "For true ChatGPT-class freeform reasoning, the next step would be wiring a real external model service into this grounded assistant shell.",
+              "It now resolves named tournaments and profiles from your query so answers can latch onto the right part of the workspace faster.",
             ],
             actionMarkup:
               `<button class="secondary-button" type="button" data-action="set-view" data-view="overview">Open Overview</button>` +
               `<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">Open Tournaments</button>`,
             sourceIds: ["tabbycat", "wudc", "wsdc"],
-          };
+          });
         }
 
         if (normalizedScope === "people") {
           const insights = getPeopleSmartInsights();
-          return {
+          return finalize({
             ...response,
             eyebrow: "People guidance",
             title: "The people side should feel like a set of queues, not a long document",
@@ -3128,24 +3386,24 @@
               `<button class="secondary-button" type="button" data-action="open-people-section" data-section="directory">Open Directory</button>` +
               `<button class="secondary-button" type="button" data-action="open-people-section" data-section="signups">Open Sign-Ups</button>`,
             sourceIds: ["tabbycat"],
-          };
+          });
         }
 
         if (normalizedScope === "judging") {
           return getHummingbirdCounselResponse({
             scope: normalizedScope,
             query: "How should judging work in this format?",
-            tournament,
-            profile,
+            tournament: resolvedTournament,
+            profile: resolvedProfile,
           });
         }
 
-        if (tournament) {
-          const smartInsights = getTournamentSmartInsights(tournament);
-          return {
+        if (resolvedTournament) {
+          const smartInsights = getTournamentSmartInsights(resolvedTournament);
+          return finalize({
             ...response,
             eyebrow: formatCounsel?.eyebrow || "Tournament counsel",
-            title: tournament.code + " next-step flight plan",
+            title: resolvedTournament.code + " next-step flight plan",
             body:
               smartInsights[0]?.body ||
               "Hummingbird is reading roster progress, judge readiness, results, and release pressure to keep the next move obvious.",
@@ -3158,13 +3416,13 @@
               `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="spotlight">Open Spotlight</button>`,
             sourceIds: getHummingbirdCounselSources({
               scope: normalizedScope,
-              tournament,
+              tournament: resolvedTournament,
             }).map((source) => source.shortLabel.toLowerCase()),
-          };
+          });
         }
 
         const workspaceInsights = getWorkspaceSmartInsights();
-        return {
+        return finalize({
           ...response,
           eyebrow: "Workspace counsel",
           title: "What Hummingbird would do next",
@@ -3176,7 +3434,7 @@
             (workspaceInsights[0]?.actionMarkup || "") +
             `<button class="secondary-button" type="button" data-action="set-view" data-view="overview">Open Overview</button>`,
           sourceIds: ["tabbycat", "wudc", "wsdc"],
-        };
+        });
       }
 
       function renderHummingbirdCounselSection({
@@ -3201,10 +3459,6 @@
           scope: normalizedScope,
           tournament,
           profile,
-        });
-        const sources = getHummingbirdCounselSources({
-          scope: normalizedScope,
-          tournament,
         });
         const telemetry = getHummingbirdCounselTelemetry({
           scope: normalizedScope,
@@ -3313,21 +3567,6 @@
                             )
                             .join("")}
                         </div>
-                      </div>`
-                    : ""
-                }
-                ${
-                  sources.length
-                    ? `<div class="counsel-source-box">
-                        <span class="theme-section-label">Grounding sources</span>
-                        <div class="button-row wrap-row">
-                          ${sources
-                            .map((source) => renderExternalActionLink(source.label, source.url))
-                            .join("")}
-                        </div>
-                        <p class="fine-print">${escapeHtml(
-                          sources.map((source) => source.note).join(" "),
-                        )}</p>
                       </div>`
                     : ""
                 }
