@@ -868,8 +868,8 @@
           linear-gradient(180deg, var(--button-top), var(--button-bottom)) border-box;
         color: white;
         padding: 10px 14px;
-        font-weight: 700;
-        letter-spacing: 0.01em;
+        font-weight: 800;
+        letter-spacing: 0.005em;
         cursor: pointer;
         transition:
           transform 180ms ease,
@@ -886,7 +886,11 @@
       }
 
       button,
-      button * {
+      button *,
+      a.secondary-button,
+      a.secondary-button *,
+      a.ghost-button,
+      a.ghost-button * {
         color: inherit;
       }
 
@@ -939,6 +943,7 @@
         color: var(--ink);
         border: 1px solid rgba(18, 63, 47, 0.12);
         box-shadow: none;
+        font-weight: 800;
       }
 
       .secondary-button:hover,
@@ -953,6 +958,47 @@
       a.secondary-button:visited,
       a.ghost-button:visited {
         color: var(--ink);
+      }
+
+      :is(.hero-panel, .portal-ribbon, .workspace-hero, .competitor-hero)
+        :is(.secondary-button, .ghost-button, .inline-link) {
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05))
+            padding-box,
+          linear-gradient(180deg, rgba(91, 153, 117, 0.9), rgba(24, 87, 57, 0.98)) border-box;
+        color: #f7fbf8;
+        border: 1px solid transparent;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.16),
+          0 10px 20px rgba(6, 20, 13, 0.18);
+        font-weight: 800;
+        letter-spacing: 0.005em;
+        backdrop-filter: blur(12px);
+      }
+
+      :is(.hero-panel, .portal-ribbon, .workspace-hero, .competitor-hero)
+        :is(.secondary-button, .ghost-button, .inline-link),
+      :is(.hero-panel, .portal-ribbon, .workspace-hero, .competitor-hero)
+        :is(.secondary-button, .ghost-button, .inline-link) * {
+        color: #f7fbf8 !important;
+      }
+
+      :is(.hero-panel, .portal-ribbon, .workspace-hero, .competitor-hero)
+        :is(.secondary-button, .ghost-button, .inline-link):hover {
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08))
+            padding-box,
+          linear-gradient(180deg, rgba(113, 177, 138, 0.96), rgba(31, 106, 78, 1)) border-box;
+        color: #ffffff;
+        border-color: transparent;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.2),
+          0 12px 24px rgba(6, 20, 13, 0.2);
+      }
+
+      :is(.hero-panel, .portal-ribbon, .workspace-hero, .competitor-hero)
+        a:is(.secondary-button, .ghost-button):visited {
+        color: #f7fbf8;
       }
 
       .danger-button {
@@ -1254,8 +1300,10 @@
 
       .hero-panel .muted,
       .hero-panel .hero-copy,
-      .hero-panel .manager-note {
-        color: rgba(237, 246, 241, 0.8);
+      .hero-panel .manager-note,
+      .hero-panel .fine-print {
+        color: rgba(243, 249, 245, 0.9);
+        font-weight: 600;
       }
 
       .hero-panel .eyebrow {
@@ -1403,6 +1451,8 @@
         display: block;
         margin-bottom: 6px;
         font-size: 1rem;
+        color: #ffffff;
+        font-weight: 800;
       }
 
       .hero-stat-band {
@@ -1421,6 +1471,16 @@
         display: block;
         margin-top: 6px;
         font-size: 1.15rem;
+        color: #ffffff;
+        font-weight: 800;
+      }
+
+      .hero-feature .muted,
+      .hero-stat-chip .muted,
+      .hero-feature .fine-print,
+      .hero-stat-chip .fine-print {
+        color: rgba(243, 249, 245, 0.92);
+        font-weight: 700;
       }
 
       .surface-grid {
@@ -3312,7 +3372,8 @@
       .portal-ribbon .portal-summary-copy,
       .portal-ribbon .fine-print,
       .portal-ribbon .portal-meta {
-        color: rgba(228, 243, 233, 0.76);
+        color: rgba(238, 247, 241, 0.88);
+        font-weight: 600;
       }
 
       .portal-ribbon .alert.info,
@@ -3321,11 +3382,6 @@
       .portal-ribbon .portal-round-card {
         background: rgba(255, 255, 255, 0.08);
         border-color: rgba(255, 255, 255, 0.12);
-      }
-
-      .portal-ribbon .inline-link {
-        background: rgba(255, 255, 255, 0.1);
-        color: #fff8ef;
       }
 
       .hero-panel .kpi-line span,
@@ -3720,7 +3776,8 @@
       .competitor-hero-copy .muted,
       .competitor-hero-copy p,
       .competitor-hero .muted {
-        color: rgba(227, 242, 232, 0.78);
+        color: rgba(236, 246, 239, 0.88);
+        font-weight: 600;
       }
 
       .competitor-hero .theme-section-label {
@@ -4149,7 +4206,8 @@
       .workspace-hero .fine-print,
       .workspace-hero .brand-subtitle,
       .workspace-hero .eyebrow {
-        color: rgba(239, 248, 242, 0.82);
+        color: rgba(244, 250, 246, 0.9);
+        font-weight: 600;
       }
 
       .workspace-hero .role-pill,
