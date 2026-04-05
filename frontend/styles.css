@@ -2124,7 +2124,7 @@
       .registration-speaker-card {
         display: grid;
         gap: 6px;
-        padding: 10px 11px;
+        padding: 11px 12px;
         border-radius: 14px;
       }
 
@@ -2134,14 +2134,18 @@
       }
 
       .registration-speaker-card .section-heading strong {
-        font-size: 0.88rem;
+        font-size: 0.92rem;
         line-height: 1.08;
       }
 
       .registration-speaker-card .muted,
       .registration-speaker-card .fine-print {
-        font-size: 0.74rem;
-        line-height: 1.25;
+        font-size: 0.79rem;
+        line-height: 1.3;
+      }
+
+      .registration-speaker-card-summary {
+        margin-top: -1px;
       }
 
       .registration-speaker-card .workspace-chip-row,
@@ -2170,20 +2174,19 @@
 
       .roster-speaker-list-panel .registration-speaker-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
+        gap: 10px;
       }
 
       .roster-speaker-layout .registration-speaker-card {
-        grid-template-columns: minmax(0, 1.8fr) minmax(220px, 0.9fr);
+        grid-template-columns: minmax(0, 1.4fr) minmax(210px, 1fr);
         grid-template-areas:
           "primary side"
-          "feedback feedback"
-          "admin admin"
+          "feedback admin"
           "foot foot";
         align-items: start;
-        gap: 7px 14px;
-        padding: 10px 12px;
-        border-radius: 10px;
+        gap: 7px 12px;
+        padding: 11px 12px;
+        border-radius: 14px;
       }
 
       .roster-speaker-layout .registration-speaker-card-primary {
@@ -2199,10 +2202,12 @@
 
       .roster-speaker-layout .registration-speaker-card-admin {
         grid-area: admin;
+        align-self: start;
       }
 
       .roster-speaker-layout .registration-speaker-card-feedback {
         grid-area: feedback;
+        align-self: center;
       }
 
       .roster-speaker-layout .registration-speaker-card-footnote {
@@ -2214,14 +2219,14 @@
       }
 
       .roster-speaker-layout .registration-speaker-card .section-heading strong {
-        font-size: 0.88rem;
+        font-size: 0.96rem;
       }
 
       .roster-speaker-layout .registration-speaker-card .muted,
       .roster-speaker-layout .registration-speaker-card .fine-print,
       .roster-speaker-layout .registration-speaker-card .token-link {
-        font-size: 0.74rem;
-        line-height: 1.24;
+        font-size: 0.8rem;
+        line-height: 1.28;
       }
 
       .roster-speaker-layout .registration-speaker-card .workspace-chip-row,
@@ -2235,20 +2240,41 @@
 
       .roster-speaker-layout .registration-speaker-card .role-pill,
       .roster-speaker-layout .registration-speaker-card .mini-pill {
-        padding: 4px 7px;
-        font-size: 0.68rem;
+        padding: 4px 8px;
+        font-size: 0.7rem;
       }
 
       .roster-speaker-layout .registration-speaker-card button,
       .roster-speaker-layout .registration-speaker-card .cta-link,
       .roster-speaker-layout .registration-speaker-card .inline-link {
-        min-height: 31px;
-        padding: 6px 9px;
-        font-size: 0.72rem;
+        min-height: 32px;
+        padding: 6px 10px;
+        font-size: 0.75rem;
       }
 
       .roster-speaker-layout .registration-speaker-card .token-link {
         overflow-wrap: anywhere;
+      }
+
+      .compact-card-disclosure {
+        border-top: 1px solid rgba(20, 49, 38, 0.08);
+        padding-top: 6px;
+      }
+
+      .compact-card-disclosure summary {
+        cursor: pointer;
+        font-size: 0.76rem;
+        font-weight: 800;
+        color: var(--accent);
+        list-style: none;
+      }
+
+      .compact-card-disclosure summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .compact-card-disclosure[open] summary {
+        margin-bottom: 8px;
       }
 
       .registration-speaker-card button,
@@ -4063,25 +4089,23 @@
       }
 
       .tournament-switch-grid {
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       }
 
       .tournament-switch-card {
         position: relative;
         overflow: hidden;
         display: grid;
-        gap: 14px;
-        grid-template-rows: auto auto auto auto 1fr auto;
-        min-height: 304px;
-        padding: 18px;
-        border-radius: 24px;
-        background:
-          radial-gradient(circle at top right, rgba(225, 191, 67, 0.1), transparent 22%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(244, 248, 245, 0.95));
+        gap: 12px;
+        grid-template-rows: auto auto auto auto auto;
+        min-height: 0;
+        padding: 16px;
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(245, 249, 246, 0.95));
         border: 1px solid rgba(18, 63, 47, 0.08);
         box-shadow:
-          0 16px 34px rgba(15, 55, 39, 0.07),
-          inset 0 1px 0 rgba(255, 255, 255, 0.86);
+          0 14px 28px rgba(15, 55, 39, 0.06),
+          inset 0 1px 0 rgba(255, 255, 255, 0.9);
         transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
         color: var(--ink);
       }
@@ -4095,30 +4119,20 @@
         content: "";
         position: absolute;
         inset: 0 0 auto 0;
-        height: 4px;
-        background: linear-gradient(90deg, rgba(40, 117, 85, 0.92), rgba(225, 191, 67, 0.72));
-        background-size: 180% 100%;
-        animation: slowShift 10s ease-in-out infinite;
+        height: 1px;
+        background: rgba(18, 63, 47, 0.08);
       }
 
       .tournament-switch-card::after {
-        content: "";
-        position: absolute;
-        inset: auto -12% -28% auto;
-        width: 118px;
-        height: 118px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(225, 191, 67, 0.1), transparent 72%);
-        pointer-events: none;
-        animation: orbFloat 12s ease-in-out infinite;
+        display: none;
       }
 
       .tournament-switch-card:hover {
         transform: translateY(-4px);
         border-color: rgba(18, 63, 47, 0.08);
         box-shadow:
-          0 24px 48px rgba(15, 55, 39, 0.14),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9);
+          0 18px 34px rgba(15, 55, 39, 0.1),
+          inset 0 1px 0 rgba(255, 255, 255, 0.94);
       }
 
       .tournament-switch-card .muted,
@@ -4194,7 +4208,7 @@
 
       .tournament-switch-header strong {
         display: block;
-        font-size: 1.08rem;
+        font-size: 1.12rem;
         letter-spacing: -0.02em;
         line-height: 1.12;
       }
@@ -4205,99 +4219,18 @@
         gap: 8px;
       }
 
-      .tournament-switch-visual {
-        position: relative;
-        min-height: 78px;
-        border-radius: 18px;
-        overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        background:
-          radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.16), transparent 22%),
-          radial-gradient(circle at 82% 26%, rgba(225, 191, 67, 0.22), transparent 20%),
-          linear-gradient(135deg, rgba(23, 53, 41, 0.98), rgba(35, 83, 63, 0.92));
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.12),
-          0 10px 24px rgba(10, 28, 21, 0.1);
-      }
-
-      .tournament-switch-visual::before {
-        content: "";
-        position: absolute;
-        inset: 14px auto 14px 14px;
-        width: 40%;
-        min-width: 108px;
-        border-radius: 14px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
-        border: 1px solid rgba(255, 255, 255, 0.12);
-      }
-
-      .tournament-switch-visual::after {
-        content: "";
-        position: absolute;
-        top: 10px;
-        right: 14px;
-        width: 62px;
-        height: 62px;
-        border-radius: 50%;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        background:
-          radial-gradient(circle, rgba(225, 191, 67, 0.18), transparent 60%),
-          conic-gradient(from 180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
-      }
-
-      .tournament-switch-visual-chip,
-      .tournament-switch-visual-line {
-        position: absolute;
-        z-index: 1;
-      }
-
-      .tournament-switch-visual-chip {
-        top: 14px;
-        left: 14px;
-        padding: 7px 11px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.14);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        color: rgba(245, 251, 247, 0.96);
-        font-size: 0.68rem;
-        font-weight: 800;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        backdrop-filter: blur(8px);
-      }
-
-      .tournament-switch-visual-line {
-        left: 18px;
-        height: 8px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.18));
-        box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
-      }
-
-      .tournament-switch-visual-line.one {
-        top: 42px;
-        width: 38%;
-      }
-
-      .tournament-switch-visual-line.two {
-        top: 56px;
-        width: 24%;
-        opacity: 0.62;
-      }
-
       .tournament-switch-stats {
         display: grid;
         gap: 8px;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
 
       .tournament-switch-stat {
-        padding: 11px 12px;
-        border-radius: 16px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(246, 249, 247, 0.78));
+        padding: 10px 11px;
+        border-radius: 14px;
+        background: rgba(247, 249, 247, 0.94);
         border: 1px solid rgba(20, 49, 38, 0.08);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+        box-shadow: none;
       }
 
       .tournament-switch-stat:hover {
@@ -4325,17 +4258,13 @@
 
       .tournament-switch-note {
         display: grid;
-        gap: 6px;
-        padding: 13px 14px;
-        border-radius: 16px;
-        background:
-          radial-gradient(circle at top right, rgba(225, 191, 67, 0.06), transparent 26%),
-          linear-gradient(180deg, rgba(241, 246, 242, 0.92), rgba(236, 243, 238, 0.84));
-        border: 1px solid rgba(31, 106, 78, 0.08);
+        gap: 4px;
+        padding-top: 2px;
+        border-top: 1px solid rgba(20, 49, 38, 0.08);
       }
 
       .tournament-switch-note-label {
-        color: var(--accent);
+        color: var(--muted);
         font-size: 0.7rem;
         font-weight: 800;
         letter-spacing: 0.06em;
@@ -4919,14 +4848,20 @@
 
       .people-compact-card {
         display: grid;
-        gap: 10px;
+        gap: 8px 14px;
+        grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr);
+        align-items: start;
         padding: 12px 14px;
-        border-radius: 15px;
-        background:
-          radial-gradient(circle at top right, rgba(225, 191, 67, 0.07), transparent 26%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 249, 245, 0.9));
-        border: 1px solid var(--line);
-        box-shadow: var(--shadow-soft);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(245, 249, 246, 0.92));
+        border: 1px solid rgba(20, 49, 38, 0.08);
+        box-shadow: 0 10px 22px rgba(15, 55, 39, 0.06);
+      }
+
+      .people-compact-main {
+        display: grid;
+        gap: 7px;
+        min-width: 0;
       }
 
       .people-compact-head {
@@ -4959,19 +4894,44 @@
       .people-meta-grid {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px 12px;
+        gap: 4px 10px;
       }
 
       .people-meta-grid span {
         color: var(--muted);
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         line-height: 1.25;
+      }
+
+      .people-compact-side {
+        display: flex;
+        justify-content: flex-end;
+        align-items: flex-start;
+      }
+
+      .people-compact-side .button-row {
+        justify-content: flex-end;
+      }
+
+      .people-private-link {
+        min-height: 36px;
+        padding: 8px 11px;
+        border-radius: 12px;
+      }
+
+      .people-readonly-note {
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: rgba(20, 49, 38, 0.05);
+        border: 1px solid rgba(20, 49, 38, 0.08);
       }
 
       .people-card-forms {
         display: grid;
+        grid-column: 1 / -1;
         gap: 8px;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         align-items: start;
       }
 
@@ -5403,6 +5363,18 @@
         .tournament-switch-actions {
           flex-direction: column;
           align-items: stretch;
+        }
+
+        .people-compact-card {
+          grid-template-columns: 1fr;
+        }
+
+        .people-compact-side {
+          justify-content: flex-start;
+        }
+
+        .people-compact-side .button-row {
+          justify-content: flex-start;
         }
 
         .roster-speaker-layout .registration-speaker-card {

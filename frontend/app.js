@@ -12378,14 +12378,12 @@
                         )}</span>
                       </div>
                       <p class="muted">${escapeHtml(participant.email)}</p>
-                      <p class="muted">${escapeHtml(summaryText)}</p>
+                      <p class="fine-print registration-speaker-card-summary">${escapeHtml(
+                        summaryText +
+                          (participant.institution ? " • " + participant.institution : ""),
+                      )}</p>
                       ${
-                        participant.institution
-                          ? `<p class="fine-print">${escapeHtml(participant.institution)}</p>`
-                          : ""
-                      }
-                      ${
-                        canSeeScores && speakerStanding
+                        canSeeScores && speakerStanding && !compact
                           ? `<p class="fine-print">Speaker rank #${escapeHtml(
                               speakerStanding.speakerRank,
                             )}</p>`
@@ -12427,25 +12425,35 @@
                           <div class="registration-speaker-card-admin">
                             ${
                               compact
-                                ? `<p class="fine-print">Private access link ready.</p>`
+                                ? `<div class="button-row">
+                                    <a class="inline-link" href="${escapeHtml(
+                                      getPrivateLink(participant.token),
+                                    )}" target="_blank" rel="noreferrer">Private URL</a>
+                                    <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
+                                      tournament.id,
+                                    )}" data-participant-id="${escapeHtml(participant.id)}">Rotate</button>
+                                    <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
+                                      tournament.id,
+                                    )}" data-participant-id="${escapeHtml(participant.id)}">Remove</button>
+                                  </div>`
                                 : `<a class="token-link" href="${escapeHtml(
                                     getPrivateLink(participant.token),
                                   )}" target="_blank" rel="noreferrer">${escapeHtml(
                                     getPrivateLink(participant.token),
                                   )}</a>`
                             }
-                            <div class="button-row">
-                              <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
-                                tournament.id,
-                              )}" data-participant-id="${escapeHtml(participant.id)}">${escapeHtml(
-                                compact ? "Rotate Link" : "Rotate private link",
-                              )}</button>
-                              <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
-                                tournament.id,
-                              )}" data-participant-id="${escapeHtml(participant.id)}">${escapeHtml(
-                                compact ? "Remove" : "Remove participant",
-                              )}</button>
-                            </div>
+                            ${
+                              compact
+                                ? ""
+                                : `<div class="button-row">
+                                    <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
+                                      tournament.id,
+                                    )}" data-participant-id="${escapeHtml(participant.id)}">Rotate private link</button>
+                                    <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
+                                      tournament.id,
+                                    )}" data-participant-id="${escapeHtml(participant.id)}">Remove participant</button>
+                                  </div>`
+                            }
                           </div>
                         `
                         : ""
@@ -12456,10 +12464,7 @@
                           ${
                             compact
                               ? `<p class="fine-print registration-speaker-card-feedback">${escapeHtml(
-                                  "Latest feedback: " +
-                                    latestFeedback.judgeEmail +
-                                    " • " +
-                                    getFeedbackTotalScore(latestFeedback),
+                                  "Latest feedback • " + getFeedbackTotalScore(latestFeedback),
                                 )}</p>`
                               : `<div class="flat-panel registration-speaker-card-feedback">
                                   <div class="section-heading">
@@ -12493,26 +12498,52 @@
                     ${
                       canSanction
                         ? `
-                          <form class="stack compact-stack registration-speaker-card-footnote" data-form="add-sanction" data-id="${escapeHtml(
-                            tournament.id,
-                          )}" data-participant-id="${escapeHtml(participant.id)}">
-                            <div class="field-grid two">
-                              <label>
-                                Sanction
-                                <select name="level">
-                                  <option value="Notice">Notice</option>
-                                  <option value="Warning">Warning</option>
-                                  <option value="Penalty">Penalty</option>
-                                  <option value="Removal">Removal</option>
-                                </select>
-                              </label>
-                              <label>
-                                Note
-                                <input type="text" name="note" placeholder="Brief reason" required />
-                              </label>
-                            </div>
-                            <button class="secondary-button" type="submit">Record Sanction</button>
-                          </form>
+                          ${
+                            compact
+                              ? `<details class="registration-speaker-card-footnote compact-card-disclosure">
+                                  <summary>Sanction controls</summary>
+                                  <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
+                                    tournament.id,
+                                  )}" data-participant-id="${escapeHtml(participant.id)}">
+                                    <div class="field-grid two">
+                                      <label>
+                                        Sanction
+                                        <select name="level">
+                                          <option value="Notice">Notice</option>
+                                          <option value="Warning">Warning</option>
+                                          <option value="Penalty">Penalty</option>
+                                          <option value="Removal">Removal</option>
+                                        </select>
+                                      </label>
+                                      <label>
+                                        Note
+                                        <input type="text" name="note" placeholder="Brief reason" required />
+                                      </label>
+                                    </div>
+                                    <button class="secondary-button" type="submit">Record Sanction</button>
+                                  </form>
+                                </details>`
+                              : `<form class="stack compact-stack registration-speaker-card-footnote" data-form="add-sanction" data-id="${escapeHtml(
+                                  tournament.id,
+                                )}" data-participant-id="${escapeHtml(participant.id)}">
+                                  <div class="field-grid two">
+                                    <label>
+                                      Sanction
+                                      <select name="level">
+                                        <option value="Notice">Notice</option>
+                                        <option value="Warning">Warning</option>
+                                        <option value="Penalty">Penalty</option>
+                                        <option value="Removal">Removal</option>
+                                      </select>
+                                    </label>
+                                    <label>
+                                      Note
+                                      <input type="text" name="note" placeholder="Brief reason" required />
+                                    </label>
+                                  </div>
+                                  <button class="secondary-button" type="submit">Record Sanction</button>
+                                </form>`
+                          }
                         `
                         : ""
                     }
@@ -14912,6 +14943,7 @@
         const pinned = isTournamentPinned(tournament.id);
         const snapshot = getTournamentOpsSnapshot(tournament);
         const teamCount = getTournamentTeams(tournament).length;
+        const judgeCount = snapshot.judges || 0;
         const latestPublicDraw = (tournament.draw || [])
           .filter((entry) => String(entry.status || "").trim().toLowerCase() === "published")
           .sort((left, right) => Number(right.round || 0) - Number(left.round || 0))[0] || null;
@@ -14955,11 +14987,6 @@
                   : ""
               }
             </div>
-            <div class="tournament-switch-visual" aria-hidden="true">
-              <span class="tournament-switch-visual-chip">${escapeHtml(tournament.code)}</span>
-              <span class="tournament-switch-visual-line one"></span>
-              <span class="tournament-switch-visual-line two"></span>
-            </div>
             <div class="tournament-switch-stats">
               <div class="tournament-switch-stat">
                 <span class="muted">Rounds</span>
@@ -14972,6 +14999,10 @@
               <div class="tournament-switch-stat">
                 <span class="muted">Speakers</span>
                 <strong>${escapeHtml(tournament.participants.length)}</strong>
+              </div>
+              <div class="tournament-switch-stat">
+                <span class="muted">Judges</span>
+                <strong>${escapeHtml(judgeCount)}</strong>
               </div>
             </div>
             <div class="tournament-switch-note">
@@ -17247,71 +17278,81 @@
                   ).length;
                   return `
                     <article class="people-compact-card">
-                      <div class="people-compact-head">
-                        <div class="stack">
-                          <strong>${escapeHtml(user.name)}</strong>
-                          <span class="muted">${escapeHtml(user.email)}</span>
+                      <div class="people-compact-main">
+                        <div class="people-compact-head">
+                          <div class="stack">
+                            <strong>${escapeHtml(user.name)}</strong>
+                            <span class="muted">${escapeHtml(user.email)}</span>
+                          </div>
+                          <div class="people-pill-cluster">
+                            <span class="role-pill">${escapeHtml(
+                              toTitleLabel(user.globalRole),
+                            )}</span>
+                            <span class="mini-pill success">${escapeHtml(
+                              getUserCreationLabel(user),
+                            )}</span>
+                            <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
+                              user.active ? "Active" : "Disabled",
+                            )}</span>
+                          </div>
                         </div>
-                        <div class="people-pill-cluster">
-                          <span class="role-pill">${escapeHtml(
-                            toTitleLabel(user.globalRole),
-                          )}</span>
-                          <span class="mini-pill success">${escapeHtml(
-                            getUserCreationLabel(user),
-                          )}</span>
-                          <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
-                            user.active ? "Active" : "Disabled",
+                        <div class="people-meta-grid">
+                          <span>Created ${escapeHtml(user.createdAt || "Unknown")}</span>
+                          <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
+                          <span>${escapeHtml(historicalTournamentCount)} tournaments on record</span>
+                          ${
+                            user.regionalRole
+                              ? `<span>${escapeHtml(
+                                  toTitleLabel(user.regionalRole) +
+                                    " • " +
+                                    (user.regionalRegion || "Region pending"),
+                                )}</span>`
+                              : ""
+                          }
+                          <span>${escapeHtml(
+                            user.createdBy
+                              ? "Created by " +
+                                  (user.createdBy === normalizeEmail(user.email)
+                                    ? "Self"
+                                    : user.createdBy)
+                              : "Created by Unrecorded",
                           )}</span>
                         </div>
                       </div>
-                      <div class="people-meta-grid">
-                        <span>Created ${escapeHtml(user.createdAt || "Unknown")}</span>
-                        <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
-                        <span>Registered tournaments: ${escapeHtml(historicalTournamentCount)}</span>
-                        ${
-                          user.regionalRole
-                            ? `<span>Regional assignment: ${escapeHtml(
-                                toTitleLabel(user.regionalRole) +
-                                  " • " +
-                                  (user.regionalRegion || "Region pending"),
-                              )}</span>`
-                            : ""
-                        }
-                        <span>Private URL issued: ${escapeHtml(
-                          user.privateAccessIssuedAt || user.createdAt || "Unknown",
-                        )}</span>
-                        ${
-                          user.createdBy
-                            ? `<span>Created by: ${escapeHtml(
-                                user.createdBy === normalizeEmail(user.email)
-                                  ? "Self"
-                                  : user.createdBy,
-                              )}</span>`
-                            : `<span>Created by: Unrecorded</span>`
-                        }
+                      <div class="people-compact-side">
+                        <div class="button-row wrap-row">
+                          <a class="inline-link people-private-link" href="${escapeHtml(
+                            getUserAccessLink(user.privateAccessToken),
+                          )}" target="_blank" rel="noreferrer" title="${escapeAttributeValue(
+                            getUserAccessLink(user.privateAccessToken),
+                          )}">Private URL</a>
+                          ${
+                            canAccessGlobalSettings() && !isManagerUser
+                              ? `
+                                <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
+                                  user.email,
+                                )}">Copy Link</button>
+                                <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
+                                  user.email,
+                                )}">Rotate</button>
+                                <button class="${user.active ? "danger-button" : "secondary-button"}" type="button" data-action="toggle-user-active" data-email="${escapeHtml(
+                                  user.email,
+                                )}">${escapeHtml(user.active ? "Disable" : "Enable")}</button>
+                                <button class="danger-button" type="button" data-action="delete-user" data-email="${escapeHtml(
+                                  user.email,
+                                )}">Delete</button>
+                              `
+                              : `<p class="fine-print people-readonly-note">${
+                                  isManagerUser
+                                    ? "Protected account."
+                                    : "Read-only for your access level."
+                                }</p>`
+                          }
+                        </div>
                       </div>
-                      <a class="token-link" href="${escapeHtml(
-                        getUserAccessLink(user.privateAccessToken),
-                      )}" target="_blank" rel="noreferrer" title="${escapeAttributeValue(
-                        getUserAccessLink(user.privateAccessToken),
-                      )}">Open Private URL</a>
                       ${
                         canAccessGlobalSettings() && !isManagerUser
                           ? `
-                            <div class="button-row wrap-row">
-                              <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
-                                user.email,
-                              )}">Copy Link</button>
-                              <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
-                                user.email,
-                              )}">Rotate</button>
-                              <button class="${user.active ? "danger-button" : "secondary-button"}" type="button" data-action="toggle-user-active" data-email="${escapeHtml(
-                                user.email,
-                              )}">${escapeHtml(user.active ? "Disable" : "Enable")}</button>
-                              <button class="danger-button" type="button" data-action="delete-user" data-email="${escapeHtml(
-                                user.email,
-                              )}">Delete</button>
-                            </div>
                             <div class="people-card-forms">
                               <form class="compact-inline-form" data-form="update-user-role" data-email="${escapeHtml(
                                 user.email,
@@ -17327,11 +17368,7 @@
                               </form>
                             </div>
                           `
-                          : `<div class="alert info">${
-                              isManagerUser
-                                ? "This protected account cannot be disabled or deleted."
-                                : "This account is read-only for your access level."
-                            }</div>`
+                          : ""
                       }
                     </article>
                   `;
