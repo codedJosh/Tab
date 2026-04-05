@@ -29,6 +29,24 @@ const FRONTEND_DIR = configuredFrontendDir
 const FRONTEND_ENTRY = path.join(FRONTEND_DIR, "index.html");
 
 const MANAGER_EMAIL = "joshuaatkins374@gmail.com";
+const REGIONAL_OPERATION_REGIONS = [
+  "Region 1",
+  "Region 2",
+  "Region 3",
+  "Region 4",
+  "Region 5",
+  "Region 6",
+];
+const JAMAICA_MAJOR_BANKS = [
+  "NCB",
+  "Scotiabank Jamaica",
+  "JN Bank",
+  "CIBC Caribbean",
+  "Sagicor Bank Jamaica",
+  "JMMB Bank",
+  "First Global Bank",
+  "VM Building Society",
+];
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const PASSWORD_HASH_VERSION = "pbkdf2-sha256-v1";
 const PASSWORD_HASH_ITERATIONS = 210000;
@@ -128,6 +146,24 @@ function normalizeGlobalRole(value = "member") {
   return "member";
 }
 
+function normalizeRegionalOperationsRole(value = "") {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replaceAll(" ", "_")
+    .replaceAll("-", "_");
+
+  if (normalized === "regional_coordinator") {
+    return "regional_coordinator";
+  }
+
+  if (normalized === "deputy_regional_coordinator") {
+    return "deputy_regional_coordinator";
+  }
+
+  return "";
+}
+
 function createId(prefix) {
   return prefix + "-" + crypto.randomBytes(4).toString("hex");
 }
@@ -185,6 +221,23 @@ function normalizeTextKey(value = "") {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function normalizeRegionalRegion(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const normalized = normalizeTextKey(raw);
+  const matchedRegion = REGIONAL_OPERATION_REGIONS.find(
+    (region, index) =>
+      normalizeTextKey(region) === normalized ||
+      String(index + 1) === normalized ||
+      normalizeTextKey("Region " + (index + 1)) === normalized,
+  );
+
+  return matchedRegion || raw;
 }
 
 function createTemporaryRegistrationPassword() {
@@ -249,6 +302,87 @@ function verifyUserPassword(user = {}, password = "") {
   };
 }
 
+function normalizeRegionalReportEntry(entry = {}) {
+  const createdAt = String(entry.createdAt || nowText()).trim();
+  return {
+    id: String(entry.id || createId("regional-report")).trim(),
+    region: normalizeRegionalRegion(entry.region),
+    school: String(entry.school || entry.schoolName || "").trim(),
+    reportingWindowStart: String(entry.reportingWindowStart || "").trim(),
+    reportingWindowEnd: String(entry.reportingWindowEnd || "").trim(),
+    summary: String(entry.summary || "").trim(),
+    highlights: String(entry.highlights || "").trim(),
+    challenges: String(entry.challenges || "").trim(),
+    supportNeeded: String(entry.supportNeeded || "").trim(),
+    submittedByEmail: normalizeEmail(entry.submittedByEmail || entry.authorEmail),
+    submittedByName: String(entry.submittedByName || entry.authorName || "").trim(),
+    submittedByRole: normalizeRegionalOperationsRole(
+      entry.submittedByRole || entry.authorRole,
+    ),
+    createdAt,
+    createdAtKey: normalizeTimestampKey(entry.createdAtKey, createdAt),
+  };
+}
+
+function normalizeRegionalFundingStatus(value = "pending") {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replaceAll(" ", "_")
+    .replaceAll("-", "_");
+
+  if (["approved", "rejected", "paid"].includes(normalized)) {
+    return normalized;
+  }
+
+  return "pending";
+}
+
+function normalizeRegionalFundingRequestEntry(entry = {}) {
+  const createdAt = String(entry.createdAt || nowText()).trim();
+  const normalizedBank = String(entry.bankName || entry.bank || "").trim();
+  const knownBank =
+    JAMAICA_MAJOR_BANKS.find(
+      (bank) => normalizeTextKey(bank) === normalizeTextKey(normalizedBank),
+    ) || normalizedBank;
+
+  return {
+    id: String(entry.id || createId("regional-funding")).trim(),
+    region: normalizeRegionalRegion(entry.region),
+    school: String(entry.school || entry.schoolName || "").trim(),
+    tripDate: String(entry.tripDate || "").trim(),
+    amountJmd: Math.max(0, Number(entry.amountJmd || entry.amount || 0) || 0),
+    bankName: knownBank,
+    justification: String(entry.justification || "").trim(),
+    status: normalizeRegionalFundingStatus(entry.status),
+    managerNote: String(entry.managerNote || "").trim(),
+    submittedByEmail: normalizeEmail(entry.submittedByEmail || entry.authorEmail),
+    submittedByName: String(entry.submittedByName || entry.authorName || "").trim(),
+    submittedByRole: normalizeRegionalOperationsRole(
+      entry.submittedByRole || entry.authorRole,
+    ),
+    reviewedByEmail: normalizeEmail(entry.reviewedByEmail || ""),
+    reviewedAt: String(entry.reviewedAt || "").trim(),
+    createdAt,
+    createdAtKey: normalizeTimestampKey(entry.createdAtKey, createdAt),
+  };
+}
+
+function normalizeRegionalOperationsState(record = {}) {
+  const next = record && typeof record === "object" ? clone(record) : {};
+  next.reports = Array.isArray(next.reports)
+    ? next.reports
+        .map((entry) => normalizeRegionalReportEntry(entry))
+        .sort((left, right) => Number(right.createdAtKey) - Number(left.createdAtKey))
+    : [];
+  next.transportRequests = Array.isArray(next.transportRequests)
+    ? next.transportRequests
+        .map((entry) => normalizeRegionalFundingRequestEntry(entry))
+        .sort((left, right) => Number(right.createdAtKey) - Number(left.createdAtKey))
+    : [];
+  return next;
+}
+
 function normalizeUserRecord(user = {}) {
   const createdAt = String(user.createdAt || nowText()).trim();
   return {
@@ -275,6 +409,8 @@ function normalizeUserRecord(user = {}) {
       ? Array.from(new Set(user.pinnedTournamentIds.map((value) => String(value || "").trim()).filter(Boolean))).slice(0, 12)
       : [],
     registeredTournamentIds: normalizeStringList(user.registeredTournamentIds, 200),
+    regionalRole: normalizeRegionalOperationsRole(user.regionalRole),
+    regionalRegion: normalizeRegionalRegion(user.regionalRegion),
     themePreset: String(user.themePreset || "jade_classic").trim() || "jade_classic",
     preferredLandingView:
       String(user.preferredLandingView || "overview").trim() || "overview",
@@ -294,6 +430,8 @@ function buildUser(name, email, globalRole, password, metadata = {}) {
     createdBy: metadata.createdBy || "",
     lastLoginAt: "",
     active: true,
+    regionalRole: metadata.regionalRole || "",
+    regionalRegion: metadata.regionalRegion || "",
   });
 }
 
@@ -476,6 +614,7 @@ function ensureWorkspaceState(state) {
   next.users = Array.isArray(next.users) ? next.users.map((user) => normalizeUserRecord(user)) : [];
   next.recoveryRequests = Array.isArray(next.recoveryRequests) ? next.recoveryRequests : [];
   next.tournaments = Array.isArray(next.tournaments) ? next.tournaments : [];
+  next.regionalOperations = normalizeRegionalOperationsState(next.regionalOperations || {});
   return synchronizeUserTournamentHistory(next);
 }
 
@@ -533,6 +672,34 @@ function getAuditMergeKey(entry = {}) {
   return (
     String(entry.id || "").trim() ||
     "audit:" + String(entry.at || "").trim() + "|" + String(entry.message || "").trim()
+  );
+}
+
+function getRegionalReportMergeKey(entry = {}) {
+  return (
+    String(entry.id || "").trim() ||
+    "regional-report:" +
+      normalizeEmail(entry.submittedByEmail) +
+      "|" +
+      normalizeTextKey(entry.school) +
+      "|" +
+      String(entry.reportingWindowStart || "").trim() +
+      "|" +
+      String(entry.reportingWindowEnd || "").trim()
+  );
+}
+
+function getRegionalFundingRequestMergeKey(entry = {}) {
+  return (
+    String(entry.id || "").trim() ||
+    "regional-funding:" +
+      normalizeEmail(entry.submittedByEmail) +
+      "|" +
+      normalizeTextKey(entry.school) +
+      "|" +
+      String(entry.tripDate || "").trim() +
+      "|" +
+      String(entry.amountJmd || "").trim()
   );
 }
 
@@ -880,6 +1047,22 @@ function mergeWorkspaceState(currentState, incomingState) {
         "recovery:" + normalizeEmail(request?.email) + "|" + String(request?.submittedAtKey || "").trim(),
       (_existing, request) => clone(request),
     ),
+    regionalOperations: {
+      ...(current.regionalOperations || {}),
+      ...(incoming.regionalOperations || {}),
+      reports: mergeRecordArrays(
+        current.regionalOperations?.reports || [],
+        incoming.regionalOperations?.reports || [],
+        getRegionalReportMergeKey,
+        (_existing, entry) => normalizeRegionalReportEntry(entry),
+      ),
+      transportRequests: mergeRecordArrays(
+        current.regionalOperations?.transportRequests || [],
+        incoming.regionalOperations?.transportRequests || [],
+        getRegionalFundingRequestMergeKey,
+        (_existing, entry) => normalizeRegionalFundingRequestEntry(entry),
+      ),
+    },
     tournaments: mergeRecordArrays(
       current.tournaments || [],
       incoming.tournaments || [],
@@ -1960,7 +2143,10 @@ app.post("/api", async (request, response) => {
         typeof incomingState !== "object" ||
         !Array.isArray(incomingState.users) ||
         !Array.isArray(incomingState.tournaments) ||
-        !Array.isArray(incomingState.recoveryRequests)
+        !Array.isArray(incomingState.recoveryRequests) ||
+        !incomingState.regionalOperations ||
+        typeof incomingState.regionalOperations !== "object" ||
+        Array.isArray(incomingState.regionalOperations)
       ) {
         const error = new Error("The shared workspace payload was incomplete.");
         error.statusCode = 400;

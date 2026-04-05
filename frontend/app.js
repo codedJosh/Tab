@@ -40,6 +40,24 @@
         return Array.from(new Set(endpoints));
       })();
       const MANAGER_EMAIL = "joshuaatkins374@gmail.com";
+      const REGIONAL_OPERATION_REGIONS = [
+        "Region 1",
+        "Region 2",
+        "Region 3",
+        "Region 4",
+        "Region 5",
+        "Region 6",
+      ];
+      const JAMAICA_MAJOR_BANKS = [
+        "NCB",
+        "Scotiabank Jamaica",
+        "JN Bank",
+        "CIBC Caribbean",
+        "Sagicor Bank Jamaica",
+        "JMMB Bank",
+        "First Global Bank",
+        "VM Building Society",
+      ];
       const PASSWORD_HASH_VERSION = "pbkdf2-sha256-v1";
       const PASSWORD_HASH_ITERATIONS = 210000;
       const PASSWORD_SALT_BYTES = 16;
@@ -662,6 +680,7 @@
           users: [],
           recoveryRequests: [],
           tournaments: [],
+          regionalOperations: normalizeRegionalOperationsState(),
         };
       }
 
@@ -741,6 +760,41 @@
         }
 
         return "member";
+      }
+
+      function normalizeRegionalOperationsRole(value = "") {
+        const normalized = String(value || "")
+          .trim()
+          .toLowerCase()
+          .replaceAll(" ", "_")
+          .replaceAll("-", "_");
+
+        if (normalized === "regional_coordinator") {
+          return "regional_coordinator";
+        }
+
+        if (normalized === "deputy_regional_coordinator") {
+          return "deputy_regional_coordinator";
+        }
+
+        return "";
+      }
+
+      function normalizeRegionalRegion(value = "") {
+        const raw = String(value || "").trim();
+        if (!raw) {
+          return "";
+        }
+
+        const normalized = normalizeTextKey(raw);
+        const matchedRegion = REGIONAL_OPERATION_REGIONS.find(
+          (region, index) =>
+            normalizeTextKey(region) === normalized ||
+            String(index + 1) === normalized ||
+            normalizeTextKey("Region " + (index + 1)) === normalized,
+        );
+
+        return matchedRegion || raw;
       }
 
       const TOURNAMENT_PERMISSION_ROLE_CONFIGS = [
@@ -1210,6 +1264,87 @@
         };
       }
 
+      function normalizeRegionalReportEntry(entry = {}) {
+        const createdAt = String(entry.createdAt || timestamp()).trim();
+        return {
+          id: String(entry.id || createId("regional-report")).trim(),
+          region: normalizeRegionalRegion(entry.region),
+          school: String(entry.school || entry.schoolName || "").trim(),
+          reportingWindowStart: String(entry.reportingWindowStart || "").trim(),
+          reportingWindowEnd: String(entry.reportingWindowEnd || "").trim(),
+          summary: String(entry.summary || "").trim(),
+          highlights: String(entry.highlights || "").trim(),
+          challenges: String(entry.challenges || "").trim(),
+          supportNeeded: String(entry.supportNeeded || "").trim(),
+          submittedByEmail: normalizeEmail(entry.submittedByEmail || entry.authorEmail),
+          submittedByName: String(entry.submittedByName || entry.authorName || "").trim(),
+          submittedByRole: normalizeRegionalOperationsRole(
+            entry.submittedByRole || entry.authorRole,
+          ),
+          createdAt,
+          createdAtKey: normalizeTimestampKey(entry.createdAtKey, createdAt),
+        };
+      }
+
+      function normalizeRegionalFundingStatus(value = "pending") {
+        const normalized = String(value || "")
+          .trim()
+          .toLowerCase()
+          .replaceAll(" ", "_")
+          .replaceAll("-", "_");
+
+        if (["approved", "rejected", "paid"].includes(normalized)) {
+          return normalized;
+        }
+
+        return "pending";
+      }
+
+      function normalizeRegionalFundingRequestEntry(entry = {}) {
+        const createdAt = String(entry.createdAt || timestamp()).trim();
+        const normalizedBank = String(entry.bankName || entry.bank || "").trim();
+        const knownBank =
+          JAMAICA_MAJOR_BANKS.find(
+            (bank) => normalizeTextKey(bank) === normalizeTextKey(normalizedBank),
+          ) || normalizedBank;
+
+        return {
+          id: String(entry.id || createId("regional-funding")).trim(),
+          region: normalizeRegionalRegion(entry.region),
+          school: String(entry.school || entry.schoolName || "").trim(),
+          tripDate: String(entry.tripDate || "").trim(),
+          amountJmd: Math.max(0, Number(entry.amountJmd || entry.amount || 0) || 0),
+          bankName: knownBank,
+          justification: String(entry.justification || "").trim(),
+          status: normalizeRegionalFundingStatus(entry.status),
+          managerNote: String(entry.managerNote || "").trim(),
+          submittedByEmail: normalizeEmail(entry.submittedByEmail || entry.authorEmail),
+          submittedByName: String(entry.submittedByName || entry.authorName || "").trim(),
+          submittedByRole: normalizeRegionalOperationsRole(
+            entry.submittedByRole || entry.authorRole,
+          ),
+          reviewedByEmail: normalizeEmail(entry.reviewedByEmail || ""),
+          reviewedAt: String(entry.reviewedAt || "").trim(),
+          createdAt,
+          createdAtKey: normalizeTimestampKey(entry.createdAtKey, createdAt),
+        };
+      }
+
+      function normalizeRegionalOperationsState(record = {}) {
+        const next = record && typeof record === "object" ? clone(record) : {};
+        next.reports = Array.isArray(next.reports)
+          ? next.reports
+              .map((entry) => normalizeRegionalReportEntry(entry))
+              .sort((left, right) => Number(right.createdAtKey) - Number(left.createdAtKey))
+          : [];
+        next.transportRequests = Array.isArray(next.transportRequests)
+          ? next.transportRequests
+              .map((entry) => normalizeRegionalFundingRequestEntry(entry))
+              .sort((left, right) => Number(right.createdAtKey) - Number(left.createdAtKey))
+          : [];
+        return next;
+      }
+
       function normalizeUserRecord(user = {}) {
         const createdAt = String(user.createdAt || timestamp()).trim();
         return {
@@ -1234,6 +1369,8 @@
           lastPrivateAccessAt: String(user.lastPrivateAccessAt || "").trim(),
           pinnedTournamentIds: normalizeStringList(user.pinnedTournamentIds, 12),
           registeredTournamentIds: normalizeStringList(user.registeredTournamentIds, 200),
+          regionalRole: normalizeRegionalOperationsRole(user.regionalRole),
+          regionalRegion: normalizeRegionalRegion(user.regionalRegion),
           themePreset: String(user.themePreset || "jade_classic").trim() || "jade_classic",
           preferredLandingView:
             String(user.preferredLandingView || "overview").trim() || "overview",
@@ -1253,6 +1390,8 @@
           createdBy: metadata.createdBy || "",
           lastLoginAt: "",
           active: true,
+          regionalRole: metadata.regionalRole || "",
+          regionalRegion: metadata.regionalRegion || "",
         });
       }
 
@@ -1393,6 +1532,18 @@
         const user = state?.users.find((entry) => entry.email === normalizeEmail(email));
         const role = normalizeGlobalRole(user?.globalRole || "");
         return isManager(email) || role === "system_admin" || role === "manager";
+      }
+
+      function getRegionalOperationsRoleForEmail(email = session.userEmail) {
+        return normalizeRegionalOperationsRole(getUserByEmail(email)?.regionalRole || "");
+      }
+
+      function canAccessRegionalOperations(email = session.userEmail) {
+        return Boolean(isSystemAdmin(email) || getRegionalOperationsRoleForEmail(email));
+      }
+
+      function getRegionalAssignmentForEmail(email = session.userEmail) {
+        return normalizeRegionalRegion(getUserByEmail(email)?.regionalRegion || "");
       }
 
       function canCreateTournaments() {
@@ -1892,10 +2043,17 @@
           .map((record) => record.tournament);
         const globalManager = isManager(target);
         const systemAdmin = isSystemAdmin(target);
+        const regionalRole = getRegionalOperationsRoleForEmail(target);
+        const regionalAccess = Boolean(globalManager || systemAdmin || regionalRole);
         const canManageAny = globalManager || systemAdmin || managedTournaments.length > 0;
         const canJudgeAny = judgedTournaments.length > 0;
         const competitorOnly = debaterTournaments.length > 0 && !canManageAny && !canJudgeAny;
         const judgeOnly = canJudgeAny && !canManageAny && debaterTournaments.length === 0;
+        const regionalOnly =
+          regionalAccess &&
+          !canManageAny &&
+          !canJudgeAny &&
+          debaterTournaments.length === 0;
 
         return {
           accessRecords,
@@ -1904,16 +2062,20 @@
           debaterTournaments,
           globalManager,
           systemAdmin,
+          regionalRole,
+          regionalAccess,
           canManageAny,
           canJudgeAny,
           competitorOnly,
           judgeOnly,
+          regionalOnly,
           canViewPeople:
             globalManager ||
             systemAdmin ||
             accessRecords.some((record) => hasTournamentPeopleAccess(record.access)),
           canViewLinks: Boolean(target),
           canViewJudging: canJudgeAny,
+          canViewRegionalOperations: regionalAccess,
           canViewSearch: Boolean(target),
           canViewSettings: Boolean(target),
           canLaunchTournaments: canCreateTournaments(),
@@ -1921,26 +2083,7 @@
       }
 
       function getAllowedLandingViews(email = session.userEmail) {
-        const capabilities = getWorkspaceCapabilities(email);
-        const options = ["overview", "tournaments"];
-
-        if (capabilities.canViewSearch) {
-          options.push("search");
-        }
-        if (capabilities.canViewJudging) {
-          options.push("judging");
-        }
-        if (capabilities.canViewPeople) {
-          options.push("people");
-        }
-        if (capabilities.canViewLinks) {
-          options.push("links");
-        }
-        if (capabilities.canLaunchTournaments) {
-          options.push("launch");
-        }
-
-        return Array.from(new Set(options));
+        return Array.from(new Set(getWorkspaceNavItems(email).map((item) => item.key)));
       }
 
       function getTournamentAppointeeStats() {
@@ -2015,6 +2158,33 @@
           ];
         }
 
+        if (capabilities.regionalOnly) {
+          return [
+            {
+              key: "regional",
+              label: "Regional Ops",
+              count: getRegionalOperationsRoleForEmail(email)
+                ? toTitleLabel(getRegionalOperationsRoleForEmail(email))
+                : "Portal",
+            },
+            {
+              key: "links",
+              label: "Access Links",
+              count: 1,
+            },
+            {
+              key: "about",
+              label: "About",
+              count: "Info",
+            },
+            {
+              key: "settings",
+              label: "Settings",
+              count: "You",
+            },
+          ];
+        }
+
         if (capabilities.judgeOnly) {
           return [
             {
@@ -2067,6 +2237,10 @@
 
         if (capabilities.canViewSearch) {
           items.push({ key: "search", label: "Search", count: "Find" });
+        }
+
+        if (capabilities.canViewRegionalOperations) {
+          items.push({ key: "regional", label: "Regional Ops", count: "Portal" });
         }
 
         if (capabilities.canViewJudging) {
@@ -2603,6 +2777,50 @@
               )}</option>`,
           )
           .join("");
+      }
+
+      function getRegionalOperationsRoleOptions(current = "") {
+        const normalizedCurrent = normalizeRegionalOperationsRole(current);
+        return [
+          {
+            value: "regional_coordinator",
+            label: "Regional Coordinator",
+          },
+          {
+            value: "deputy_regional_coordinator",
+            label: "Deputy Regional Coordinator",
+          },
+        ]
+          .map(
+            (role) =>
+              `<option value="${escapeHtml(role.value)}" ${selected(
+                role.value,
+                normalizedCurrent,
+              )}>${escapeHtml(role.label)}</option>`,
+          )
+          .join("");
+      }
+
+      function getRegionalRegionOptions(current = "") {
+        const normalizedCurrent = normalizeRegionalRegion(current);
+        return REGIONAL_OPERATION_REGIONS.map(
+          (region) =>
+            `<option value="${escapeHtml(region)}" ${selected(
+              region,
+              normalizedCurrent,
+            )}>${escapeHtml(region)}</option>`,
+        ).join("");
+      }
+
+      function getJamaicanBankOptions(current = "") {
+        const normalizedCurrent = String(current || "").trim();
+        return JAMAICA_MAJOR_BANKS.map(
+          (bank) =>
+            `<option value="${escapeHtml(bank)}" ${selected(
+              bank,
+              normalizedCurrent,
+            )}>${escapeHtml(bank)}</option>`,
+        ).join("");
       }
 
       function getScoringMethodFieldLabel(participantModel = "", format = "") {
@@ -5819,6 +6037,7 @@
           users: [],
           recoveryRequests: [],
           tournaments: [],
+          regionalOperations: normalizeRegionalOperationsState(),
         };
       }
 
@@ -8195,6 +8414,7 @@
           users: [],
           recoveryRequests: [],
           tournaments: [],
+          regionalOperations: normalizeRegionalOperationsState(),
         };
 
         const users = await Promise.all([
@@ -8582,6 +8802,7 @@
           users,
           recoveryRequests: [],
           tournaments: [kingston, experimental, worlds],
+          regionalOperations: normalizeRegionalOperationsState(),
         };
       }
 
@@ -8688,6 +8909,7 @@
               resolvedBy: normalizeEmail(request.resolvedBy || ""),
             }))
           : [];
+        next.regionalOperations = normalizeRegionalOperationsState(next.regionalOperations || {});
         next.tournaments = Array.isArray(next.tournaments) ? next.tournaments : [];
         next.tournaments = next.tournaments.map((tournament) => {
           const participantModel = tournament.participantModel || "teams";
@@ -9317,7 +9539,7 @@
       function getPublicScreenView() {
         const url = new URL(window.location.href);
         const screen = String(url.searchParams.get("screen") || "").trim().toLowerCase();
-        if (["about", "register-debater", "register-judge"].includes(screen)) {
+        if (["about", "register-debater", "register-judge", "regional-operations"].includes(screen)) {
           return screen;
         }
         return "";
@@ -10258,6 +10480,26 @@
                       )}</p>
                     </section>
                     <section class="auth-support-card">
+                      <div class="section-heading">
+                        <div>
+                          <p class="eyebrow">Regional Operations</p>
+                          <h3>Coordinator portal</h3>
+                        </div>
+                      </div>
+                      <p>
+                        Regional Coordinators and Deputy Regional Coordinators sign in here to file biweekly school reports and request transport stipends for their assigned region.
+                      </p>
+                      <div class="button-row wrap-row">
+                        <button class="secondary-button" type="button" data-action="set-public-view" data-view="regional-operations">Open Regional Operations</button>
+                      </div>
+                      <p class="auth-footer">${escapeHtml(
+                        getRegionalOperationsUsers().length +
+                          " regional staff account" +
+                          (getRegionalOperationsUsers().length === 1 ? "" : "s") +
+                          " are currently active in the system.",
+                      )}</p>
+                    </section>
+                    <section class="auth-support-card">
                       <p class="eyebrow">Security</p>
                       <h3>Access notes</h3>
                       <p>
@@ -10561,6 +10803,135 @@
         `;
       }
 
+      function renderRegionalOperationsPublicView() {
+        const staffCount = getRegionalOperationsUsers().length;
+        const summary = getRegionalOperationsSummary();
+
+        return `
+          <div class="auth-page">
+            <div class="auth-top-ticker" aria-label="Hummingbird motto ticker">
+              <div class="auth-top-ticker-track">
+                ${new Array(14)
+                  .fill("Fuelling a Thinking Revolution")
+                  .map(
+                    (item, index) =>
+                      `<span class="auth-top-ticker-item" ${index > 6 ? 'aria-hidden="true"' : ""}>${escapeHtml(
+                        item,
+                      )}</span>`,
+                  )
+                  .join("")}
+              </div>
+            </div>
+            <div class="page-shell">
+              <div class="auth-shell">
+                <section class="hero-panel auth-hero">
+                  <div class="stack">
+                    ${renderBrandLockup({
+                      kicker: "Regional Operations",
+                      size: "hero featured",
+                      subtitle:
+                        "A dedicated portal for regional coordinators, deputy coordinators, and managers supervising field operations.",
+                    })}
+                    <div>
+                      <p class="eyebrow">Field Coordination Portal</p>
+                      <h1>Track reports and transport support without leaving the shared system.</h1>
+                      <p class="hero-copy">
+                        Regional staff sign in here with accounts created by managers. Once inside, they can file biweekly reports for their assigned region and submit transport stipend requests that route directly to managers and system administrators.
+                      </p>
+                    </div>
+                    <div class="button-row wrap-row">
+                      <button class="secondary-button" type="button" data-action="set-public-view" data-view="auth">Back To Sign In</button>
+                    </div>
+                  </div>
+                  <div class="stack">
+                    <div class="hero-stat-band">
+                      <div class="hero-stat-chip">
+                        <span class="muted">Regional staff</span>
+                        <strong>${escapeHtml(staffCount)}</strong>
+                      </div>
+                      <div class="hero-stat-chip">
+                        <span class="muted">Biweekly reports logged</span>
+                        <strong>${escapeHtml(summary.reports)}</strong>
+                      </div>
+                      <div class="hero-stat-chip">
+                        <span class="muted">Pending stipends</span>
+                        <strong>${escapeHtml(summary.pendingFundingRequests)}</strong>
+                      </div>
+                    </div>
+                    <div class="inline-card auth-about-card">
+                      <h3>Who should use this portal?</h3>
+                      <p class="manager-note">
+                        Regional Coordinators, Deputy Regional Coordinators, managers, and system administrators. New accounts are created by managers inside the Regional Operations workspace, not from this public page.
+                      </p>
+                      <div class="workspace-chip-row">
+                        <span class="mini-pill success">Biweekly school reports</span>
+                        <span class="mini-pill success">Transport stipend requests</span>
+                        <span class="mini-pill success">Manager review queue</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+                <section class="auth-card">
+                  <div class="auth-layout">
+                    <div class="auth-primary">
+                      <div class="form-shell">
+                        <div class="section-heading">
+                          <div>
+                            <p class="eyebrow">Regional Sign In</p>
+                            <h2>Open the Regional Operations portal</h2>
+                          </div>
+                          <span class="role-pill">Account required</span>
+                        </div>
+                        ${renderFlash()}
+                        <form class="stack" data-form="regional-ops-sign-in" autocomplete="on">
+                          <input type="hidden" name="redirectView" value="regional" />
+                          <input type="hidden" name="requireRegionalOperationsAccess" value="yes" />
+                          <label>
+                            Email Address
+                            <input type="email" name="email" placeholder="you@example.com" autocomplete="username" required />
+                          </label>
+                          <label>
+                            Password
+                            <input type="password" name="password" placeholder="Your password" autocomplete="current-password" required />
+                          </label>
+                          <label class="checkbox-row">
+                            <input type="checkbox" name="savePasswordOnDevice" ${checked(
+                              authPrefs?.savePasswordOnDevice !== false,
+                            )} />
+                            <span>Save Password Securely On This Device</span>
+                          </label>
+                          <button type="submit">Enter Regional Operations</button>
+                        </form>
+                        <p class="auth-footer">
+                          Managers and system administrators can use their existing Hummingbird credentials here. Regional Coordinators and Deputy Regional Coordinators need an account created for them by a manager first.
+                        </p>
+                      </div>
+                    </div>
+                    <div class="auth-support-grid">
+                      <section class="auth-support-card">
+                        <p class="eyebrow">Coordinator Responsibilities</p>
+                        <h3>What happens inside</h3>
+                        <p>
+                          Submit school-by-school biweekly updates for Region 1 through Region 6, then file transport stipend requests with a Jamaica bank selection and justification for each field trip.
+                        </p>
+                      </section>
+                      <section class="auth-support-card">
+                        <p class="eyebrow">Account Creation</p>
+                        <h3>Managers control access</h3>
+                        <p>
+                          This portal does not allow public account creation. Managers create regional accounts inside the shared workspace so every record stays tied to the same backend and audit trail.
+                        </p>
+                        <a class="inline-link" href="${escapeHtml(getDashboardLink())}">Open the main sign-in page</a>
+                      </section>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
       function renderMenu() {
         const currentView = normalizeWorkspaceView();
         const items = getWorkspaceNavItems();
@@ -10577,6 +10948,8 @@
           .slice(0, 2);
         const menuSubtitle = capabilities.judgeOnly
           ? "Judging access with your assigned rooms, public tournament details, and private links."
+          : capabilities.regionalOnly
+            ? "Regional reporting, stipend requests, and shared operations history in one portal."
           : capabilities.competitorOnly
             ? "Private access for your rounds, results, feedback, and essential Hummingbird details."
             : !capabilities.canManageAny
@@ -16547,6 +16920,15 @@
                         <span>Created ${escapeHtml(user.createdAt || "Unknown")}</span>
                         <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
                         <span>Registered tournaments: ${escapeHtml(historicalTournamentCount)}</span>
+                        ${
+                          user.regionalRole
+                            ? `<span>Regional assignment: ${escapeHtml(
+                                toTitleLabel(user.regionalRole) +
+                                  " • " +
+                                  (user.regionalRegion || "Region pending"),
+                              )}</span>`
+                            : ""
+                        }
                         <span>Private URL issued: ${escapeHtml(
                           user.privateAccessIssuedAt || user.createdAt || "Unknown",
                         )}</span>
@@ -16608,6 +16990,421 @@
                 })
                 .join("")}
             </div>
+          </section>
+        `;
+      }
+
+      function renderRegionalOperationsView() {
+        const currentUser = getCurrentUser();
+        const canManage = canManageRegionalOperations();
+        const canSubmit = canSubmitRegionalOperationsWork();
+        const regionalRole = getRegionalOperationsRoleForEmail();
+        const assignedRegion = getRegionalAssignmentForEmail();
+        const staff = getRegionalOperationsUsers();
+        const reports = getVisibleRegionalReports();
+        const requests = getVisibleRegionalFundingRequests();
+        const summary = getRegionalOperationsSummary();
+
+        if (!canAccessRegionalOperations()) {
+          return `
+            <section class="surface">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Regional Operations</p>
+                  <h2>Access restricted</h2>
+                </div>
+              </div>
+              <div class="alert warning">This portal is limited to managers, system administrators, Regional Coordinators, and Deputy Regional Coordinators.</div>
+            </section>
+          `;
+        }
+
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Regional Operations</p>
+                <h2>Regional coordination, reports, and transport support</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(
+                canManage
+                  ? "Manager oversight"
+                  : toTitleLabel(regionalRole || "regional_operations"),
+              )}</span>
+            </div>
+            <div class="stat-grid">
+              <div class="stat-card">
+                <span class="muted">Regional coordinators</span>
+                <strong>${escapeHtml(summary.coordinators)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Deputy coordinators</span>
+                <strong>${escapeHtml(summary.deputies)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Biweekly reports</span>
+                <strong>${escapeHtml(summary.reports)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Funding requests</span>
+                <strong>${escapeHtml(summary.fundingRequests)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Pending stipends</span>
+                <strong>${escapeHtml(summary.pendingFundingRequests)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Assigned region</span>
+                <strong>${escapeHtml(assignedRegion || "Manager-wide access")}</strong>
+              </div>
+            </div>
+            <p class="fine-print">
+              Regional Operations uses the same shared backend as the rest of Hummingbird, so coordinator accounts, reports, and stipend requests persist across devices and stay attached to the same audit trail.
+            </p>
+          </section>
+
+          ${
+            canManage
+              ? `
+                <section class="surface">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Regional Staff Accounts</p>
+                      <h2>Create coordinator access</h2>
+                    </div>
+                    <span class="role-pill">Manager only</span>
+                  </div>
+                  <div class="manager-tools">
+                    <section class="flat-panel">
+                      <div class="section-heading">
+                        <div>
+                          <h3>Create a regional account</h3>
+                          <p class="fine-print">Managers and system administrators can create Regional Coordinator and Deputy Regional Coordinator accounts here.</p>
+                        </div>
+                      </div>
+                      <form class="stack" data-form="create-regional-ops-user">
+                        <div class="field-grid two">
+                          <label>
+                            Full name
+                            <input type="text" name="name" placeholder="Regional staff name" required />
+                          </label>
+                          <label>
+                            Email address
+                            <input type="email" name="email" placeholder="staff@example.com" required />
+                          </label>
+                        </div>
+                        <div class="field-grid three">
+                          <label>
+                            Portal role
+                            <select name="regionalRole">${getRegionalOperationsRoleOptions("regional_coordinator")}</select>
+                          </label>
+                          <label>
+                            Region
+                            <select name="regionalRegion">${getRegionalRegionOptions("Region 1")}</select>
+                          </label>
+                          <label>
+                            Temporary password
+                            <input type="password" name="password" placeholder="Create a temporary password" required />
+                          </label>
+                        </div>
+                        <button type="submit">Create Regional Account</button>
+                      </form>
+                    </section>
+                  </div>
+                </section>
+              `
+              : ""
+          }
+
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Regional Directory</p>
+                <h2>Assigned regional staff</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(staff.length)} accounts</span>
+            </div>
+            ${
+              staff.length
+                ? `<div class="directory-grid">
+                    ${staff
+                      .map(
+                        (user) => `
+                          <article class="directory-card">
+                            <div class="section-heading">
+                              <div>
+                                <strong>${escapeHtml(user.name)}</strong>
+                                <p class="muted">${escapeHtml(user.email)}</p>
+                              </div>
+                              <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
+                                user.active ? "Active" : "Disabled",
+                              )}</span>
+                            </div>
+                            <div class="workspace-chip-row">
+                              <span class="role-pill">${escapeHtml(
+                                toTitleLabel(user.regionalRole || "regional_coordinator"),
+                              )}</span>
+                              <span class="mini-pill success">${escapeHtml(
+                                user.regionalRegion || "Region not set",
+                              )}</span>
+                            </div>
+                            <p class="fine-print">${escapeHtml(
+                              user.lastLoginAt
+                                ? "Last signed in " + user.lastLoginAt
+                                : "This account has not signed in yet.",
+                            )}</p>
+                            ${
+                              canManage
+                                ? `
+                                  <form class="compact-inline-form" data-form="update-regional-ops-account" data-email="${escapeHtml(
+                                    user.email,
+                                  )}">
+                                    <select name="regionalRole">${getRegionalOperationsRoleOptions(
+                                      user.regionalRole,
+                                    )}</select>
+                                    <select name="regionalRegion">${getRegionalRegionOptions(
+                                      user.regionalRegion,
+                                    )}</select>
+                                    <button class="secondary-button" type="submit">Save</button>
+                                  </form>
+                                `
+                                : ""
+                            }
+                          </article>
+                        `,
+                      )
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state">Regional staff accounts will appear here once managers create them.</div>`
+            }
+          </section>
+
+          ${
+            canSubmit
+              ? `
+                <section class="surface">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Biweekly Reporting</p>
+                      <h2>Submit a school report for your region</h2>
+                    </div>
+                    <span class="role-pill">${escapeHtml(assignedRegion || "Regional staff")}</span>
+                  </div>
+                  <form class="stack" data-form="submit-regional-report">
+                    <div class="field-grid three">
+                      <label>
+                        Region
+                        <input type="text" name="region" value="${escapeHtml(
+                          assignedRegion || "",
+                        )}" ${assignedRegion ? "readonly" : ""} required />
+                      </label>
+                      <label>
+                        School
+                        <input type="text" name="school" placeholder="School visited or monitored" required />
+                      </label>
+                      <label>
+                        Reporting period end
+                        <input type="date" name="reportingWindowEnd" required />
+                      </label>
+                    </div>
+                    <label>
+                      Reporting period start
+                      <input type="date" name="reportingWindowStart" required />
+                    </label>
+                    <label>
+                      Summary
+                      <textarea name="summary" rows="3" placeholder="Overall update for this school and region." required></textarea>
+                    </label>
+                    <div class="field-grid two">
+                      <label>
+                        Highlights
+                        <textarea name="highlights" rows="3" placeholder="Key wins, turnout, or positive developments."></textarea>
+                      </label>
+                      <label>
+                        Challenges and support needed
+                        <textarea name="supportNeeded" rows="3" placeholder="Issues to escalate to managers and support requested."></textarea>
+                      </label>
+                    </div>
+                    <label>
+                      Additional challenges
+                      <textarea name="challenges" rows="2" placeholder="Operational blockers, school engagement issues, or scheduling concerns."></textarea>
+                    </label>
+                    <button type="submit">Submit Biweekly Report</button>
+                  </form>
+                </section>
+
+                <section class="surface">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Transport Stipends</p>
+                      <h2>Request transport funding for a school trip</h2>
+                    </div>
+                    <span class="role-pill">Sent to managers</span>
+                  </div>
+                  <form class="stack" data-form="submit-regional-funding-request">
+                    <div class="field-grid three">
+                      <label>
+                        Region
+                        <input type="text" name="region" value="${escapeHtml(
+                          assignedRegion || "",
+                        )}" ${assignedRegion ? "readonly" : ""} required />
+                      </label>
+                      <label>
+                        School
+                        <input type="text" name="school" placeholder="School visited" required />
+                      </label>
+                      <label>
+                        Trip date
+                        <input type="date" name="tripDate" required />
+                      </label>
+                    </div>
+                    <div class="field-grid two">
+                      <label>
+                        Amount requested (JMD)
+                        <input type="number" name="amountJmd" min="0" step="1" placeholder="0" required />
+                      </label>
+                      <label>
+                        Bank
+                        <select name="bankName">${getJamaicanBankOptions("NCB")}</select>
+                      </label>
+                    </div>
+                    <label>
+                      Justification
+                      <textarea name="justification" rows="3" placeholder="Explain why this transport stipend amount is needed." required></textarea>
+                    </label>
+                    <button type="submit">Submit Funding Request</button>
+                  </form>
+                </section>
+              `
+              : ""
+          }
+
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Report Ledger</p>
+                <h2>${escapeHtml(canManage ? "All regional reports" : "Your submitted reports")}</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(reports.length)} reports</span>
+            </div>
+            ${
+              reports.length
+                ? `<div class="directory-grid">
+                    ${reports
+                      .map(
+                        (entry) => `
+                          <article class="directory-card">
+                            <div class="section-heading">
+                              <div>
+                                <strong>${escapeHtml(entry.school || "School report")}</strong>
+                                <p class="muted">${escapeHtml(
+                                  entry.region +
+                                    " • " +
+                                    (entry.reportingWindowStart || "No start date") +
+                                    " to " +
+                                    (entry.reportingWindowEnd || "No end date"),
+                                )}</p>
+                              </div>
+                              <span class="mini-pill success">${escapeHtml(entry.createdAt)}</span>
+                            </div>
+                            <p class="muted">${escapeHtml(entry.summary || "No summary added.")}</p>
+                            <p class="fine-print">${escapeHtml(
+                              "Submitted by " +
+                                (entry.submittedByName || entry.submittedByEmail || "Regional staff"),
+                            )}</p>
+                          </article>
+                        `,
+                      )
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state">${
+                    canManage
+                      ? "Regional reports will appear here once coordinators start submitting them."
+                      : "Your biweekly reports will appear here after submission."
+                  }</div>`
+            }
+          </section>
+
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Funding Queue</p>
+                <h2>${escapeHtml(canManage ? "Transport requests awaiting review" : "Your transport requests")}</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(requests.length)} requests</span>
+            </div>
+            ${
+              requests.length
+                ? `<div class="directory-grid">
+                    ${requests
+                      .map(
+                        (entry) => `
+                          <article class="directory-card">
+                            <div class="section-heading">
+                              <div>
+                                <strong>${escapeHtml(entry.school || "Transport request")}</strong>
+                                <p class="muted">${escapeHtml(
+                                  entry.region + " • " + (entry.tripDate || "Trip date pending"),
+                                )}</p>
+                              </div>
+                              <span class="mini-pill ${entry.status === "pending" ? "warning" : "success"}">${escapeHtml(
+                                toTitleLabel(entry.status),
+                              )}</span>
+                            </div>
+                            <div class="workspace-chip-row">
+                              <span class="role-pill">${escapeHtml(formatCurrencyJmd(entry.amountJmd))}</span>
+                              <span class="mini-pill success">${escapeHtml(
+                                entry.bankName || "Bank pending",
+                              )}</span>
+                            </div>
+                            <p class="muted">${escapeHtml(entry.justification || "No justification supplied.")}</p>
+                            <p class="fine-print">${escapeHtml(
+                              "Submitted by " +
+                                (entry.submittedByName || entry.submittedByEmail || "Regional staff") +
+                                " • " +
+                                entry.createdAt,
+                            )}</p>
+                            ${
+                              canManage
+                                ? `
+                                  <form class="stack compact-stack" data-form="review-regional-funding-request" data-request-id="${escapeHtml(
+                                    entry.id,
+                                  )}">
+                                    <div class="field-grid two">
+                                      <label>
+                                        Status
+                                        <select name="status">
+                                          <option value="pending" ${selected("pending", entry.status)}>Pending</option>
+                                          <option value="approved" ${selected("approved", entry.status)}>Approved</option>
+                                          <option value="rejected" ${selected("rejected", entry.status)}>Rejected</option>
+                                          <option value="paid" ${selected("paid", entry.status)}>Paid</option>
+                                        </select>
+                                      </label>
+                                      <label>
+                                        Manager note
+                                        <input type="text" name="managerNote" value="${escapeAttributeValue(
+                                          entry.managerNote || "",
+                                        )}" placeholder="Optional review note" />
+                                      </label>
+                                    </div>
+                                    <button class="secondary-button" type="submit">Save Review</button>
+                                  </form>
+                                `
+                                : entry.managerNote
+                                  ? `<p class="fine-print">${escapeHtml("Manager note: " + entry.managerNote)}</p>`
+                                  : ""
+                            }
+                          </article>
+                        `,
+                      )
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state">${
+                    canManage
+                      ? "Transport stipend requests will appear here for manager review."
+                      : "Your stipend requests will appear here after submission."
+                  }</div>`
+            }
           </section>
         `;
       }
@@ -16730,6 +17527,8 @@
             "Launcher is reserved for creating and staging new tournaments so the active tournament workspace stays leaner.",
           search:
             "Search links together tournaments, people, teams, institutions, and accounts so you can move through the system without getting stuck.",
+          regional:
+            "Regional Operations keeps coordinator accounts, biweekly reports, and stipend requests together in one durable shared portal.",
           judging:
             "Judging keeps assigned rooms, official chair ballots, and tournament context close together without exposing unnecessary controls.",
           people:
@@ -16758,6 +17557,8 @@
 
         const modeLabel = capabilities.canManageAny
           ? "System Manager Workspace"
+          : capabilities.regionalOnly
+            ? "Regional Operations Workspace"
           : capabilities.judgeOnly
             ? "Judge Workspace"
             : capabilities.competitorOnly
@@ -16767,6 +17568,8 @@
                 : "Member Workspace";
         const modeNote = capabilities.canManageAny
           ? "Full control over tournament structure, publishing, staffing, and access."
+          : capabilities.regionalOnly
+            ? "Focused on regional reporting, stipend requests, and coordinator follow-up."
           : capabilities.judgeOnly
             ? "Judging stays front and centre while public tournament tracking remains available."
             : capabilities.competitorOnly
@@ -16990,6 +17793,7 @@
           search: "Search",
           judging: "Judging",
           links: "Access Links",
+          regional: "Regional Ops",
         };
 
         return getAllowedLandingViews()
@@ -17385,6 +18189,81 @@
           });
         });
         return records;
+      }
+
+      function getRegionalOperationsState() {
+        state.regionalOperations = normalizeRegionalOperationsState(state.regionalOperations || {});
+        return state.regionalOperations;
+      }
+
+      function canManageRegionalOperations(email = session.userEmail) {
+        return isSystemAdmin(email);
+      }
+
+      function canSubmitRegionalOperationsWork(email = session.userEmail) {
+        return Boolean(getRegionalOperationsRoleForEmail(email));
+      }
+
+      function getRegionalOperationsUsers() {
+        return (state.users || [])
+          .filter((user) => normalizeRegionalOperationsRole(user.regionalRole))
+          .sort(
+            (left, right) =>
+              normalizeRegionalRegion(left.regionalRegion).localeCompare(
+                normalizeRegionalRegion(right.regionalRegion),
+              ) ||
+              String(left.name || left.email).localeCompare(String(right.name || right.email)),
+          );
+      }
+
+      function getVisibleRegionalReports(email = session.userEmail) {
+        const reports = getRegionalOperationsState().reports || [];
+        if (canManageRegionalOperations(email)) {
+          return reports;
+        }
+        const target = normalizeEmail(email);
+        return reports.filter((entry) => normalizeEmail(entry.submittedByEmail) === target);
+      }
+
+      function getVisibleRegionalFundingRequests(email = session.userEmail) {
+        const requests = getRegionalOperationsState().transportRequests || [];
+        if (canManageRegionalOperations(email)) {
+          return requests;
+        }
+        const target = normalizeEmail(email);
+        return requests.filter((entry) => normalizeEmail(entry.submittedByEmail) === target);
+      }
+
+      function getRegionalOperationsSummary(email = session.userEmail) {
+        const reports = getVisibleRegionalReports(email);
+        const requests = getVisibleRegionalFundingRequests(email);
+        const allRequests = getRegionalOperationsState().transportRequests || [];
+        return {
+          coordinators: getRegionalOperationsUsers().filter(
+            (user) => normalizeRegionalOperationsRole(user.regionalRole) === "regional_coordinator",
+          ).length,
+          deputies: getRegionalOperationsUsers().filter(
+            (user) =>
+              normalizeRegionalOperationsRole(user.regionalRole) ===
+              "deputy_regional_coordinator",
+          ).length,
+          reports: reports.length,
+          fundingRequests: requests.length,
+          pendingFundingRequests: allRequests.filter((entry) => entry.status === "pending").length,
+        };
+      }
+
+      function formatCurrencyJmd(value) {
+        const amount = Number(value || 0) || 0;
+        return new Intl.NumberFormat("en-JM", {
+          style: "currency",
+          currency: "JMD",
+          maximumFractionDigits: 0,
+        }).format(amount);
+      }
+
+      function getRegionalOperationsLandingLink() {
+        return getPublicScreenLink("regional-operations");
       }
 
       function getTournamentAppointeeDashboard() {
@@ -18221,6 +19100,8 @@
               ? renderTournamentsView()
             : currentView === "launch"
               ? renderLaunchView()
+            : currentView === "regional"
+              ? renderRegionalOperationsView()
             : currentView === "search"
               ? renderSearchView()
             : currentView === "judging"
@@ -18673,7 +19554,7 @@
         const token = new URL(window.location.href).searchParams.get("token");
         const publicView =
           getPublicScreenView() ||
-          (["about", "register-debater", "register-judge"].includes(session.view)
+          (["about", "register-debater", "register-judge", "regional-operations"].includes(session.view)
             ? session.view
             : "auth");
         if (!getCurrentUser() && session.view !== publicView) {
@@ -18689,6 +19570,8 @@
                 ? renderPublicRegistrationView("debater")
                 : publicView === "register-judge"
                   ? renderPublicRegistrationView("judge")
+                  : publicView === "regional-operations"
+                    ? renderRegionalOperationsPublicView()
                   : renderAuthView();
         document.querySelector("#app").innerHTML = appMarkup + renderConfirmationDialog();
         if (pendingTournamentSectionJumpId) {
@@ -18706,6 +19589,10 @@
         const email = normalizeEmail(formData.get("email"));
         const password = String(formData.get("password") || "");
         const savePasswordOnDevice = boolFromForm(formData, "savePasswordOnDevice");
+        const redirectView = String(formData.get("redirectView") || "").trim().toLowerCase();
+        const requireRegionalOperationsAccess =
+          String(formData.get("requireRegionalOperationsAccess") || "").trim().toLowerCase() ===
+          "yes";
         const cloudAvailable = await probeCloudBackend(true);
 
         if (cloudAvailable) {
@@ -18716,9 +19603,20 @@
             });
             cloudRuntime.initialized = true;
             state = await rehydrateState(result.state);
+            if (requireRegionalOperationsAccess && !canAccessRegionalOperations(email)) {
+              setFlash(
+                "error",
+                "This account does not have Regional Operations access yet. Ask a manager to create or update your regional portal account.",
+              );
+              renderApp();
+              return;
+            }
             session.userEmail = email;
             session.cloudSessionToken = String(result.sessionToken || "").trim();
-            session.view = getPreferredLandingView(email);
+            session.view =
+              redirectView && getAllowedLandingViews(email).includes(redirectView)
+                ? redirectView
+                : getPreferredLandingView(email);
             session.managedTournamentId = "";
             session.selectedTournamentId = "";
             recordRecentView(session.view);
@@ -18773,6 +19671,15 @@
                 Object.assign(localUser, await buildSecurePasswordRecord(password));
               }
 
+              if (requireRegionalOperationsAccess && !canAccessRegionalOperations(email)) {
+                setFlash(
+                  "error",
+                  "This account does not have Regional Operations access yet. Ask a manager to create or update your regional portal account.",
+                );
+                renderApp();
+                return;
+              }
+
               try {
                 const result = await callCloud("initialize", {
                   email,
@@ -18783,7 +19690,10 @@
                 state = await rehydrateState(result.state);
                 session.userEmail = email;
                 session.cloudSessionToken = String(result.sessionToken || "").trim();
-                session.view = getPreferredLandingView(email);
+                session.view =
+                  redirectView && getAllowedLandingViews(email).includes(redirectView)
+                    ? redirectView
+                    : getPreferredLandingView(email);
                 session.managedTournamentId = "";
                 session.selectedTournamentId = "";
                 recordRecentView(session.view);
@@ -18848,10 +19758,22 @@
           Object.assign(user, await buildSecurePasswordRecord(password));
         }
 
+        if (requireRegionalOperationsAccess && !canAccessRegionalOperations(email)) {
+          setFlash(
+            "error",
+            "This account does not have Regional Operations access yet. Ask a manager to create or update your regional portal account.",
+          );
+          renderApp();
+          return;
+        }
+
         user.lastLoginAt = timestamp();
         session.userEmail = email;
         session.cloudSessionToken = "";
-        session.view = getPreferredLandingView(email);
+        session.view =
+          redirectView && getAllowedLandingViews(email).includes(redirectView)
+            ? redirectView
+            : getPreferredLandingView(email);
         session.managedTournamentId = "";
         session.selectedTournamentId = "";
         recordRecentView(session.view);
@@ -19743,6 +20665,32 @@
         return { ok: true, email };
       }
 
+      async function commitSharedWorkspaceMutation(mutator, messages = {}) {
+        const previousState = clone(state);
+        const previousSession = normalizeSessionRecord(session);
+
+        try {
+          mutator();
+          await persistStateToCloudNow({
+            skipRender: true,
+          });
+          setFlash("success", messages.success || "Saved successfully.");
+        } catch (error) {
+          if (error?.code !== "stale_revision") {
+            state = previousState;
+          }
+          session = previousSession;
+          setFlash(
+            error?.code === "stale_revision" ? "warning" : "error",
+            error?.message || messages.error || "The shared workspace could not save that change.",
+          );
+        }
+
+        saveState();
+        saveSession();
+        renderApp();
+      }
+
       async function createManagedUser(formData) {
         if (!canAccessGlobalSettings()) {
           setFlash("error", "Only System Managers can create staff accounts.");
@@ -19799,6 +20747,248 @@
         saveState();
         saveSession();
         renderApp();
+      }
+
+      async function createRegionalOperationsUser(formData) {
+        if (!canManageRegionalOperations()) {
+          setFlash("error", "Only managers and system administrators can create regional accounts.");
+          renderApp();
+          return;
+        }
+
+        const name = String(formData.get("name") || "").trim();
+        const email = normalizeEmail(formData.get("email"));
+        const password = String(formData.get("password") || "");
+        const regionalRole = normalizeRegionalOperationsRole(formData.get("regionalRole"));
+        const regionalRegion = normalizeRegionalRegion(formData.get("regionalRegion"));
+
+        if (!name || !email || !password || !regionalRole || !regionalRegion) {
+          setFlash("error", "Name, email, password, role, and region are all required.");
+          renderApp();
+          return;
+        }
+
+        if (password.length < state.appSettings.auth.minimumPasswordLength) {
+          setFlash(
+            "error",
+            "Passwords must be at least " +
+              state.appSettings.auth.minimumPasswordLength +
+              " characters long.",
+          );
+          renderApp();
+          return;
+        }
+
+        if (state.users.some((user) => user.email === email)) {
+          setFlash("error", "An account with that email address already exists.");
+          renderApp();
+          return;
+        }
+
+        const regionalUser = await buildUser(name, email, "member", password, {
+          createdSource: "manager_created",
+          createdBy: normalizeEmail(session.userEmail) || normalizeEmail(MANAGER_EMAIL),
+          regionalRole,
+          regionalRegion,
+        });
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            state.users.push(regionalUser);
+          },
+          {
+            success:
+              toTitleLabel(regionalRole) +
+              " account created for " +
+              email +
+              " in " +
+              regionalRegion +
+              ".",
+            error: "The regional account could not be saved to the shared system.",
+          },
+        );
+      }
+
+      async function updateRegionalOperationsAccount(email, formData) {
+        if (!canManageRegionalOperations()) {
+          setFlash("error", "Only managers and system administrators can update regional accounts.");
+          renderApp();
+          return;
+        }
+
+        const targetEmail = normalizeEmail(email);
+        const regionalRole = normalizeRegionalOperationsRole(formData.get("regionalRole"));
+        const regionalRegion = normalizeRegionalRegion(formData.get("regionalRegion"));
+
+        if (!targetEmail || !regionalRole || !regionalRegion) {
+          setFlash("error", "Regional role and region are required.");
+          renderApp();
+          return;
+        }
+
+        const existingUser = getUserByEmail(targetEmail);
+        if (!existingUser) {
+          setFlash("error", "That regional account could not be found.");
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            state.users = state.users.map((user) =>
+              user.email === targetEmail
+                ? normalizeUserRecord({
+                    ...user,
+                    regionalRole,
+                    regionalRegion,
+                  })
+                : user,
+            );
+          },
+          {
+            success: "Regional account updated for " + targetEmail + ".",
+            error: "The regional account changes could not be saved.",
+          },
+        );
+      }
+
+      async function submitRegionalReport(formData) {
+        if (!canSubmitRegionalOperationsWork()) {
+          setFlash("error", "Only regional coordinators and deputy coordinators can submit reports.");
+          renderApp();
+          return;
+        }
+
+        const currentUser = getCurrentUser();
+        const region = normalizeRegionalRegion(formData.get("region") || currentUser?.regionalRegion);
+        const school = String(formData.get("school") || "").trim();
+        const reportingWindowStart = String(formData.get("reportingWindowStart") || "").trim();
+        const reportingWindowEnd = String(formData.get("reportingWindowEnd") || "").trim();
+        const summary = String(formData.get("summary") || "").trim();
+        const highlights = String(formData.get("highlights") || "").trim();
+        const challenges = String(formData.get("challenges") || "").trim();
+        const supportNeeded = String(formData.get("supportNeeded") || "").trim();
+
+        if (!region || !school || !reportingWindowStart || !reportingWindowEnd || !summary) {
+          setFlash("error", "Region, school, reporting dates, and summary are required.");
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            const regionalOperations = getRegionalOperationsState();
+            regionalOperations.reports.unshift(
+              normalizeRegionalReportEntry({
+                region,
+                school,
+                reportingWindowStart,
+                reportingWindowEnd,
+                summary,
+                highlights,
+                challenges,
+                supportNeeded,
+                submittedByEmail: normalizeEmail(currentUser?.email),
+                submittedByName: currentUser?.name || currentUser?.email,
+                submittedByRole: currentUser?.regionalRole,
+              }),
+            );
+          },
+          {
+            success: "Biweekly report saved for " + school + ".",
+            error: "The biweekly report could not be saved to the shared system.",
+          },
+        );
+      }
+
+      async function submitRegionalFundingRequest(formData) {
+        if (!canSubmitRegionalOperationsWork()) {
+          setFlash("error", "Only regional coordinators and deputy coordinators can request stipends.");
+          renderApp();
+          return;
+        }
+
+        const currentUser = getCurrentUser();
+        const region = normalizeRegionalRegion(formData.get("region") || currentUser?.regionalRegion);
+        const school = String(formData.get("school") || "").trim();
+        const tripDate = String(formData.get("tripDate") || "").trim();
+        const amountJmd = Math.max(0, Number(formData.get("amountJmd") || 0) || 0);
+        const bankName = String(formData.get("bankName") || "").trim();
+        const justification = String(formData.get("justification") || "").trim();
+
+        if (!region || !school || !tripDate || !amountJmd || !bankName || !justification) {
+          setFlash(
+            "error",
+            "Region, school, trip date, amount, bank, and justification are all required.",
+          );
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            const regionalOperations = getRegionalOperationsState();
+            regionalOperations.transportRequests.unshift(
+              normalizeRegionalFundingRequestEntry({
+                region,
+                school,
+                tripDate,
+                amountJmd,
+                bankName,
+                justification,
+                submittedByEmail: normalizeEmail(currentUser?.email),
+                submittedByName: currentUser?.name || currentUser?.email,
+                submittedByRole: currentUser?.regionalRole,
+              }),
+            );
+          },
+          {
+            success: "Transport stipend request sent for manager review.",
+            error: "The transport stipend request could not be saved to the shared system.",
+          },
+        );
+      }
+
+      async function reviewRegionalFundingRequest(requestId, formData) {
+        if (!canManageRegionalOperations()) {
+          setFlash("error", "Only managers and system administrators can review stipend requests.");
+          renderApp();
+          return;
+        }
+
+        const targetId = String(requestId || "").trim();
+        const status = normalizeRegionalFundingStatus(formData.get("status"));
+        const managerNote = String(formData.get("managerNote") || "").trim();
+        const existingRequest = getRegionalOperationsState().transportRequests.find(
+          (entry) => entry.id === targetId,
+        );
+
+        if (!existingRequest) {
+          setFlash("error", "That funding request could not be found.");
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            const regionalOperations = getRegionalOperationsState();
+            regionalOperations.transportRequests = regionalOperations.transportRequests.map((entry) =>
+              entry.id === targetId
+                ? normalizeRegionalFundingRequestEntry({
+                    ...entry,
+                    status,
+                    managerNote,
+                    reviewedByEmail: normalizeEmail(session.userEmail),
+                    reviewedAt: timestamp(),
+                  })
+                : entry,
+            );
+          },
+          {
+            success: "Funding request review saved.",
+            error: "The funding request review could not be saved.",
+          },
+        );
       }
 
       async function resetUserPassword(targetEmail, password) {
@@ -22840,7 +24030,7 @@
 
           if (action === "set-public-view") {
             const requestedView = String(button.dataset.view || "auth").trim().toLowerCase();
-            const nextView = ["about", "register-debater", "register-judge"].includes(requestedView)
+            const nextView = ["about", "register-debater", "register-judge", "regional-operations"].includes(requestedView)
               ? requestedView
               : "auth";
             const url = new URL(window.location.href);
@@ -22868,7 +24058,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
-            if (["people", "tournaments", "links", "judging", "search"].includes(session.view)) {
+            if (["people", "tournaments", "links", "judging", "search", "regional"].includes(session.view)) {
               await refreshStateFromBackend({
                 skipRender: true,
               });
@@ -23356,6 +24546,11 @@
             return;
           }
 
+          if (form.dataset.form === "regional-ops-sign-in") {
+            await signIn(formData);
+            return;
+          }
+
           if (form.dataset.form === "sign-up") {
             await signUp(formData);
             return;
@@ -23383,6 +24578,11 @@
 
           if (form.dataset.form === "create-managed-user") {
             await createManagedUser(formData);
+            return;
+          }
+
+          if (form.dataset.form === "create-regional-ops-user") {
+            await createRegionalOperationsUser(formData);
             return;
           }
 
@@ -23531,6 +24731,11 @@
             return;
           }
 
+          if (form.dataset.form === "update-regional-ops-account") {
+            await updateRegionalOperationsAccount(form.dataset.email, formData);
+            return;
+          }
+
           if (form.dataset.form === "reset-user-password") {
             await resetUserPassword(form.dataset.email, formData.get("password"));
             return;
@@ -23586,6 +24791,21 @@
 
           if (form.dataset.form === "update-accessibility") {
             updateAccessibility(formData);
+            return;
+          }
+
+          if (form.dataset.form === "submit-regional-report") {
+            await submitRegionalReport(formData);
+            return;
+          }
+
+          if (form.dataset.form === "submit-regional-funding-request") {
+            await submitRegionalFundingRequest(formData);
+            return;
+          }
+
+          if (form.dataset.form === "review-regional-funding-request") {
+            await reviewRegionalFundingRequest(form.dataset.requestId, formData);
             return;
           }
         });
