@@ -1300,6 +1300,61 @@
         return "pending";
       }
 
+      function normalizeRegionalBankingInfo(record = {}) {
+        const next = record && typeof record === "object" ? record : {};
+        const normalizedBank = String(next.bankName || next.bank || "").trim();
+        const knownBank =
+          JAMAICA_MAJOR_BANKS.find(
+            (bank) => normalizeTextKey(bank) === normalizeTextKey(normalizedBank),
+          ) || normalizedBank;
+
+        return {
+          bankName: knownBank,
+          accountName: String(
+            next.accountName || next.accountHolderName || next.accountHolder || "",
+          ).trim(),
+          accountNumber: String(next.accountNumber || next.accountNo || "").trim(),
+          branchName: String(next.branchName || next.branch || "").trim(),
+        };
+      }
+
+      function hasRegionalBankingInfo(record = {}) {
+        const banking = normalizeRegionalBankingInfo(record);
+        return Boolean(
+          banking.bankName || banking.accountName || banking.accountNumber || banking.branchName,
+        );
+      }
+
+      function maskRegionalAccountNumber(value = "") {
+        const raw = String(value || "").trim();
+        if (!raw) {
+          return "Not added";
+        }
+        const visible = raw.slice(-4);
+        return "•••• " + visible;
+      }
+
+      function getRegionalBankingSummary(record = {}, options = {}) {
+        const banking = normalizeRegionalBankingInfo(record);
+        const maskAccount = options.maskAccount !== false;
+        const parts = [];
+
+        if (banking.bankName) {
+          parts.push(banking.bankName);
+        }
+        if (banking.accountName) {
+          parts.push(banking.accountName);
+        }
+        if (banking.accountNumber) {
+          parts.push(maskAccount ? maskRegionalAccountNumber(banking.accountNumber) : banking.accountNumber);
+        }
+        if (banking.branchName) {
+          parts.push(banking.branchName);
+        }
+
+        return parts.join(" • ");
+      }
+
       function normalizeRegionalFundingRequestEntry(entry = {}) {
         const createdAt = String(entry.createdAt || timestamp()).trim();
         const normalizedBank = String(entry.bankName || entry.bank || "").trim();
@@ -1315,6 +1370,11 @@
           tripDate: String(entry.tripDate || "").trim(),
           amountJmd: Math.max(0, Number(entry.amountJmd || entry.amount || 0) || 0),
           bankName: knownBank,
+          accountName: String(
+            entry.accountName || entry.accountHolderName || entry.accountHolder || "",
+          ).trim(),
+          accountNumber: String(entry.accountNumber || entry.accountNo || "").trim(),
+          branchName: String(entry.branchName || entry.branch || "").trim(),
           justification: String(entry.justification || "").trim(),
           status: normalizeRegionalFundingStatus(entry.status),
           managerNote: String(entry.managerNote || "").trim(),
@@ -1371,6 +1431,7 @@
           registeredTournamentIds: normalizeStringList(user.registeredTournamentIds, 200),
           regionalRole: normalizeRegionalOperationsRole(user.regionalRole),
           regionalRegion: normalizeRegionalRegion(user.regionalRegion),
+          regionalBanking: normalizeRegionalBankingInfo(user.regionalBanking || user.regionalBank || {}),
           themePreset: String(user.themePreset || "jade_classic").trim() || "jade_classic",
           preferredLandingView:
             String(user.preferredLandingView || "overview").trim() || "overview",
@@ -1392,6 +1453,7 @@
           active: true,
           regionalRole: metadata.regionalRole || "",
           regionalRegion: metadata.regionalRegion || "",
+          regionalBanking: normalizeRegionalBankingInfo(metadata.regionalBanking || {}),
         });
       }
 
@@ -17043,6 +17105,7 @@
         const canSubmit = canSubmitRegionalOperationsWork();
         const regionalRole = getRegionalOperationsRoleForEmail();
         const assignedRegion = getRegionalAssignmentForEmail();
+        const currentBanking = normalizeRegionalBankingInfo(currentUser?.regionalBanking || {});
         const staff = getRegionalOperationsUsers();
         const reports = getVisibleRegionalReports();
         const requests = getVisibleRegionalFundingRequests();
@@ -17197,6 +17260,16 @@
                                 : "This account has not signed in yet.",
                             )}</p>
                             ${
+                              canManage && hasRegionalBankingInfo(user.regionalBanking || {})
+                                ? `<p class="fine-print">${escapeHtml(
+                                    "Banking: " +
+                                      getRegionalBankingSummary(user.regionalBanking || {}, {
+                                        maskAccount: true,
+                                      }),
+                                  )}</p>`
+                                : ""
+                            }
+                            ${
                               canManage
                                 ? `
                                   <form class="compact-inline-form" data-form="update-regional-ops-account" data-email="${escapeHtml(
@@ -17279,6 +17352,50 @@
                 <section class="surface">
                   <div class="section-heading">
                     <div>
+                      <p class="eyebrow">Banking Profile</p>
+                      <h2>Save the payout details attached to your account</h2>
+                    </div>
+                    <span class="role-pill">Saved with your account</span>
+                  </div>
+                  <form class="stack" data-form="save-regional-banking-profile">
+                    <div class="field-grid two">
+                      <label>
+                        Bank
+                        <select name="bankName">${getJamaicanBankOptions(
+                          currentBanking.bankName || "NCB",
+                        )}</select>
+                      </label>
+                      <label>
+                        Account holder name
+                        <input type="text" name="accountName" value="${escapeAttributeValue(
+                          currentBanking.accountName || currentUser?.name || "",
+                        )}" placeholder="Name on the bank account" required />
+                      </label>
+                    </div>
+                    <div class="field-grid two">
+                      <label>
+                        Account number
+                        <input type="text" name="accountNumber" value="${escapeAttributeValue(
+                          currentBanking.accountNumber || "",
+                        )}" placeholder="Bank account number" required />
+                      </label>
+                      <label>
+                        Branch
+                        <input type="text" name="branchName" value="${escapeAttributeValue(
+                          currentBanking.branchName || "",
+                        )}" placeholder="Branch or branch code" />
+                      </label>
+                    </div>
+                    <p class="fine-print">
+                      These details stay attached to your Regional Operations account and can be reused whenever you submit a transport stipend request.
+                    </p>
+                    <button type="submit">Save Banking Details</button>
+                  </form>
+                </section>
+
+                <section class="surface">
+                  <div class="section-heading">
+                    <div>
                       <p class="eyebrow">Transport Stipends</p>
                       <h2>Request transport funding for a school trip</h2>
                     </div>
@@ -17308,13 +17425,40 @@
                       </label>
                       <label>
                         Bank
-                        <select name="bankName">${getJamaicanBankOptions("NCB")}</select>
+                        <select name="bankName">${getJamaicanBankOptions(
+                          currentBanking.bankName || "NCB",
+                        )}</select>
+                      </label>
+                    </div>
+                    <div class="field-grid two">
+                      <label>
+                        Account holder name
+                        <input type="text" name="accountName" value="${escapeAttributeValue(
+                          currentBanking.accountName || currentUser?.name || "",
+                        )}" placeholder="Name on the receiving account" required />
+                      </label>
+                      <label>
+                        Account number
+                        <input type="text" name="accountNumber" value="${escapeAttributeValue(
+                          currentBanking.accountNumber || "",
+                        )}" placeholder="Receiving account number" required />
+                      </label>
+                    </div>
+                    <div class="field-grid two">
+                      <label>
+                        Branch
+                        <input type="text" name="branchName" value="${escapeAttributeValue(
+                          currentBanking.branchName || "",
+                        )}" placeholder="Branch or branch code" />
                       </label>
                     </div>
                     <label>
                       Justification
                       <textarea name="justification" rows="3" placeholder="Explain why this transport stipend amount is needed." required></textarea>
                     </label>
+                    <p class="fine-print">
+                      The banking details above are stored with this specific request so managers and system administrators can process the stipend exactly as submitted.
+                    </p>
                     <button type="submit">Submit Funding Request</button>
                   </form>
                 </section>
@@ -17400,6 +17544,16 @@
                                 entry.bankName || "Bank pending",
                               )}</span>
                             </div>
+                            ${
+                              entry.accountName || entry.accountNumber || entry.branchName
+                                ? `<p class="fine-print">${escapeHtml(
+                                    "Banking: " +
+                                      getRegionalBankingSummary(entry, {
+                                        maskAccount: !canManage,
+                                      }),
+                                  )}</p>`
+                                : ""
+                            }
                             <p class="muted">${escapeHtml(entry.justification || "No justification supplied.")}</p>
                             <p class="fine-print">${escapeHtml(
                               "Submitted by " +
@@ -20920,6 +21074,54 @@
         );
       }
 
+      async function saveRegionalBankingProfile(formData) {
+        if (!canSubmitRegionalOperationsWork()) {
+          setFlash(
+            "error",
+            "Only regional coordinators and deputy coordinators can save banking details here.",
+          );
+          renderApp();
+          return;
+        }
+
+        const currentUser = getCurrentUser();
+        if (!currentUser?.email) {
+          setFlash("error", "Your regional account could not be found.");
+          renderApp();
+          return;
+        }
+
+        const banking = normalizeRegionalBankingInfo({
+          bankName: formData.get("bankName"),
+          accountName: formData.get("accountName"),
+          accountNumber: formData.get("accountNumber"),
+          branchName: formData.get("branchName"),
+        });
+
+        if (!banking.bankName || !banking.accountName || !banking.accountNumber) {
+          setFlash("error", "Bank, account holder name, and account number are required.");
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            state.users = state.users.map((user) =>
+              user.email === normalizeEmail(currentUser.email)
+                ? normalizeUserRecord({
+                    ...user,
+                    regionalBanking: banking,
+                  })
+                : user,
+            );
+          },
+          {
+            success: "Regional banking details saved.",
+            error: "The banking details could not be saved to the shared system.",
+          },
+        );
+      }
+
       async function submitRegionalReport(formData) {
         if (!canSubmitRegionalOperationsWork()) {
           setFlash("error", "Only regional coordinators and deputy coordinators can submit reports.");
@@ -20981,13 +21183,28 @@
         const school = String(formData.get("school") || "").trim();
         const tripDate = String(formData.get("tripDate") || "").trim();
         const amountJmd = Math.max(0, Number(formData.get("amountJmd") || 0) || 0);
-        const bankName = String(formData.get("bankName") || "").trim();
+        const banking = normalizeRegionalBankingInfo({
+          bankName: formData.get("bankName") || currentUser?.regionalBanking?.bankName,
+          accountName: formData.get("accountName") || currentUser?.regionalBanking?.accountName,
+          accountNumber:
+            formData.get("accountNumber") || currentUser?.regionalBanking?.accountNumber,
+          branchName: formData.get("branchName") || currentUser?.regionalBanking?.branchName,
+        });
         const justification = String(formData.get("justification") || "").trim();
 
-        if (!region || !school || !tripDate || !amountJmd || !bankName || !justification) {
+        if (
+          !region ||
+          !school ||
+          !tripDate ||
+          !amountJmd ||
+          !banking.bankName ||
+          !banking.accountName ||
+          !banking.accountNumber ||
+          !justification
+        ) {
           setFlash(
             "error",
-            "Region, school, trip date, amount, bank, and justification are all required.",
+            "Region, school, trip date, amount, full banking details, and justification are all required.",
           );
           renderApp();
           return;
@@ -20995,6 +21212,14 @@
 
         await commitSharedWorkspaceMutation(
           () => {
+            state.users = state.users.map((user) =>
+              user.email === normalizeEmail(currentUser?.email)
+                ? normalizeUserRecord({
+                    ...user,
+                    regionalBanking: banking,
+                  })
+                : user,
+            );
             const regionalOperations = getRegionalOperationsState();
             regionalOperations.transportRequests.unshift(
               normalizeRegionalFundingRequestEntry({
@@ -21002,7 +21227,7 @@
                 school,
                 tripDate,
                 amountJmd,
-                bankName,
+                ...banking,
                 justification,
                 submittedByEmail: normalizeEmail(currentUser?.email),
                 submittedByName: currentUser?.name || currentUser?.email,
@@ -24805,6 +25030,11 @@
 
           if (form.dataset.form === "update-regional-ops-account") {
             await updateRegionalOperationsAccount(form.dataset.email, formData);
+            return;
+          }
+
+          if (form.dataset.form === "save-regional-banking-profile") {
+            await saveRegionalBankingProfile(formData);
             return;
           }
 

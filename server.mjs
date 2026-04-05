@@ -338,6 +338,24 @@ function normalizeRegionalFundingStatus(value = "pending") {
   return "pending";
 }
 
+function normalizeRegionalBankingInfo(record = {}) {
+  const next = record && typeof record === "object" ? record : {};
+  const normalizedBank = String(next.bankName || next.bank || "").trim();
+  const knownBank =
+    JAMAICA_MAJOR_BANKS.find(
+      (bank) => normalizeTextKey(bank) === normalizeTextKey(normalizedBank),
+    ) || normalizedBank;
+
+  return {
+    bankName: knownBank,
+    accountName: String(
+      next.accountName || next.accountHolderName || next.accountHolder || "",
+    ).trim(),
+    accountNumber: String(next.accountNumber || next.accountNo || "").trim(),
+    branchName: String(next.branchName || next.branch || "").trim(),
+  };
+}
+
 function normalizeRegionalFundingRequestEntry(entry = {}) {
   const createdAt = String(entry.createdAt || nowText()).trim();
   const normalizedBank = String(entry.bankName || entry.bank || "").trim();
@@ -353,6 +371,11 @@ function normalizeRegionalFundingRequestEntry(entry = {}) {
     tripDate: String(entry.tripDate || "").trim(),
     amountJmd: Math.max(0, Number(entry.amountJmd || entry.amount || 0) || 0),
     bankName: knownBank,
+    accountName: String(
+      entry.accountName || entry.accountHolderName || entry.accountHolder || "",
+    ).trim(),
+    accountNumber: String(entry.accountNumber || entry.accountNo || "").trim(),
+    branchName: String(entry.branchName || entry.branch || "").trim(),
     justification: String(entry.justification || "").trim(),
     status: normalizeRegionalFundingStatus(entry.status),
     managerNote: String(entry.managerNote || "").trim(),
@@ -411,6 +434,7 @@ function normalizeUserRecord(user = {}) {
     registeredTournamentIds: normalizeStringList(user.registeredTournamentIds, 200),
     regionalRole: normalizeRegionalOperationsRole(user.regionalRole),
     regionalRegion: normalizeRegionalRegion(user.regionalRegion),
+    regionalBanking: normalizeRegionalBankingInfo(user.regionalBanking || user.regionalBank || {}),
     themePreset: String(user.themePreset || "jade_classic").trim() || "jade_classic",
     preferredLandingView:
       String(user.preferredLandingView || "overview").trim() || "overview",
@@ -432,6 +456,7 @@ function buildUser(name, email, globalRole, password, metadata = {}) {
     active: true,
     regionalRole: metadata.regionalRole || "",
     regionalRegion: metadata.regionalRegion || "",
+    regionalBanking: normalizeRegionalBankingInfo(metadata.regionalBanking || {}),
   });
 }
 
