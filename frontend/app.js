@@ -17329,11 +17329,11 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Accounts</p>
-                <h2>Compact account management</h2>
+                <h2>People directory</h2>
               </div>
               <span class="role-pill">${escapeHtml(state.users.length)} accounts</span>
             </div>
-            <div class="people-card-list">
+            <div class="people-directory-grid">
               ${peopleAccounts
                 .map((user) => {
                   const isManagerUser = normalizeEmail(user.email) === normalizeEmail(MANAGER_EMAIL);
@@ -17348,19 +17348,26 @@
                       : user.createdBy
                     : "Unrecorded";
                   return `
-                    <article class="people-compact-card">
-                      <div class="people-compact-overview">
-                        <div class="people-compact-identity">
-                          <strong>${escapeHtml(user.name)}</strong>
-                          <span class="muted">${escapeHtml(user.email)}</span>
-                          <p class="people-compact-summary">${escapeHtml(
-                            historicalTournamentCount +
-                              " tournament" +
-                              (historicalTournamentCount === 1 ? "" : "s") +
-                              " on record",
-                          )}</p>
+                    <details class="surface people-directory-card">
+                      <summary class="people-directory-summary">
+                        <div class="summary-main people-directory-copy">
+                          <p class="eyebrow">Account</p>
+                          <h3>${escapeHtml(user.name)}</h3>
+                          <p class="muted">${escapeHtml(user.email)}</p>
+                          <div class="people-directory-summary-footer">
+                            <span class="mini-pill">${escapeHtml(
+                              historicalTournamentCount +
+                                " tournament" +
+                                (historicalTournamentCount === 1 ? "" : "s"),
+                            )}</span>
+                            <span class="mini-pill">${escapeHtml(
+                              user.regionalRole
+                                ? toTitleLabel(user.regionalRole)
+                                : toTitleLabel(user.globalRole),
+                            )}</span>
+                          </div>
                         </div>
-                        <div class="people-compact-topline">
+                        <div class="people-directory-summary-side">
                           <div class="people-pill-cluster">
                             <span class="mini-pill success">${escapeHtml(
                               getUserCreationLabel(user),
@@ -17369,33 +17376,35 @@
                               user.active ? "Active" : "Disabled",
                             )}</span>
                           </div>
-                          <span class="people-compact-joined">${escapeHtml(
+                          <span class="fine-print people-directory-joined">${escapeHtml(
                             "Joined " + joinedLabel,
                           )}</span>
+                          <span class="people-directory-configure">${
+                            user.active ? "Open profile" : "Review account"
+                          }</span>
                         </div>
-                      </div>
-                      ${
-                        canAccessGlobalSettings() && !isManagerUser
-                          ? `
-                            <details class="people-compact-manage">
-                              <summary>Manage account</summary>
-                              <div class="people-meta-grid">
-                                <span>Role: ${escapeHtml(toTitleLabel(user.globalRole))}</span>
-                                <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
-                                <span>Private URL issued: ${escapeHtml(
-                                  user.privateAccessIssuedAt || user.createdAt || "Unknown",
-                                )}</span>
-                                ${
-                                  user.regionalRole
-                                    ? `<span>${escapeHtml(
-                                        toTitleLabel(user.regionalRole) +
-                                          " • " +
-                                          (user.regionalRegion || "Region pending"),
-                                      )}</span>`
-                                    : ""
-                                }
-                                <span>${escapeHtml("Created by " + createdByLabel)}</span>
-                              </div>
+                      </summary>
+                      <div class="details-content people-directory-body">
+                        <div class="people-meta-grid">
+                          <span>Role: ${escapeHtml(toTitleLabel(user.globalRole))}</span>
+                          <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
+                          <span>Private URL issued: ${escapeHtml(
+                            user.privateAccessIssuedAt || user.createdAt || "Unknown",
+                          )}</span>
+                          ${
+                            user.regionalRole
+                              ? `<span>${escapeHtml(
+                                  toTitleLabel(user.regionalRole) +
+                                    " • " +
+                                    (user.regionalRegion || "Region pending"),
+                                )}</span>`
+                              : ""
+                          }
+                          <span>${escapeHtml("Created by " + createdByLabel)}</span>
+                        </div>
+                        ${
+                          canAccessGlobalSettings() && !isManagerUser
+                            ? `
                               <div class="button-row wrap-row">
                                 <a class="inline-link people-private-link" href="${escapeHtml(
                                   getUserAccessLink(user.privateAccessToken),
@@ -17429,30 +17438,15 @@
                                   <button class="secondary-button" type="submit">Save</button>
                                 </form>
                               </div>
-                            </details>
-                          `
-                          : `<div class="people-compact-manage people-compact-manage-readonly">
-                              <div class="people-meta-grid">
-                                <span>Role: ${escapeHtml(toTitleLabel(user.globalRole))}</span>
-                                <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
-                                ${
-                                  user.regionalRole
-                                    ? `<span>${escapeHtml(
-                                        toTitleLabel(user.regionalRole) +
-                                          " • " +
-                                          (user.regionalRegion || "Region pending"),
-                                      )}</span>`
-                                    : ""
-                                }
-                              </div>
-                              <p class="fine-print people-readonly-note">${
+                            `
+                            : `<p class="fine-print people-readonly-note">${
                                 isManagerUser
                                   ? "Protected account."
                                   : "Read-only for your access level."
-                              }</p>
-                            </div>`
-                      }
-                    </article>
+                              }</p>`
+                        }
+                      </div>
+                    </details>
                   `;
                 })
                 .join("")}

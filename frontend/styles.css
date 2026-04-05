@@ -4974,74 +4974,104 @@
         gap: 10px;
       }
 
-      .people-card-list {
+      .people-directory-grid {
         display: grid;
-        gap: 10px;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
       }
 
-      .people-compact-card {
-        display: grid;
-        gap: 10px;
-        grid-template-columns: 1fr;
-        align-items: start;
-        padding: 14px 16px;
-        border-radius: 18px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(245, 249, 246, 0.92));
-        border: 1px solid rgba(20, 49, 38, 0.08);
-        box-shadow: 0 10px 22px rgba(15, 55, 39, 0.06);
+      .people-directory-card {
+        padding: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at top right, rgba(225, 191, 67, 0.09), transparent 30%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 245, 0.94));
       }
 
-      .people-compact-overview {
+      .people-directory-card > summary {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        gap: 12px 18px;
-        align-items: start;
+        gap: 16px;
+        align-content: start;
+        min-height: 188px;
+        padding: 18px 20px 20px;
       }
 
-      .people-compact-identity {
-        display: grid;
+      .people-directory-card > summary::after {
+        display: none;
+      }
+
+      .people-directory-copy {
         gap: 8px;
-        min-width: 0;
+        align-content: start;
       }
 
-      .people-compact-identity strong {
-        font-size: 1rem;
+      .people-directory-copy h3 {
+        margin: 0;
+        font-size: 1.2rem;
         line-height: 1.08;
       }
 
-      .people-compact-identity .muted {
-        font-size: 0.9rem;
-        font-weight: 500;
-      }
-
-      .people-compact-summary {
-        margin: 0;
-        color: var(--muted);
-        font-size: 0.9rem;
+      .people-directory-copy .muted {
+        font-size: 0.92rem;
         font-weight: 600;
-        line-height: 1.2;
+        line-height: 1.32;
       }
 
-      .people-compact-topline {
+      .people-directory-summary-footer {
         display: flex;
-        align-items: center;
-        justify-content: flex-end;
         flex-wrap: wrap;
-        gap: 8px 12px;
+        gap: 8px;
+        margin-top: auto;
+      }
+
+      .people-directory-summary-side {
+        display: grid;
+        gap: 10px;
+        justify-items: end;
+        align-content: space-between;
+        min-width: 0;
+      }
+
+      .people-directory-summary-side .people-pill-cluster {
+        justify-content: flex-end;
+      }
+
+      .people-directory-joined {
+        color: var(--muted);
+        font-size: 0.84rem;
+        font-weight: 600;
+        text-align: right;
+        line-height: 1.28;
+      }
+
+      .people-directory-configure {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(20, 49, 38, 0.05);
+        border: 1px solid rgba(20, 49, 38, 0.08);
+        color: var(--accent-deep);
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+      }
+
+      .people-directory-card[open] > summary {
+        border-bottom: 1px solid rgba(20, 49, 38, 0.08);
+      }
+
+      .people-directory-body {
+        gap: 12px;
       }
 
       .people-pill-cluster {
         display: flex;
         flex-wrap: wrap;
-        justify-content: flex-end;
+        justify-content: flex-start;
         gap: 6px;
-      }
-
-      .people-compact-joined {
-        color: var(--muted);
-        font-size: 0.9rem;
-        font-weight: 600;
-        line-height: 1.2;
       }
 
       .people-meta-grid {
@@ -5078,62 +5108,28 @@
         align-items: start;
       }
 
-      .people-compact-manage {
-        display: grid;
-        gap: 10px;
-        padding-top: 10px;
-        border-top: 1px solid rgba(20, 49, 38, 0.08);
-      }
-
-      .people-compact-manage summary {
-        cursor: pointer;
-        list-style: none;
-        font-size: 0.86rem;
-        font-weight: 800;
-        color: var(--ink);
-      }
-
-      .people-compact-manage summary::-webkit-details-marker {
-        display: none;
-      }
-
-      .people-compact-manage[open] summary {
-        margin-bottom: 2px;
-      }
-
-      .people-compact-manage-readonly {
-        gap: 8px;
-      }
-
-      .people-compact-card .compact-inline-form {
+      .people-directory-card .compact-inline-form {
         align-items: end;
         gap: 6px;
       }
 
-      .people-compact-card .button-row {
+      .people-directory-card .button-row {
         gap: 6px;
       }
 
-      .people-compact-card .token-link {
-        padding: 8px 10px;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        line-height: 1.15;
-      }
-
-      .people-compact-card .secondary-button,
-      .people-compact-card .danger-button,
-      .people-compact-card .ghost-button,
-      .people-compact-card button,
-      .people-compact-card select,
-      .people-compact-card input {
+      .people-directory-card .secondary-button,
+      .people-directory-card .danger-button,
+      .people-directory-card .ghost-button,
+      .people-directory-card button,
+      .people-directory-card select,
+      .people-directory-card input {
         font-size: 0.86rem;
       }
 
-      .people-compact-card .secondary-button,
-      .people-compact-card .danger-button,
-      .people-compact-card .ghost-button,
-      .people-compact-card button {
+      .people-directory-card .secondary-button,
+      .people-directory-card .danger-button,
+      .people-directory-card .ghost-button,
+      .people-directory-card button {
         padding: 7px 10px;
       }
 
@@ -5539,18 +5535,26 @@
           align-items: stretch;
         }
 
-        .people-compact-card {
+        .people-directory-grid {
           grid-template-columns: 1fr;
         }
 
-        .people-compact-overview,
-        .people-compact-topline {
+        .people-directory-card > summary {
+          min-height: 0;
           grid-template-columns: 1fr;
+        }
+
+        .people-directory-summary-side {
+          justify-items: start;
+          align-content: start;
+        }
+
+        .people-directory-summary-side .people-pill-cluster {
           justify-content: flex-start;
         }
 
-        .people-pill-cluster {
-          justify-content: flex-start;
+        .people-directory-joined {
+          text-align: left;
         }
 
         .roster-speaker-layout .registration-speaker-card {
