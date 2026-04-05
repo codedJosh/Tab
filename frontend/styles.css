@@ -5210,7 +5210,8 @@
         margin-bottom: 14px;
       }
 
-      .people-directory-toolbar {
+      .people-directory-toolbar,
+      .collection-toolbar {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -5219,30 +5220,35 @@
         margin-bottom: 10px;
       }
 
-      .people-directory-search {
+      .people-directory-search,
+      .collection-search {
         flex: 1 1 360px;
       }
 
-      .people-directory-search input {
+      .people-directory-search input,
+      .collection-search input {
         flex: 1 1 220px;
         min-width: 0;
       }
 
-      .people-directory-toolbar-meta {
+      .people-directory-toolbar-meta,
+      .collection-toolbar-meta {
         display: flex;
         flex-wrap: wrap;
         justify-content: flex-end;
         gap: 8px;
       }
 
-      .people-directory-filter-row {
+      .people-directory-filter-row,
+      .collection-filter-row {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         margin-bottom: 12px;
       }
 
-      .people-directory-filter {
+      .people-directory-filter,
+      .collection-filter {
         min-height: 34px;
         padding: 7px 12px;
         border-radius: 999px;
@@ -5254,7 +5260,8 @@
         letter-spacing: 0.01em;
       }
 
-      .people-directory-filter.is-active {
+      .people-directory-filter.is-active,
+      .collection-filter.is-active {
         background: linear-gradient(160deg, rgba(20, 68, 49, 0.98), rgba(35, 94, 68, 0.94));
         border-color: rgba(18, 63, 47, 0.12);
         color: #f8fbf9;
@@ -5376,7 +5383,8 @@
         text-align: center;
       }
 
-      .people-directory-pagination {
+      .people-directory-pagination,
+      .collection-pagination {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -5385,7 +5393,8 @@
         margin-top: 12px;
       }
 
-      .people-directory-page-list {
+      .people-directory-page-list,
+      .collection-page-list {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
@@ -5393,7 +5402,8 @@
         flex: 1 1 auto;
       }
 
-      .people-directory-page-button {
+      .people-directory-page-button,
+      .collection-page-button {
         min-width: 34px;
         min-height: 34px;
         padding: 6px 10px;
@@ -5405,13 +5415,15 @@
         font-weight: 800;
       }
 
-      .people-directory-page-button.is-active {
+      .people-directory-page-button.is-active,
+      .collection-page-button.is-active {
         background: linear-gradient(160deg, rgba(20, 68, 49, 0.98), rgba(35, 94, 68, 0.94));
         border-color: rgba(18, 63, 47, 0.12);
         color: #f8fbf9;
       }
 
-      .people-directory-page-gap {
+      .people-directory-page-gap,
+      .collection-page-gap {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -5897,11 +5909,13 @@
           grid-template-columns: 1fr;
         }
 
-        .people-directory-toolbar {
+        .people-directory-toolbar,
+        .collection-toolbar {
           align-items: stretch;
         }
 
-        .people-directory-toolbar-meta {
+        .people-directory-toolbar-meta,
+        .collection-toolbar-meta {
           justify-content: flex-start;
         }
 
@@ -5920,12 +5934,14 @@
           width: 100%;
         }
 
-        .people-directory-pagination {
+        .people-directory-pagination,
+        .collection-pagination {
           flex-direction: column;
           align-items: stretch;
         }
 
-        .people-directory-page-list {
+        .people-directory-page-list,
+        .collection-page-list {
           justify-content: flex-start;
         }
 

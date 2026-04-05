@@ -694,6 +694,21 @@
           peopleDirectoryQuery: "",
           peopleDirectoryFilter: "all",
           peopleDirectoryPage: 1,
+          peopleSignupQuery: "",
+          peopleSignupFilter: "all",
+          peopleSignupPage: 1,
+          peopleAppointeeQuery: "",
+          linksAccountQuery: "",
+          linksAccountPage: 1,
+          linksPortalQuery: "",
+          linksPortalPage: 1,
+          regionalStaffQuery: "",
+          regionalStaffPage: 1,
+          regionalReportsQuery: "",
+          regionalReportsPage: 1,
+          regionalFundingQuery: "",
+          regionalFundingStatus: "all",
+          regionalFundingPage: 1,
           selectedPeopleEmail: "",
           managedTournamentId: "",
           selectedTournamentId: "",
@@ -879,6 +894,23 @@
           peopleDirectoryQuery: String(record.peopleDirectoryQuery || "").trim(),
           peopleDirectoryFilter: normalizePeopleDirectoryFilter(record.peopleDirectoryFilter),
           peopleDirectoryPage: Math.max(1, Number.parseInt(record.peopleDirectoryPage, 10) || 1),
+          peopleSignupQuery: String(record.peopleSignupQuery || "").trim(),
+          peopleSignupFilter: normalizeSignupDashboardFilter(record.peopleSignupFilter),
+          peopleSignupPage: Math.max(1, Number.parseInt(record.peopleSignupPage, 10) || 1),
+          peopleAppointeeQuery: String(record.peopleAppointeeQuery || "").trim(),
+          linksAccountQuery: String(record.linksAccountQuery || "").trim(),
+          linksAccountPage: Math.max(1, Number.parseInt(record.linksAccountPage, 10) || 1),
+          linksPortalQuery: String(record.linksPortalQuery || "").trim(),
+          linksPortalPage: Math.max(1, Number.parseInt(record.linksPortalPage, 10) || 1),
+          regionalStaffQuery: String(record.regionalStaffQuery || "").trim(),
+          regionalStaffPage: Math.max(1, Number.parseInt(record.regionalStaffPage, 10) || 1),
+          regionalReportsQuery: String(record.regionalReportsQuery || "").trim(),
+          regionalReportsPage: Math.max(1, Number.parseInt(record.regionalReportsPage, 10) || 1),
+          regionalFundingQuery: String(record.regionalFundingQuery || "").trim(),
+          regionalFundingStatus: normalizeRegionalFundingStatusFilter(
+            record.regionalFundingStatus,
+          ),
+          regionalFundingPage: Math.max(1, Number.parseInt(record.regionalFundingPage, 10) || 1),
           selectedPeopleEmail: normalizeEmail(record.selectedPeopleEmail),
           managedTournamentId: String(record.managedTournamentId || "").trim(),
           selectedTournamentId: String(record.selectedTournamentId || "").trim(),
@@ -920,6 +952,22 @@
             "self_signup",
           ].includes(normalized)
         ) {
+          return normalized;
+        }
+        return "all";
+      }
+
+      function normalizeSignupDashboardFilter(value = "") {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (["all", "self_signup", "manager_created", "registered", "active", "disabled"].includes(normalized)) {
+          return normalized;
+        }
+        return "all";
+      }
+
+      function normalizeRegionalFundingStatusFilter(value = "") {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (["all", "pending", "approved", "rejected", "paid"].includes(normalized)) {
           return normalized;
         }
         return "all";
@@ -10121,12 +10169,28 @@
           }));
       }
 
+      function getFilteredUserAccessLinkRecords(records = getUserAccessLinkRecords()) {
+        const query = String(session.linksAccountQuery || "").trim();
+        return (Array.isArray(records) ? records : []).filter(({ user, link }) =>
+          matchesCollectionQuery(query, [
+            user?.name,
+            user?.email,
+            user?.globalRole,
+            user?.regionalRole,
+            user?.regionalRegion,
+            link,
+          ]),
+        );
+      }
+
       function renderUserAccessLinksSection({
         title = "Private Access URLs",
         eyebrow = "Access Links",
         records = getUserAccessLinkRecords(),
         surfaceClass = "surface",
         compact = false,
+        toolbarMarkup = "",
+        footerMarkup = "",
       } = {}) {
         const canReviewAll = canAccessGlobalSettings();
         const helperText = canReviewAll
@@ -10143,6 +10207,7 @@
               <span class="role-pill">${escapeHtml(records.length)} available</span>
             </div>
             <div class="alert info">${escapeHtml(helperText)}</div>
+            ${toolbarMarkup}
             ${
               records.length
                 ? `<div class="${compact ? "stack" : "links-grid"}">
@@ -10184,6 +10249,7 @@
                   </div>`
                 : `<div class="empty-state">No private access URLs are visible for this account yet.</div>`
             }
+            ${footerMarkup}
           </section>
         `;
       }
@@ -17145,6 +17211,143 @@
         `;
       }
 
+      function matchesCollectionQuery(query, values = []) {
+        const normalizedQuery = normalizeTextKey(query);
+        if (!normalizedQuery) {
+          return true;
+        }
+        const haystack = values
+          .map((value) => normalizeTextKey(value))
+          .filter(Boolean)
+          .join(" ");
+        return haystack.includes(normalizedQuery);
+      }
+
+      function getPagedCollection(records = [], page = 1, pageSize = 24) {
+        const safeRecords = Array.isArray(records) ? records : [];
+        const totalRecords = safeRecords.length;
+        const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+        const currentPage = Math.min(totalPages, Math.max(1, Number.parseInt(page, 10) || 1));
+        const startIndex = (currentPage - 1) * pageSize;
+        const items = safeRecords.slice(startIndex, startIndex + pageSize);
+        const pageStart = totalRecords ? startIndex + 1 : 0;
+        const pageEnd = totalRecords ? startIndex + items.length : 0;
+        const visiblePages = Array.from({ length: totalPages }, (_, index) => index + 1).filter(
+          (pageNumber) =>
+            pageNumber === 1 ||
+            pageNumber === totalPages ||
+            Math.abs(pageNumber - currentPage) <= 1,
+        );
+
+        return {
+          items,
+          totalRecords,
+          totalPages,
+          currentPage,
+          pageStart,
+          pageEnd,
+          visiblePages,
+        };
+      }
+
+      function renderCollectionPagination(actionName, pageData, previousLabel = "Previous", nextLabel = "Next") {
+        if (!pageData || pageData.totalPages <= 1) {
+          return "";
+        }
+
+        return `
+          <div class="collection-pagination" aria-label="Paged collection navigation">
+            <button
+              class="secondary-button"
+              type="button"
+              data-action="${escapeHtml(actionName)}"
+              data-page="${escapeHtml(Math.max(1, pageData.currentPage - 1))}"
+              ${pageData.currentPage === 1 ? "disabled" : ""}
+            >
+              ${escapeHtml(previousLabel)}
+            </button>
+            <div class="collection-page-list">
+              ${pageData.visiblePages
+                .map((pageNumber, index) => {
+                  const previousPage = pageData.visiblePages[index - 1];
+                  const gapMarkup =
+                    previousPage && pageNumber - previousPage > 1
+                      ? `<span class="collection-page-gap" aria-hidden="true">…</span>`
+                      : "";
+                  return (
+                    gapMarkup +
+                    `<button
+                      class="collection-page-button ${pageNumber === pageData.currentPage ? "is-active" : ""}"
+                      type="button"
+                      data-action="${escapeHtml(actionName)}"
+                      data-page="${escapeHtml(pageNumber)}"
+                    >
+                      ${escapeHtml(pageNumber)}
+                    </button>`
+                  );
+                })
+                .join("")}
+            </div>
+            <button
+              class="secondary-button"
+              type="button"
+              data-action="${escapeHtml(actionName)}"
+              data-page="${escapeHtml(Math.min(pageData.totalPages, pageData.currentPage + 1))}"
+              ${pageData.currentPage === pageData.totalPages ? "disabled" : ""}
+            >
+              ${escapeHtml(nextLabel)}
+            </button>
+          </div>
+        `;
+      }
+
+      function renderCollectionToolbar({
+        formName,
+        query = "",
+        placeholder = "Search",
+        clearAction = "",
+        pageData = null,
+        countLabel = "matches",
+      } = {}) {
+        return `
+          <div class="collection-toolbar">
+            <form class="compact-inline-form collection-search" data-form="${escapeHtml(
+              formName,
+            )}" role="search">
+              <input
+                type="search"
+                name="query"
+                value="${escapeHtml(query)}"
+                autocomplete="off"
+                placeholder="${escapeAttributeValue(placeholder)}"
+              />
+              <button type="submit">Find</button>
+              ${
+                query && clearAction
+                  ? `<button class="secondary-button" type="button" data-action="${escapeHtml(
+                      clearAction,
+                    )}">Clear</button>`
+                  : ""
+              }
+            </form>
+            ${
+              pageData
+                ? `<div class="collection-toolbar-meta">
+                    <span class="mini-pill success">${escapeHtml(
+                      pageData.pageStart && pageData.pageEnd
+                        ? `${pageData.pageStart}-${pageData.pageEnd} of ${pageData.totalRecords}`
+                        : `0 ${countLabel}`,
+                    )}</span>
+                    <span class="role-pill">${escapeHtml(
+                      `Page ${pageData.currentPage} of ${pageData.totalPages}`,
+                    )}</span>
+                  </div>`
+                : ""
+            }
+          </div>
+        `;
+      }
+
       function getTrackedSignupUsers() {
         return (state.users || [])
           .filter(
@@ -17194,6 +17397,52 @@
         );
       }
 
+      function getSignupDashboardRecords(trackedSignups = []) {
+        const query = String(session.peopleSignupQuery || "").trim();
+        const filter = normalizeSignupDashboardFilter(session.peopleSignupFilter);
+        return (Array.isArray(trackedSignups) ? trackedSignups : []).filter((user) => {
+          const createdSource = String(user.createdSource || "registered").trim().toLowerCase();
+          if (filter === "active" && !user.active) {
+            return false;
+          }
+          if (filter === "disabled" && user.active) {
+            return false;
+          }
+          if (filter === "self_signup" && createdSource !== "self_signup") {
+            return false;
+          }
+          if (filter === "manager_created" && createdSource !== "manager_created") {
+            return false;
+          }
+          if (filter === "registered" && createdSource !== "registered") {
+            return false;
+          }
+          return matchesCollectionQuery(query, [
+            user.name,
+            user.email,
+            user.createdSource,
+            getUserCreationLabel(user),
+            user.globalRole,
+            user.regionalRole,
+            user.regionalRegion,
+          ]);
+        });
+      }
+
+      function renderSignupFilterButton(filter, label) {
+        const active = normalizeSignupDashboardFilter(session.peopleSignupFilter) === filter;
+        return `
+          <button
+            class="collection-filter ${active ? "is-active" : ""}"
+            type="button"
+            data-action="set-signup-dashboard-filter"
+            data-filter="${escapeHtml(filter)}"
+          >
+            ${escapeHtml(label)}
+          </button>
+        `;
+      }
+
       function renderPeopleDashboardMetricCard(eyebrow, headline, support = "") {
         return `
           <article class="spotlight-card people-dashboard-metric">
@@ -17205,6 +17454,11 @@
       }
 
       function renderSignupDashboardSection(trackedSignups, signupStats) {
+        const pagedSignups = getPagedCollection(
+          getSignupDashboardRecords(trackedSignups),
+          session.peopleSignupPage,
+          20,
+        );
         return `
           <section class="surface spotlight-shell">
             <div class="section-heading">
@@ -17212,7 +17466,7 @@
                 <p class="eyebrow">Sign-Ups</p>
                 <h2>People who have registered</h2>
               </div>
-              <span class="role-pill">${escapeHtml(trackedSignups.length)} tracked</span>
+              <span class="role-pill">${escapeHtml(pagedSignups.totalRecords)} shown</span>
             </div>
             <div class="spotlight-grid">
               ${renderPeopleDashboardMetricCard(
@@ -17236,10 +17490,25 @@
                 "Registered accounts that do not fall into the other tracked creation paths.",
               )}
             </div>
+            ${renderCollectionToolbar({
+              formName: "signup-dashboard-search",
+              query: session.peopleSignupQuery || "",
+              placeholder: "Search sign-ups by name, email, or source",
+              clearAction: "clear-signup-dashboard-query",
+              pageData: pagedSignups,
+            })}
+            <div class="collection-filter-row" role="toolbar" aria-label="Filter sign-ups">
+              ${renderSignupFilterButton("all", "All")}
+              ${renderSignupFilterButton("active", "Active")}
+              ${renderSignupFilterButton("self_signup", "Self Sign-Up")}
+              ${renderSignupFilterButton("manager_created", "Manager-Created")}
+              ${renderSignupFilterButton("registered", "Registered")}
+              ${renderSignupFilterButton("disabled", "Disabled")}
+            </div>
             ${
-              trackedSignups.length
+              pagedSignups.items.length
                 ? `<div class="spotlight-watchlist">
-                    ${trackedSignups
+                    ${pagedSignups.items
                       .map(
                         (user) => `
                           <div class="spotlight-note people-dashboard-note">
@@ -17262,9 +17531,9 @@
                               <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
                                 user.active ? "Active" : "Disabled",
                               )}</span>
-                              <span class="fine-print">${escapeHtml(
-                                "Joined " + (user.createdAt || "Unknown"),
-                              )}</span>
+                              <button class="secondary-button" type="button" data-action="open-people-account" data-email="${escapeHtml(
+                                user.email,
+                              )}">Open profile</button>
                             </div>
                           </div>
                         `,
@@ -17273,6 +17542,7 @@
                   </div>`
                 : `<div class="alert success">New registrations will appear here as people create accounts.</div>`
             }
+            ${renderCollectionPagination("set-signup-dashboard-page", pagedSignups)}
           </section>
         `;
       }
@@ -17281,6 +17551,7 @@
         const selectedTournamentId = String(session.peopleAppointeeTournamentId || "").trim();
         const selectedAppointeeDashboard =
           appointees.find(({ tournament }) => tournament.id === selectedTournamentId) || null;
+        const appointeeQuery = String(session.peopleAppointeeQuery || "").trim();
 
         return `
           <section class="surface spotlight-shell">
@@ -17352,8 +17623,26 @@
                             )}">Open Tournament</button>
                           </div>
                         </div>
+                        ${renderCollectionToolbar({
+                          formName: "people-appointee-search",
+                          query: appointeeQuery,
+                          placeholder: "Search appointees by name, email, or role",
+                          clearAction: "clear-people-appointee-query",
+                        })}
                         <div class="people-dashboard-section-list">
                           ${selectedAppointeeDashboard.sections
+                            .map((section) => ({
+                              ...section,
+                              entries: section.entries.filter((entry) =>
+                                matchesCollectionQuery(appointeeQuery, [
+                                  entry.name,
+                                  entry.email,
+                                  entry.roleKey,
+                                  section.label,
+                                ]),
+                              ),
+                            }))
+                            .filter((section) => section.entries.length)
                             .map(
                               (section) => `
                                 <div class="people-dashboard-section-block">
@@ -17946,6 +18235,21 @@
         const summary = getRegionalOperationsSummary();
         const fundingSummary = getRegionalFundingStatusSummary();
         const latestReport = reports[0] || null;
+        const pagedStaff = getPagedCollection(
+          getFilteredRegionalStaffRecords(staff),
+          session.regionalStaffPage,
+          12,
+        );
+        const pagedReports = getPagedCollection(
+          getFilteredRegionalReports(reports),
+          session.regionalReportsPage,
+          10,
+        );
+        const pagedRequests = getPagedCollection(
+          getFilteredRegionalFundingRequests(requests),
+          session.regionalFundingPage,
+          10,
+        );
 
         if (!canAccessRegionalOperations()) {
           return `
@@ -18065,12 +18369,19 @@
                 <p class="eyebrow">Regional Directory</p>
                 <h2>Assigned regional staff</h2>
               </div>
-              <span class="role-pill">${escapeHtml(staff.length)} accounts</span>
+              <span class="role-pill">${escapeHtml(pagedStaff.totalRecords)} accounts</span>
             </div>
+            ${renderCollectionToolbar({
+              formName: "regional-staff-search",
+              query: session.regionalStaffQuery || "",
+              placeholder: "Search staff by name, email, role, or region",
+              clearAction: "clear-regional-staff-query",
+              pageData: pagedStaff,
+            })}
             ${
-              staff.length
+              pagedStaff.items.length
                 ? `<div class="directory-grid">
-                    ${staff
+                    ${pagedStaff.items
                       .map(
                         (user) => `
                           <article class="directory-card">
@@ -18153,6 +18464,7 @@
                   </div>`
                 : `<div class="empty-state">Regional staff accounts will appear here once managers create them.</div>`
             }
+            ${renderCollectionPagination("set-regional-staff-page", pagedStaff)}
           </section>
 
           <section class="surface">
@@ -18161,7 +18473,7 @@
                 <p class="eyebrow">Reports Dashboard</p>
                 <h2>${escapeHtml(canManage ? "Regional reporting dashboard" : "Your reporting dashboard")}</h2>
               </div>
-              <span class="role-pill">${escapeHtml(reports.length)} reports</span>
+              <span class="role-pill">${escapeHtml(pagedReports.totalRecords)} reports</span>
             </div>
             <div class="stat-grid">
               <div class="stat-card">
@@ -18235,10 +18547,17 @@
                 `
                 : ""
             }
+            ${renderCollectionToolbar({
+              formName: "regional-reports-search",
+              query: session.regionalReportsQuery || "",
+              placeholder: "Search reports by school, region, summary, or staff",
+              clearAction: "clear-regional-reports-query",
+              pageData: pagedReports,
+            })}
             ${
-              reports.length
+              pagedReports.items.length
                 ? `<div class="directory-grid">
-                    ${reports
+                    ${pagedReports.items
                       .map(
                         (entry) => `
                           <article class="directory-card">
@@ -18271,6 +18590,7 @@
                       : "Your biweekly reports will appear here after submission."
                   }</div>`
             }
+            ${renderCollectionPagination("set-regional-reports-page", pagedReports)}
           </section>
 
           <section class="surface">
@@ -18279,7 +18599,7 @@
                 <p class="eyebrow">Funding Dashboard</p>
                 <h2>${escapeHtml(canManage ? "Transport funding dashboard" : "Your funding dashboard")}</h2>
               </div>
-              <span class="role-pill">${escapeHtml(requests.length)} requests</span>
+              <span class="role-pill">${escapeHtml(pagedRequests.totalRecords)} requests</span>
             </div>
             <div class="stat-grid">
               <div class="stat-card">
@@ -18419,10 +18739,24 @@
                 `
                 : ""
             }
+            ${renderCollectionToolbar({
+              formName: "regional-funding-search",
+              query: session.regionalFundingQuery || "",
+              placeholder: "Search funding by school, staff, bank, or reason",
+              clearAction: "clear-regional-funding-query",
+              pageData: pagedRequests,
+            })}
+            <div class="collection-filter-row" role="toolbar" aria-label="Filter funding requests">
+              ${renderRegionalFundingFilterButton("all", "All")}
+              ${renderRegionalFundingFilterButton("pending", "Pending")}
+              ${renderRegionalFundingFilterButton("approved", "Approved")}
+              ${renderRegionalFundingFilterButton("paid", "Paid")}
+              ${renderRegionalFundingFilterButton("rejected", "Rejected")}
+            </div>
             ${
-              requests.length
+              pagedRequests.items.length
                 ? `<div class="directory-grid">
-                    ${requests
+                    ${pagedRequests.items
                       .map(
                         (entry) => `
                           <article class="directory-card">
@@ -18501,6 +18835,7 @@
                       : "Your stipend requests will appear here after submission."
                   }</div>`
             }
+            ${renderCollectionPagination("set-regional-funding-page", pagedRequests)}
           </section>
         `;
       }
@@ -19308,6 +19643,21 @@
         return records;
       }
 
+      function getFilteredTournamentLinkRecords(records = getLinkRecords()) {
+        const query = String(session.linksPortalQuery || "").trim();
+        return (Array.isArray(records) ? records : []).filter(({ tournament, participant }) =>
+          matchesCollectionQuery(query, [
+            participant?.name,
+            participant?.email,
+            participant?.teamName,
+            tournament?.name,
+            tournament?.code,
+            getFormatLabel(tournament),
+            participant?.token,
+          ]),
+        );
+      }
+
       function getRegionalOperationsState() {
         state.regionalOperations = normalizeRegionalOperationsState(state.regionalOperations || {});
         return state.regionalOperations;
@@ -19395,6 +19745,69 @@
         );
       }
 
+      function getFilteredRegionalStaffRecords(staff = getRegionalOperationsUsers()) {
+        const query = String(session.regionalStaffQuery || "").trim();
+        return (Array.isArray(staff) ? staff : []).filter((user) =>
+          matchesCollectionQuery(query, [
+            user?.name,
+            user?.email,
+            user?.regionalRole,
+            toTitleLabel(user?.regionalRole || ""),
+            user?.regionalRegion,
+            user?.globalRole,
+          ]),
+        );
+      }
+
+      function getFilteredRegionalReports(reports = getVisibleRegionalReports()) {
+        const query = String(session.regionalReportsQuery || "").trim();
+        return (Array.isArray(reports) ? reports : []).filter((entry) =>
+          matchesCollectionQuery(query, [
+            entry?.school,
+            entry?.region,
+            entry?.summary,
+            entry?.submittedByName,
+            entry?.submittedByEmail,
+            entry?.reportingWindowStart,
+            entry?.reportingWindowEnd,
+          ]),
+        );
+      }
+
+      function getFilteredRegionalFundingRequests(requests = getVisibleRegionalFundingRequests()) {
+        const query = String(session.regionalFundingQuery || "").trim();
+        const status = normalizeRegionalFundingStatusFilter(session.regionalFundingStatus);
+        return (Array.isArray(requests) ? requests : []).filter((entry) => {
+          if (status !== "all" && String(entry?.status || "").trim().toLowerCase() !== status) {
+            return false;
+          }
+          return matchesCollectionQuery(query, [
+            entry?.school,
+            entry?.region,
+            entry?.tripDate,
+            entry?.submittedByName,
+            entry?.submittedByEmail,
+            entry?.justification,
+            entry?.bankName,
+            entry?.status,
+          ]);
+        });
+      }
+
+      function renderRegionalFundingFilterButton(status, label) {
+        const active = normalizeRegionalFundingStatusFilter(session.regionalFundingStatus) === status;
+        return `
+          <button
+            class="collection-filter ${active ? "is-active" : ""}"
+            type="button"
+            data-action="set-regional-funding-status"
+            data-status="${escapeHtml(status)}"
+          >
+            ${escapeHtml(label)}
+          </button>
+        `;
+      }
+
       function formatCurrencyJmd(value) {
         const amount = Number(value || 0) || 0;
         return new Intl.NumberFormat("en-JM", {
@@ -19442,8 +19855,16 @@
       }
 
       function renderLinksView() {
-        const records = getLinkRecords();
-        const accountRecords = getUserAccessLinkRecords();
+        const records = getPagedCollection(
+          getFilteredTournamentLinkRecords(getLinkRecords()),
+          session.linksPortalPage,
+          18,
+        );
+        const accountRecords = getPagedCollection(
+          getFilteredUserAccessLinkRecords(getUserAccessLinkRecords()),
+          session.linksAccountPage,
+          12,
+        );
         const helperCopy = canAccessGlobalSettings()
           ? "Managers can copy a private link or a ready-to-send invitation message directly from this view."
           : "If you have a debater portal entry, open it from here whenever you need your tournament-specific round and feedback view.";
@@ -19451,8 +19872,16 @@
           ${renderUserAccessLinksSection({
             title: "Account Access URLs",
             eyebrow: "Magic Links",
-            records: accountRecords,
+            records: accountRecords.items,
             compact: true,
+            toolbarMarkup: renderCollectionToolbar({
+              formName: "links-account-search",
+              query: session.linksAccountQuery || "",
+              placeholder: "Search account URLs by name, email, or role",
+              clearAction: "clear-links-account-query",
+              pageData: accountRecords,
+            }),
+            footerMarkup: renderCollectionPagination("set-links-account-page", accountRecords),
           })}
           <section class="surface">
             <div class="section-heading">
@@ -19460,15 +19889,22 @@
                 <p class="eyebrow">Tournament Portals</p>
                 <h2>Debater Private Links</h2>
               </div>
-              <span class="role-pill">${escapeHtml(records.length)} visible links</span>
+              <span class="role-pill">${escapeHtml(records.totalRecords)} visible links</span>
             </div>
             <div class="alert info">
               ${escapeHtml(helperCopy)}
             </div>
+            ${renderCollectionToolbar({
+              formName: "links-portal-search",
+              query: session.linksPortalQuery || "",
+              placeholder: "Search portals by participant, team, or tournament",
+              clearAction: "clear-links-portal-query",
+              pageData: records,
+            })}
           </section>
           <section class="links-grid">
-            ${records.length
-              ? records
+            ${records.items.length
+              ? records.items
                   .map(({ tournament, participant }) => {
                     const preview = buildInvitationMessage(tournament, participant);
 
@@ -19512,6 +19948,7 @@
                   .join("")
               : `<div class="empty-state">No private links are visible for this account yet.</div>`}
           </section>
+          ${renderCollectionPagination("set-links-portal-page", records)}
         `;
       }
 
@@ -25475,6 +25912,41 @@
             return;
           }
 
+          if (action === "set-signup-dashboard-filter") {
+            session.view = "people";
+            session.peopleSection = "signups";
+            session.peopleSignupFilter = normalizeSignupDashboardFilter(button.dataset.filter);
+            session.peopleSignupPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "clear-signup-dashboard-query") {
+            session.view = "people";
+            session.peopleSection = "signups";
+            session.peopleSignupQuery = "";
+            session.peopleSignupPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "set-signup-dashboard-page") {
+            session.view = "people";
+            session.peopleSection = "signups";
+            session.peopleSignupPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
           if (action === "set-people-directory-filter") {
             session.view = "people";
             session.peopleSection = "directory";
@@ -25516,6 +25988,17 @@
             return;
           }
 
+          if (action === "clear-people-appointee-query") {
+            session.view = "people";
+            session.peopleSection = "appointees";
+            session.peopleAppointeeQuery = "";
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
           if (action === "open-people-appointee-tournament") {
             session.view = "people";
             session.peopleSection = "appointees";
@@ -25538,11 +26021,131 @@
             return;
           }
 
+          if (action === "clear-links-account-query") {
+            session.view = "links";
+            session.linksAccountQuery = "";
+            session.linksAccountPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "set-links-account-page") {
+            session.view = "links";
+            session.linksAccountPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "clear-links-portal-query") {
+            session.view = "links";
+            session.linksPortalQuery = "";
+            session.linksPortalPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "set-links-portal-page") {
+            session.view = "links";
+            session.linksPortalPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "clear-regional-staff-query") {
+            session.view = "regional";
+            session.regionalStaffQuery = "";
+            session.regionalStaffPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "set-regional-staff-page") {
+            session.view = "regional";
+            session.regionalStaffPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "clear-regional-reports-query") {
+            session.view = "regional";
+            session.regionalReportsQuery = "";
+            session.regionalReportsPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "set-regional-reports-page") {
+            session.view = "regional";
+            session.regionalReportsPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "set-regional-funding-status") {
+            session.view = "regional";
+            session.regionalFundingStatus = normalizeRegionalFundingStatusFilter(button.dataset.status);
+            session.regionalFundingPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "clear-regional-funding-query") {
+            session.view = "regional";
+            session.regionalFundingQuery = "";
+            session.regionalFundingPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "set-regional-funding-page") {
+            session.view = "regional";
+            session.regionalFundingPage = Math.max(
+              1,
+              Number.parseInt(button.dataset.page, 10) || 1,
+            );
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
           if (action === "set-view") {
             session.view = button.dataset.view || "overview";
             if (session.view === "people") {
               session.peopleSection = "hub";
               session.peopleAppointeeTournamentId = "";
+              session.peopleAppointeeQuery = "";
               session.selectedPeopleEmail = "";
             }
             if (session.view === "tournaments") {
@@ -26115,8 +26718,86 @@
             return;
           }
 
+          if (form.dataset.form === "signup-dashboard-search") {
+            session.view = "people";
+            session.peopleSection = "signups";
+            session.peopleSignupQuery = String(formData.get("query") || "").trim();
+            session.peopleSignupPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (form.dataset.form === "people-appointee-search") {
+            session.view = "people";
+            session.peopleSection = "appointees";
+            session.peopleAppointeeQuery = String(formData.get("query") || "").trim();
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
           if (form.dataset.form === "tournament-discovery") {
             saveTournamentDiscoveryState(formData);
+            return;
+          }
+
+          if (form.dataset.form === "links-account-search") {
+            session.view = "links";
+            session.linksAccountQuery = String(formData.get("query") || "").trim();
+            session.linksAccountPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (form.dataset.form === "links-portal-search") {
+            session.view = "links";
+            session.linksPortalQuery = String(formData.get("query") || "").trim();
+            session.linksPortalPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (form.dataset.form === "regional-staff-search") {
+            session.view = "regional";
+            session.regionalStaffQuery = String(formData.get("query") || "").trim();
+            session.regionalStaffPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (form.dataset.form === "regional-reports-search") {
+            session.view = "regional";
+            session.regionalReportsQuery = String(formData.get("query") || "").trim();
+            session.regionalReportsPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (form.dataset.form === "regional-funding-search") {
+            session.view = "regional";
+            session.regionalFundingQuery = String(formData.get("query") || "").trim();
+            session.regionalFundingPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
             return;
           }
 
