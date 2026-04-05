@@ -2181,7 +2181,7 @@
           "foot foot";
         align-items: start;
         gap: 7px 14px;
-        padding: 8px 11px;
+        padding: 10px 12px;
         border-radius: 10px;
       }
 
@@ -2213,14 +2213,14 @@
       }
 
       .roster-speaker-panel .registration-speaker-card .section-heading strong {
-        font-size: 0.8rem;
+        font-size: 0.88rem;
       }
 
       .roster-speaker-panel .registration-speaker-card .muted,
       .roster-speaker-panel .registration-speaker-card .fine-print,
       .roster-speaker-panel .registration-speaker-card .token-link {
-        font-size: 0.67rem;
-        line-height: 1.16;
+        font-size: 0.74rem;
+        line-height: 1.24;
       }
 
       .roster-speaker-panel .registration-speaker-card .workspace-chip-row,
@@ -2234,16 +2234,16 @@
 
       .roster-speaker-panel .registration-speaker-card .role-pill,
       .roster-speaker-panel .registration-speaker-card .mini-pill {
-        padding: 3px 7px;
-        font-size: 0.62rem;
+        padding: 4px 7px;
+        font-size: 0.68rem;
       }
 
       .roster-speaker-panel .registration-speaker-card button,
       .roster-speaker-panel .registration-speaker-card .cta-link,
       .roster-speaker-panel .registration-speaker-card .inline-link {
-        min-height: 28px;
-        padding: 5px 8px;
-        font-size: 0.68rem;
+        min-height: 31px;
+        padding: 6px 9px;
+        font-size: 0.72rem;
       }
 
       .roster-speaker-panel .registration-speaker-card .token-link {

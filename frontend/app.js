@@ -12340,11 +12340,12 @@
         `;
       }
 
-      function renderParticipantCards(tournament, canManage, canSeeScores) {
+      function renderParticipantCards(tournament, canManage, canSeeScores, options = {}) {
         if (!tournament.participants.length) {
           return `<div class="empty-state">No participants yet.</div>`;
         }
 
+        const compact = options.compact === true;
         const speakerStandings = getSpeakerStandings(tournament);
         const canSanction = canSanctionTournamentParticipants(tournament);
         return `
@@ -12364,8 +12365,11 @@
                   Array.isArray(participant.sanctions) && participant.sanctions.length
                     ? participant.sanctions[participant.sanctions.length - 1]
                     : null;
+                const summaryText = canSeeScores
+                  ? getParticipantSummaryText(tournament, participant)
+                  : teamLabel;
                 return `
-                  <div class="directory-card registration-speaker-card">
+                  <div class="directory-card registration-speaker-card ${compact ? "compact" : ""}">
                     <div class="registration-speaker-card-primary">
                       <div class="section-heading">
                         <strong>${escapeHtml(participant.name)}</strong>
@@ -12374,13 +12378,7 @@
                         )}</span>
                       </div>
                       <p class="muted">${escapeHtml(participant.email)}</p>
-                      <p class="muted">
-                        ${escapeHtml(
-                          canSeeScores
-                            ? getParticipantSummaryText(tournament, participant)
-                            : teamLabel,
-                        )}
-                      </p>
+                      <p class="muted">${escapeHtml(summaryText)}</p>
                       ${
                         participant.institution
                           ? `<p class="fine-print">${escapeHtml(participant.institution)}</p>`
@@ -12403,28 +12401,50 @@
                               ? " feedback entry"
                               : " feedback entries"),
                         )}</span>
+                        ${
+                          canSeeScores && speakerStanding && compact
+                            ? `<span class="mini-pill success">${escapeHtml(
+                                "Rank #" + speakerStanding.speakerRank,
+                              )}</span>`
+                            : ""
+                        }
                       </div>
                       <div class="button-row">
-                        ${renderParticipantProfileButton(participant, "Open History")}
-                        ${renderTournamentNavigationButton(tournament, "Open Tournament", true)}
+                        ${renderParticipantProfileButton(
+                          participant,
+                          compact ? "History" : "Open History",
+                        )}
+                        ${renderTournamentNavigationButton(
+                          tournament,
+                          compact ? "Tournament" : "Open Tournament",
+                          true,
+                        )}
                       </div>
                     </div>
                     ${
                       canManage
                         ? `
                           <div class="registration-speaker-card-admin">
-                            <a class="token-link" href="${escapeHtml(
-                              getPrivateLink(participant.token),
-                            )}" target="_blank" rel="noreferrer">${escapeHtml(
-                              getPrivateLink(participant.token),
-                            )}</a>
+                            ${
+                              compact
+                                ? `<p class="fine-print">Private access link ready.</p>`
+                                : `<a class="token-link" href="${escapeHtml(
+                                    getPrivateLink(participant.token),
+                                  )}" target="_blank" rel="noreferrer">${escapeHtml(
+                                    getPrivateLink(participant.token),
+                                  )}</a>`
+                            }
                             <div class="button-row">
                               <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
                                 tournament.id,
-                              )}" data-participant-id="${escapeHtml(participant.id)}">Rotate private link</button>
+                              )}" data-participant-id="${escapeHtml(participant.id)}">${escapeHtml(
+                                compact ? "Rotate Link" : "Rotate private link",
+                              )}</button>
                               <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
                                 tournament.id,
-                              )}" data-participant-id="${escapeHtml(participant.id)}">Remove participant</button>
+                              )}" data-participant-id="${escapeHtml(participant.id)}">${escapeHtml(
+                                compact ? "Remove" : "Remove participant",
+                              )}</button>
                             </div>
                           </div>
                         `
@@ -12433,19 +12453,32 @@
                     ${
                       latestFeedback
                         ? `
-                          <div class="flat-panel registration-speaker-card-feedback">
-                            <div class="section-heading">
-                              <strong>${escapeHtml(latestFeedback.judgeEmail)}</strong>
-                              <span class="mini-pill warning">${escapeHtml(
-                                getFeedbackTotalScore(latestFeedback),
-                              )}</span>
-                            </div>
-                            <p class="muted">${escapeHtml(
-                              latestFeedback.note || "Latest feedback has no written comment.",
-                            )}</p>
-                          </div>
+                          ${
+                            compact
+                              ? `<p class="fine-print registration-speaker-card-feedback">${escapeHtml(
+                                  "Latest feedback: " +
+                                    latestFeedback.judgeEmail +
+                                    " • " +
+                                    getFeedbackTotalScore(latestFeedback),
+                                )}</p>`
+                              : `<div class="flat-panel registration-speaker-card-feedback">
+                                  <div class="section-heading">
+                                    <strong>${escapeHtml(latestFeedback.judgeEmail)}</strong>
+                                    <span class="mini-pill warning">${escapeHtml(
+                                      getFeedbackTotalScore(latestFeedback),
+                                    )}</span>
+                                  </div>
+                                  <p class="muted">${escapeHtml(
+                                    latestFeedback.note || "Latest feedback has no written comment.",
+                                  )}</p>
+                                </div>`
+                          }
                         `
-                        : `<p class="muted registration-speaker-card-feedback">No judge feedback yet.</p>`
+                        : `${
+                            compact
+                              ? ""
+                              : `<p class="muted registration-speaker-card-feedback">No judge feedback yet.</p>`
+                          }`
                     }
                     ${
                       latestSanction
@@ -13086,7 +13119,7 @@
         `;
       }
 
-      function renderParticipantsPanel(tournament, canManage, canSeeScores) {
+      function renderParticipantsPanel(tournament, canManage, canSeeScores, options = {}) {
         return `
           <div class="registration-speaker-shell">
             ${
@@ -13130,7 +13163,7 @@
                 `
                 : ""
             }
-            ${renderParticipantCards(tournament, canManage, canSeeScores)}
+            ${renderParticipantCards(tournament, canManage, canSeeScores, options)}
           </div>
         `;
       }
@@ -15133,7 +15166,9 @@
                       <p class="fine-print">Link speakers to teams where possible, or leave the setup flexible for changing formats.</p>
                     </div>
                   </div>
-                  ${renderParticipantsPanel(tournament, true, true)}
+                  ${renderParticipantsPanel(tournament, true, true, {
+                    compact: true,
+                  })}
                 </div>
               </div>
             </div>
