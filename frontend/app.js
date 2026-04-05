@@ -2112,12 +2112,7 @@
         const canJudgeAny = judgedTournaments.length > 0;
         const competitorOnly = debaterTournaments.length > 0 && !canManageAny && !canJudgeAny;
         const judgeOnly = canJudgeAny && !canManageAny && debaterTournaments.length === 0;
-        const regionalOnly =
-          regionalPortalMode ||
-          (regionalAccess &&
-            !canManageAny &&
-            !canJudgeAny &&
-            debaterTournaments.length === 0);
+        const regionalOnly = regionalPortalMode;
 
         return {
           accessRecords,
@@ -2140,7 +2135,7 @@
             accessRecords.some((record) => hasTournamentPeopleAccess(record.access)),
           canViewLinks: Boolean(target),
           canViewJudging: canJudgeAny,
-          canViewRegionalOperations: regionalAccess,
+          canViewRegionalOperations: regionalPortalMode,
           canViewSearch: Boolean(target),
           canViewSettings: Boolean(target),
           canLaunchTournaments: canCreateTournaments(),
@@ -2231,18 +2226,6 @@
               key: "settings",
               label: "Settings",
               count: "You",
-            },
-          ];
-        }
-
-        if (capabilities.regionalOnly) {
-          return [
-            {
-              key: "regional",
-              label: "Regional Ops",
-              count: getRegionalOperationsRoleForEmail(email)
-                ? toTitleLabel(getRegionalOperationsRoleForEmail(email))
-                : "Portal",
             },
           ];
         }
