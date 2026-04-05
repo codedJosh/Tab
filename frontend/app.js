@@ -25908,7 +25908,6 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
-            pendingViewportReset = true;
             renderApp();
             return;
           }
@@ -25920,7 +25919,6 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
-            pendingViewportReset = true;
             renderApp();
             return;
           }
@@ -26613,7 +26611,6 @@
             recordRecentParticipant(session.selectedParticipantKey);
             clearFlash();
             saveSession();
-            pendingViewportReset = true;
             renderApp();
             return;
           }
@@ -26622,7 +26619,6 @@
             session.selectedParticipantKey = "";
             clearFlash();
             saveSession();
-            pendingViewportReset = true;
             renderApp();
             return;
           }

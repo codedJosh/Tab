@@ -29,10 +29,10 @@
         --jade-soft: rgba(45, 125, 91, 0.14);
         --gold-soft: rgba(225, 191, 67, 0.2);
         --shadow-strong: 0 24px 80px rgba(14, 44, 31, 0.2);
-        --surface-shadow: 0 22px 48px rgba(16, 56, 38, 0.08), 0 2px 8px rgba(11, 31, 22, 0.04);
+        --surface-shadow: 0 14px 28px rgba(16, 56, 38, 0.07), 0 2px 6px rgba(11, 31, 22, 0.035);
         --surface-shadow-hover:
-          0 28px 62px rgba(16, 56, 38, 0.12),
-          0 10px 28px rgba(11, 31, 22, 0.06);
+          0 18px 34px rgba(16, 56, 38, 0.1),
+          0 8px 18px rgba(11, 31, 22, 0.05);
         --body-glow-one: rgba(184, 222, 202, 0.34);
         --body-glow-two: rgba(31, 106, 78, 0.12);
         --body-glow-three: rgba(225, 191, 67, 0.18);
@@ -1197,7 +1197,7 @@
       .subsurface {
         background: var(--panel);
         border: 1px solid rgba(255, 255, 255, 0.6);
-        border-radius: 26px;
+        border-radius: 22px;
         box-shadow: var(--surface-shadow);
         backdrop-filter: blur(14px);
         animation: fadeUp 480ms ease both;
@@ -1227,7 +1227,7 @@
       .directory-card,
       .link-card,
       .subsurface {
-        padding: 20px;
+        padding: 16px;
         scroll-margin-top: 28px;
       }
 
@@ -1445,7 +1445,7 @@
       .directory-grid,
       .links-grid {
         display: grid;
-        gap: 14px;
+        gap: 10px;
         align-items: start;
       }
 
@@ -1461,7 +1461,7 @@
       .portal-info-grid,
       .portal-round-list {
         display: grid;
-        gap: 12px;
+        gap: 10px;
       }
 
       .hero-feature-list {
@@ -1530,7 +1530,7 @@
 
       .directory-grid,
       .links-grid {
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       }
 
       .registration-speaker-grid {
@@ -1539,7 +1539,7 @@
       }
 
       .stat-card {
-        padding: 14px 15px;
+        padding: 12px 13px;
       }
 
       .stat-card strong {
@@ -4187,13 +4187,13 @@
       .feature-panel:hover,
       .portal-quick-card:hover,
       .tournament-switch-stat:hover {
-        transform: translateY(-4px);
+        transform: translateY(-2px);
         border-color: rgba(31, 106, 78, 0.18);
         box-shadow: var(--surface-shadow-hover);
       }
 
       .leaderboard-row:hover {
-        transform: translateX(4px);
+        transform: translateX(2px);
         border-color: rgba(31, 106, 78, 0.12);
         background: linear-gradient(180deg, rgba(31, 106, 78, 0.1), rgba(31, 106, 78, 0.06));
       }
@@ -4453,11 +4453,11 @@
       }
 
       .workspace-stat {
-        padding: 18px 20px;
-        border-radius: 20px;
+        padding: 14px 16px;
+        border-radius: 18px;
         display: grid;
         align-content: start;
-        gap: 8px;
+        gap: 6px;
         min-height: 100%;
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08));
         border: 1px solid rgba(255, 255, 255, 0.12);
@@ -4467,8 +4467,8 @@
 
       .workspace-stat strong {
         display: block;
-        margin-top: 6px;
-        font-size: 1.12rem;
+        margin-top: 4px;
+        font-size: 1.04rem;
       }
 
       .focus-split {
@@ -5446,8 +5446,8 @@
 
       .people-directory-grid {
         display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
       }
 
       .people-directory-card {
@@ -5466,7 +5466,7 @@
           "footer action";
         gap: 8px 12px;
         min-height: 0;
-        padding: 12px 14px;
+        padding: 10px 12px;
         align-items: start;
         width: 100%;
       }
@@ -5679,13 +5679,29 @@
         padding: 8px 11px;
       }
 
+      .tournament-switch-card,
+      .quick-admin-card,
+      .team-card,
+      .leaderboard-card,
+      .judge-card,
+      .ballot-card,
+      .ballot-speaker-card,
+      .portal-round-card,
+      .feature-panel,
+      .portal-quick-card,
+      .link-card,
+      .directory-card {
+        padding: 14px 16px;
+        border-radius: 18px;
+      }
+
       .leaderboard-row {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
         gap: 12px;
-        padding: 12px 14px;
-        border-radius: 16px;
+        padding: 10px 12px;
+        border-radius: 14px;
         background: linear-gradient(180deg, rgba(31, 106, 78, 0.07), rgba(31, 106, 78, 0.04));
         border: 1px solid rgba(20, 49, 38, 0.06);
       }
