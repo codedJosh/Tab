@@ -4030,14 +4030,20 @@
 
       .competitor-hero-grid {
         display: grid;
-        gap: 22px;
+        gap: 18px;
         grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-        align-items: end;
+        align-items: start;
       }
 
       .competitor-hero-copy {
         display: grid;
-        gap: 12px;
+        gap: 10px;
+      }
+
+      .competitor-hero-side {
+        display: grid;
+        gap: 10px;
+        align-content: start;
       }
 
       .competitor-hero-copy .muted,
@@ -4115,17 +4121,91 @@
         color: var(--accent-deep) !important;
       }
 
+      .competitor-account-card {
+        display: grid;
+        gap: 12px;
+        padding: 14px 16px;
+      }
+
+      .competitor-account-topline {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px 12px;
+      }
+
+      .competitor-account-name {
+        display: block;
+        font-size: clamp(1.55rem, 2.5vw, 1.95rem);
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+        text-wrap: balance;
+      }
+
+      .competitor-account-meta {
+        display: grid;
+        gap: 4px;
+      }
+
+      .competitor-account-email {
+        margin: 0;
+        font-size: 0.98rem;
+        line-height: 1.32;
+        word-break: break-word;
+      }
+
+      .competitor-account-theme {
+        margin: 0;
+        font-size: 0.9rem;
+      }
+
+      .competitor-account-actions {
+        gap: 8px;
+      }
+
+      .competitor-account-actions > button,
+      .competitor-account-actions > a {
+        min-height: 42px;
+        padding: 9px 14px;
+      }
+
+      .competitor-account-card .theme-quick-switch {
+        gap: 8px;
+      }
+
+      .competitor-account-card .theme-section-label {
+        font-size: 0.72rem;
+        letter-spacing: 0.1em;
+      }
+
+      .competitor-account-card .theme-switch-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .competitor-account-card .theme-switch-pill {
+        width: 100%;
+        min-height: 40px;
+        padding: 8px 10px;
+        justify-content: center;
+        text-align: center;
+        font-size: 0.92rem;
+        line-height: 1.14;
+      }
+
       .competitor-metrics,
       .competitor-card-grid {
         display: grid;
-        gap: 12px;
+        gap: 10px;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       }
 
       .competitor-metric,
       .competitor-stat {
-        padding: 16px 18px;
-        border-radius: 20px;
+        padding: 14px 16px;
+        border-radius: 18px;
         border: 1px solid var(--line);
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(247, 251, 248, 0.82));
         box-shadow: var(--shadow-soft);
@@ -4284,17 +4364,17 @@
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        gap: 14px;
+        gap: 12px;
       }
 
       .competitor-summary {
         display: grid;
-        gap: 14px;
+        gap: 12px;
       }
 
       .competitor-note {
-        padding: 18px 20px;
-        border-radius: 20px;
+        padding: 14px 16px;
+        border-radius: 18px;
         border: 1px solid var(--line);
         background: rgba(232, 244, 236, 0.52);
       }
@@ -4313,7 +4393,7 @@
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.12);
         color: rgba(244, 249, 255, 0.88);
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         font-weight: 700;
       }
 
@@ -6132,6 +6212,10 @@
         .focus-nav-shell {
           position: static;
         }
+
+        .competitor-account-card .theme-switch-row {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
       }
 
       @media (max-width: 720px) {
@@ -6320,6 +6404,10 @@
 
         .auth-support-grid > :last-child {
           grid-column: auto;
+        }
+
+        .competitor-account-card .theme-switch-row {
+          grid-template-columns: 1fr;
         }
 
         h1 {

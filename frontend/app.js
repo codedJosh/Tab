@@ -13856,23 +13856,32 @@
                     </nav>
                     ${renderWorkspaceSearchBar()}
                   </div>
-                  <div class="stack">
-                    <div class="inline-card">
-                      <div class="section-heading">
-                        <strong>${escapeHtml(currentUser?.name || session.userEmail)}</strong>
+                  <div class="competitor-hero-side">
+                    <div class="inline-card competitor-account-card">
+                      <div class="competitor-account-topline">
+                        <strong class="competitor-account-name">${escapeHtml(
+                          currentUser?.name || session.userEmail,
+                        )}</strong>
                         <span class="competitor-pill">Competitor</span>
                       </div>
-                      <p class="muted">${escapeHtml(session.userEmail)}</p>
-                      <p class="fine-print">${escapeHtml(
-                        "Theme: " +
-                          (THEME_PRESETS[currentUser?.themePreset || "jade_classic"]?.label ||
-                            "Jade Classic"),
-                      )}</p>
-                      <div class="button-row wrap-row">
+                      <div class="competitor-account-meta">
+                        <p class="muted competitor-account-email">${escapeHtml(
+                          session.userEmail,
+                        )}</p>
+                        <p class="fine-print competitor-account-theme">${escapeHtml(
+                          "Theme: " +
+                            (THEME_PRESETS[currentUser?.themePreset || "jade_classic"]?.label ||
+                              "Jade Classic"),
+                        )}</p>
+                      </div>
+                      <div class="button-row wrap-row competitor-account-actions">
                         <button class="secondary-button" type="button" data-action="set-view" data-view="search">Search History</button>
                         <button class="secondary-button" type="button" data-action="set-view" data-view="settings">Theme And Layout</button>
                       </div>
-                      ${renderThemeQuickSwitch(currentUser?.themePreset || "jade_classic")}
+                      ${renderThemeQuickSwitch(currentUser?.themePreset || "jade_classic", {
+                        compact: true,
+                        label: "Quick themes",
+                      })}
                     </div>
                     <div class="competitor-metrics">
                       <div class="competitor-metric">
@@ -20454,11 +20463,14 @@
           .slice(0, 5);
       }
 
-      function renderThemeQuickSwitch(currentPreset = getCurrentThemePreset()) {
+      function renderThemeQuickSwitch(currentPreset = getCurrentThemePreset(), options = {}) {
         const keys = getThemeQuickAccessKeys(currentPreset);
+        const compact = options.compact === true;
+        const label =
+          String(options.label || "Quick Theme Switch").trim() || "Quick Theme Switch";
         return `
-          <div class="theme-quick-switch">
-            <span class="theme-section-label">Quick Theme Switch</span>
+          <div class="theme-quick-switch ${compact ? "is-compact" : ""}">
+            <span class="theme-section-label">${escapeHtml(label)}</span>
             <div class="theme-switch-row">
               ${keys
                 .map(
