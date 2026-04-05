@@ -295,11 +295,11 @@
 
       function getRoundPlannerGuidance(format) {
         if (format === "No Standard Format") {
-          return "Use the planner only when the event needs custom room structures. Leave fields blank for rounds with no fixed default.";
+          return "Use the planner when the event needs custom room structures or round-by-round pairing plans. Leave fields blank for rounds with no fixed default.";
         }
         return (
           getFormatStructureGuidance(format) +
-          " Override only the rounds that depart from that default structure."
+          " Override only the rounds that depart from that default structure, and use the pairing field to mark random versus power-paired in-rounds or folded outrounds."
         );
       }
 
@@ -4450,6 +4450,12 @@
         return "";
       }
 
+      function getStoredRoundPairingMethod(profile = {}) {
+        return normalizeOutroundPairingMethod(
+          profile?.pairingMethod || profile?.outroundPairingMethod || "",
+        );
+      }
+
       function getOutroundPairingMethodLabel(value = "") {
         const normalized = normalizeOutroundPairingMethod(value);
         if (normalized === "fold") {
@@ -4485,6 +4491,21 @@
         return outrounds.length > 1 ? "fold" : "power";
       }
 
+      function getAutomaticRoundPairingMethod(source, roundProfile = null) {
+        const profile =
+          roundProfile && typeof roundProfile === "object"
+            ? roundProfile
+            : Array.isArray(source)
+              ? (source.find(
+                  (entry) => Number(entry?.round || 0) === Number(roundProfile || 0),
+                ) || {})
+              : getRoundProfileForRound(source, roundProfile || 1);
+
+        return isOutroundProfile(profile)
+          ? getAutomaticOutroundPairingMethod(source, profile)
+          : "power";
+      }
+
       function getResolvedOutroundPairingMethod(tournament, roundProfile = null) {
         const profile =
           roundProfile && typeof roundProfile === "object"
@@ -4494,7 +4515,7 @@
           return "power";
         }
         return (
-          normalizeOutroundPairingMethod(profile.outroundPairingMethod) ||
+          getStoredRoundPairingMethod(profile) ||
           getAutomaticOutroundPairingMethod(tournament, profile)
         );
       }
@@ -4526,6 +4547,11 @@
           roundProfile && typeof roundProfile === "object"
             ? roundProfile
             : getRoundProfileForRound(tournament, roundProfile || 1);
+
+        const storedMethod = getStoredRoundPairingMethod(profile);
+        if (storedMethod) {
+          return storedMethod;
+        }
 
         if (isOutroundProfile(profile)) {
           return getResolvedOutroundPairingMethod(tournament, profile);
@@ -4575,6 +4601,7 @@
             )
           : {};
         const stage = normalizeRoundStage(profile.stage);
+        const pairingMethod = getStoredRoundPairingMethod(profile);
 
         return {
           round,
@@ -4620,9 +4647,8 @@
               normalizeOptionalCount(baseConfig.speakersPerSide, null),
             ),
           ),
-          outroundPairingMethod: isOutroundProfile({ stage })
-            ? normalizeOutroundPairingMethod(profile.outroundPairingMethod)
-            : "",
+          pairingMethod,
+          outroundPairingMethod: isOutroundProfile({ stage }) ? pairingMethod : "",
           notes: String(profile.notes || "").trim(),
         };
       }
@@ -4645,10 +4671,15 @@
           baseConfig,
           Array.from({ length: normalizeRoundCount(rounds, 1) }, (_, index) => {
             const round = index + 1;
+            const stage = normalizeRoundStage(formData.get("roundStage-" + round));
+            const pairingMethod = normalizeOutroundPairingMethod(
+              formData.get("roundPairingMethod-" + round) ||
+                formData.get("roundOutroundPairingMethod-" + round),
+            );
             return {
               round,
               label: String(formData.get("roundLabel-" + round) || "").trim(),
-              stage: normalizeRoundStage(formData.get("roundStage-" + round)),
+              stage,
               format: normalizeRoundFormatOverride(formData.get("roundFormat-" + round)),
               teamsPerRoom: optionalNumberFromForm(formData, "roundTeamsPerRoom-" + round, null),
               teamSize: optionalNumberFromForm(formData, "roundTeamSize-" + round, null),
@@ -4657,9 +4688,8 @@
                 "roundSpeakersPerSide-" + round,
                 null,
               ),
-              outroundPairingMethod: normalizeOutroundPairingMethod(
-                formData.get("roundOutroundPairingMethod-" + round),
-              ),
+              pairingMethod,
+              outroundPairingMethod: stage === "outround" ? pairingMethod : "",
               notes: String(formData.get("roundNotes-" + round) || "").trim(),
             };
           }),
@@ -4965,79 +4995,85 @@
           "Each round can use a different team count, team size, or speaker count. Leave any round field blank when that round should inherit the tournament default.";
 
         return `
-          <div class="table-wrap round-planner-wrap">
-            <table class="compact-table round-planner-table">
-              <thead>
-                <tr>
-                  <th>Round</th>
-                  <th>Label</th>
-                  <th>Stage</th>
-                  <th>Outround Pairing</th>
-                  <th>Format</th>
-                  <th>Teams / Room</th>
-                  <th>People / Team</th>
-                  <th>Speakers / Side</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${roundProfiles
-                  .map(
-                    (profile) => `
-                      <tr data-round-planner-row data-round="${escapeHtml(profile.round)}">
-                        <td>${escapeHtml(profile.round)}</td>
-                        <td>
+          <div class="round-planner-wrap">
+            <div class="round-planner-grid">
+              ${roundProfiles
+                .map(
+                  (profile) => `
+                    <article class="round-planner-card" data-round-planner-row data-round="${escapeHtml(
+                      profile.round,
+                    )}">
+                      <div class="round-planner-card-header">
+                        <div class="round-planner-card-title">
+                          <p class="eyebrow">Round ${escapeHtml(profile.round)}</p>
+                          <strong>${escapeHtml(profile.label || "Round " + profile.round)}</strong>
+                        </div>
+                        <span class="mini-pill ${escapeHtml(
+                          isOutroundProfile(profile) ? "warning" : "success",
+                        )}">${escapeHtml(getRoundStageLabel(profile.stage))}</span>
+                      </div>
+                      <div class="field-grid two round-planner-card-grid">
+                        <label>
+                          Label
                           <input type="text" name="roundLabel-${escapeHtml(
                             profile.round,
                           )}" value="${escapeHtml(profile.label)}" />
-                        </td>
-                        <td>
+                        </label>
+                        <label>
+                          Stage
                           <select name="roundStage-${escapeHtml(profile.round)}">
                             ${getRoundStageOptionMarkup(profile.stage)}
                           </select>
-                        </td>
-                        <td>
-                          <select name="roundOutroundPairingMethod-${escapeHtml(profile.round)}">
-                            ${getOutroundPairingMethodOptionMarkup(
-                              profile.outroundPairingMethod,
-                              getAutomaticOutroundPairingMethod(roundProfiles, profile),
+                        </label>
+                        <label>
+                          Pairing
+                          <select name="roundPairingMethod-${escapeHtml(profile.round)}">
+                            ${getRoundPairingMethodOptionMarkup(
+                              profile.pairingMethod,
+                              getAutomaticRoundPairingMethod(roundProfiles, profile),
+                              profile.stage,
                             )}
                           </select>
-                        </td>
-                        <td>
+                        </label>
+                        <label>
+                          Format
                           <select name="roundFormat-${escapeHtml(profile.round)}">
                             ${getRoundFormatOptionMarkup(
                               profile.format,
                               options.tournamentFormat || String(baseConfig.format || "").trim(),
                             )}
                           </select>
-                        </td>
-                        <td>
+                        </label>
+                        <label>
+                          Teams / Room
                           <input type="number" min="1" max="8" name="roundTeamsPerRoom-${escapeHtml(
                             profile.round,
                           )}" value="${escapeHtml(profile.teamsPerRoom)}" placeholder="Flexible" />
-                        </td>
-                        <td>
+                        </label>
+                        <label>
+                          People / Team
                           <input type="number" min="1" max="8" name="roundTeamSize-${escapeHtml(
                             profile.round,
                           )}" value="${escapeHtml(profile.teamSize)}" placeholder="Flexible" />
-                        </td>
-                        <td>
+                        </label>
+                        <label>
+                          Speakers / Side
                           <input type="number" min="1" max="8" name="roundSpeakersPerSide-${escapeHtml(
                             profile.round,
                           )}" value="${escapeHtml(profile.speakersPerSide)}" placeholder="Flexible" />
-                        </td>
-                        <td>
+                        </label>
+                        <label class="round-planner-card-notes">
+                          Notes
                           <input type="text" name="roundNotes-${escapeHtml(
                             profile.round,
                           )}" value="${escapeHtml(profile.notes)}" placeholder="Optional note" />
-                        </td>
-                      </tr>
-                    `,
-                  )
-                  .join("")}
-              </tbody>
-            </table>
+                        </label>
+                      </div>
+                    </article>
+                  `,
+                )
+                .join("")}
+            </div>
           </div>
           <p class="fine-print" data-round-planner-guidance>${escapeHtml(plannerGuidance)}</p>
         `;
@@ -5074,43 +5110,43 @@
         }
 
         return `
-          <div class="table-wrap round-planner-wrap">
-            <table class="compact-table round-planner-table">
-              <thead>
-                <tr>
-                  <th>Round</th>
-                  <th>Label</th>
-                  <th>Stage</th>
-                  <th>Outround Pairing</th>
-                  <th>Format</th>
-                  <th>Teams / Room</th>
-                  <th>People / Team</th>
-                  <th>Speakers / Side</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${profiles
-                  .map(
-                    (profile) => `
-                      <tr>
-                        <td>${escapeHtml(profile.round)}</td>
-                        <td>${escapeHtml(profile.label)}</td>
-                        <td>${escapeHtml(getRoundStageLabel(profile.stage))}</td>
-                        <td>${escapeHtml(
-                          isOutroundProfile(profile)
-                            ? getDrawMethodDisplayLabel(tournament, profile, "auto")
-                            : "In-Round",
-                        )}</td>
-                        <td>${escapeHtml(getRoundFormatDisplayLabel(tournament, profile))}</td>
-                        <td>${escapeHtml(getConfiguredStructureValue(profile.teamsPerRoom, "Flexible"))}</td>
-                        <td>${escapeHtml(getConfiguredStructureValue(profile.teamSize, "Flexible"))}</td>
-                        <td>${escapeHtml(getConfiguredStructureValue(profile.speakersPerSide, "Flexible"))}</td>
-                      </tr>
-                    `,
-                  )
-                  .join("")}
-              </tbody>
-            </table>
+          <div class="round-planner-wrap">
+            <div class="round-planner-summary-grid">
+              ${profiles
+                .map(
+                  (profile) => `
+                    <article class="round-planner-summary-card">
+                      <div class="round-planner-card-header">
+                        <div class="round-planner-card-title">
+                          <p class="eyebrow">Round ${escapeHtml(profile.round)}</p>
+                          <strong>${escapeHtml(profile.label)}</strong>
+                        </div>
+                        <span class="mini-pill ${escapeHtml(
+                          isOutroundProfile(profile) ? "warning" : "success",
+                        )}">${escapeHtml(getRoundStageLabel(profile.stage))}</span>
+                      </div>
+                      <div class="round-planner-summary-list">
+                        <span><strong>Pairing:</strong> ${escapeHtml(
+                          getDrawMethodDisplayLabel(tournament, profile, "auto"),
+                        )}</span>
+                        <span><strong>Format:</strong> ${escapeHtml(
+                          getRoundFormatDisplayLabel(tournament, profile),
+                        )}</span>
+                        <span><strong>Teams / Room:</strong> ${escapeHtml(
+                          getConfiguredStructureValue(profile.teamsPerRoom, "Flexible"),
+                        )}</span>
+                        <span><strong>People / Team:</strong> ${escapeHtml(
+                          getConfiguredStructureValue(profile.teamSize, "Flexible"),
+                        )}</span>
+                        <span><strong>Speakers / Side:</strong> ${escapeHtml(
+                          getConfiguredStructureValue(profile.speakersPerSide, "Flexible"),
+                        )}</span>
+                      </div>
+                    </article>
+                  `,
+                )
+                .join("")}
+            </div>
           </div>
         `;
       }
@@ -6335,9 +6371,10 @@
           .map(
             (profile) => {
               const stageLabel = getRoundStageLabel(profile.stage);
-              const pairingLabel = isOutroundProfile(profile)
-                ? " • " + getDrawMethodDisplayLabel(tournament, profile, "auto")
-                : "";
+              const pairingLabel =
+                isOutroundProfile(profile) || getStoredRoundPairingMethod(profile)
+                  ? " • " + getDrawMethodDisplayLabel(tournament, profile, "auto")
+                  : "";
               return (
               `<option value="${escapeHtml(profile.round)}" ${selected(
                 profile.round,
@@ -6383,6 +6420,29 @@
           { value: "power", label: "Power Paired" },
           { value: "fold", label: "Folded" },
         ]
+          .map(
+            (item) =>
+              `<option value="${escapeHtml(item.value)}" ${selected(
+                item.value,
+                normalized,
+              )}>${escapeHtml(item.label)}</option>`,
+          )
+          .join("");
+      }
+
+      function getRoundPairingMethodOptionMarkup(current = "", autoMethod = "power", stage = "inround") {
+        const normalized = normalizeOutroundPairingMethod(current);
+        const isOutround = normalizeRoundStage(stage) === "outround";
+        const options = [
+          {
+            value: "",
+            label: "Automatic (" + getOutroundPairingMethodLabel(autoMethod) + ")",
+          },
+          { value: "power", label: "Power Paired" },
+          ...(isOutround ? [{ value: "fold", label: "Folded" }] : [{ value: "random", label: "Randomised" }]),
+        ];
+
+        return options
           .map(
             (item) =>
               `<option value="${escapeHtml(item.value)}" ${selected(
@@ -15509,7 +15569,7 @@
                 <div>
                     <h4>Round-by-round structure planner</h4>
                     <p class="fine-print">
-                      This planner stays tied to the rounds and base structure above, so only the rounds you customise will depart from the tournament default. Use it to mark which rounds are in-rounds, which are outrounds, and how the break rounds should pair.
+                      This planner stays tied to the rounds and base structure above, so only the rounds you customise will depart from the tournament default. Use it to mark which rounds are in-rounds, which are outrounds, and whether each round should run random, power-paired, or folded pairings.
                     </p>
                   </div>
                 <span class="round-plan-badge">${escapeHtml(
@@ -18571,15 +18631,11 @@
                     Priority is assigned automatically when the draw is generated, so stronger debates can receive stronger panels first.
                   </p>
                   <p class="fine-print" data-draw-round-stage-note>${escapeHtml(
-                    isOutroundProfile(suggestedRoundProfile)
-                      ? "This round is marked as an outround. Automatic pairing will use the break field and " +
-                          getDrawMethodDisplayLabel(
-                            tournament,
-                            suggestedRoundProfile,
-                            "auto",
-                          ).toLowerCase() +
-                          " seeding."
-                      : "This round is marked as an in-round. Automatic pairing defaults to power pairing from current standings.",
+                    getDrawGenerationFormStageNote(
+                      tournament,
+                      suggestedRoundProfile,
+                      "auto",
+                    ),
                   )}</p>
                   <p class="fine-print">
                     If this round uses individual entries with a team-sized room structure, JADE will first build speaker pairings from the round plan and then place those paired entries into rooms.
@@ -19114,7 +19170,7 @@
                   <div>
                     <h3>Round-by-round structure planner</h3>
                     <p class="fine-print">
-                      This planner now reacts to the round count and base structure above. Use it to mark in-rounds versus outrounds and set folded or power-paired break rounds without leaving the launcher.
+                      This planner now reacts to the round count and base structure above. Use it to mark in-rounds versus outrounds and set round-level pairing plans, including random in-rounds and folded break rounds, without leaving the launcher.
                     </p>
                   </div>
                   <span class="round-plan-badge">Optional</span>
@@ -19198,12 +19254,17 @@
       function getRoundPlannerProfilesFromForm(form) {
         return Array.from(form?.querySelectorAll("[data-round-planner-row]") || []).map((row, index) => {
           const round = normalizeRoundCount(row.dataset.round || index + 1, index + 1);
+          const stage = normalizeRoundStage(
+            form?.querySelector(`[name="roundStage-${round}"]`)?.value,
+          );
+          const pairingMethod = normalizeOutroundPairingMethod(
+            form?.querySelector(`[name="roundPairingMethod-${round}"]`)?.value ||
+              form?.querySelector(`[name="roundOutroundPairingMethod-${round}"]`)?.value,
+          );
           return {
             round,
             label: String(form?.querySelector(`[name="roundLabel-${round}"]`)?.value || "").trim(),
-            stage: normalizeRoundStage(
-              form?.querySelector(`[name="roundStage-${round}"]`)?.value,
-            ),
+            stage,
             format: normalizeRoundFormatOverride(
               form?.querySelector(`[name="roundFormat-${round}"]`)?.value,
             ),
@@ -19219,9 +19280,8 @@
               form?.querySelector(`[name="roundSpeakersPerSide-${round}"]`)?.value,
               null,
             ),
-            outroundPairingMethod: normalizeOutroundPairingMethod(
-              form?.querySelector(`[name="roundOutroundPairingMethod-${round}"]`)?.value,
-            ),
+            pairingMethod,
+            outroundPairingMethod: stage === "outround" ? pairingMethod : "",
             notes: String(form?.querySelector(`[name="roundNotes-${round}"]`)?.value || "").trim(),
           };
         });
@@ -19435,7 +19495,18 @@
           );
         }
 
-        return "This round is marked as an in-round. Automatic pairing defaults to power pairing from current standings.";
+        const resolvedMethod = getDrawMethodDisplayLabel(
+          tournament,
+          roundProfile,
+          methodValue,
+        ).toLowerCase();
+        return (
+          "This round is marked as an in-round. Automatic pairing will use " +
+          resolvedMethod +
+          (resolvedMethod === "randomised"
+            ? " seeding from the live roster."
+            : " seeding from current standings.")
+        );
       }
 
       function syncDrawGenerationForm(form) {
