@@ -580,6 +580,7 @@
       };
       let confirmDialog = null;
       let pendingTournamentSectionJumpId = "";
+      let pendingViewportReset = false;
       let startupSplashDismissed = false;
       let startupSplashFailed = false;
       let startupSplashTimers = [];
@@ -690,6 +691,7 @@
           view: "overview",
           peopleSection: "hub",
           peopleAppointeeTournamentId: "",
+          selectedPeopleEmail: "",
           managedTournamentId: "",
           selectedTournamentId: "",
           selectedTournamentBoardTab: "overview",
@@ -871,6 +873,7 @@
           view: String(record.view || "overview").trim() || "overview",
           peopleSection: "hub",
           peopleAppointeeTournamentId: String(record.peopleAppointeeTournamentId || "").trim(),
+          selectedPeopleEmail: normalizeEmail(record.selectedPeopleEmail),
           managedTournamentId: String(record.managedTournamentId || "").trim(),
           selectedTournamentId: String(record.selectedTournamentId || "").trim(),
           selectedTournamentBoardTab:
@@ -17437,29 +17440,23 @@
             <div class="people-directory-grid">
               ${peopleAccounts
                 .map((user) => {
-                  const isManagerUser = normalizeEmail(user.email) === normalizeEmail(MANAGER_EMAIL);
                   const historicalTournamentCount = normalizeStringList(
                     user.registeredTournamentIds,
                     200,
                   ).length;
                   const joinedLabel = user.createdAt || "Unknown";
-                  const createdByLabel = user.createdBy
-                    ? user.createdBy === normalizeEmail(user.email)
-                      ? "Self"
-                      : user.createdBy
-                    : "Unrecorded";
                   const visibleRoleLabel = user.regionalRole
                     ? `${toTitleLabel(user.regionalRole)}${
                         user.regionalRegion ? " • " + user.regionalRegion : ""
                       }`
                     : toTitleLabel(user.globalRole);
                   return `
-                    <details class="surface people-directory-card">
-                      <summary class="people-directory-summary">
+                    <article class="surface people-directory-card">
+                      <div class="people-directory-summary">
                         <div class="people-directory-copy">
                           <p class="eyebrow">Account</p>
                           <h3>${escapeHtml(user.name)}</h3>
-                          <p class="people-directory-email">${escapeHtml(user.email)}</p>
+                          <p class="people-directory-email">${escapeHtml(visibleRoleLabel)}</p>
                         </div>
                         <div class="people-directory-summary-badges">
                           <span class="mini-pill success">${escapeHtml(getUserCreationLabel(user))}</span>
@@ -17484,79 +17481,170 @@
                             visibleRoleLabel,
                           )}</span>
                         </div>
-                        <span class="people-directory-configure">${
-                          user.active ? "Open profile" : "Review account"
-                        }</span>
-                      </summary>
-                      <div class="details-content people-directory-body">
-                        <div class="people-meta-grid">
-                          <span>Email: ${escapeHtml(user.email)}</span>
-                          <span>Joined: ${escapeHtml(joinedLabel)}</span>
-                          <span>Role: ${escapeHtml(toTitleLabel(user.globalRole))}</span>
-                          <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
-                          <span>Private URL issued: ${escapeHtml(
-                            user.privateAccessIssuedAt || user.createdAt || "Unknown",
-                          )}</span>
-                          ${
-                            user.regionalRole
-                              ? `<span>${escapeHtml(
-                                  toTitleLabel(user.regionalRole) +
-                                    " • " +
-                                    (user.regionalRegion || "Region pending"),
-                                )}</span>`
-                              : ""
-                          }
-                          <span>${escapeHtml("Created by " + createdByLabel)}</span>
-                        </div>
-                        ${
-                          canAccessGlobalSettings() && !isManagerUser
-                            ? `
-                              <div class="button-row wrap-row">
-                                <a class="inline-link people-private-link" href="${escapeHtml(
-                                  getUserAccessLink(user.privateAccessToken),
-                                )}" target="_blank" rel="noreferrer" title="${escapeAttributeValue(
-                                  getUserAccessLink(user.privateAccessToken),
-                                )}">Private URL</a>
-                                <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
-                                  user.email,
-                                )}">Copy Link</button>
-                                <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
-                                  user.email,
-                                )}">Rotate</button>
-                                <button class="${user.active ? "danger-button" : "secondary-button"}" type="button" data-action="toggle-user-active" data-email="${escapeHtml(
-                                  user.email,
-                                )}">${escapeHtml(user.active ? "Disable" : "Enable")}</button>
-                                <button class="danger-button" type="button" data-action="delete-user" data-email="${escapeHtml(
-                                  user.email,
-                                )}">Delete</button>
-                              </div>
-                              <div class="people-card-forms">
-                                <form class="compact-inline-form" data-form="update-user-role" data-email="${escapeHtml(
-                                  user.email,
-                                )}">
-                                  <select name="globalRole">${getGlobalRoleOptions(user.globalRole)}</select>
-                                  <button class="secondary-button" type="submit">Save</button>
-                                </form>
-                                <form class="compact-inline-form" data-form="reset-user-password" data-email="${escapeHtml(
-                                  user.email,
-                                )}">
-                                  <input type="password" name="password" placeholder="New password" required />
-                                  <button class="secondary-button" type="submit">Save</button>
-                                </form>
-                              </div>
-                            `
-                            : `<p class="fine-print people-readonly-note">${
-                                isManagerUser
-                                  ? "Protected account."
-                                  : "Read-only for your access level."
-                              }</p>`
-                        }
+                        <button class="secondary-button people-directory-configure" type="button" data-action="open-people-account" data-email="${escapeHtml(
+                          user.email,
+                        )}">${user.active ? "Open profile" : "Review account"}</button>
                       </div>
-                    </details>
+                    </article>
                   `;
                 })
                 .join("")}
             </div>
+          </section>
+        `;
+      }
+
+      function getLinkedParticipantProfileForUser(user) {
+        const email = normalizeEmail(user?.email);
+        if (!email) {
+          return null;
+        }
+        return (
+          getParticipantDirectoryRecords().find(
+            (profile) => normalizeEmail(profile.email) === email,
+          ) || null
+        );
+      }
+
+      function renderPeopleAccountProfileSection(user) {
+        if (!user) {
+          return `
+            <section class="surface">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">People Profile</p>
+                  <h2>Account not found</h2>
+                </div>
+                <div class="button-row wrap-row">
+                  <button class="secondary-button" type="button" data-action="clear-people-account-focus">Back To Directory</button>
+                </div>
+              </div>
+              <div class="empty-state">That account could not be found in the shared workspace anymore.</div>
+            </section>
+          `;
+        }
+
+        const isManagerUser = normalizeEmail(user.email) === normalizeEmail(MANAGER_EMAIL);
+        const historicalTournamentCount = normalizeStringList(user.registeredTournamentIds, 200).length;
+        const joinedLabel = user.createdAt || "Unknown";
+        const createdByLabel = user.createdBy
+          ? user.createdBy === normalizeEmail(user.email)
+            ? "Self"
+            : user.createdBy
+          : "Unrecorded";
+        const visibleRoleLabel = user.regionalRole
+          ? `${toTitleLabel(user.regionalRole)}${
+              user.regionalRegion ? " • " + user.regionalRegion : ""
+            }`
+          : toTitleLabel(user.globalRole);
+        const linkedProfile = getLinkedParticipantProfileForUser(user);
+
+        return `
+          <section class="surface participant-profile-shell people-account-profile-shell">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">People Profile</p>
+                <h2>${escapeHtml(user.name)}</h2>
+                <p class="muted">Open one account at a time, review its access history, and configure it without digging through the directory grid.</p>
+              </div>
+              <div class="button-row wrap-row">
+                <button class="secondary-button" type="button" data-action="clear-people-account-focus">Back To Directory</button>
+                ${
+                  linkedProfile
+                    ? renderParticipantProfileButton(
+                        linkedProfile.latest?.participant || linkedProfile,
+                        "Open Performance History",
+                        true,
+                      )
+                    : ""
+                }
+              </div>
+            </div>
+            <div class="stat-grid">
+              <div class="stat-card">
+                <span class="muted">Account status</span>
+                <strong>${escapeHtml(user.active ? "Active" : "Disabled")}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Access role</span>
+                <strong>${escapeHtml(visibleRoleLabel)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Tournaments on record</span>
+                <strong>${escapeHtml(historicalTournamentCount)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Joined</span>
+                <strong>${escapeHtml(joinedLabel)}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Last login</span>
+                <strong>${escapeHtml(user.lastLoginAt || "Never")}</strong>
+              </div>
+              <div class="stat-card">
+                <span class="muted">Created by</span>
+                <strong>${escapeHtml(createdByLabel)}</strong>
+              </div>
+            </div>
+            <div class="people-meta-grid">
+              <span>Email: ${escapeHtml(user.email)}</span>
+              <span>Global role: ${escapeHtml(toTitleLabel(user.globalRole))}</span>
+              <span>Private URL issued: ${escapeHtml(
+                user.privateAccessIssuedAt || user.createdAt || "Unknown",
+              )}</span>
+              ${
+                user.regionalRole
+                  ? `<span>${escapeHtml(
+                      toTitleLabel(user.regionalRole) +
+                        " • " +
+                        (user.regionalRegion || "Region pending"),
+                    )}</span>`
+                  : ""
+              }
+            </div>
+            ${
+              canAccessGlobalSettings() && !isManagerUser
+                ? `
+                  <div class="button-row wrap-row">
+                    <a class="inline-link people-private-link" href="${escapeHtml(
+                      getUserAccessLink(user.privateAccessToken),
+                    )}" target="_blank" rel="noreferrer" title="${escapeAttributeValue(
+                      getUserAccessLink(user.privateAccessToken),
+                    )}">Private URL</a>
+                    <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
+                      user.email,
+                    )}">Copy Link</button>
+                    <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
+                      user.email,
+                    )}">Rotate</button>
+                    <button class="${user.active ? "danger-button" : "secondary-button"}" type="button" data-action="toggle-user-active" data-email="${escapeHtml(
+                      user.email,
+                    )}">${escapeHtml(user.active ? "Disable" : "Enable")}</button>
+                    <button class="danger-button" type="button" data-action="delete-user" data-email="${escapeHtml(
+                      user.email,
+                    )}">Delete</button>
+                  </div>
+                  <div class="people-card-forms">
+                    <form class="compact-inline-form" data-form="update-user-role" data-email="${escapeHtml(
+                      user.email,
+                    )}">
+                      <select name="globalRole">${getGlobalRoleOptions(user.globalRole)}</select>
+                      <button class="secondary-button" type="submit">Save</button>
+                    </form>
+                    <form class="compact-inline-form" data-form="reset-user-password" data-email="${escapeHtml(
+                      user.email,
+                    )}">
+                      <input type="password" name="password" placeholder="New password" required />
+                      <button class="secondary-button" type="submit">Save</button>
+                    </form>
+                  </div>
+                `
+                : `<p class="fine-print people-readonly-note">${
+                    isManagerUser
+                      ? "Protected account."
+                      : "Read-only for your access level."
+                  }</p>`
+            }
           </section>
         `;
       }
@@ -17569,6 +17657,11 @@
         const appointeeStats = getTournamentAppointeeStats();
         const peopleAccounts = getPeopleAccountCards();
         const peopleSection = normalizePeopleSection(session.peopleSection);
+        const selectedPeopleAccount =
+          peopleSection === "directory" ? getUserByEmail(session.selectedPeopleEmail) : null;
+        if (peopleSection === "directory" && selectedPeopleAccount) {
+          return renderPeopleAccountProfileSection(selectedPeopleAccount);
+        }
         return `
           <section class="surface">
             <div class="section-heading">
@@ -18893,6 +18986,8 @@
           .slice(0, 8);
 
         return `
+          ${selectedProfile ? renderParticipantProfilePanel(selectedProfile) : ""}
+
           <section class="surface">
             <div class="section-heading">
               <div>
@@ -18988,8 +19083,6 @@
                 </section>
               `
           }
-
-          ${selectedProfile ? renderParticipantProfilePanel(selectedProfile) : ""}
         `;
       }
 
@@ -20429,6 +20522,14 @@
           window.requestAnimationFrame(() => {
             window.requestAnimationFrame(() => {
               jumpToTournamentSection(targetId);
+            });
+          });
+        }
+        if (pendingViewportReset) {
+          pendingViewportReset = false;
+          window.requestAnimationFrame(() => {
+            window.scrollTo({
+              top: 0,
             });
           });
         }
@@ -25114,9 +25215,34 @@
             if (session.peopleSection !== "appointees") {
               session.peopleAppointeeTournamentId = "";
             }
+            session.selectedPeopleEmail = "";
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            renderApp();
+            return;
+          }
+
+          if (action === "open-people-account") {
+            session.view = "people";
+            session.peopleSection = "directory";
+            session.selectedPeopleEmail = normalizeEmail(button.dataset.email);
+            recordRecentView(session.view);
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "clear-people-account-focus") {
+            session.view = "people";
+            session.peopleSection = "directory";
+            session.selectedPeopleEmail = "";
+            recordRecentView(session.view);
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
             renderApp();
             return;
           }
@@ -25148,6 +25274,7 @@
             if (session.view === "people") {
               session.peopleSection = "hub";
               session.peopleAppointeeTournamentId = "";
+              session.selectedPeopleEmail = "";
             }
             if (session.view === "tournaments") {
               session.managedTournamentId = "";
@@ -25601,6 +25728,7 @@
             recordRecentParticipant(session.selectedParticipantKey);
             clearFlash();
             saveSession();
+            pendingViewportReset = true;
             renderApp();
             return;
           }
