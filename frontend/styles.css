@@ -2650,12 +2650,12 @@
       }
 
       .token-link,
-      .inline-link {
+      .inline-link:not(.secondary-button):not(.ghost-button) {
         word-break: break-all;
       }
 
       .cta-link,
-      .inline-link {
+      .inline-link:not(.secondary-button):not(.ghost-button) {
         display: inline-flex;
         padding: 10px 14px;
         border-radius: 14px;
