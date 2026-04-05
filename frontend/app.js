@@ -17273,18 +17273,27 @@
                     user.registeredTournamentIds,
                     200,
                   ).length;
+                  const joinedLabel = user.createdAt || "Unknown";
+                  const createdByLabel = user.createdBy
+                    ? user.createdBy === normalizeEmail(user.email)
+                      ? "Self"
+                      : user.createdBy
+                    : "Unrecorded";
                   return `
                     <article class="people-compact-card">
-                      <div class="people-compact-main">
-                        <div class="people-compact-head">
-                          <div class="stack">
-                            <strong>${escapeHtml(user.name)}</strong>
-                            <span class="muted">${escapeHtml(user.email)}</span>
-                          </div>
+                      <div class="people-compact-overview">
+                        <div class="people-compact-identity">
+                          <strong>${escapeHtml(user.name)}</strong>
+                          <span class="muted">${escapeHtml(user.email)}</span>
+                          <p class="people-compact-summary">${escapeHtml(
+                            historicalTournamentCount +
+                              " tournament" +
+                              (historicalTournamentCount === 1 ? "" : "s") +
+                              " on record",
+                          )}</p>
+                        </div>
+                        <div class="people-compact-topline">
                           <div class="people-pill-cluster">
-                            <span class="role-pill">${escapeHtml(
-                              toTitleLabel(user.globalRole),
-                            )}</span>
                             <span class="mini-pill success">${escapeHtml(
                               getUserCreationLabel(user),
                             )}</span>
@@ -17292,40 +17301,39 @@
                               user.active ? "Active" : "Disabled",
                             )}</span>
                           </div>
-                        </div>
-                        <div class="people-meta-grid">
-                          <span>Created ${escapeHtml(user.createdAt || "Unknown")}</span>
-                          <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
-                          <span>${escapeHtml(historicalTournamentCount)} tournaments on record</span>
-                          ${
-                            user.regionalRole
-                              ? `<span>${escapeHtml(
-                                  toTitleLabel(user.regionalRole) +
-                                    " • " +
-                                    (user.regionalRegion || "Region pending"),
-                                )}</span>`
-                              : ""
-                          }
-                          <span>${escapeHtml(
-                            user.createdBy
-                              ? "Created by " +
-                                  (user.createdBy === normalizeEmail(user.email)
-                                    ? "Self"
-                                    : user.createdBy)
-                              : "Created by Unrecorded",
+                          <span class="people-compact-joined">${escapeHtml(
+                            "Joined " + joinedLabel,
                           )}</span>
                         </div>
                       </div>
-                      <div class="people-compact-side">
-                        <div class="button-row wrap-row">
-                          <a class="inline-link people-private-link" href="${escapeHtml(
-                            getUserAccessLink(user.privateAccessToken),
-                          )}" target="_blank" rel="noreferrer" title="${escapeAttributeValue(
-                            getUserAccessLink(user.privateAccessToken),
-                          )}">Private URL</a>
-                          ${
-                            canAccessGlobalSettings() && !isManagerUser
-                              ? `
+                      ${
+                        canAccessGlobalSettings() && !isManagerUser
+                          ? `
+                            <details class="people-compact-manage">
+                              <summary>Manage account</summary>
+                              <div class="people-meta-grid">
+                                <span>Role: ${escapeHtml(toTitleLabel(user.globalRole))}</span>
+                                <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
+                                <span>Private URL issued: ${escapeHtml(
+                                  user.privateAccessIssuedAt || user.createdAt || "Unknown",
+                                )}</span>
+                                ${
+                                  user.regionalRole
+                                    ? `<span>${escapeHtml(
+                                        toTitleLabel(user.regionalRole) +
+                                          " • " +
+                                          (user.regionalRegion || "Region pending"),
+                                      )}</span>`
+                                    : ""
+                                }
+                                <span>${escapeHtml("Created by " + createdByLabel)}</span>
+                              </div>
+                              <div class="button-row wrap-row">
+                                <a class="inline-link people-private-link" href="${escapeHtml(
+                                  getUserAccessLink(user.privateAccessToken),
+                                )}" target="_blank" rel="noreferrer" title="${escapeAttributeValue(
+                                  getUserAccessLink(user.privateAccessToken),
+                                )}">Private URL</a>
                                 <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
                                   user.email,
                                 )}">Copy Link</button>
@@ -17338,34 +17346,43 @@
                                 <button class="danger-button" type="button" data-action="delete-user" data-email="${escapeHtml(
                                   user.email,
                                 )}">Delete</button>
-                              `
-                              : `<p class="fine-print people-readonly-note">${
-                                  isManagerUser
-                                    ? "Protected account."
-                                    : "Read-only for your access level."
-                                }</p>`
-                          }
-                        </div>
-                      </div>
-                      ${
-                        canAccessGlobalSettings() && !isManagerUser
-                          ? `
-                            <div class="people-card-forms">
-                              <form class="compact-inline-form" data-form="update-user-role" data-email="${escapeHtml(
-                                user.email,
-                              )}">
-                                <select name="globalRole">${getGlobalRoleOptions(user.globalRole)}</select>
-                                <button class="secondary-button" type="submit">Save</button>
-                              </form>
-                              <form class="compact-inline-form" data-form="reset-user-password" data-email="${escapeHtml(
-                                user.email,
-                              )}">
-                                <input type="password" name="password" placeholder="New password" required />
-                                <button class="secondary-button" type="submit">Save</button>
-                              </form>
-                            </div>
+                              </div>
+                              <div class="people-card-forms">
+                                <form class="compact-inline-form" data-form="update-user-role" data-email="${escapeHtml(
+                                  user.email,
+                                )}">
+                                  <select name="globalRole">${getGlobalRoleOptions(user.globalRole)}</select>
+                                  <button class="secondary-button" type="submit">Save</button>
+                                </form>
+                                <form class="compact-inline-form" data-form="reset-user-password" data-email="${escapeHtml(
+                                  user.email,
+                                )}">
+                                  <input type="password" name="password" placeholder="New password" required />
+                                  <button class="secondary-button" type="submit">Save</button>
+                                </form>
+                              </div>
+                            </details>
                           `
-                          : ""
+                          : `<div class="people-compact-manage people-compact-manage-readonly">
+                              <div class="people-meta-grid">
+                                <span>Role: ${escapeHtml(toTitleLabel(user.globalRole))}</span>
+                                <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
+                                ${
+                                  user.regionalRole
+                                    ? `<span>${escapeHtml(
+                                        toTitleLabel(user.regionalRole) +
+                                          " • " +
+                                          (user.regionalRegion || "Region pending"),
+                                      )}</span>`
+                                    : ""
+                                }
+                              </div>
+                              <p class="fine-print people-readonly-note">${
+                                isManagerUser
+                                  ? "Protected account."
+                                  : "Read-only for your access level."
+                              }</p>
+                            </div>`
                       }
                     </article>
                   `;

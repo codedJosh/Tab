@@ -4872,40 +4872,53 @@
 
       .people-compact-card {
         display: grid;
-        gap: 8px 14px;
-        grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr);
+        gap: 10px;
+        grid-template-columns: 1fr;
         align-items: start;
-        padding: 11px 12px;
-        border-radius: 14px;
+        padding: 14px 16px;
+        border-radius: 18px;
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(245, 249, 246, 0.92));
         border: 1px solid rgba(20, 49, 38, 0.08);
         box-shadow: 0 10px 22px rgba(15, 55, 39, 0.06);
       }
 
-      .people-compact-main {
+      .people-compact-overview {
         display: grid;
-        gap: 7px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px 18px;
+        align-items: start;
+      }
+
+      .people-compact-identity {
+        display: grid;
+        gap: 8px;
         min-width: 0;
       }
 
-      .people-compact-head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 10px;
-      }
-
-      .people-compact-head .stack {
-        gap: 2px;
-      }
-
-      .people-compact-head strong {
+      .people-compact-identity strong {
         font-size: 1rem;
-        line-height: 1.15;
+        line-height: 1.08;
       }
 
-      .people-compact-head .muted {
-        font-size: 0.86rem;
+      .people-compact-identity .muted {
+        font-size: 0.9rem;
+        font-weight: 500;
+      }
+
+      .people-compact-summary {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
+      .people-compact-topline {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 8px 12px;
       }
 
       .people-pill-cluster {
@@ -4915,26 +4928,24 @@
         gap: 6px;
       }
 
+      .people-compact-joined {
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
       .people-meta-grid {
         display: flex;
         flex-wrap: wrap;
-        gap: 4px 10px;
+        gap: 6px 12px;
       }
 
       .people-meta-grid span {
         color: var(--muted);
-        font-size: 0.84rem;
+        font-size: 0.88rem;
+        font-weight: 600;
         line-height: 1.25;
-      }
-
-      .people-compact-side {
-        display: flex;
-        justify-content: flex-end;
-        align-items: flex-start;
-      }
-
-      .people-compact-side .button-row {
-        justify-content: flex-end;
       }
 
       .people-private-link {
@@ -4953,10 +4964,36 @@
 
       .people-card-forms {
         display: grid;
-        grid-column: 1 / -1;
         gap: 6px;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         align-items: start;
+      }
+
+      .people-compact-manage {
+        display: grid;
+        gap: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(20, 49, 38, 0.08);
+      }
+
+      .people-compact-manage summary {
+        cursor: pointer;
+        list-style: none;
+        font-size: 0.86rem;
+        font-weight: 800;
+        color: var(--ink);
+      }
+
+      .people-compact-manage summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .people-compact-manage[open] summary {
+        margin-bottom: 2px;
+      }
+
+      .people-compact-manage-readonly {
+        gap: 8px;
       }
 
       .people-compact-card .compact-inline-form {
@@ -5393,11 +5430,13 @@
           grid-template-columns: 1fr;
         }
 
-        .people-compact-side {
+        .people-compact-overview,
+        .people-compact-topline {
+          grid-template-columns: 1fr;
           justify-content: flex-start;
         }
 
-        .people-compact-side .button-row {
+        .people-pill-cluster {
           justify-content: flex-start;
         }
 
