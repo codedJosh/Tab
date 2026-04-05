@@ -1,12 +1,24 @@
 create table if not exists jade_workspaces (
   id text primary key,
   state jsonb not null,
+  revision bigint not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create index if not exists jade_workspaces_updated_at_idx
   on jade_workspaces (updated_at desc);
+
+create table if not exists jade_workspace_history (
+  workspace_id text not null references jade_workspaces(id) on delete cascade,
+  revision bigint not null,
+  state jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (workspace_id, revision)
+);
+
+create index if not exists jade_workspace_history_workspace_idx
+  on jade_workspace_history (workspace_id, revision desc);
 
 create table if not exists jade_sessions (
   id text primary key,

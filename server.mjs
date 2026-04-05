@@ -66,8 +66,38 @@ const pool = new Pool({
   ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
 });
 
+async function ensureStorageSchema() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      alter table jade_workspaces
+      add column if not exists revision bigint not null default 1
+    `);
+    await client.query(`
+      create table if not exists jade_workspace_history (
+        workspace_id text not null references jade_workspaces(id) on delete cascade,
+        revision bigint not null,
+        state jsonb not null,
+        created_at timestamptz not null default now(),
+        primary key (workspace_id, revision)
+      )
+    `);
+    await client.query(`
+      create index if not exists jade_workspace_history_workspace_idx
+      on jade_workspace_history (workspace_id, revision desc)
+    `);
+  } finally {
+    client.release();
+  }
+}
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeWorkspaceRevision(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : 0;
 }
 
 function nowText() {
@@ -1160,6 +1190,17 @@ function sendError(response, statusCode, code, message) {
   });
 }
 
+function sendStatePayload(response, statusCode, payload = {}) {
+  sendJson(response, statusCode, {
+    ok: true,
+    initialized: true,
+    state: payload.state || null,
+    revision: normalizeWorkspaceRevision(payload.revision),
+    ...(payload.sessionToken ? { sessionToken: payload.sessionToken } : {}),
+    ...(payload.userEmail ? { userEmail: payload.userEmail } : {}),
+  });
+}
+
 async function withTransaction(work) {
   const client = await pool.connect();
   try {
@@ -1175,27 +1216,88 @@ async function withTransaction(work) {
   }
 }
 
-async function readWorkspaceState(client) {
+async function readWorkspaceRecord(client) {
   const result = await client.query(
-    "select state from jade_workspaces where id = $1 limit 1",
+    "select state, revision from jade_workspaces where id = $1 limit 1",
     [WORKSPACE_ID],
   );
-  return result.rows[0]?.state ? ensureWorkspaceState(result.rows[0].state) : null;
+  if (!result.rows[0]?.state) {
+    return null;
+  }
+  return {
+    state: ensureWorkspaceState(result.rows[0].state),
+    revision: normalizeWorkspaceRevision(result.rows[0].revision),
+  };
 }
 
-async function writeWorkspaceState(client, state) {
+async function readWorkspaceState(client) {
+  const record = await readWorkspaceRecord(client);
+  return record?.state || null;
+}
+
+async function writeWorkspaceState(client, state, options = {}) {
   const normalized = ensureWorkspaceState(state);
-  const result = await client.query(
+  const expectedRevision = normalizeWorkspaceRevision(options.expectedRevision);
+  const params = [WORKSPACE_ID, JSON.stringify(normalized)];
+  let result;
+
+  if (expectedRevision > 0) {
+    params.push(expectedRevision);
+    result = await client.query(
+      `
+        insert into jade_workspaces (id, state, revision, updated_at)
+        values ($1, $2::jsonb, 1, now())
+        on conflict (id)
+        do update
+          set state = excluded.state,
+              revision = jade_workspaces.revision + 1,
+              updated_at = now()
+        where jade_workspaces.revision = $3
+        returning state, revision
+      `,
+      params,
+    );
+
+    if (!result.rows[0]) {
+      const currentRecord = await readWorkspaceRecord(client);
+      if (currentRecord) {
+        const error = new Error("The workspace changed on another device. Refresh and try again.");
+        error.statusCode = 409;
+        error.code = "stale_revision";
+        error.currentRevision = currentRecord.revision;
+        throw error;
+      }
+    }
+  } else {
+    result = await client.query(
+      `
+        insert into jade_workspaces (id, state, revision, updated_at)
+        values ($1, $2::jsonb, 1, now())
+        on conflict (id)
+        do update
+          set state = excluded.state,
+              revision = jade_workspaces.revision + 1,
+              updated_at = now()
+        returning state, revision
+      `,
+      params,
+    );
+  }
+
+  const savedState = ensureWorkspaceState(result.rows[0]?.state || normalized);
+  const revision = normalizeWorkspaceRevision(result.rows[0]?.revision) || 1;
+  await client.query(
     `
-      insert into jade_workspaces (id, state, updated_at)
-      values ($1, $2::jsonb, now())
-      on conflict (id)
-      do update set state = excluded.state, updated_at = now()
-      returning state
+      insert into jade_workspace_history (workspace_id, revision, state)
+      values ($1, $2, $3::jsonb)
+      on conflict (workspace_id, revision) do nothing
     `,
-    [WORKSPACE_ID, JSON.stringify(normalized)],
+    [WORKSPACE_ID, revision, JSON.stringify(savedState)],
   );
-  return ensureWorkspaceState(result.rows[0]?.state || normalized);
+  return {
+    state: savedState,
+    revision,
+  };
 }
 
 async function purgeExpiredSessions(client) {
@@ -1294,12 +1396,13 @@ app.get("/api", async (_request, response) => {
   try {
     const client = await pool.connect();
     try {
-      const state = await readWorkspaceState(client);
+      const workspace = await readWorkspaceRecord(client);
       sendJson(response, 200, {
         ok: true,
-        initialized: Boolean(state),
+        initialized: Boolean(workspace?.state),
         storage: "postgres",
         workspaceId: WORKSPACE_ID,
+        revision: normalizeWorkspaceRevision(workspace?.revision),
       });
     } finally {
       client.release();
@@ -1341,11 +1444,12 @@ app.post("/api", async (request, response) => {
     if (action === "bootstrap") {
       const client = await pool.connect();
       try {
-        const state = await readWorkspaceState(client);
+        const workspace = await readWorkspaceRecord(client);
         sendJson(response, 200, {
           ok: true,
-          initialized: Boolean(state),
-          state: state || null,
+          initialized: Boolean(workspace?.state),
+          state: workspace?.state || null,
+          revision: normalizeWorkspaceRevision(workspace?.revision),
         });
         return;
       } finally {
@@ -1358,7 +1462,8 @@ app.post("/api", async (request, response) => {
       const password = String(request.body?.password || "");
 
       const result = await withTransaction(async (client) => {
-        const state = await readWorkspaceState(client);
+        const workspace = await readWorkspaceRecord(client);
+        const state = workspace?.state;
         if (!state) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
           error.statusCode = 409;
@@ -1394,20 +1499,18 @@ app.post("/api", async (request, response) => {
         }
 
         user.lastLoginAt = nowText();
-        const nextState = await writeWorkspaceState(client, state);
+        const nextWorkspace = await writeWorkspaceState(client, state, {
+          expectedRevision: workspace.revision,
+        });
         const sessionToken = await issueSession(client, email);
         return {
-          state: nextState,
+          state: nextWorkspace.state,
+          revision: nextWorkspace.revision,
           sessionToken,
         };
       });
 
-      sendJson(response, 200, {
-        ok: true,
-        initialized: true,
-        sessionToken: result.sessionToken,
-        state: result.state,
-      });
+      sendStatePayload(response, 200, result);
       return;
     }
 
@@ -1417,8 +1520,8 @@ app.post("/api", async (request, response) => {
       const incomingState = request.body?.state;
 
       const result = await withTransaction(async (client) => {
-        const existingState = await readWorkspaceState(client);
-        if (existingState) {
+        const existingWorkspace = await readWorkspaceRecord(client);
+        if (existingWorkspace?.state) {
           const error = new Error("The shared backend workspace has already been initialized.");
           error.statusCode = 409;
           error.code = "workspace_already_initialized";
@@ -1455,20 +1558,16 @@ app.post("/api", async (request, response) => {
         }
 
         user.lastLoginAt = nowText();
-        const savedState = await writeWorkspaceState(client, nextState);
+        const savedWorkspace = await writeWorkspaceState(client, nextState);
         const sessionToken = await issueSession(client, email);
         return {
-          state: savedState,
+          state: savedWorkspace.state,
+          revision: savedWorkspace.revision,
           sessionToken,
         };
       });
 
-      sendJson(response, 200, {
-        ok: true,
-        initialized: true,
-        sessionToken: result.sessionToken,
-        state: result.state,
-      });
+      sendStatePayload(response, 200, result);
       return;
     }
 
@@ -1478,7 +1577,8 @@ app.post("/api", async (request, response) => {
       const password = String(request.body?.password || "");
 
       const result = await withTransaction(async (client) => {
-        const state = await readWorkspaceState(client);
+        const workspace = await readWorkspaceRecord(client);
+        const state = workspace?.state;
         if (!state) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
           error.statusCode = 409;
@@ -1538,20 +1638,18 @@ app.post("/api", async (request, response) => {
           state.users.push(user);
         }
 
-        const nextState = await writeWorkspaceState(client, state);
+        const nextWorkspace = await writeWorkspaceState(client, state, {
+          expectedRevision: workspace.revision,
+        });
         const sessionToken = await issueSession(client, email);
         return {
-          state: nextState,
+          state: nextWorkspace.state,
+          revision: nextWorkspace.revision,
           sessionToken,
         };
       });
 
-      sendJson(response, 200, {
-        ok: true,
-        initialized: true,
-        sessionToken: result.sessionToken,
-        state: result.state,
-      });
+      sendStatePayload(response, 200, result);
       return;
     }
 
@@ -1567,7 +1665,8 @@ app.post("/api", async (request, response) => {
       const notes = String(request.body?.notes || "").trim();
 
       const result = await withTransaction(async (client) => {
-        const state = await readWorkspaceState(client);
+        const workspace = await readWorkspaceRecord(client);
+        const state = workspace?.state;
         if (!state) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
           error.statusCode = 409;
@@ -1654,20 +1753,18 @@ app.post("/api", async (request, response) => {
             (teamName ? " under team " + teamName + "." : "."),
         );
 
-        const savedState = await writeWorkspaceState(client, state);
+        const savedWorkspace = await writeWorkspaceState(client, state, {
+          expectedRevision: workspace.revision,
+        });
         const sessionToken = await issueSession(client, email);
         return {
-          state: savedState,
+          state: savedWorkspace.state,
+          revision: savedWorkspace.revision,
           sessionToken,
         };
       });
 
-      sendJson(response, 200, {
-        ok: true,
-        initialized: true,
-        sessionToken: result.sessionToken,
-        state: result.state,
-      });
+      sendStatePayload(response, 200, result);
       return;
     }
 
@@ -1681,7 +1778,8 @@ app.post("/api", async (request, response) => {
       const notes = String(request.body?.notes || "").trim();
 
       const result = await withTransaction(async (client) => {
-        const state = await readWorkspaceState(client);
+        const workspace = await readWorkspaceRecord(client);
+        const state = workspace?.state;
         if (!state) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
           error.statusCode = 409;
@@ -1751,20 +1849,18 @@ app.post("/api", async (request, response) => {
           "Registered judge " + name + " for " + tournament.name + ".",
         );
 
-        const savedState = await writeWorkspaceState(client, state);
+        const savedWorkspace = await writeWorkspaceState(client, state, {
+          expectedRevision: workspace.revision,
+        });
         const sessionToken = await issueSession(client, email);
         return {
-          state: savedState,
+          state: savedWorkspace.state,
+          revision: savedWorkspace.revision,
           sessionToken,
         };
       });
 
-      sendJson(response, 200, {
-        ok: true,
-        initialized: true,
-        sessionToken: result.sessionToken,
-        state: result.state,
-      });
+      sendStatePayload(response, 200, result);
       return;
     }
 
@@ -1772,7 +1868,8 @@ app.post("/api", async (request, response) => {
       const token = String(request.body?.token || "").trim();
 
       const result = await withTransaction(async (client) => {
-        const state = await readWorkspaceState(client);
+        const workspace = await readWorkspaceRecord(client);
+        const state = workspace?.state;
         if (!state) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
           error.statusCode = 409;
@@ -1798,22 +1895,19 @@ app.post("/api", async (request, response) => {
         user.lastLoginAt = nowText();
         user.lastPrivateAccessAt = nowText();
 
-        const nextState = await writeWorkspaceState(client, state);
+        const nextWorkspace = await writeWorkspaceState(client, state, {
+          expectedRevision: workspace.revision,
+        });
         const sessionToken = await issueSession(client, user.email);
         return {
-          state: nextState,
+          state: nextWorkspace.state,
+          revision: nextWorkspace.revision,
           sessionToken,
           userEmail: user.email,
         };
       });
 
-      sendJson(response, 200, {
-        ok: true,
-        initialized: true,
-        state: result.state,
-        sessionToken: result.sessionToken,
-        userEmail: result.userEmail,
-      });
+      sendStatePayload(response, 200, result);
       return;
     }
 
@@ -1829,7 +1923,8 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        const state = await readWorkspaceState(client);
+        const workspace = await readWorkspaceRecord(client);
+        const state = workspace?.state;
         if (!state) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
           error.statusCode = 409;
@@ -1847,20 +1942,18 @@ app.post("/api", async (request, response) => {
 
         return {
           state,
+          revision: workspace.revision,
         };
       });
 
-      sendJson(response, 200, {
-        ok: true,
-        initialized: true,
-        state: result.state,
-      });
+      sendStatePayload(response, 200, result);
       return;
     }
 
     if (action === "persist") {
       const sessionToken = String(request.body?.sessionToken || "").trim();
       const incomingState = request.body?.state;
+      const expectedRevision = normalizeWorkspaceRevision(request.body?.expectedRevision);
 
       const result = await withTransaction(async (client) => {
         const session = await getSession(client, sessionToken);
@@ -1871,7 +1964,8 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        const currentState = await readWorkspaceState(client);
+        const workspace = await readWorkspaceRecord(client);
+        const currentState = workspace?.state;
         if (!currentState) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
           error.statusCode = 409;
@@ -1888,17 +1982,16 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        const savedState = await writeWorkspaceState(client, nextState);
+        const savedWorkspace = await writeWorkspaceState(client, nextState, {
+          expectedRevision: expectedRevision || workspace.revision,
+        });
         return {
-          state: savedState,
+          state: savedWorkspace.state,
+          revision: savedWorkspace.revision,
         };
       });
 
-      sendJson(response, 200, {
-        ok: true,
-        initialized: true,
-        state: result.state,
-      });
+      sendStatePayload(response, 200, result);
       return;
     }
 
@@ -1907,7 +2000,8 @@ app.post("/api", async (request, response) => {
       const note = String(request.body?.note || "").trim();
 
       const result = await withTransaction(async (client) => {
-        const state = await readWorkspaceState(client);
+        const workspace = await readWorkspaceRecord(client);
+        const state = workspace?.state;
         if (!state) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
           error.statusCode = 409;
@@ -1916,17 +2010,16 @@ app.post("/api", async (request, response) => {
         }
 
         buildRecoveryRequest(state, email, note);
-        const savedState = await writeWorkspaceState(client, state);
+        const savedWorkspace = await writeWorkspaceState(client, state, {
+          expectedRevision: workspace.revision,
+        });
         return {
-          state: savedState,
+          state: savedWorkspace.state,
+          revision: savedWorkspace.revision,
         };
       });
 
-      sendJson(response, 200, {
-        ok: true,
-        initialized: true,
-        state: result.state,
-      });
+      sendStatePayload(response, 200, result);
       return;
     }
 
@@ -1942,7 +2035,14 @@ app.post("/api", async (request, response) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log("JADE backend listening on http://127.0.0.1:" + PORT + "/api");
-  console.log("JADE app available at http://127.0.0.1:" + PORT + "/");
-});
+ensureStorageSchema()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log("JADE backend listening on http://127.0.0.1:" + PORT + "/api");
+      console.log("JADE app available at http://127.0.0.1:" + PORT + "/");
+    });
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

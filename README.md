@@ -17,6 +17,8 @@ Key files:
 
 This backend is a Node + Express service backed by PostgreSQL.
 
+On startup, the backend now auto-checks the workspace schema and adds revision/history storage if the database is older than the current code.
+
 ## Frontend
 
 Netlify should publish the `frontend/` directory. `frontend/index.html` is the live website source of truth.
@@ -24,6 +26,8 @@ Netlify should publish the `frontend/` directory. `frontend/index.html` is the l
 Key files:
 
 - `frontend/index.html`
+- `frontend/app.js`
+- `frontend/styles.css`
 - `frontend/jade-logo.jpg`
 - `frontend/backend-config.js`
 - `index.html` (thin local launcher only)

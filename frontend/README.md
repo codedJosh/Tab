@@ -9,6 +9,8 @@ Deploy this folder to Netlify, not the project root.
 ## Files
 
 - `index.html`
+- `app.js`
+- `styles.css`
 - `jade-logo.jpg`
 - `backend-config.js`
 - `netlify.toml`

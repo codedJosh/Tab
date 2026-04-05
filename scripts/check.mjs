@@ -1,11 +1,11 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const ROOT_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const SERVER_FILE = path.join(ROOT_DIR, "server.mjs");
 const FRONTEND_FILE = path.join(ROOT_DIR, "frontend", "index.html");
+const FRONTEND_SCRIPT_FILE = path.join(ROOT_DIR, "frontend", "app.js");
 const LOCAL_FILE = path.join(ROOT_DIR, "index.html");
 
 function runCheck(args, label) {
@@ -20,20 +20,14 @@ function runCheck(args, label) {
   }
 }
 
-function extractFrontendModule() {
+function checkFrontendShell() {
   const html = readFileSync(FRONTEND_FILE, "utf8");
-  const marker = '<script type="module">';
-  const start = html.indexOf(marker);
-  const end = html.lastIndexOf("</script>");
-
-  if (start < 0 || end < 0 || end <= start) {
-    throw new Error("Could not extract the frontend module script from frontend/index.html.");
+  if (!html.includes('href="styles.css"')) {
+    throw new Error("frontend/index.html is missing the styles.css reference.");
   }
-
-  const tempDir = mkdtempSync(path.join(tmpdir(), "hummingbird-check-"));
-  const tempFile = path.join(tempDir, "frontend-script.js");
-  writeFileSync(tempFile, html.slice(start + marker.length, end), "utf8");
-  return { tempDir, tempFile };
+  if (!html.includes('src="app.js"')) {
+    throw new Error("frontend/index.html is missing the app.js module reference.");
+  }
 }
 
 function checkRootLauncher() {
@@ -53,13 +47,11 @@ function checkRootLauncher() {
 console.log("Checking server syntax...");
 runCheck([SERVER_FILE], "server.mjs");
 
+console.log("Checking frontend shell references...");
+checkFrontendShell();
+
 console.log("Checking frontend module syntax...");
-const { tempDir, tempFile } = extractFrontendModule();
-try {
-  runCheck([tempFile], "frontend/index.html script");
-} finally {
-  rmSync(tempDir, { recursive: true, force: true });
-}
+runCheck([FRONTEND_SCRIPT_FILE], "frontend/app.js");
 
 checkRootLauncher();
 console.log("Hummingbird syntax checks passed.");
