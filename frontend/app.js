@@ -523,7 +523,9 @@
           normalized === "jade debate tab" ||
           normalized === "hummingbird tab system" ||
           normalized === "jade corporate tab" ||
-          normalized === "corporate tab"
+          normalized === "corporate tab" ||
+          normalized === "jade corporate tab system" ||
+          normalized.includes("corporate tab")
         );
       }
 
@@ -539,7 +541,9 @@
 
         if (
           String(next.subtitle || "").trim() ===
-          "Professional debate tournament operations, permissions, publishing, and private access."
+            "Professional debate tournament operations, permissions, publishing, and private access." ||
+          String(next.subtitle || "").trim() ===
+            "Advanced debate tournament operations, access control, and publishing."
         ) {
           next.subtitle = DEFAULT_SETTINGS.branding.subtitle;
         }
