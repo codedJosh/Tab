@@ -1647,11 +1647,11 @@
         color: var(--ink);
       }
 
-      .auth-page .hero-panel .button-row > button,
+      .auth-page .hero-panel .button-row > button:not(.danger-button),
       .auth-page .hero-panel .button-row > a,
-      .auth-support-card .button-row > button,
+      .auth-support-card .button-row > button:not(.danger-button),
       .auth-support-card .button-row > a,
-      .participant-profile-shell .button-row > button,
+      .participant-profile-shell .button-row > button:not(.danger-button),
       .participant-profile-shell .button-row > a {
         min-height: 46px;
         width: auto;
@@ -1666,20 +1666,20 @@
         align-self: flex-start;
       }
 
-      .auth-page .hero-panel .button-row > button *,
+      .auth-page .hero-panel .button-row > button:not(.danger-button) *,
       .auth-page .hero-panel .button-row > a *,
-      .auth-support-card .button-row > button *,
+      .auth-support-card .button-row > button:not(.danger-button) *,
       .auth-support-card .button-row > a *,
-      .participant-profile-shell .button-row > button *,
+      .participant-profile-shell .button-row > button:not(.danger-button) *,
       .participant-profile-shell .button-row > a * {
         color: var(--ink) !important;
       }
 
-      .auth-page .hero-panel .button-row > button:hover,
+      .auth-page .hero-panel .button-row > button:not(.danger-button):hover,
       .auth-page .hero-panel .button-row > a:hover,
-      .auth-support-card .button-row > button:hover,
+      .auth-support-card .button-row > button:not(.danger-button):hover,
       .auth-support-card .button-row > a:hover,
-      .participant-profile-shell .button-row > button:hover,
+      .participant-profile-shell .button-row > button:not(.danger-button):hover,
       .participant-profile-shell .button-row > a:hover {
         background: rgba(248, 250, 248, 1);
         color: var(--ink);
