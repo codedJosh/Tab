@@ -3170,6 +3170,30 @@
         min-height: 0;
       }
 
+      .counsel-operating-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        margin-top: 8px;
+      }
+
+      .counsel-operating-card {
+        display: grid;
+        gap: 6px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background:
+          radial-gradient(circle at top right, rgba(225, 191, 67, 0.05), transparent 32%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 249, 245, 0.92));
+      }
+
+      .counsel-operating-card strong {
+        font-size: 0.98rem;
+        line-height: 1.45;
+        letter-spacing: -0.02em;
+      }
+
       .counsel-bullet-list {
         margin: 0;
         padding-left: 18px;

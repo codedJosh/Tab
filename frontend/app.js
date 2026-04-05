@@ -763,6 +763,7 @@
           view: "overview",
           assistantScope: "overview",
           assistantQuery: "",
+          assistantHistory: [],
           peopleSection: "hub",
           peopleAppointeeTournamentId: "",
           peopleDirectoryQuery: "",
@@ -965,6 +966,7 @@
           view: String(record.view || "overview").trim() || "overview",
           assistantScope: normalizeAssistantScope(record.assistantScope || "overview"),
           assistantQuery: String(record.assistantQuery || "").trim(),
+          assistantHistory: normalizeAssistantHistory(record.assistantHistory),
           peopleSection: "hub",
           peopleAppointeeTournamentId: String(record.peopleAppointeeTournamentId || "").trim(),
           peopleDirectoryQuery: String(record.peopleDirectoryQuery || "").trim(),
@@ -1032,6 +1034,184 @@
           return normalized;
         }
         return "overview";
+      }
+
+      function normalizeAssistantHistoryEntry(record = {}) {
+        const query = String(record.query || "").trim();
+        if (!query) {
+          return null;
+        }
+
+        return {
+          scope: normalizeAssistantScope(record.scope || "overview"),
+          query: query.slice(0, 240),
+          title: String(record.title || "").trim().slice(0, 180),
+          note: String(record.note || "").trim().slice(0, 320),
+          category: String(record.category || "next").trim().toLowerCase() || "next",
+          tournamentId: String(record.tournamentId || "").trim(),
+          profileKey: String(record.profileKey || "").trim(),
+          at: String(record.at || timestamp()).trim() || timestamp(),
+        };
+      }
+
+      function normalizeAssistantHistory(value = []) {
+        if (!Array.isArray(value)) {
+          return [];
+        }
+
+        return value
+          .map((entry) => normalizeAssistantHistoryEntry(entry))
+          .filter(Boolean)
+          .slice(0, 8);
+      }
+
+      function getLatestAssistantHistoryEntry(scope = "") {
+        const targetScope = normalizeAssistantScope(scope || "overview");
+        const history = normalizeAssistantHistory(session.assistantHistory || []);
+        return history.find((entry) => entry.scope === targetScope) || history[0] || null;
+      }
+
+      function isHummingbirdFollowupQuery(query = "") {
+        const normalized = normalizeTextKey(query);
+        if (!normalized) {
+          return false;
+        }
+
+        const words = normalized.split(/\s+/).filter(Boolean);
+        if (words.length <= 3) {
+          return true;
+        }
+
+        return (
+          matchesAssistantKeywords(normalized, [
+            "this",
+            "that",
+            "these",
+            "those",
+            "it",
+            "they",
+            "them",
+            "here",
+            "there",
+            "again",
+            "also",
+            "same",
+            "that round",
+            "that profile",
+            "that tournament",
+            "what about",
+            "how about",
+          ]) ||
+          /^(and|then|also|what about|how about|can it|does it|will it|why not)\b/.test(
+            normalized,
+          )
+        );
+      }
+
+      function getCurrentTournamentForCounsel(email = session.userEmail) {
+        return (
+          getManagedTournamentForSession() ||
+          getSelectedTournamentForSession(email) ||
+          getCurrentParticipantProfileForCounsel(email)?.latest?.tournament ||
+          null
+        );
+      }
+
+      function getCurrentParticipantProfileForCounsel(email = session.userEmail) {
+        return session.selectedParticipantKey
+          ? getParticipantProfileByKey(session.selectedParticipantKey, email)
+          : null;
+      }
+
+      function resolveHummingbirdCounselContext({
+        scope = "overview",
+        query = "",
+        tournament = null,
+        profile = null,
+        email = session.userEmail,
+      } = {}) {
+        const followup = isHummingbirdFollowupQuery(query);
+        const memory = followup ? getLatestAssistantHistoryEntry(scope) : null;
+
+        let resolvedTournament =
+          tournament ||
+          getReferencedTournamentForCounsel(query, email) ||
+          getCurrentTournamentForCounsel(email);
+        let resolvedProfile =
+          profile ||
+          getReferencedProfileForCounsel(query, email) ||
+          getCurrentParticipantProfileForCounsel(email);
+
+        if (!resolvedTournament && memory?.tournamentId) {
+          resolvedTournament = getTournamentById(memory.tournamentId);
+        }
+        if (!resolvedProfile && memory?.profileKey) {
+          resolvedProfile = getParticipantProfileByKey(memory.profileKey, email);
+        }
+        if (!resolvedTournament && resolvedProfile?.latest?.tournament) {
+          resolvedTournament = resolvedProfile.latest.tournament;
+        }
+
+        return {
+          resolvedTournament,
+          resolvedProfile,
+          memory,
+          followup,
+        };
+      }
+
+      function rememberHummingbirdExchange({
+        scope = "overview",
+        query = "",
+        tournament = null,
+        profile = null,
+        response = null,
+      } = {}) {
+        const cleanQuery = String(query || "").trim();
+        if (!cleanQuery) {
+          return;
+        }
+
+        const context = resolveHummingbirdCounselContext({
+          scope,
+          query: cleanQuery,
+          tournament,
+          profile,
+          email: session.userEmail,
+        });
+        const resolved =
+          response ||
+          getHummingbirdCounselResponse({
+            scope,
+            query: cleanQuery,
+            tournament: context.resolvedTournament,
+            profile: context.resolvedProfile,
+          });
+
+        const entry = normalizeAssistantHistoryEntry({
+          scope,
+          query: cleanQuery,
+          title: resolved?.title || "",
+          note: resolved?.note || resolved?.body || "",
+          category: getHummingbirdCounselPromptCategory(cleanQuery, scope),
+          tournamentId: context.resolvedTournament?.id || "",
+          profileKey: context.resolvedProfile?.identityKey || "",
+          at: timestamp(),
+        });
+        if (!entry) {
+          return;
+        }
+
+        const history = normalizeAssistantHistory(session.assistantHistory || []).filter(
+          (existing) =>
+            !(
+              existing.scope === entry.scope &&
+              existing.query === entry.query &&
+              existing.tournamentId === entry.tournamentId &&
+              existing.profileKey === entry.profileKey
+            ),
+        );
+        session.assistantHistory = normalizeAssistantHistory([entry, ...history]);
       }
 
       function normalizePeopleDirectoryFilter(value = "") {
@@ -2783,9 +2963,172 @@
         return getWorkspaceSmartInsights()[0] || null;
       }
 
+      function getHummingbirdCounselActionPlan({
+        scope = "overview",
+        tournament = null,
+        profile = null,
+      } = {}) {
+        const steps = [];
+
+        if (tournament) {
+          const snapshot = getTournamentOpsSnapshot(tournament);
+          if (!snapshot.teams && !snapshot.speakers) {
+            steps.push("Finish the roster first so every later workflow has real participants to act on.");
+          }
+          if (!snapshot.judges) {
+            steps.push("Add judges before trusting pairings or release decisions.");
+          }
+          if (snapshot.conflictFlags) {
+            steps.push("Review the flagged draw rooms before the next public release.");
+          }
+          if (snapshot.pendingBallotRooms) {
+            steps.push("Collect the remaining official ballots before locking results or break decisions.");
+          }
+          if (snapshot.draftRooms && snapshot.nextDraftRound) {
+            steps.push("Review and release Round " + snapshot.nextDraftRound + " once the room list is clean.");
+          }
+          if (!steps.length) {
+            steps.push("Keep working inside the focused tournament sections instead of hopping back to the wider dashboard.");
+          }
+          return steps.slice(0, 3);
+        }
+
+        if (profile) {
+          if (!profile.history?.length) {
+            steps.push("Keep this account in directory mode until tournament history starts to accumulate.");
+          } else {
+            steps.push("Use this profile as the single source of truth for this person’s tournament history.");
+          }
+          if (profile.latest?.tournament) {
+            steps.push("Open the current tournament only when you need to act on this person inside the live event.");
+          }
+          if ((profile.history || []).some((entry) => entry.feedbackEntries?.length)) {
+            steps.push("Read the written feedback before making decisions about performance or role changes.");
+          }
+          return steps.slice(0, 3);
+        }
+
+        if (scope === "people") {
+          const insights = getPeopleSmartInsights();
+          return insights
+            .map((item) => String(item.support || item.body || item.title || "").trim())
+            .filter(Boolean)
+            .slice(0, 3);
+        }
+
+        if (scope === "regional") {
+          const insights = getRegionalOperationsSmartInsights();
+          return insights
+            .map((item) => String(item.support || item.body || item.title || "").trim())
+            .filter(Boolean)
+            .slice(0, 3);
+        }
+
+        const insights = getWorkspaceSmartInsights();
+        return insights
+          .map((item) => String(item.support || item.body || item.title || "").trim())
+          .filter(Boolean)
+          .slice(0, 3);
+      }
+
+      function getHummingbirdCounselAnomalySignals({
+        scope = "overview",
+        tournament = null,
+        profile = null,
+      } = {}) {
+        const anomalies = [];
+
+        if (tournament) {
+          const snapshot = getTournamentOpsSnapshot(tournament);
+          if (!snapshot.teams && !snapshot.speakers) {
+            anomalies.push("The roster is still empty, so every later automation is effectively blocked.");
+          }
+          if (!snapshot.judges) {
+            anomalies.push("There is no judge roster yet, which means panels and clashes cannot settle cleanly.");
+          }
+          if (snapshot.conflictFlags) {
+            anomalies.push(
+              snapshot.conflictFlags +
+                " draw conflict" +
+                (snapshot.conflictFlags === 1 ? " is" : "s are") +
+                " still live in the current pairings.",
+            );
+          }
+          if (snapshot.pendingBallotRooms) {
+            anomalies.push(
+              snapshot.pendingBallotRooms +
+                " published room" +
+                (snapshot.pendingBallotRooms === 1 ? " is" : "s are") +
+                " still missing an official ballot.",
+            );
+          }
+          return anomalies.slice(0, 3);
+        }
+
+        if (profile) {
+          if (!profile.history?.length) {
+            anomalies.push("This profile exists, but it does not yet have tournament history behind it.");
+          }
+          if (!profile.bestSpeakerRank) {
+            anomalies.push("Speaker performance is still building, so there is no stable ranking signal yet.");
+          }
+          return anomalies.slice(0, 2);
+        }
+
+        if (scope === "people") {
+          const pending = getPendingEmails().length;
+          const disabled = getPeopleAccountCards().filter((user) => user.active === false).length;
+          if (pending) {
+            anomalies.push(
+              pending +
+                " permission-bearing account" +
+                (pending === 1 ? " is" : "s are") +
+                " still unclaimed.",
+            );
+          }
+          if (disabled) {
+            anomalies.push(
+              disabled +
+                " account" +
+                (disabled === 1 ? " is" : "s are") +
+                " disabled and worth checking for stale permissions.",
+            );
+          }
+          return anomalies.slice(0, 3);
+        }
+
+        if (scope === "regional") {
+          const summary = getRegionalOperationsSummary();
+          if (summary.pendingFundingRequests) {
+            anomalies.push(
+              summary.pendingFundingRequests +
+                " stipend request" +
+                (summary.pendingFundingRequests === 1 ? " is" : "s are") +
+                " still waiting on manager review.",
+            );
+          }
+          if (!summary.reports) {
+            anomalies.push("No regional reports are on file yet, so field visibility is still thin.");
+          }
+          return anomalies.slice(0, 3);
+        }
+
+        return getWorkspaceSmartInsights()
+          .map((item) => String(item.body || item.title || "").trim())
+          .filter(Boolean)
+          .slice(0, 3);
+      }
+
       function finalizeHummingbirdCounselResponse(
         draft,
-        { scope = "overview", tournament = null, profile = null, query = "" } = {},
+        {
+          scope = "overview",
+          tournament = null,
+          profile = null,
+          query = "",
+          memory = null,
+          followup = false,
+        } = {},
       ) {
         const response = {
           ...draft,
@@ -2797,6 +3140,36 @@
           tournament,
           profile,
         });
+        const actionPlan = getHummingbirdCounselActionPlan({
+          scope,
+          tournament,
+          profile,
+        });
+        const anomalies = getHummingbirdCounselAnomalySignals({
+          scope,
+          tournament,
+          profile,
+        });
+
+        if (!response.contextLabel && memory && followup) {
+          if (tournament?.name) {
+            response.contextLabel = "Following the live context around " + tournament.name + ".";
+          } else if (profile?.name) {
+            response.contextLabel = "Following the current profile context for " + profile.name + ".";
+          } else if (memory.title) {
+            response.contextLabel = "Following up on: " + memory.title + ".";
+          }
+        }
+
+        if (!response.decision && (leadInsight?.title || actionPlan[0])) {
+          response.decision = actionPlan[0] || leadInsight.title;
+        }
+        if (!response.afterThat && actionPlan[1]) {
+          response.afterThat = actionPlan[1];
+        }
+        if (!response.watch && (anomalies[0] || leadInsight?.body)) {
+          response.watch = anomalies[0] || leadInsight.body;
+        }
 
         if (leadInsight?.title) {
           const priorityLine = "Strongest next move: " + leadInsight.title + ".";
@@ -2805,14 +3178,38 @@
           }
         }
 
+        actionPlan.slice(0, 2).forEach((step, index) => {
+          const label = index === 0 ? "Do now: " : "After that: ";
+          const line = label + step;
+          if (!response.bullets.some((item) => String(item || "").includes(line))) {
+            response.bullets.push(line);
+          }
+        });
+        if (anomalies[0]) {
+          const anomalyLine = "Watch for: " + anomalies[0];
+          if (!response.bullets.some((item) => String(item || "").includes(anomalyLine))) {
+            response.bullets.push(anomalyLine);
+          }
+        }
+        response.bullets = response.bullets.slice(0, 6);
+
         if (intent.wantsDiagnosis && leadInsight?.body) {
           response.note = leadInsight.body;
         } else if (intent.wantsPriority && leadInsight?.title) {
           response.note =
             "If you only do one thing next, make it this: " + leadInsight.title + ".";
+        } else if (intent.wantsAutomation) {
+          response.note =
+            "Hummingbird is treating this like an operations-copilot question, so it is pulling from live queues, focused context, and recent counsel memory before answering.";
         } else if (!response.note) {
           response.note =
             "Hummingbird is reading the live workspace state before answering, so this gets sharper as registrations, ballots, pairings, and reports are recorded.";
+        }
+
+        if (response.contextLabel) {
+          response.note = response.note
+            ? response.note + " " + response.contextLabel
+            : response.contextLabel;
         }
 
         return response;
@@ -3007,14 +3404,18 @@
         profile = null,
       } = {}) {
         const normalizedScope = normalizeAssistantScope(scope);
-        const resolvedTournament =
-          tournament || getReferencedTournamentForCounsel(query, session.userEmail);
-        const resolvedProfile =
-          profile ||
-          getReferencedProfileForCounsel(
-            query,
-            session.userEmail,
-          );
+        const {
+          resolvedTournament,
+          resolvedProfile,
+          memory,
+          followup,
+        } = resolveHummingbirdCounselContext({
+          scope: normalizedScope,
+          query,
+          tournament,
+          profile,
+          email: session.userEmail,
+        });
         const category = getHummingbirdCounselPromptCategory(query, normalizedScope);
         const formatCounsel = resolvedTournament
           ? getTournamentFormatCounsel(resolvedTournament)
@@ -3025,6 +3426,8 @@
             tournament: resolvedTournament,
             profile: resolvedProfile,
             query,
+            memory,
+            followup,
           });
         const response = {
           eyebrow: "Hummingbird Counsel",
@@ -3035,6 +3438,10 @@
           note:
             "Hummingbird is strongest when it can read live tournament state, people queues, judging flow, and regional backlog together.",
           actionMarkup: "",
+          contextLabel: "",
+          decision: "",
+          afterThat: "",
+          watch: "",
           sourceIds: getHummingbirdCounselSources({
             scope: normalizedScope,
             tournament: resolvedTournament,
@@ -3510,6 +3917,36 @@
                   </div>
                   <h3>${escapeHtml(response.title || "What the system knows")}</h3>
                   <p class="muted">${escapeHtml(response.body || "")}</p>
+                  ${
+                    response.decision || response.afterThat || response.watch
+                      ? `<div class="counsel-operating-grid">
+                          ${
+                            response.decision
+                              ? `<article class="counsel-operating-card">
+                                  <span class="theme-section-label">Do Now</span>
+                                  <strong>${escapeHtml(response.decision)}</strong>
+                                </article>`
+                              : ""
+                          }
+                          ${
+                            response.afterThat
+                              ? `<article class="counsel-operating-card">
+                                  <span class="theme-section-label">After That</span>
+                                  <strong>${escapeHtml(response.afterThat)}</strong>
+                                </article>`
+                              : ""
+                          }
+                          ${
+                            response.watch
+                              ? `<article class="counsel-operating-card">
+                                  <span class="theme-section-label">Watch</span>
+                                  <strong>${escapeHtml(response.watch)}</strong>
+                                </article>`
+                              : ""
+                          }
+                        </div>`
+                      : ""
+                  }
                   ${
                     response.bullets?.length
                       ? `<ul class="counsel-bullet-list">
@@ -29448,6 +29885,10 @@
           if (action === "apply-hummingbird-prompt") {
             session.assistantScope = normalizeAssistantScope(button.dataset.scope || session.view);
             session.assistantQuery = String(button.dataset.query || "").trim();
+            rememberHummingbirdExchange({
+              scope: session.assistantScope,
+              query: session.assistantQuery,
+            });
             clearFlash();
             saveSession();
             renderApp();
@@ -29586,6 +30027,10 @@
           if (form.dataset.form === "hummingbird-counsel-query") {
             session.assistantScope = normalizeAssistantScope(formData.get("scope") || session.view);
             session.assistantQuery = String(formData.get("query") || "").trim();
+            rememberHummingbirdExchange({
+              scope: session.assistantScope,
+              query: session.assistantQuery,
+            });
             clearFlash();
             saveSession();
             renderApp();
