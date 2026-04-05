@@ -12603,7 +12603,7 @@
                         ${
                           canManage && compact
                             ? `
-                                <a class="secondary-button inline-link" href="${escapeHtml(
+                                <a class="secondary-button inline-link roster-private-link" href="${escapeHtml(
                                   getPrivateLink(participant.token),
                                 )}" target="_blank" rel="noreferrer">Private URL</a>
                                 <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
@@ -18036,13 +18036,13 @@
 
         return `
           <section class="surface participant-profile-shell people-account-profile-shell">
-            <div class="section-heading">
-              <div>
+            <div class="people-account-profile-header">
+              <div class="stack">
                 <p class="eyebrow">People Profile</p>
                 <h2>${escapeHtml(user.name)}</h2>
-                <p class="muted">Open one account at a time, review its access history, and configure it without digging through the directory grid.</p>
+                <p class="muted">Account details, access history, and management controls in one focused view.</p>
               </div>
-              <div class="button-row wrap-row">
+              <div class="button-row wrap-row people-account-profile-actions">
                 <button class="secondary-button" type="button" data-action="clear-people-account-focus">Back To Directory</button>
                 ${
                   linkedProfile
@@ -18055,47 +18055,60 @@
                 }
               </div>
             </div>
-            <div class="stat-grid">
-              <div class="stat-card">
+            <div class="people-account-profile-overview">
+              <article class="people-account-profile-card">
                 <span class="muted">Account status</span>
                 <strong>${escapeHtml(user.active ? "Active" : "Disabled")}</strong>
-              </div>
-              <div class="stat-card">
+              </article>
+              <article class="people-account-profile-card">
                 <span class="muted">Access role</span>
                 <strong>${escapeHtml(visibleRoleLabel)}</strong>
-              </div>
-              <div class="stat-card">
+              </article>
+              <article class="people-account-profile-card">
                 <span class="muted">Tournaments on record</span>
                 <strong>${escapeHtml(historicalTournamentCount)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Joined</span>
-                <strong>${escapeHtml(joinedLabel)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Last login</span>
-                <strong>${escapeHtml(user.lastLoginAt || "Never")}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Created by</span>
-                <strong>${escapeHtml(createdByLabel)}</strong>
-              </div>
-            </div>
-            <div class="people-meta-grid">
-              <span>Email: ${escapeHtml(user.email)}</span>
-              <span>Global role: ${escapeHtml(toTitleLabel(user.globalRole))}</span>
-              <span>Private URL issued: ${escapeHtml(
-                user.privateAccessIssuedAt || user.createdAt || "Unknown",
-              )}</span>
+              </article>
               ${
                 user.regionalRole
-                  ? `<span>${escapeHtml(
-                      toTitleLabel(user.regionalRole) +
-                        " • " +
-                        (user.regionalRegion || "Region pending"),
-                    )}</span>`
+                  ? `
+                    <article class="people-account-profile-card">
+                      <span class="muted">Regional access</span>
+                      <strong>${escapeHtml(
+                        toTitleLabel(user.regionalRole) +
+                          (user.regionalRegion ? " • " + user.regionalRegion : ""),
+                      )}</strong>
+                    </article>
+                  `
                   : ""
               }
+            </div>
+            <div class="people-account-profile-meta-panel">
+              <div class="people-account-profile-meta-grid">
+                <div class="people-account-profile-detail">
+                  <span>Email</span>
+                  <strong>${escapeHtml(user.email)}</strong>
+                </div>
+                <div class="people-account-profile-detail">
+                  <span>Global role</span>
+                  <strong>${escapeHtml(toTitleLabel(user.globalRole))}</strong>
+                </div>
+                <div class="people-account-profile-detail">
+                  <span>Joined</span>
+                  <strong>${escapeHtml(joinedLabel)}</strong>
+                </div>
+                <div class="people-account-profile-detail">
+                  <span>Last login</span>
+                  <strong>${escapeHtml(user.lastLoginAt || "Never")}</strong>
+                </div>
+                <div class="people-account-profile-detail">
+                  <span>Private URL issued</span>
+                  <strong>${escapeHtml(user.privateAccessIssuedAt || user.createdAt || "Unknown")}</strong>
+                </div>
+                <div class="people-account-profile-detail">
+                  <span>Created by</span>
+                  <strong>${escapeHtml(createdByLabel)}</strong>
+                </div>
+              </div>
             </div>
             ${
               canAccessGlobalSettings() && !isManagerUser
