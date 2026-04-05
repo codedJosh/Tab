@@ -14147,76 +14147,82 @@
                               </div>
                             </summary>
                             <div class="registration-speaker-card-compact-body">
-                              <div class="workspace-chip-row">
-                                <span class="role-pill">${escapeHtml(teamLabel)}</span>
-                                <span class="mini-pill ${latestFeedback ? "warning" : "success"}">${escapeHtml(
-                                  compactFeedbackLabel,
-                                )}</span>
+                              <div class="registration-speaker-card-compact-layout">
+                                <div class="registration-speaker-card-compact-meta">
+                                  <div class="workspace-chip-row">
+                                    <span class="role-pill">${escapeHtml(teamLabel)}</span>
+                                    <span class="mini-pill ${latestFeedback ? "warning" : "success"}">${escapeHtml(
+                                      compactFeedbackLabel,
+                                    )}</span>
+                                  </div>
+                                  <p class="fine-print registration-speaker-card-email">${escapeHtml(
+                                    participant.email,
+                                  )}</p>
+                                  ${
+                                    participant.institution
+                                      ? `<p class="fine-print registration-speaker-card-summary">${escapeHtml(
+                                          participant.institution,
+                                        )}</p>`
+                                      : ""
+                                  }
+                                  ${
+                                    latestFeedback
+                                      ? `<p class="fine-print registration-speaker-card-feedback-note">${escapeHtml(
+                                          latestFeedback.note ||
+                                            "Latest feedback is ready in the participant history.",
+                                        )}</p>`
+                                      : ""
+                                  }
+                                </div>
+                                <div class="registration-speaker-card-compact-controls">
+                                  <div class="button-row registration-speaker-card-actions">
+                                    ${renderParticipantProfileButton(participant, "History")}
+                                    ${renderTournamentNavigationButton(tournament, "Tournament", true)}
+                                    ${
+                                      canManage
+                                        ? `
+                                            <a class="secondary-button inline-link roster-private-link" href="${escapeHtml(
+                                              getPrivateLink(participant.token),
+                                            )}" target="_blank" rel="noreferrer">Private URL</a>
+                                            <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
+                                              tournament.id,
+                                            )}" data-participant-id="${escapeHtml(participant.id)}">Rotate</button>
+                                            <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
+                                              tournament.id,
+                                            )}" data-participant-id="${escapeHtml(participant.id)}">Remove</button>
+                                          `
+                                        : ""
+                                    }
+                                  </div>
+                                  ${
+                                    canSanction
+                                      ? `<details class="registration-speaker-card-footnote compact-card-disclosure">
+                                          <summary>Sanctions</summary>
+                                          <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
+                                            tournament.id,
+                                          )}" data-participant-id="${escapeHtml(participant.id)}">
+                                            <div class="field-grid two">
+                                              <label>
+                                                Sanction
+                                                <select name="level">
+                                                  <option value="Notice">Notice</option>
+                                                  <option value="Warning">Warning</option>
+                                                  <option value="Penalty">Penalty</option>
+                                                  <option value="Removal">Removal</option>
+                                                </select>
+                                              </label>
+                                              <label>
+                                                Note
+                                                <input type="text" name="note" placeholder="Brief reason" required />
+                                              </label>
+                                            </div>
+                                            <button class="secondary-button" type="submit">Save</button>
+                                          </form>
+                                        </details>`
+                                      : ""
+                                  }
+                                </div>
                               </div>
-                              <p class="fine-print registration-speaker-card-email">${escapeHtml(
-                                participant.email,
-                              )}</p>
-                              ${
-                                participant.institution
-                                  ? `<p class="fine-print registration-speaker-card-summary">${escapeHtml(
-                                      participant.institution,
-                                    )}</p>`
-                                  : ""
-                              }
-                              ${
-                                latestFeedback
-                                  ? `<p class="fine-print registration-speaker-card-feedback-note">${escapeHtml(
-                                      latestFeedback.note ||
-                                        "Latest feedback is ready in the participant history.",
-                                    )}</p>`
-                                  : ""
-                              }
-                              <div class="button-row registration-speaker-card-actions">
-                                ${renderParticipantProfileButton(participant, "History")}
-                                ${renderTournamentNavigationButton(tournament, "Tournament", true)}
-                                ${
-                                  canManage
-                                    ? `
-                                        <a class="secondary-button inline-link roster-private-link" href="${escapeHtml(
-                                          getPrivateLink(participant.token),
-                                        )}" target="_blank" rel="noreferrer">Private URL</a>
-                                        <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
-                                          tournament.id,
-                                        )}" data-participant-id="${escapeHtml(participant.id)}">Rotate</button>
-                                        <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
-                                          tournament.id,
-                                        )}" data-participant-id="${escapeHtml(participant.id)}">Remove</button>
-                                      `
-                                    : ""
-                                }
-                              </div>
-                              ${
-                                canSanction
-                                  ? `<details class="registration-speaker-card-footnote compact-card-disclosure">
-                                      <summary>Sanctions</summary>
-                                      <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
-                                        tournament.id,
-                                      )}" data-participant-id="${escapeHtml(participant.id)}">
-                                        <div class="field-grid two">
-                                          <label>
-                                            Sanction
-                                            <select name="level">
-                                              <option value="Notice">Notice</option>
-                                              <option value="Warning">Warning</option>
-                                              <option value="Penalty">Penalty</option>
-                                              <option value="Removal">Removal</option>
-                                            </select>
-                                          </label>
-                                          <label>
-                                            Note
-                                            <input type="text" name="note" placeholder="Brief reason" required />
-                                          </label>
-                                        </div>
-                                        <button class="secondary-button" type="submit">Save</button>
-                                      </form>
-                                    </details>`
-                                  : ""
-                              }
                             </div>
                           </details>
                         `
