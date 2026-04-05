@@ -14944,6 +14944,13 @@
         const snapshot = getTournamentOpsSnapshot(tournament);
         const teamCount = getTournamentTeams(tournament).length;
         const judgeCount = snapshot.judges || 0;
+        const metadataBits = [
+          tournament.code,
+          access,
+          canManage && snapshot.attentionCount
+            ? snapshot.attentionCount + " watchpoint" + (snapshot.attentionCount === 1 ? "" : "s")
+            : "",
+        ].filter(Boolean);
         const latestPublicDraw = (tournament.draw || [])
           .filter((entry) => String(entry.status || "").trim().toLowerCase() === "published")
           .sort((left, right) => Number(right.round || 0) - Number(left.round || 0))[0] || null;
@@ -14962,6 +14969,7 @@
                 <p class="eyebrow">Tournament</p>
                 <strong>${escapeHtml(tournament.name)}</strong>
                 <p class="muted">${escapeHtml(getFormatLabel(tournament))}</p>
+                <p class="tournament-switch-meta-line">${escapeHtml(metadataBits.join(" • "))}</p>
               </div>
               <div class="button-row wrap-row compact-end-row">
                 <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
@@ -14975,17 +14983,6 @@
                     : ""
                 }
               </div>
-            </div>
-            <div class="tournament-switch-meta">
-              <span class="role-pill">${escapeHtml(tournament.code)}</span>
-              <span class="mini-pill success">${escapeHtml(access)}</span>
-              ${
-                canManage && snapshot.attentionCount
-                  ? `<span class="mini-pill warning">${escapeHtml(
-                      snapshot.attentionCount + " watchpoint" + (snapshot.attentionCount === 1 ? "" : "s"),
-                    )}</span>`
-                  : ""
-              }
             </div>
             <div class="tournament-switch-stats">
               <div class="tournament-switch-stat">
