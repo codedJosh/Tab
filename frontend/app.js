@@ -12603,7 +12603,7 @@
                         ${
                           canManage && compact
                             ? `
-                                <a class="inline-link" href="${escapeHtml(
+                                <a class="secondary-button inline-link" href="${escapeHtml(
                                   getPrivateLink(participant.token),
                                 )}" target="_blank" rel="noreferrer">Private URL</a>
                                 <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
@@ -13961,7 +13961,7 @@
                   }
                   ${
                     participant
-                      ? `<a class="inline-link" href="${escapeHtml(
+                      ? `<a class="secondary-button inline-link" href="${escapeHtml(
                           getPrivateLink(participant.token),
                         )}" target="_blank" rel="noreferrer">Open Private Tab</a>`
                       : ""
@@ -19213,7 +19213,7 @@
         const copyLabel = String(options.copyLabel || "Copy Email").trim() || "Copy Email";
 
         return `
-          <a class="inline-link" href="${escapeHtml(getParticipantContactMailtoHref(profile))}">${escapeHtml(
+          <a class="secondary-button inline-link" href="${escapeHtml(getParticipantContactMailtoHref(profile))}">${escapeHtml(
             emailLabel,
           )}</a>
           <button class="secondary-button" type="button" data-action="copy-participant-email" data-email="${escapeHtml(
