@@ -3850,8 +3850,10 @@
         profile = null,
         title = "Hummingbird Counsel",
         intro = "Ask the system what it knows about the current state, the format, and the next operational move.",
+        variant = "compact",
       } = {}) {
         const normalizedScope = normalizeAssistantScope(scope);
+        const fullVariant = variant === "full";
         const query =
           normalizeAssistantScope(session.assistantScope) === normalizedScope
             ? String(session.assistantQuery || "").trim()
@@ -3872,6 +3874,90 @@
           tournament,
           profile,
         });
+        const openCounselButton = `<button class="secondary-button" type="button" data-action="set-view" data-view="counsel">Open Counsel</button>`;
+
+        if (!fullVariant) {
+          return `
+            <section class="surface spotlight-shell counsel-shell is-compact">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Hummingbird Counsel</p>
+                  <h3>${escapeHtml(title)}</h3>
+                  <p class="muted">${escapeHtml(intro)}</p>
+                </div>
+                <div class="button-row wrap-row">
+                  ${openCounselButton}
+                </div>
+              </div>
+              <form class="counsel-query-form is-compact" data-form="hummingbird-counsel-query">
+                <input type="hidden" name="scope" value="${escapeHtml(normalizedScope)}" />
+                <label class="workspace-search-field">
+                  Ask Hummingbird
+                  <input
+                    type="search"
+                    name="query"
+                    value="${escapeHtml(query)}"
+                    autocomplete="off"
+                    placeholder="Ask about the next move, a problem, or this specific context"
+                  />
+                </label>
+                <div class="button-row wrap-row">
+                  <button type="submit">Ask</button>
+                  ${
+                    query
+                      ? `<button class="secondary-button" type="button" data-action="clear-hummingbird-query" data-scope="${escapeHtml(
+                          normalizedScope,
+                        )}">Clear</button>`
+                      : ""
+                  }
+                </div>
+              </form>
+              <article class="spotlight-card counsel-response-card is-compact">
+                <div class="smart-insight-card-top">
+                  <p class="eyebrow">${escapeHtml(response.eyebrow || "Hummingbird Counsel")}</p>
+                  <span class="mini-pill success">${escapeHtml(
+                    query ? "Prompted" : "Proactive",
+                  )}</span>
+                </div>
+                <h3>${escapeHtml(response.title || "What the system knows")}</h3>
+                ${
+                  response.decision
+                    ? `<p class="muted"><strong>${escapeHtml(
+                        "Do now:"
+                      )}</strong> ${escapeHtml(response.decision)}</p>`
+                    : `<p class="muted">${escapeHtml(response.body || "")}</p>`
+                }
+                ${
+                  response.watch
+                    ? `<p class="fine-print">${escapeHtml("Watch: " + response.watch)}</p>`
+                    : response.note
+                      ? `<p class="fine-print">${escapeHtml(response.note)}</p>`
+                      : ""
+                }
+                ${
+                  prompts.length
+                    ? `<div class="button-row wrap-row">
+                        ${prompts
+                          .slice(0, 3)
+                          .map(
+                            (prompt) => `
+                              <button
+                                class="secondary-button search-suggestion-chip"
+                                type="button"
+                                data-action="apply-hummingbird-prompt"
+                                data-scope="${escapeHtml(normalizedScope)}"
+                                data-query="${escapeHtml(prompt)}"
+                              >${escapeHtml(prompt)}</button>
+                            `,
+                          )
+                          .join("")}
+                      </div>`
+                    : ""
+                }
+              </article>
+            </section>
+          `;
+        }
 
         return `
           <section class="surface spotlight-shell counsel-shell">
@@ -4138,6 +4224,11 @@
               count: "Find",
             },
             {
+              key: "counsel",
+              label: "Counsel",
+              count: "AI",
+            },
+            {
               key: "links",
               label: "Access Links",
               count: 1,
@@ -4171,6 +4262,11 @@
               key: "search",
               label: "Search",
               count: "Find",
+            },
+            {
+              key: "counsel",
+              label: "Counsel",
+              count: "AI",
             },
             {
               key: "tournaments",
@@ -4208,6 +4304,8 @@
         if (capabilities.canViewSearch) {
           items.push({ key: "search", label: "Search", count: "Find" });
         }
+
+        items.push({ key: "counsel", label: "Counsel", count: "AI" });
 
         if (capabilities.canViewRegionalOperations) {
           items.push({ key: "regional", label: "Regional Ops", count: "Portal" });
@@ -14467,6 +14565,8 @@
                                   ? "Create and stage new events"
                                 : item.key === "search"
                                   ? "Profiles and history"
+                                  : item.key === "counsel"
+                                    ? "Ask Hummingbird"
                                   : item.key === "judging"
                                     ? "Assigned ballots"
                                     : item.key === "people"
@@ -22230,6 +22330,8 @@
             "Launcher is reserved for creating and staging new tournaments so the active tournament workspace stays leaner.",
           search:
             "Search links together tournaments, people, teams, institutions, and accounts so you can move through the system without getting stuck.",
+          counsel:
+            "Counsel gives Hummingbird its own focused workspace so you can ask for strategy, diagnosis, and next actions without crowding the rest of the app.",
           regional:
             "Regional Operations keeps coordinator accounts, biweekly reports, and stipend requests together in one durable shared portal.",
           judging:
@@ -23644,6 +23746,61 @@
         `;
       }
 
+      function renderCounselView() {
+        const profile = getCurrentParticipantProfileForCounsel();
+        const tournament = getCurrentTournamentForCounsel();
+        const preferredScope = normalizeAssistantScope(session.assistantScope || "overview");
+        const scope = profile
+          ? "profile"
+          : tournament
+            ? "tournament"
+            : ["people", "regional", "judging", "search", "settings"].includes(preferredScope)
+              ? preferredScope
+              : "overview";
+        const title = profile
+          ? profile.name + " counsel"
+          : tournament
+            ? (tournament.code || tournament.name) + " counsel"
+            : "Hummingbird counsel workspace";
+        const intro = profile
+          ? "Ask Hummingbird to read this person’s profile, tournament history, and next likely action without leaving the focused profile context."
+          : tournament
+            ? "Ask Hummingbird for tournament strategy, anomaly diagnosis, break guidance, judging priorities, or the next operational move."
+            : "Use this dedicated space when you want the full Hummingbird operating read without the rest of the page competing for attention.";
+
+        return `
+          <section class="surface counsel-page-shell">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Counsel Workspace</p>
+                <h2>${escapeHtml(title)}</h2>
+                <p class="muted">${escapeHtml(intro)}</p>
+              </div>
+              <div class="button-row wrap-row">
+                ${
+                  tournament
+                    ? renderTournamentNavigationButton(tournament, "Open Current Tournament", true)
+                    : `<button class="secondary-button" type="button" data-action="set-view" data-view="overview">Back To Overview</button>`
+                }
+                ${
+                  profile
+                    ? `<button class="secondary-button" type="button" data-action="clear-participant-profile">Close Profile Context</button>`
+                    : ""
+                }
+              </div>
+            </div>
+            ${renderHummingbirdCounselSection({
+              scope,
+              tournament,
+              profile,
+              title,
+              intro,
+              variant: "full",
+            })}
+          </section>
+        `;
+      }
+
       function renderSettingsView() {
         const settingsLocked = !canAccessGlobalSettings();
         const settings = state.appSettings;
@@ -23987,6 +24144,8 @@
               ? renderRegionalOperationsView()
             : currentView === "search"
               ? renderSearchView()
+            : currentView === "counsel"
+              ? renderCounselView()
             : currentView === "judging"
               ? renderJudgingView()
             : currentView === "people"

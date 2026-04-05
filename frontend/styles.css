@@ -3149,11 +3149,31 @@
         gap: 14px;
       }
 
+      .counsel-shell.is-compact {
+        gap: 12px;
+        padding: 16px 18px;
+      }
+
       .counsel-grid {
         display: grid;
         gap: 14px;
         grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr);
         align-items: start;
+      }
+
+      .counsel-shell.is-compact .section-heading {
+        align-items: start;
+        gap: 12px;
+      }
+
+      .counsel-shell.is-compact .section-heading h3 {
+        margin: 0;
+        font-size: 1.24rem;
+        line-height: 1.15;
+      }
+
+      .counsel-shell.is-compact .workspace-search-field {
+        gap: 8px;
       }
 
       .counsel-main,
@@ -3168,6 +3188,16 @@
       .counsel-response-card {
         align-content: start;
         min-height: 0;
+      }
+
+      .counsel-response-card.is-compact {
+        gap: 10px;
+        padding: 16px 18px;
+      }
+
+      .counsel-page-shell {
+        display: grid;
+        gap: 16px;
       }
 
       .counsel-operating-grid {
