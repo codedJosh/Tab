@@ -15606,29 +15606,29 @@
                 <span class="role-pill">${escapeHtml(tournament.participants.length)} participants</span>
               </summary>
               <div class="details-content">
-                <div class="flat-panel">
-                  <div class="section-heading">
-                    <div>
+                <div class="flat-panel tournament-viewer-hero">
+                  <div class="tournament-viewer-hero-main">
+                    <div class="tournament-viewer-hero-copy">
                       <h3>${escapeHtml(getFormatLabel(tournament))}</h3>
                       <p class="muted">${escapeHtml(formatDescription)}</p>
-                      <p class="fine-print">${escapeHtml(structureSummary)} • ${escapeHtml(
-                        scoringExtras,
-                      )}</p>
                     </div>
-                    <div class="chip-row">
-                      <span class="mini-pill ${tournament.publication.showPublicStandings ? "success" : "warning"}">${escapeHtml(
-                        tournament.publication.showPublicStandings ? "Standings Public" : "Standings Private",
-                      )}</span>
-                      <span class="mini-pill ${tournament.publication.showPublicDraw ? "success" : "warning"}">${escapeHtml(
-                        tournament.publication.showPublicDraw ? "Draw Public" : "Draw Private",
-                      )}</span>
-                    </div>
+                    <p class="fine-print tournament-viewer-hero-structure">${escapeHtml(
+                      structureSummary + " • " + scoringExtras,
+                    )}</p>
+                  </div>
+                  <div class="tournament-viewer-hero-side">
+                    <span class="mini-pill ${tournament.publication.showPublicStandings ? "success" : "warning"}">${escapeHtml(
+                      tournament.publication.showPublicStandings ? "Standings Public" : "Standings Private",
+                    )}</span>
+                    <span class="mini-pill ${tournament.publication.showPublicDraw ? "success" : "warning"}">${escapeHtml(
+                      tournament.publication.showPublicDraw ? "Draw Public" : "Draw Private",
+                    )}</span>
                   </div>
                   ${
                     tournament.announcement
-                      ? `<p class="muted">${escapeHtml(tournament.announcement)}</p>`
+                      ? `<p class="muted tournament-viewer-hero-note">${escapeHtml(tournament.announcement)}</p>`
                       : tournament.notes
-                        ? `<p class="muted">${escapeHtml(tournament.notes)}</p>`
+                        ? `<p class="muted tournament-viewer-hero-note">${escapeHtml(tournament.notes)}</p>`
                         : ""
                   }
                 </div>
@@ -15665,35 +15665,35 @@
               <span class="role-pill">${escapeHtml(tournament.participants.length)} participants</span>
             </summary>
             <div class="details-content">
-              <div class="flat-panel">
-                <div class="section-heading">
-                  <div>
+              <div class="flat-panel tournament-viewer-hero">
+                <div class="tournament-viewer-hero-main">
+                  <div class="tournament-viewer-hero-copy">
                     <h3>${escapeHtml(getFormatLabel(tournament))}</h3>
                     <p class="muted">${escapeHtml(formatDescription)}</p>
-                    <p class="fine-print">${escapeHtml(structureSummary)} • ${escapeHtml(
-                      scoringExtras,
-                    )}</p>
                   </div>
-                  <div class="chip-row">
-                    <span class="mini-pill ${tournament.publication.showPublicStandings ? "success" : "warning"}">Standings ${escapeHtml(
-                      tournament.publication.showPublicStandings ? "public" : "private",
-                    )}</span>
-                    <span class="mini-pill ${tournament.publication.showPublicDraw ? "success" : "warning"}">Draw ${escapeHtml(
-                      tournament.publication.showPublicDraw ? "public" : "private",
-                    )}</span>
-                    <span class="mini-pill ${tournament.publication.dashboardListed ? "success" : "warning"}">Menu ${escapeHtml(
-                      tournament.publication.dashboardListed ? "listed" : "hidden",
-                    )}</span>
-                  </div>
+                  <p class="fine-print tournament-viewer-hero-structure">${escapeHtml(
+                    structureSummary + " • " + scoringExtras,
+                  )}</p>
+                </div>
+                <div class="tournament-viewer-hero-side">
+                  <span class="mini-pill ${tournament.publication.showPublicStandings ? "success" : "warning"}">Standings ${escapeHtml(
+                    tournament.publication.showPublicStandings ? "public" : "private",
+                  )}</span>
+                  <span class="mini-pill ${tournament.publication.showPublicDraw ? "success" : "warning"}">Draw ${escapeHtml(
+                    tournament.publication.showPublicDraw ? "public" : "private",
+                  )}</span>
+                  <span class="mini-pill ${tournament.publication.dashboardListed ? "success" : "warning"}">Menu ${escapeHtml(
+                    tournament.publication.dashboardListed ? "listed" : "hidden",
+                  )}</span>
                 </div>
                 ${
                   tournament.notes
-                    ? `<p class="muted">${escapeHtml(tournament.notes)}</p>`
+                    ? `<p class="muted tournament-viewer-hero-note">${escapeHtml(tournament.notes)}</p>`
                     : ""
                 }
                 ${
                   tournament.announcement
-                    ? `<p class="muted">${escapeHtml(tournament.announcement)}</p>`
+                    ? `<p class="muted tournament-viewer-hero-note">${escapeHtml(tournament.announcement)}</p>`
                     : ""
                 }
               </div>
