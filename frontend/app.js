@@ -20227,18 +20227,26 @@
         }
 
         const currentView = normalizeWorkspaceView();
+        const focusedParticipantProfile =
+          currentView === "search" && session.selectedParticipantKey
+            ? getParticipantProfileByKey(session.selectedParticipantKey, session.userEmail)
+            : null;
         if (session.view !== currentView) {
           session.view = currentView;
         }
 
         const navItems = getWorkspaceNavItems();
-        const currentNavItem =
-          navItems.find((item) => item.key === currentView) || navItems[0] || {
-            key: "overview",
-            label: "Workspace",
-          };
-        const showOverviewBand = currentView !== "overview";
-        const showWorkspaceSearch = currentView !== "overview";
+        const currentNavItem = focusedParticipantProfile
+          ? {
+              key: "profile",
+              label: "Profile",
+            }
+          : navItems.find((item) => item.key === currentView) || navItems[0] || {
+              key: "overview",
+              label: "Workspace",
+            };
+        const showOverviewBand = currentView !== "overview" && !focusedParticipantProfile;
+        const showWorkspaceSearch = currentView !== "overview" && !focusedParticipantProfile;
 
         const viewMarkup =
           currentView === "overview"
@@ -20270,7 +20278,9 @@
                   ${renderBrandLockup({
                     kicker: "JADE Hummingbird Workspace",
                     size: "compact",
-                    subtitle:
+                    subtitle: focusedParticipantProfile
+                      ? "A focused profile view for one person at a time, without the surrounding search clutter."
+                      :
                       capabilities.regionalPortalMode
                         ? "A dedicated regional workspace for coordinator accounts, field reporting, and stipend oversight."
                         : capabilities.canManageAny
@@ -20282,10 +20292,21 @@
                   <div class="topbar">
                     <div>
                       <p class="eyebrow">${escapeHtml(currentNavItem.label)}</p>
-                      <h1>${escapeHtml(currentNavItem.label)}</h1>
+                      <h1>${escapeHtml(
+                        focusedParticipantProfile ? focusedParticipantProfile.name : currentNavItem.label,
+                      )}</h1>
                       <p class="workspace-view-note">${escapeHtml(
-                        getWorkspaceViewSupportText(currentNavItem.key, session.userEmail),
+                        focusedParticipantProfile
+                          ? "This profile is isolated here so you can review one person’s tournament history and performance without scrolling through the search directory."
+                          : getWorkspaceViewSupportText(currentNavItem.key, session.userEmail),
                       )}</p>
+                      ${
+                        focusedParticipantProfile
+                          ? `<div class="button-row wrap-row">
+                              <button class="secondary-button" type="button" data-action="clear-participant-profile">Back To Profile Directory</button>
+                            </div>`
+                          : ""
+                      }
                     </div>
                   </div>
                   ${showOverviewBand ? renderWorkspaceStatusBand(currentNavItem, session.userEmail) : ""}
@@ -25985,6 +26006,7 @@
             session.selectedParticipantKey = "";
             clearFlash();
             saveSession();
+            pendingViewportReset = true;
             renderApp();
             return;
           }
