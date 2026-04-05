@@ -2261,13 +2261,13 @@
       }
 
       .roster-speaker-layout .registration-speaker-card {
-        grid-template-columns: minmax(0, 1.45fr) minmax(200px, 0.95fr);
+        grid-template-columns: minmax(0, 1.25fr) minmax(190px, 0.9fr);
         grid-template-areas:
           "primary side"
-          "feedback admin"
+          "admin admin"
           "foot foot";
         align-items: start;
-        gap: 6px 10px;
+        gap: 8px 12px;
         padding: 10px 11px;
         border-radius: 12px;
       }
@@ -2280,6 +2280,7 @@
       .roster-speaker-layout .registration-speaker-card-side {
         grid-area: side;
         justify-items: end;
+        align-content: start;
         text-align: right;
       }
 
@@ -2302,7 +2303,7 @@
       }
 
       .roster-speaker-layout .registration-speaker-card .section-heading strong {
-        font-size: 1rem;
+        font-size: 1.02rem;
       }
 
       .roster-speaker-layout .registration-speaker-card .muted,
@@ -2312,13 +2313,24 @@
         line-height: 1.28;
       }
 
+      .registration-speaker-card-email {
+        margin: 0;
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+
+      .registration-speaker-card-email strong {
+        font-weight: 800;
+      }
+
       .roster-speaker-layout .registration-speaker-card .workspace-chip-row,
       .roster-speaker-layout .registration-speaker-card .button-row {
         gap: 4px;
       }
 
-      .roster-speaker-layout .registration-speaker-card .button-row {
-        justify-content: flex-end;
+      .roster-speaker-layout .registration-speaker-card-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
       }
 
       .roster-speaker-layout .registration-speaker-card .role-pill,
@@ -2337,6 +2349,11 @@
 
       .roster-speaker-layout .registration-speaker-card .token-link {
         overflow-wrap: anywhere;
+      }
+
+      .roster-speaker-layout .registration-speaker-card-summary,
+      .roster-speaker-layout .registration-speaker-card-feedback-note {
+        margin: 0;
       }
 
       .compact-card-disclosure {
@@ -5679,7 +5696,6 @@
           grid-template-areas:
             "primary"
             "side"
-            "feedback"
             "admin"
             "foot";
         }

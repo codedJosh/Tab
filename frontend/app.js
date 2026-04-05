@@ -12445,20 +12445,36 @@
                 const summaryText = canSeeScores
                   ? getParticipantSummaryText(tournament, participant)
                   : teamLabel;
+                const compactSummaryText =
+                  teamLabel + (participant.institution ? " • " + participant.institution : "");
                 return `
                   <div class="directory-card registration-speaker-card ${compact ? "compact" : ""}">
                     <div class="registration-speaker-card-primary">
                       <div class="section-heading">
                         <strong>${escapeHtml(participant.name)}</strong>
-                        <span class="mini-pill success">${escapeHtml(
-                          canSeeScores ? formatScoreValue(computedSpeakerScore) + " speaker pts" : "Private",
-                        )}</span>
+                        ${
+                          compact
+                            ? ""
+                            : `<span class="mini-pill success">${escapeHtml(
+                                canSeeScores
+                                  ? formatScoreValue(computedSpeakerScore) + " speaker pts"
+                                  : "Private",
+                              )}</span>`
+                        }
                       </div>
-                      <p class="muted">${escapeHtml(participant.email)}</p>
+                      <p class="fine-print registration-speaker-card-email"><strong>${escapeHtml(
+                        participant.email,
+                      )}</strong></p>
                       <p class="fine-print registration-speaker-card-summary">${escapeHtml(
-                        summaryText +
-                          (participant.institution ? " • " + participant.institution : ""),
+                        compact ? compactSummaryText : summaryText + (participant.institution ? " • " + participant.institution : ""),
                       )}</p>
+                      ${
+                        compact && latestFeedback
+                          ? `<p class="fine-print registration-speaker-card-feedback-note">${escapeHtml(
+                              "Latest feedback • " + getFeedbackTotalScore(latestFeedback),
+                            )}</p>`
+                          : ""
+                      }
                       ${
                         canSeeScores && speakerStanding && !compact
                           ? `<p class="fine-print">Speaker rank #${escapeHtml(
@@ -12476,15 +12492,10 @@
                               ? " feedback entry"
                               : " feedback entries"),
                         )}</span>
-                        ${
-                          canSeeScores && speakerStanding && compact
-                            ? `<span class="mini-pill success">${escapeHtml(
-                                "Rank #" + speakerStanding.speakerRank,
-                              )}</span>`
-                            : ""
-                        }
                       </div>
-                      <div class="button-row">
+                    </div>
+                    <div class="registration-speaker-card-admin">
+                      <div class="button-row registration-speaker-card-actions">
                         ${renderParticipantProfileButton(
                           participant,
                           compact ? "History" : "Open History",
@@ -12494,44 +12505,45 @@
                           compact ? "Tournament" : "Open Tournament",
                           true,
                         )}
+                        ${
+                          canManage && compact
+                            ? `
+                                <a class="inline-link" href="${escapeHtml(
+                                  getPrivateLink(participant.token),
+                                )}" target="_blank" rel="noreferrer">Private URL</a>
+                                <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
+                                  tournament.id,
+                                )}" data-participant-id="${escapeHtml(participant.id)}">Rotate</button>
+                                <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
+                                  tournament.id,
+                                )}" data-participant-id="${escapeHtml(participant.id)}">Remove</button>
+                              `
+                            : ""
+                        }
                       </div>
                     </div>
                     ${
                       canManage
                         ? `
-                          <div class="registration-speaker-card-admin">
-                            ${
-                              compact
-                                ? `<div class="button-row">
-                                    <a class="inline-link" href="${escapeHtml(
-                                      getPrivateLink(participant.token),
-                                    )}" target="_blank" rel="noreferrer">Private URL</a>
-                                    <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
-                                      tournament.id,
-                                    )}" data-participant-id="${escapeHtml(participant.id)}">Rotate</button>
-                                    <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
-                                      tournament.id,
-                                    )}" data-participant-id="${escapeHtml(participant.id)}">Remove</button>
-                                  </div>`
-                                : `<a class="token-link" href="${escapeHtml(
+                          ${
+                            compact
+                              ? ""
+                              : `<div class="registration-speaker-card-admin">
+                                  <a class="token-link" href="${escapeHtml(
                                     getPrivateLink(participant.token),
                                   )}" target="_blank" rel="noreferrer">${escapeHtml(
                                     getPrivateLink(participant.token),
-                                  )}</a>`
-                            }
-                            ${
-                              compact
-                                ? ""
-                                : `<div class="button-row">
+                                  )}</a>
+                                  <div class="button-row">
                                     <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
                                       tournament.id,
                                     )}" data-participant-id="${escapeHtml(participant.id)}">Rotate private link</button>
                                     <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
                                       tournament.id,
                                     )}" data-participant-id="${escapeHtml(participant.id)}">Remove participant</button>
-                                  </div>`
-                            }
-                          </div>
+                                  </div>
+                                </div>`
+                          }
                         `
                         : ""
                     }
@@ -12540,9 +12552,7 @@
                         ? `
                           ${
                             compact
-                              ? `<p class="fine-print registration-speaker-card-feedback">${escapeHtml(
-                                  "Latest feedback • " + getFeedbackTotalScore(latestFeedback),
-                                )}</p>`
+                              ? ""
                               : `<div class="flat-panel registration-speaker-card-feedback">
                                   <div class="section-heading">
                                     <strong>${escapeHtml(latestFeedback.judgeEmail)}</strong>
