@@ -866,6 +866,13 @@
         border-radius: 12px;
       }
 
+      .secondary-button,
+      .ghost-button,
+      .inline-link.secondary-button,
+      .inline-link.ghost-button {
+        border-radius: 999px;
+      }
+
       button,
       a.secondary-button,
       a.ghost-button {
@@ -952,9 +959,10 @@
           0 0 0 6px rgba(31, 106, 78, 0.18);
       }
 
-      .secondary-button,
-      .ghost-button,
-      .inline-link {
+      :is(button, a).secondary-button,
+      :is(button, a).ghost-button,
+      .inline-link.secondary-button,
+      .inline-link.ghost-button {
         background: rgba(255, 255, 255, 0.98);
         color: var(--ink);
         border: 1px solid rgba(18, 63, 47, 0.12);
@@ -963,9 +971,10 @@
         font-weight: var(--weight-strong);
       }
 
-      .secondary-button:hover,
-      .ghost-button:hover,
-      .inline-link:hover {
+      :is(button, a).secondary-button:hover,
+      :is(button, a).ghost-button:hover,
+      .inline-link.secondary-button:hover,
+      .inline-link.ghost-button:hover {
         background: rgba(248, 250, 248, 1);
         color: var(--ink);
         border-color: rgba(18, 63, 47, 0.18);
@@ -973,7 +982,9 @@
       }
 
       a.secondary-button:visited,
-      a.ghost-button:visited {
+      a.ghost-button:visited,
+      a.inline-link.secondary-button:visited,
+      a.inline-link.ghost-button:visited {
         color: var(--ink);
       }
 

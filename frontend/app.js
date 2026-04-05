@@ -13789,7 +13789,7 @@
       function renderAboutView(publicMode = false) {
         const capabilities = publicMode ? null : getWorkspaceCapabilities();
         const primaryAction = publicMode
-          ? `<button type="button" data-action="set-view" data-view="overview">Back To Sign In</button>`
+          ? `<button class="secondary-button" type="button" data-action="set-view" data-view="overview">Back To Sign In</button>`
           : `<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">Open Tournaments</button>`;
 
         return `
@@ -20878,7 +20878,7 @@
                           </label>
                         </div>
                         <p class="fine-print">If the email already belongs to an existing account, this form adds regional access to that same account. Add a password here only if you want to set or reset it.</p>
-                        <button type="submit">Create Or Update Regional Account</button>
+                        <button class="secondary-button" type="submit">Create Or Update Regional Account</button>
                       </form>
                     </section>
                   </div>
