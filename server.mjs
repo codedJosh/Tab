@@ -15,6 +15,25 @@ const DATABASE_URL = String(process.env.DATABASE_URL || "").trim();
 const DATABASE_SSL = String(process.env.DATABASE_SSL || "").trim().toLowerCase();
 const JADE_SESSION_SECRET = String(process.env.JADE_SESSION_SECRET || "").trim();
 const WORKSPACE_ID = String(process.env.JADE_WORKSPACE_ID || "primary").trim() || "primary";
+const WORKSPACE_CONTRACT_VERSION = "2026-04-05-ironclad";
+const REQUIRED_WORKSPACE_ROOT_KEYS = [
+  "workspaceContractVersion",
+  "version",
+  "appSettings",
+  "users",
+  "recoveryRequests",
+  "tournaments",
+  "regionalOperations",
+];
+const REQUIRED_REGIONAL_OPERATIONS_KEYS = ["reports", "transportRequests"];
+const REQUIRED_USER_CONTRACT_KEYS = [
+  "email",
+  "regionalRole",
+  "regionalRegion",
+  "regionalBanking",
+  "registeredTournamentIds",
+  "pinnedTournamentIds",
+];
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const configuredFrontendDir = String(process.env.FRONTEND_DIR || "").trim();
@@ -126,6 +145,112 @@ function nowText() {
 
 function normalizeEmail(value = "") {
   return String(value || "").trim().toLowerCase();
+}
+
+function createWorkspaceContractError(context = "workspace", detail = "") {
+  const error = new Error(
+    "Hummingbird rejected a workspace payload because the live data contract did not match the current system" +
+      (detail ? ": " + detail : "."),
+  );
+  error.statusCode = 409;
+  error.code = "workspace_contract_mismatch";
+  error.context = context;
+  return error;
+}
+
+function assertWorkspaceContract(candidate, context = "workspace", options = {}) {
+  const allowMissingVersion = options.allowMissingVersion === true;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw createWorkspaceContractError(context, "workspace data was not an object");
+  }
+
+  REQUIRED_WORKSPACE_ROOT_KEYS.forEach((key) => {
+    if (allowMissingVersion && key === "workspaceContractVersion") {
+      return;
+    }
+    if (!Object.prototype.hasOwnProperty.call(candidate, key)) {
+      throw createWorkspaceContractError(context, `missing "${key}"`);
+    }
+  });
+
+  const contractVersion = String(candidate.workspaceContractVersion || "").trim();
+  if (
+    (!allowMissingVersion || contractVersion) &&
+    contractVersion !== WORKSPACE_CONTRACT_VERSION
+  ) {
+    throw createWorkspaceContractError(
+      context,
+      `expected contract ${WORKSPACE_CONTRACT_VERSION} but received ${contractVersion || "none"}`,
+    );
+  }
+
+  if (!Array.isArray(candidate.users)) {
+    throw createWorkspaceContractError(context, "users must be an array");
+  }
+  if (!Array.isArray(candidate.tournaments)) {
+    throw createWorkspaceContractError(context, "tournaments must be an array");
+  }
+  if (!Array.isArray(candidate.recoveryRequests)) {
+    throw createWorkspaceContractError(context, "recoveryRequests must be an array");
+  }
+
+  const regionalOperations = candidate.regionalOperations;
+  if (
+    !regionalOperations ||
+    typeof regionalOperations !== "object" ||
+    Array.isArray(regionalOperations)
+  ) {
+    throw createWorkspaceContractError(context, "regional operations state was invalid");
+  }
+
+  REQUIRED_REGIONAL_OPERATIONS_KEYS.forEach((key) => {
+    if (!Array.isArray(regionalOperations[key])) {
+      throw createWorkspaceContractError(
+        context,
+        `regionalOperations.${key} must be an array`,
+      );
+    }
+  });
+
+  const seenEmails = new Set();
+  candidate.users.forEach((user, index) => {
+    if (!user || typeof user !== "object" || Array.isArray(user)) {
+      throw createWorkspaceContractError(context, `user ${index + 1} was invalid`);
+    }
+    REQUIRED_USER_CONTRACT_KEYS.forEach((key) => {
+      if (!Object.prototype.hasOwnProperty.call(user, key)) {
+        throw createWorkspaceContractError(
+          context,
+          `user ${index + 1} is missing "${key}"`,
+        );
+      }
+    });
+    const email = normalizeEmail(user.email);
+    if (!email) {
+      throw createWorkspaceContractError(context, `user ${index + 1} is missing an email`);
+    }
+    if (seenEmails.has(email)) {
+      throw createWorkspaceContractError(context, `duplicate user email "${email}"`);
+    }
+    seenEmails.add(email);
+  });
+
+  const seenTournamentIds = new Set();
+  candidate.tournaments.forEach((tournament, index) => {
+    if (!tournament || typeof tournament !== "object" || Array.isArray(tournament)) {
+      throw createWorkspaceContractError(context, `tournament ${index + 1} was invalid`);
+    }
+    const id = String(tournament.id || "").trim();
+    if (!id) {
+      throw createWorkspaceContractError(context, `tournament ${index + 1} is missing an id`);
+    }
+    if (seenTournamentIds.has(id)) {
+      throw createWorkspaceContractError(context, `duplicate tournament id "${id}"`);
+    }
+    seenTournamentIds.add(id);
+  });
+
+  return candidate;
 }
 
 function normalizeGlobalRole(value = "member") {
@@ -635,12 +760,26 @@ function createJudgeRecord(name, email, institution = "", extras = {}) {
 
 function ensureWorkspaceState(state) {
   const next = state && typeof state === "object" ? clone(state) : {};
+  const incomingContractVersion = String(next.workspaceContractVersion || "").trim();
+  if (
+    incomingContractVersion &&
+    incomingContractVersion !== WORKSPACE_CONTRACT_VERSION
+  ) {
+    throw createWorkspaceContractError(
+      "workspace normalization",
+      `expected contract ${WORKSPACE_CONTRACT_VERSION} but received ${incomingContractVersion}`,
+    );
+  }
+  next.workspaceContractVersion = WORKSPACE_CONTRACT_VERSION;
   next.appSettings = next.appSettings && typeof next.appSettings === "object" ? next.appSettings : {};
   next.users = Array.isArray(next.users) ? next.users.map((user) => normalizeUserRecord(user)) : [];
   next.recoveryRequests = Array.isArray(next.recoveryRequests) ? next.recoveryRequests : [];
   next.tournaments = Array.isArray(next.tournaments) ? next.tournaments : [];
   next.regionalOperations = normalizeRegionalOperationsState(next.regionalOperations || {});
-  return synchronizeUserTournamentHistory(next);
+  return assertWorkspaceContract(
+    synchronizeUserTournamentHistory(next),
+    "workspace normalization",
+  );
 }
 
 function mergeRecordArrays(currentItems = [], incomingItems = [], getKey, mergeRecord) {
@@ -1386,7 +1525,10 @@ function hashSessionToken(token) {
 }
 
 function sendJson(response, statusCode, payload) {
-  response.status(statusCode).json(payload);
+  response.status(statusCode).json({
+    contractVersion: WORKSPACE_CONTRACT_VERSION,
+    ...payload,
+  });
 }
 
 function sendError(response, statusCode, code, message) {
@@ -1726,6 +1868,10 @@ app.post("/api", async (request, response) => {
       const email = normalizeEmail(request.body?.email);
       const password = String(request.body?.password || "");
       const incomingState = request.body?.state;
+
+      assertWorkspaceContract(incomingState, "initialize payload", {
+        allowMissingVersion: true,
+      });
 
       const result = await withTransaction(async (client) => {
         const existingWorkspace = await readWorkspaceRecord(client);
@@ -2163,21 +2309,7 @@ app.post("/api", async (request, response) => {
       const incomingState = request.body?.state;
       const expectedRevision = normalizeWorkspaceRevision(request.body?.expectedRevision);
 
-      if (
-        !incomingState ||
-        typeof incomingState !== "object" ||
-        !Array.isArray(incomingState.users) ||
-        !Array.isArray(incomingState.tournaments) ||
-        !Array.isArray(incomingState.recoveryRequests) ||
-        !incomingState.regionalOperations ||
-        typeof incomingState.regionalOperations !== "object" ||
-        Array.isArray(incomingState.regionalOperations)
-      ) {
-        const error = new Error("The shared workspace payload was incomplete.");
-        error.statusCode = 400;
-        error.code = "invalid_workspace_payload";
-        throw error;
-      }
+      assertWorkspaceContract(incomingState, "persist payload");
 
       const result = await withTransaction(async (client) => {
         const session = await getSession(client, sessionToken);

@@ -58,6 +58,25 @@
         "First Global Bank",
         "VM Building Society",
       ];
+      const WORKSPACE_CONTRACT_VERSION = "2026-04-05-ironclad";
+      const REQUIRED_WORKSPACE_ROOT_KEYS = [
+        "workspaceContractVersion",
+        "version",
+        "appSettings",
+        "users",
+        "recoveryRequests",
+        "tournaments",
+        "regionalOperations",
+      ];
+      const REQUIRED_REGIONAL_OPERATIONS_KEYS = ["reports", "transportRequests"];
+      const REQUIRED_USER_CONTRACT_KEYS = [
+        "email",
+        "regionalRole",
+        "regionalRegion",
+        "regionalBanking",
+        "registeredTournamentIds",
+        "pinnedTournamentIds",
+      ];
       const PASSWORD_HASH_VERSION = "pbkdf2-sha256-v1";
       const PASSWORD_HASH_ITERATIONS = 210000;
       const PASSWORD_SALT_BYTES = 16;
@@ -519,6 +538,8 @@
         initialized: null,
         endpoint: "",
         revision: 0,
+        contractVersion: "",
+        contractMismatch: false,
       };
       let cloudPersistQueue = Promise.resolve();
       let cloudRefreshInFlight = null;
@@ -638,6 +659,108 @@
         return String(value || "").trim().toLowerCase();
       }
 
+      function createWorkspaceContractError(context = "workspace", detail = "") {
+        const error = new Error(
+          "Hummingbird blocked a workspace sync because the live data contract did not match the current system" +
+            (detail ? ": " + detail : "."),
+        );
+        error.code = "workspace_contract_mismatch";
+        error.context = context;
+        return error;
+      }
+
+      function assertWorkspaceContract(candidate, context = "workspace", options = {}) {
+        const requireVersion = options.requireVersion !== false;
+        if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+          throw createWorkspaceContractError(context, "workspace data was not an object");
+        }
+
+        REQUIRED_WORKSPACE_ROOT_KEYS.forEach((key) => {
+          if (!Object.prototype.hasOwnProperty.call(candidate, key)) {
+            throw createWorkspaceContractError(context, `missing "${key}"`);
+          }
+        });
+
+        const contractVersion = String(candidate.workspaceContractVersion || "").trim();
+        if (requireVersion && contractVersion !== WORKSPACE_CONTRACT_VERSION) {
+          throw createWorkspaceContractError(
+            context,
+            `expected contract ${WORKSPACE_CONTRACT_VERSION} but received ${contractVersion || "none"}`,
+          );
+        }
+
+        const regionalOperations = candidate.regionalOperations;
+        if (
+          !regionalOperations ||
+          typeof regionalOperations !== "object" ||
+          Array.isArray(regionalOperations)
+        ) {
+          throw createWorkspaceContractError(context, "regional operations state was invalid");
+        }
+
+        REQUIRED_REGIONAL_OPERATIONS_KEYS.forEach((key) => {
+          if (!Array.isArray(regionalOperations[key])) {
+            throw createWorkspaceContractError(
+              context,
+              `regionalOperations.${key} must be an array`,
+            );
+          }
+        });
+
+        if (!Array.isArray(candidate.users)) {
+          throw createWorkspaceContractError(context, "users must be an array");
+        }
+        if (!Array.isArray(candidate.tournaments)) {
+          throw createWorkspaceContractError(context, "tournaments must be an array");
+        }
+        if (!Array.isArray(candidate.recoveryRequests)) {
+          throw createWorkspaceContractError(context, "recoveryRequests must be an array");
+        }
+
+        const seenEmails = new Set();
+        candidate.users.forEach((user, index) => {
+          if (!user || typeof user !== "object" || Array.isArray(user)) {
+            throw createWorkspaceContractError(context, `user ${index + 1} was invalid`);
+          }
+          REQUIRED_USER_CONTRACT_KEYS.forEach((key) => {
+            if (!Object.prototype.hasOwnProperty.call(user, key)) {
+              throw createWorkspaceContractError(
+                context,
+                `user ${index + 1} is missing "${key}"`,
+              );
+            }
+          });
+          const email = normalizeEmail(user.email);
+          if (!email) {
+            throw createWorkspaceContractError(context, `user ${index + 1} is missing an email`);
+          }
+          if (seenEmails.has(email)) {
+            throw createWorkspaceContractError(context, `duplicate user email "${email}"`);
+          }
+          seenEmails.add(email);
+        });
+
+        const seenTournamentIds = new Set();
+        candidate.tournaments.forEach((tournament, index) => {
+          if (!tournament || typeof tournament !== "object" || Array.isArray(tournament)) {
+            throw createWorkspaceContractError(context, `tournament ${index + 1} was invalid`);
+          }
+          const id = String(tournament.id || "").trim();
+          if (!id) {
+            throw createWorkspaceContractError(
+              context,
+              `tournament ${index + 1} is missing an id`,
+            );
+          }
+          if (seenTournamentIds.has(id)) {
+            throw createWorkspaceContractError(context, `duplicate tournament id "${id}"`);
+          }
+          seenTournamentIds.add(id);
+        });
+
+        return candidate;
+      }
+
       function createId(prefix) {
         return prefix + "-" + Math.random().toString(36).slice(2, 10);
       }
@@ -670,11 +793,15 @@
       }
 
       function getSharedBackendUnavailableMessage() {
+        if (cloudRuntime.contractMismatch) {
+          return "The shared Hummingbird backend is running a different data contract. Redeploy the frontend and backend together before using shared accounts.";
+        }
         return "The shared account service is unavailable right now. Please try again in a moment.";
       }
 
       function buildHostedBlankState() {
         return {
+          workspaceContractVersion: WORKSPACE_CONTRACT_VERSION,
           version: 1,
           appSettings: clone(DEFAULT_SETTINGS),
           users: [],
@@ -6046,6 +6173,7 @@
 
       function createPublicBootstrapState(appSettings = {}) {
         return {
+          workspaceContractVersion: WORKSPACE_CONTRACT_VERSION,
           version: 1,
           appSettings: {
             ...clone(DEFAULT_SETTINGS),
@@ -6091,6 +6219,8 @@
           return cloudRuntime.available;
         }
 
+        let contractMismatch = false;
+
         const endpoints = Array.from(
           new Set(
             [cloudRuntime.endpoint, ...CLOUD_FUNCTION_ENDPOINTS].filter((value) =>
@@ -6114,6 +6244,10 @@
             if (!payload?.ok) {
               continue;
             }
+            if (String(payload?.contractVersion || "").trim() !== WORKSPACE_CONTRACT_VERSION) {
+              contractMismatch = true;
+              continue;
+            }
             cloudRuntime = {
               checked: true,
               available: true,
@@ -6121,6 +6255,8 @@
                 typeof payload?.initialized === "boolean" ? payload.initialized : null,
               endpoint,
               revision: normalizeWorkspaceRevision(payload?.revision),
+              contractVersion: String(payload?.contractVersion || "").trim(),
+              contractMismatch: false,
             };
             return true;
           } catch (error) {
@@ -6134,6 +6270,8 @@
           initialized: null,
           endpoint: "",
           revision: 0,
+          contractVersion: "",
+          contractMismatch: contractMismatch,
         };
         return false;
       }
@@ -6167,12 +6305,22 @@
           throw error;
         }
 
+        if (String(result?.contractVersion || "").trim() !== WORKSPACE_CONTRACT_VERSION) {
+          cloudRuntime.contractMismatch = true;
+          throw createWorkspaceContractError(
+            action,
+            `backend contract ${String(result?.contractVersion || "none").trim() || "none"} does not match ${WORKSPACE_CONTRACT_VERSION}`,
+          );
+        }
+
         if (typeof result?.initialized === "boolean") {
           cloudRuntime.initialized = result.initialized;
         }
         if (typeof result?.revision !== "undefined") {
           cloudRuntime.revision = normalizeWorkspaceRevision(result.revision);
         }
+        cloudRuntime.contractVersion = String(result?.contractVersion || "").trim();
+        cloudRuntime.contractMismatch = false;
         cloudRuntime.available = true;
         cloudRuntime.checked = true;
         cloudRuntime.endpoint = endpoint;
@@ -6256,9 +6404,14 @@
             }
 
             try {
+              const snapshot = await rehydrateState(state);
+              state = snapshot;
+              updateCurrentUserRecord();
+              saveState();
+              saveSession();
               const result = await callCloud("persist", {
                 sessionToken: session.cloudSessionToken,
-                state,
+                state: snapshot,
                 expectedRevision: cloudRuntime.revision,
               });
               cloudRuntime.initialized = true;
@@ -6326,9 +6479,14 @@
 
         let result;
         try {
+          const snapshot = await rehydrateState(state);
+          state = snapshot;
+          updateCurrentUserRecord();
+          saveState();
+          saveSession();
           result = await callCloud("persist", {
             sessionToken: session.cloudSessionToken,
-            state,
+            state: snapshot,
             expectedRevision: cloudRuntime.revision,
           });
         } catch (error) {
@@ -6415,6 +6573,12 @@
       }
 
       function saveState() {
+        if (!state) {
+          localStorage.removeItem(STORAGE_KEY);
+          return;
+        }
+        state.workspaceContractVersion = WORKSPACE_CONTRACT_VERSION;
+        assertWorkspaceContract(state, "local save");
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       }
 
@@ -8454,6 +8618,7 @@
 
       async function getSeedState() {
         return {
+          workspaceContractVersion: WORKSPACE_CONTRACT_VERSION,
           version: 1,
           appSettings: clone(DEFAULT_SETTINGS),
           users: [],
@@ -8853,6 +9018,17 @@
 
       async function rehydrateState(saved) {
         const next = clone(saved || {});
+        const incomingContractVersion = String(next.workspaceContractVersion || "").trim();
+        if (
+          incomingContractVersion &&
+          incomingContractVersion !== WORKSPACE_CONTRACT_VERSION
+        ) {
+          throw createWorkspaceContractError(
+            "rehydrate",
+            `expected contract ${WORKSPACE_CONTRACT_VERSION} but received ${incomingContractVersion}`,
+          );
+        }
+        next.workspaceContractVersion = WORKSPACE_CONTRACT_VERSION;
         next.version = next.version || 1;
         next.appSettings = next.appSettings || clone(DEFAULT_SETTINGS);
         next.appSettings.branding = {
@@ -9088,7 +9264,7 @@
 
         next.users = synchronizeUserTournamentHistory(next.users, next.tournaments);
 
-        return next;
+        return assertWorkspaceContract(next, "rehydrate");
       }
 
       async function loadState() {

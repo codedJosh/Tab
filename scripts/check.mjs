@@ -9,6 +9,7 @@ const REGIONAL_FRONTEND_FILE = path.join(ROOT_DIR, "frontend", "regional-operati
 const FRONTEND_SCRIPT_FILE = path.join(ROOT_DIR, "frontend", "app.js");
 const LOCAL_FILE = path.join(ROOT_DIR, "index.html");
 const REGIONAL_SHARED_MARKERS = [
+  "workspaceContractVersion",
   "regionalOperations",
   "regionalRole",
   "regionalRegion",
@@ -91,8 +92,9 @@ function checkRegionalSharedContract() {
   const backendRequirements = [
     "normalizeRegionalOperationsState",
     "normalizeRegionalBankingInfo",
-    "invalid_workspace_payload",
-    "incomingState.regionalOperations",
+    "WORKSPACE_CONTRACT_VERSION",
+    "workspace_contract_mismatch",
+    "assertWorkspaceContract(incomingState, \"persist payload\")",
   ];
 
   frontendRequirements.forEach((marker) => {
@@ -110,6 +112,14 @@ function checkRegionalSharedContract() {
       );
     }
   });
+
+  if (!frontendScript.includes('const WORKSPACE_CONTRACT_VERSION = "2026-04-05-ironclad"')) {
+    throw new Error("frontend/app.js is missing the current workspace contract version.");
+  }
+
+  if (!serverScript.includes('const WORKSPACE_CONTRACT_VERSION = "2026-04-05-ironclad"')) {
+    throw new Error("server.mjs is missing the current workspace contract version.");
+  }
 }
 
 console.log("Checking server syntax...");
