@@ -1574,6 +1574,48 @@
         padding: 20px;
         background: linear-gradient(180deg, rgba(249, 252, 250, 0.9), rgba(244, 249, 245, 0.86));
         box-shadow: var(--shadow-soft);
+        display: grid;
+        gap: 14px;
+      }
+
+      .auth-support-card p,
+      .auth-support-card li,
+      .auth-support-card .auth-footer {
+        color: rgba(20, 49, 38, 0.78);
+        font-weight: 600;
+      }
+
+      .auth-support-card .button-row {
+        align-items: stretch;
+      }
+
+      .auth-support-card :is(.secondary-button, .ghost-button, .inline-link),
+      .auth-card :is(.secondary-button, .ghost-button, .inline-link) {
+        background: rgba(255, 255, 255, 0.98);
+        color: var(--ink);
+        border: 1px solid rgba(18, 63, 47, 0.12);
+        box-shadow: none;
+        font-weight: 800;
+      }
+
+      .auth-support-card :is(.secondary-button, .ghost-button, .inline-link),
+      .auth-support-card :is(.secondary-button, .ghost-button, .inline-link) *,
+      .auth-card :is(.secondary-button, .ghost-button, .inline-link),
+      .auth-card :is(.secondary-button, .ghost-button, .inline-link) * {
+        color: var(--ink) !important;
+      }
+
+      .auth-support-card :is(.secondary-button, .ghost-button, .inline-link):hover,
+      .auth-card :is(.secondary-button, .ghost-button, .inline-link):hover {
+        background: rgba(248, 250, 248, 1);
+        color: var(--ink);
+        border-color: rgba(18, 63, 47, 0.18);
+        box-shadow: 0 6px 12px rgba(15, 55, 39, 0.06);
+      }
+
+      .auth-support-card a:is(.secondary-button, .ghost-button):visited,
+      .auth-card a:is(.secondary-button, .ghost-button):visited {
+        color: var(--ink);
       }
 
       .auth-about-card {
@@ -2689,6 +2731,7 @@
       .manager-note {
         color: var(--muted);
         font-size: 0.94rem;
+        font-weight: 600;
       }
 
       .private-shell {
