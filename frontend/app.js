@@ -18101,7 +18101,7 @@
               canAccessGlobalSettings() && !isManagerUser
                 ? `
                   <div class="button-row wrap-row">
-                    <a class="inline-link people-private-link" href="${escapeHtml(
+                    <a class="secondary-button inline-link people-private-link" href="${escapeHtml(
                       getUserAccessLink(user.privateAccessToken),
                     )}" target="_blank" rel="noreferrer" title="${escapeAttributeValue(
                       getUserAccessLink(user.privateAccessToken),
