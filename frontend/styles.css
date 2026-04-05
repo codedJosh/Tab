@@ -1647,6 +1647,46 @@
         color: var(--ink);
       }
 
+      .auth-page .hero-panel .button-row > button,
+      .auth-page .hero-panel .button-row > a,
+      .auth-support-card .button-row > button,
+      .auth-support-card .button-row > a,
+      .participant-profile-shell .button-row > button,
+      .participant-profile-shell .button-row > a {
+        min-height: 46px;
+        width: auto;
+        max-width: 100%;
+        padding: 10px 18px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.98);
+        color: var(--ink);
+        border: 1px solid rgba(18, 63, 47, 0.12);
+        box-shadow: none;
+        font-weight: var(--weight-strong);
+        align-self: flex-start;
+      }
+
+      .auth-page .hero-panel .button-row > button *,
+      .auth-page .hero-panel .button-row > a *,
+      .auth-support-card .button-row > button *,
+      .auth-support-card .button-row > a *,
+      .participant-profile-shell .button-row > button *,
+      .participant-profile-shell .button-row > a * {
+        color: var(--ink) !important;
+      }
+
+      .auth-page .hero-panel .button-row > button:hover,
+      .auth-page .hero-panel .button-row > a:hover,
+      .auth-support-card .button-row > button:hover,
+      .auth-support-card .button-row > a:hover,
+      .participant-profile-shell .button-row > button:hover,
+      .participant-profile-shell .button-row > a:hover {
+        background: rgba(248, 250, 248, 1);
+        color: var(--ink);
+        border-color: rgba(18, 63, 47, 0.18);
+        box-shadow: 0 6px 12px rgba(15, 55, 39, 0.06);
+      }
+
       .auth-about-card {
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.08));
         border: 1px solid rgba(255, 255, 255, 0.14);
