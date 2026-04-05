@@ -3409,6 +3409,158 @@
         return Math.min(MAX_TOURNAMENT_ROUNDS, Math.max(1, Math.round(number)));
       }
 
+      function normalizeRoundStage(value = "") {
+        const normalized = String(value || "")
+          .trim()
+          .toLowerCase()
+          .replaceAll("-", "_")
+          .replaceAll(" ", "_");
+
+        if (
+          [
+            "outround",
+            "out_round",
+            "break_round",
+            "elimination",
+            "elimination_round",
+            "break",
+          ].includes(normalized)
+        ) {
+          return "outround";
+        }
+
+        return "inround";
+      }
+
+      function isOutroundProfile(profile = {}) {
+        return normalizeRoundStage(profile?.stage) === "outround";
+      }
+
+      function getRoundStageLabel(value = "") {
+        return isOutroundProfile({ stage: value }) ? "Outround" : "In-Round";
+      }
+
+      function normalizeOutroundPairingMethod(value = "") {
+        const normalized = String(value || "")
+          .trim()
+          .toLowerCase()
+          .replaceAll("-", "_")
+          .replaceAll(" ", "_");
+
+        if (["fold", "folded", "fold_pair", "fold_pairing"].includes(normalized)) {
+          return "fold";
+        }
+
+        if (
+          ["power", "power_pair", "power_pairing", "paired", "power_paired"].includes(
+            normalized,
+          )
+        ) {
+          return "power";
+        }
+
+        if (["random", "randomise", "randomize"].includes(normalized)) {
+          return "random";
+        }
+
+        return "";
+      }
+
+      function getOutroundPairingMethodLabel(value = "") {
+        const normalized = normalizeOutroundPairingMethod(value);
+        if (normalized === "fold") {
+          return "Folded";
+        }
+        if (normalized === "random") {
+          return "Randomised";
+        }
+        return "Power Paired";
+      }
+
+      function getOutroundProfilesFromList(profiles = []) {
+        return (Array.isArray(profiles) ? profiles : [])
+          .filter((profile) => isOutroundProfile(profile))
+          .sort((left, right) => Number(left.round || 0) - Number(right.round || 0));
+      }
+
+      function getAutomaticOutroundPairingMethod(source, roundProfile = null) {
+        const profiles = Array.isArray(source) ? source : getRoundProfiles(source);
+        const outrounds = getOutroundProfilesFromList(profiles);
+        if (!outrounds.length) {
+          return "power";
+        }
+
+        if (roundProfile) {
+          const targetRound = Number(roundProfile.round || 0);
+          const target = outrounds.find((profile) => Number(profile.round || 0) === targetRound);
+          if (!target) {
+            return "power";
+          }
+        }
+
+        return outrounds.length > 1 ? "fold" : "power";
+      }
+
+      function getResolvedOutroundPairingMethod(tournament, roundProfile = null) {
+        const profile =
+          roundProfile && typeof roundProfile === "object"
+            ? roundProfile
+            : getRoundProfileForRound(tournament, roundProfile || 1);
+        if (!isOutroundProfile(profile)) {
+          return "power";
+        }
+        return (
+          normalizeOutroundPairingMethod(profile.outroundPairingMethod) ||
+          getAutomaticOutroundPairingMethod(tournament, profile)
+        );
+      }
+
+      function normalizeDrawMethodChoice(value = "", fallback = "auto") {
+        const normalized = normalizeOutroundPairingMethod(value);
+        if (normalized) {
+          return normalized;
+        }
+
+        const raw = String(value || "")
+          .trim()
+          .toLowerCase()
+          .replaceAll("-", "_")
+          .replaceAll(" ", "_");
+        if (["auto", "automatic", "recommended", ""].includes(raw)) {
+          return "auto";
+        }
+        return fallback;
+      }
+
+      function getResolvedDrawMethod(tournament, roundProfile = null, value = "auto") {
+        const normalized = normalizeDrawMethodChoice(value, "auto");
+        if (normalized !== "auto") {
+          return normalized;
+        }
+
+        const profile =
+          roundProfile && typeof roundProfile === "object"
+            ? roundProfile
+            : getRoundProfileForRound(tournament, roundProfile || 1);
+
+        if (isOutroundProfile(profile)) {
+          return getResolvedOutroundPairingMethod(tournament, profile);
+        }
+
+        return "power";
+      }
+
+      function getDrawMethodDisplayLabel(tournament, roundProfile = null, value = "auto") {
+        const normalized = getResolvedDrawMethod(tournament, roundProfile, value);
+        if (normalized === "fold") {
+          return "Folded";
+        }
+        if (normalized === "random") {
+          return "Randomised";
+        }
+        return "Power Paired";
+      }
+
       function resolveRoundStructureValue(profileValue, roundDefaultValue, baseValue) {
         const normalizedProfileValue = normalizeOptionalCount(profileValue, null);
         const normalizedRoundDefaultValue = normalizeOptionalCount(roundDefaultValue, null);
@@ -3438,10 +3590,12 @@
               String(baseConfig.participantModel || profile.participantModel || "").trim(),
             )
           : {};
+        const stage = normalizeRoundStage(profile.stage);
 
         return {
           round,
           label: String(profile.label || "Round " + round).trim(),
+          stage,
           format: roundFormat,
           teamsPerRoom: roundFormat
             ? resolveRoundStructureValue(
@@ -3482,6 +3636,9 @@
               normalizeOptionalCount(baseConfig.speakersPerSide, null),
             ),
           ),
+          outroundPairingMethod: isOutroundProfile({ stage })
+            ? normalizeOutroundPairingMethod(profile.outroundPairingMethod)
+            : "",
           notes: String(profile.notes || "").trim(),
         };
       }
@@ -3507,6 +3664,7 @@
             return {
               round,
               label: String(formData.get("roundLabel-" + round) || "").trim(),
+              stage: normalizeRoundStage(formData.get("roundStage-" + round)),
               format: normalizeRoundFormatOverride(formData.get("roundFormat-" + round)),
               teamsPerRoom: optionalNumberFromForm(formData, "roundTeamsPerRoom-" + round, null),
               teamSize: optionalNumberFromForm(formData, "roundTeamSize-" + round, null),
@@ -3514,6 +3672,9 @@
                 formData,
                 "roundSpeakersPerSide-" + round,
                 null,
+              ),
+              outroundPairingMethod: normalizeOutroundPairingMethod(
+                formData.get("roundOutroundPairingMethod-" + round),
               ),
               notes: String(formData.get("roundNotes-" + round) || "").trim(),
             };
@@ -3633,6 +3794,8 @@
       function getRoundStructureSummary(tournament) {
         const profiles = getRoundProfiles(tournament);
         const referenceProfile = profiles[0] || {};
+        const outroundCount = getOutroundProfilesFromList(profiles).length;
+        const inroundCount = Math.max(0, profiles.length - outroundCount);
         const uniqueStructures = new Set(
           profiles.map(
             (profile) =>
@@ -3651,6 +3814,12 @@
             getRoundFormatDisplayLabel(tournament, profiles[0] || null, {
               includeInheritance: false,
             }),
+            inroundCount
+              ? inroundCount + " in-round" + (inroundCount === 1 ? "" : "s")
+              : "",
+            outroundCount
+              ? outroundCount + " out-round" + (outroundCount === 1 ? "" : "s")
+              : "",
             hasConfiguredValue(referenceProfile.teamsPerRoom)
               ? referenceProfile.teamsPerRoom + " teams per room"
               : "Teams per room vary",
@@ -3661,10 +3830,16 @@
               ? referenceProfile.speakersPerSide + " speakers per side"
               : "Speakers per side vary",
           ];
-          return parts.join(", ");
+          return parts.filter(Boolean).join(", ");
         }
 
-        return uniqueStructures.size + " different round setups across " + profiles.length + " rounds";
+        return (
+          uniqueStructures.size +
+          " different round setups across " +
+          profiles.length +
+          " rounds" +
+          (outroundCount ? " • " + outroundCount + " outround" + (outroundCount === 1 ? "" : "s") : "")
+        );
       }
 
       function getBreakSizeSummary(value) {
@@ -3812,6 +3987,8 @@
                 <tr>
                   <th>Round</th>
                   <th>Label</th>
+                  <th>Stage</th>
+                  <th>Outround Pairing</th>
                   <th>Format</th>
                   <th>Teams / Room</th>
                   <th>People / Team</th>
@@ -3829,6 +4006,19 @@
                           <input type="text" name="roundLabel-${escapeHtml(
                             profile.round,
                           )}" value="${escapeHtml(profile.label)}" />
+                        </td>
+                        <td>
+                          <select name="roundStage-${escapeHtml(profile.round)}">
+                            ${getRoundStageOptionMarkup(profile.stage)}
+                          </select>
+                        </td>
+                        <td>
+                          <select name="roundOutroundPairingMethod-${escapeHtml(profile.round)}">
+                            ${getOutroundPairingMethodOptionMarkup(
+                              profile.outroundPairingMethod,
+                              getAutomaticOutroundPairingMethod(roundProfiles, profile),
+                            )}
+                          </select>
                         </td>
                         <td>
                           <select name="roundFormat-${escapeHtml(profile.round)}">
@@ -3906,6 +4096,8 @@
                 <tr>
                   <th>Round</th>
                   <th>Label</th>
+                  <th>Stage</th>
+                  <th>Outround Pairing</th>
                   <th>Format</th>
                   <th>Teams / Room</th>
                   <th>People / Team</th>
@@ -3919,6 +4111,12 @@
                       <tr>
                         <td>${escapeHtml(profile.round)}</td>
                         <td>${escapeHtml(profile.label)}</td>
+                        <td>${escapeHtml(getRoundStageLabel(profile.stage))}</td>
+                        <td>${escapeHtml(
+                          isOutroundProfile(profile)
+                            ? getDrawMethodDisplayLabel(tournament, profile, "auto")
+                            : "In-Round",
+                        )}</td>
                         <td>${escapeHtml(getRoundFormatDisplayLabel(tournament, profile))}</td>
                         <td>${escapeHtml(getConfiguredStructureValue(profile.teamsPerRoom, "Flexible"))}</td>
                         <td>${escapeHtml(getConfiguredStructureValue(profile.teamSize, "Flexible"))}</td>
@@ -4639,6 +4837,19 @@
         method = "power",
         roomSizeOverride = null,
       ) {
+        const resolvedMethod = getResolvedDrawMethod(tournament, roundProfile, method);
+        if (isOutroundProfile(roundProfile)) {
+          const outroundPlan = getOutroundDrawGenerationPlan(
+            tournament,
+            roundProfile,
+            resolvedMethod,
+            roomSizeOverride,
+          );
+          if (outroundPlan) {
+            return outroundPlan;
+          }
+        }
+
         const participantModel = String(tournament?.participantModel || "").trim().toLowerCase();
         const hasManagedTeams = getTournamentTeams(tournament).some(
           (team) => normalizeTeamSource(team?.source) === "manual",
@@ -4659,6 +4870,7 @@
             roomSize,
             entries: pairingPlan.entries,
             overflowParticipants: pairingPlan.overflowParticipants,
+            resolvedMethod,
           };
         }
 
@@ -4668,6 +4880,7 @@
             roomSize,
             entries: eligibleTeamEntries.concat(supplementalPairingPlan.entries),
             overflowParticipants: supplementalPairingPlan.overflowParticipants,
+            resolvedMethod,
           };
         }
 
@@ -4676,6 +4889,7 @@
             roomSize,
             entries: getSpeakerDrawEntriesForTournament(tournament),
             overflowParticipants: [],
+            resolvedMethod,
           };
         }
 
@@ -4684,6 +4898,7 @@
             roomSize,
             entries: getSpeakerDrawEntriesForTournament(tournament),
             overflowParticipants: [],
+            resolvedMethod,
           };
         }
 
@@ -4693,6 +4908,7 @@
             roomSize,
             entries: eligibleTeamEntries.concat(supplementalPairingPlan.entries),
             overflowParticipants: supplementalPairingPlan.overflowParticipants,
+            resolvedMethod,
           };
         }
 
@@ -4700,6 +4916,266 @@
           roomSize,
           entries: getDrawEntriesForTournament(tournament),
           overflowParticipants: [],
+          resolvedMethod,
+        };
+      }
+
+      function getOutroundProgressionInfo(tournament, roundProfile = {}) {
+        const profile =
+          roundProfile && typeof roundProfile === "object"
+            ? roundProfile
+            : getRoundProfileForRound(tournament, roundProfile || 1);
+        const outrounds = getOutroundProfilesFromList(getRoundProfiles(tournament));
+        const index = outrounds.findIndex(
+          (entry) => Number(entry.round || 0) === Number(profile.round || 0),
+        );
+        const breakSize = normalizeOptionalBreakSize(tournament?.config?.breakSize, null);
+        const structure = getEffectiveRoundStructure(tournament, profile);
+        const minimumFieldSize = Math.max(2, Number(structure.teamsPerRoom) || 2);
+        const targetFieldSize =
+          index >= 0 && breakSize
+            ? Math.max(
+                minimumFieldSize,
+                Math.round(Number(breakSize || 0) / Math.max(1, 2 ** index)),
+              )
+            : 0;
+
+        return {
+          profile,
+          outrounds,
+          index,
+          breakSize,
+          structure,
+          minimumFieldSize,
+          targetFieldSize,
+          previousProfile: index > 0 ? outrounds[index - 1] : null,
+        };
+      }
+
+      function getBreakBoard(tournament) {
+        const breakSize = normalizeOptionalBreakSize(tournament?.config?.breakSize, null);
+        const standings = getComputedStandings(tournament);
+        if (!breakSize || !standings.length) {
+          return null;
+        }
+
+        const cut = Math.max(0, Math.min(Number(breakSize || 0), standings.length));
+        return {
+          breakSize,
+          total: standings.length,
+          breaking: standings.slice(0, cut),
+          missing: standings.slice(cut),
+          cutStanding: standings[cut - 1] || null,
+          nextStanding: standings[cut] || null,
+        };
+      }
+
+      function getOutroundEligibleEntryCatalog(tournament, roundProfile = {}) {
+        return new Map(
+          getEligibleTeamDrawEntriesForRound(tournament, roundProfile)
+            .filter((entry) => String(entry?.team?.id || "").trim())
+            .map((entry) => [String(entry.team.id || "").trim(), entry]),
+        );
+      }
+
+      function getBreakQualifiedEntriesForRound(tournament, roundProfile = {}, limit = null) {
+        const board = getBreakBoard(tournament);
+        if (!board) {
+          return [];
+        }
+
+        const catalog = getOutroundEligibleEntryCatalog(tournament, roundProfile);
+        const target = Math.max(
+          0,
+          Math.min(
+            Number(limit || board.breakSize || 0),
+            board.breaking.length,
+          ),
+        );
+
+        return board.breaking
+          .map((standing) => {
+            const team = findTournamentTeamByName(tournament, standing?.name || "");
+            if (!team) {
+              return null;
+            }
+            return catalog.get(String(team.id || "").trim()) || null;
+          })
+          .filter(Boolean)
+          .slice(0, target);
+      }
+
+      function getRankedOfficialOutroundSlotRecords(tournament, drawEntry = {}) {
+        const slots = Array.isArray(drawEntry?.slots) ? drawEntry.slots : [];
+        const officialResults = normalizeDrawOfficialResults(drawEntry?.officialResults);
+        if (!slots.length || !Object.keys(officialResults).length) {
+          return [];
+        }
+
+        const completeRanks = slots.every((slot) => {
+          const result = officialResults[getDrawSlotCheckInKey(slot)] || {};
+          return Number(result.rank || 0) > 0;
+        });
+        if (completeRanks) {
+          return slots
+            .map((slot) => ({
+              slot,
+              result: officialResults[getDrawSlotCheckInKey(slot)] || {},
+            }))
+            .sort((left, right) => Number(left.result.rank || 0) - Number(right.result.rank || 0));
+        }
+
+        const completeOutcomes = slots.every((slot) => {
+          const result = officialResults[getDrawSlotCheckInKey(slot)] || {};
+          return String(result.outcome || "").trim();
+        });
+        if (completeOutcomes) {
+          return slots
+            .map((slot) => ({
+              slot,
+              result: officialResults[getDrawSlotCheckInKey(slot)] || {},
+            }))
+            .sort((left, right) => {
+              const leftWin = String(left.result.outcome || "").trim().toLowerCase() === "win";
+              const rightWin = String(right.result.outcome || "").trim().toLowerCase() === "win";
+              return Number(rightWin) - Number(leftWin);
+            });
+        }
+
+        return [];
+      }
+
+      function getAdvancingEntriesFromPreviousOutround(tournament, roundProfile = {}) {
+        const progression = getOutroundProgressionInfo(tournament, roundProfile);
+        if (!progression.previousProfile || !progression.targetFieldSize) {
+          return [];
+        }
+
+        const previousDrawEntries = (tournament.draw || [])
+          .filter(
+            (entry) =>
+              Number(entry.round || 0) === Number(progression.previousProfile.round || 0) &&
+              Array.isArray(entry.slots) &&
+              entry.slots.length,
+          )
+          .sort(
+            (left, right) =>
+              String(left.room || "").localeCompare(String(right.room || "")) ||
+              String(left.id || "").localeCompare(String(right.id || "")),
+          );
+
+        if (!previousDrawEntries.length) {
+          return [];
+        }
+
+        const advancePerRoom = Math.max(
+          1,
+          Math.floor(Number(progression.targetFieldSize || 0) / previousDrawEntries.length),
+        );
+        const catalog = getOutroundEligibleEntryCatalog(tournament, roundProfile);
+        const advancing = [];
+
+        for (const drawEntry of previousDrawEntries) {
+          const rankedSlots = getRankedOfficialOutroundSlotRecords(tournament, drawEntry);
+          if (rankedSlots.length !== drawEntry.slots.length) {
+            return [];
+          }
+
+          rankedSlots.slice(0, advancePerRoom).forEach((record) => {
+            const teamId = String(record.slot?.teamId || "").trim();
+            if (!teamId) {
+              return;
+            }
+            const entry = catalog.get(teamId);
+            if (entry) {
+              advancing.push(entry);
+            }
+          });
+        }
+
+        return Array.from(
+          new Map(
+            advancing.map((entry) => [String(entry?.team?.id || entry?.id || "").trim(), entry]),
+          ).values(),
+        ).slice(0, progression.targetFieldSize);
+      }
+
+      function getOutroundDrawGenerationPlan(
+        tournament,
+        roundProfile = {},
+        method = "auto",
+        roomSizeOverride = null,
+      ) {
+        const progression = getOutroundProgressionInfo(tournament, roundProfile);
+        const resolvedMethod = getResolvedDrawMethod(tournament, progression.profile, method);
+        const structure = getEffectiveRoundStructure(tournament, progression.profile, {
+          roomSizeOverride,
+          allowRoomOverride: true,
+        });
+        const roomSize = Math.max(1, Number(structure.teamsPerRoom) || 1);
+
+        if (!usesTeamPointStandings(tournament)) {
+          return null;
+        }
+
+        if (!progression.breakSize) {
+          return {
+            roomSize,
+            entries: [],
+            overflowParticipants: [],
+            resolvedMethod,
+            error: "Set a break size before building an outround draw.",
+          };
+        }
+
+        const sourceEntries =
+          progression.index > 0
+            ? getAdvancingEntriesFromPreviousOutround(tournament, progression.profile)
+            : getBreakQualifiedEntriesForRound(
+                tournament,
+                progression.profile,
+                progression.targetFieldSize || progression.breakSize,
+              );
+        const expectedEntries = Math.max(
+          roomSize,
+          progression.targetFieldSize || progression.breakSize || 0,
+        );
+
+        if (!sourceEntries.length) {
+          return {
+            roomSize,
+            entries: [],
+            overflowParticipants: [],
+            resolvedMethod,
+            error:
+              progression.index > 0
+                ? "Record official results for the previous outround before generating this break round."
+                : "Collect standings and complete rosters before generating the break round.",
+          };
+        }
+
+        if (sourceEntries.length < expectedEntries) {
+          return {
+            roomSize,
+            entries: [],
+            overflowParticipants: [],
+            resolvedMethod,
+            error:
+              progression.index > 0
+                ? "The previous outround does not yet have enough advancing teams recorded to build this break round."
+                : "Not enough complete breaking teams are available to build this outround yet.",
+          };
+        }
+
+        return {
+          roomSize,
+          entries: sourceEntries.slice(0, expectedEntries),
+          overflowParticipants: [],
+          resolvedMethod,
+          sourceLabel:
+            progression.index > 0
+              ? "Previous outround winners"
+              : "Break field",
         };
       }
 
@@ -4873,32 +5349,83 @@
       function getRoundOptionMarkup(tournament, currentRound = 1) {
         return getRoundProfiles(tournament)
           .map(
-            (profile) =>
+            (profile) => {
+              const stageLabel = getRoundStageLabel(profile.stage);
+              const pairingLabel = isOutroundProfile(profile)
+                ? " • " + getDrawMethodDisplayLabel(tournament, profile, "auto")
+                : "";
+              return (
               `<option value="${escapeHtml(profile.round)}" ${selected(
                 profile.round,
                 currentRound,
               )}>${escapeHtml(
                 (profile.label || "Round " + profile.round) +
                   " • " +
+                  stageLabel +
+                  pairingLabel +
+                  " • " +
                   getRoundFormatDisplayLabel(tournament, profile, {
                     includeInheritance: false,
                   }),
-              )}</option>`,
+              )}</option>`
+              );
+            },
           )
           .join("");
       }
 
-      function getDrawMethodOptionMarkup(current = "power") {
+      function getRoundStageOptionMarkup(current = "inround") {
         return [
-          { value: "random", label: "Randomise" },
-          { value: "power", label: "Power Pair" },
-          { value: "fold", label: "Fold" },
+          { value: "inround", label: "In-Round" },
+          { value: "outround", label: "Outround" },
         ]
           .map(
             (item) =>
               `<option value="${escapeHtml(item.value)}" ${selected(
                 item.value,
-                current,
+                normalizeRoundStage(current),
+              )}>${escapeHtml(item.label)}</option>`,
+          )
+          .join("");
+      }
+
+      function getOutroundPairingMethodOptionMarkup(current = "", autoMethod = "power") {
+        const normalized = normalizeOutroundPairingMethod(current);
+        return [
+          {
+            value: "",
+            label: "Automatic (" + getOutroundPairingMethodLabel(autoMethod) + ")",
+          },
+          { value: "power", label: "Power Paired" },
+          { value: "fold", label: "Folded" },
+        ]
+          .map(
+            (item) =>
+              `<option value="${escapeHtml(item.value)}" ${selected(
+                item.value,
+                normalized,
+              )}>${escapeHtml(item.label)}</option>`,
+          )
+          .join("");
+      }
+
+      function getDrawMethodOptionMarkup(current = "auto", options = {}) {
+        const normalized = normalizeDrawMethodChoice(current, "auto");
+        const autoMethod = normalizeOutroundPairingMethod(options.autoMethod) || "power";
+        return [
+          {
+            value: "auto",
+            label: "Automatic (" + getOutroundPairingMethodLabel(autoMethod) + ")",
+          },
+          { value: "random", label: "Randomise" },
+          { value: "power", label: "Power Pair" },
+          { value: "fold", label: "Folded" },
+        ]
+          .map(
+            (item) =>
+              `<option value="${escapeHtml(item.value)}" ${selected(
+                item.value,
+                normalized,
               )}>${escapeHtml(item.label)}</option>`,
           )
           .join("");
@@ -8069,6 +8596,106 @@
           provisional: ops.pendingBallotRooms > 0,
           lockLabel: ops.pendingBallotRooms > 0 ? "Provisional" : "Locked",
         };
+      }
+
+      function renderBreakBoardPanel(tournament, options = {}) {
+        const board = getBreakBoard(tournament);
+        if (!board) {
+          return options.showEmpty
+            ? `<div class="empty-state">${escapeHtml(
+                options.emptyMessage ||
+                  "Set a break size and collect standings to show which teams break and which teams miss.",
+              )}</div>`
+            : "";
+        }
+
+        return `
+          <div class="flat-panel stack">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Break Board</p>
+                <h3>Who breaks and who misses</h3>
+              </div>
+              <span class="role-pill">${escapeHtml(
+                board.breaking.length + " / " + board.total + " in break",
+              )}</span>
+            </div>
+            <div class="leaderboard-grid">
+              <div class="leaderboard-card">
+                <div class="section-heading">
+                  <h3>Breaking Teams</h3>
+                  <span class="mini-pill success">${escapeHtml(
+                    board.breaking.length + " qualified",
+                  )}</span>
+                </div>
+                ${
+                  board.breaking.length
+                    ? `<div class="leaderboard-list">
+                        ${board.breaking
+                          .map(
+                            (standing) => `
+                              <div class="leaderboard-row">
+                                <div class="stack">
+                                  <strong>${escapeHtml(
+                                    "#" +
+                                      standing.rank +
+                                      " " +
+                                      getStandingDisplayName(tournament, standing, {
+                                        forcePrivate: true,
+                                      }),
+                                  )}</strong>
+                                  <span class="muted">${escapeHtml(
+                                    getStandingSummaryText(tournament, standing),
+                                  )}</span>
+                                </div>
+                                <span class="mini-pill success">Breaks</span>
+                              </div>
+                            `,
+                          )
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">No teams currently break under this setting.</div>`
+                }
+              </div>
+              <div class="leaderboard-card">
+                <div class="section-heading">
+                  <h3>Missing The Break</h3>
+                  <span class="mini-pill warning">${escapeHtml(
+                    board.missing.length + " outside",
+                  )}</span>
+                </div>
+                ${
+                  board.missing.length
+                    ? `<div class="leaderboard-list">
+                        ${board.missing
+                          .map(
+                            (standing) => `
+                              <div class="leaderboard-row">
+                                <div class="stack">
+                                  <strong>${escapeHtml(
+                                    "#" +
+                                      standing.rank +
+                                      " " +
+                                      getStandingDisplayName(tournament, standing, {
+                                        forcePrivate: true,
+                                      }),
+                                  )}</strong>
+                                  <span class="muted">${escapeHtml(
+                                    getStandingSummaryText(tournament, standing),
+                                  )}</span>
+                                </div>
+                                <span class="mini-pill warning">Misses</span>
+                              </div>
+                            `,
+                          )
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">Everyone currently breaks under this configuration.</div>`
+                }
+              </div>
+            </div>
+          </div>
+        `;
       }
 
       function getInstitutionDashboardRecords(tournament) {
@@ -13884,11 +14511,11 @@
             <div class="stack">
               <div class="section-heading">
                 <div>
-                  <h4>Round-by-round structure planner</h4>
-                  <p class="fine-print">
-                    This planner stays tied to the rounds and base structure above, so only the rounds you customise will depart from the tournament default.
-                  </p>
-                </div>
+                    <h4>Round-by-round structure planner</h4>
+                    <p class="fine-print">
+                      This planner stays tied to the rounds and base structure above, so only the rounds you customise will depart from the tournament default. Use it to mark which rounds are in-rounds, which are outrounds, and how the break rounds should pair.
+                    </p>
+                  </div>
                 <span class="round-plan-badge">${escapeHtml(
                   hasVariableRoundStructure(tournament) ? "Variable structure" : "Fixed structure",
                 )}</span>
@@ -16756,6 +17383,12 @@
                       </div>
                       <p class="muted">${escapeHtml(
                         profile.notes ||
+                          getRoundStageLabel(profile.stage) +
+                            (isOutroundProfile(profile)
+                              ? " • " +
+                                getDrawMethodDisplayLabel(tournament, profile, "auto")
+                              : "") +
+                            " • " +
                           getRoundFormatDisplayLabel(tournament, profile, {
                             includeInheritance: false,
                           }) +
@@ -16865,6 +17498,8 @@
           ...(tournament.draw || []).map((entry) => Number(entry.round || 0)),
         );
         const suggestedRound = Math.min(tournament.rounds, latestRound + 1 || 1);
+        const suggestedRoundProfile = getRoundProfileForRound(tournament, suggestedRound);
+        const suggestedMethod = normalizeDrawMethodChoice("auto", "auto");
         return `
           <section class="surface">
             <div class="section-heading">
@@ -16884,8 +17519,13 @@
                   <div class="section-heading">
                     <div>
                       <h3>Generate Round Draw</h3>
-                      <p class="fine-print">Use randomised pairings, power pairs, or a folded draw for the selected round.</p>
+                      <p class="fine-print">Use automatic, randomised, power-paired, or folded pairings for the selected round.</p>
                     </div>
+                    <span class="mini-pill ${escapeHtml(
+                      isOutroundProfile(suggestedRoundProfile) ? "warning" : "success",
+                    )}">${escapeHtml(
+                      getRoundStageLabel(suggestedRoundProfile.stage),
+                    )}</span>
                   </div>
                   <div class="field-grid three">
                     <label>
@@ -16897,7 +17537,13 @@
                     </label>
                     <label>
                       Method
-                      <select name="method">${getDrawMethodOptionMarkup("power")}</select>
+                      <select name="method">${getDrawMethodOptionMarkup(suggestedMethod, {
+                        autoMethod: getResolvedDrawMethod(
+                          tournament,
+                          suggestedRoundProfile,
+                          "auto",
+                        ),
+                      })}</select>
                     </label>
                     <label>
                       Teams Per Room
@@ -16921,6 +17567,17 @@
                   <p class="fine-print">
                     Priority is assigned automatically when the draw is generated, so stronger debates can receive stronger panels first.
                   </p>
+                  <p class="fine-print" data-draw-round-stage-note>${escapeHtml(
+                    isOutroundProfile(suggestedRoundProfile)
+                      ? "This round is marked as an outround. Automatic pairing will use the break field and " +
+                          getDrawMethodDisplayLabel(
+                            tournament,
+                            suggestedRoundProfile,
+                            "auto",
+                          ).toLowerCase() +
+                          " seeding."
+                      : "This round is marked as an in-round. Automatic pairing defaults to power pairing from current standings.",
+                  )}</p>
                   <p class="fine-print">
                     If this round uses individual entries with a team-sized room structure, JADE will first build speaker pairings from the round plan and then place those paired entries into rooms.
                   </p>
@@ -17061,6 +17718,9 @@
                 These boards now update automatically from judge ballots. Judges submit speaker scores by room, and the app recalculates standings and speaker rankings for you.
               </div>
               ${renderBreakProjectionPanel(tournament, {
+                showEmpty: true,
+              })}
+              ${renderBreakBoardPanel(tournament, {
                 showEmpty: true,
               })}
               <div class="leaderboard-grid">
@@ -17451,7 +18111,7 @@
                   <div>
                     <h3>Round-by-round structure planner</h3>
                     <p class="fine-print">
-                      This planner now reacts to the round count and base structure above. Use it only when particular rounds need to depart from those defaults.
+                      This planner now reacts to the round count and base structure above. Use it to mark in-rounds versus outrounds and set folded or power-paired break rounds without leaving the launcher.
                     </p>
                   </div>
                   <span class="round-plan-badge">Optional</span>
@@ -17538,6 +18198,9 @@
           return {
             round,
             label: String(form?.querySelector(`[name="roundLabel-${round}"]`)?.value || "").trim(),
+            stage: normalizeRoundStage(
+              form?.querySelector(`[name="roundStage-${round}"]`)?.value,
+            ),
             format: normalizeRoundFormatOverride(
               form?.querySelector(`[name="roundFormat-${round}"]`)?.value,
             ),
@@ -17552,6 +18215,9 @@
             speakersPerSide: normalizeOptionalCount(
               form?.querySelector(`[name="roundSpeakersPerSide-${round}"]`)?.value,
               null,
+            ),
+            outroundPairingMethod: normalizeOutroundPairingMethod(
+              form?.querySelector(`[name="roundOutroundPairingMethod-${round}"]`)?.value,
             ),
             notes: String(form?.querySelector(`[name="roundNotes-${round}"]`)?.value || "").trim(),
           };
@@ -17751,6 +18417,57 @@
 
         if (!options.preserveRoundPlanner) {
           syncTournamentRoundPlannerFields(form, defaults);
+        }
+      }
+
+      function getDrawGenerationFormStageNote(tournament, roundProfile, methodValue = "auto") {
+        if (isOutroundProfile(roundProfile)) {
+          const progression = getOutroundProgressionInfo(tournament, roundProfile);
+          const fieldSize = progression.targetFieldSize || progression.breakSize || 0;
+          return (
+            "This round is marked as an outround. Automatic pairing will use " +
+            (fieldSize ? "the top " + fieldSize + " breaking teams and " : "the break field and ") +
+            getDrawMethodDisplayLabel(tournament, roundProfile, methodValue).toLowerCase() +
+            " seeding."
+          );
+        }
+
+        return "This round is marked as an in-round. Automatic pairing defaults to power pairing from current standings.";
+      }
+
+      function syncDrawGenerationForm(form) {
+        if (!form) {
+          return;
+        }
+
+        const tournament = getTournamentById(form.dataset.id || "");
+        if (!tournament) {
+          return;
+        }
+
+        const round = normalizeRoundCount(
+          form.querySelector('select[name="round"]')?.value,
+          1,
+        );
+        const roundProfile = getRoundProfileForRound(tournament, round);
+        const methodField = form.querySelector('select[name="method"]');
+        const currentMethod = normalizeDrawMethodChoice(methodField?.value, "auto");
+        const autoMethod = getResolvedDrawMethod(tournament, roundProfile, "auto");
+
+        if (methodField) {
+          methodField.innerHTML = getDrawMethodOptionMarkup(currentMethod, {
+            autoMethod,
+          });
+          methodField.value = currentMethod;
+        }
+
+        const stageNote = form.querySelector("[data-draw-round-stage-note]");
+        if (stageNote) {
+          stageNote.textContent = getDrawGenerationFormStageNote(
+            tournament,
+            roundProfile,
+            currentMethod,
+          );
         }
       }
 
@@ -25403,7 +26120,8 @@
         if (!tournament) return;
         const round = normalizeRoundCount(formData.get("round"), 1);
         const roundProfile = getRoundProfileForRound(tournament, round);
-        const method = String(formData.get("method") || "power").trim().toLowerCase();
+        const rawMethod = normalizeDrawMethodChoice(formData.get("method"), "auto");
+        const method = getResolvedDrawMethod(tournament, roundProfile, rawMethod);
         const requestedRoomSize = normalizeOptionalCount(
           optionalNumberFromForm(formData, "teamsPerRoom", null),
           normalizeOptionalCount(
@@ -25418,6 +26136,11 @@
           method,
           requestedRoomSize,
         );
+        if (previewPlan.error) {
+          setFlash("error", previewPlan.error);
+          renderApp();
+          return;
+        }
         const previewStructure = getEffectiveRoundStructure(tournament, roundProfile, {
           roomSizeOverride: requestedRoomSize,
           allowRoomOverride: true,
@@ -25442,7 +26165,8 @@
           (tournament) => {
             const round = normalizeRoundCount(formData.get("round"), 1);
             const roundProfile = getRoundProfileForRound(tournament, round);
-            const method = String(formData.get("method") || "power").trim().toLowerCase();
+            const rawMethod = normalizeDrawMethodChoice(formData.get("method"), "auto");
+            const method = getResolvedDrawMethod(tournament, roundProfile, rawMethod);
             const generationPlan = getDrawGenerationPlan(
               tournament,
               roundProfile,
@@ -25534,6 +26258,9 @@
                 method +
                 " draw for Round " +
                 round +
+                (isOutroundProfile(roundProfile) && generationPlan.sourceLabel
+                  ? " using the " + generationPlan.sourceLabel.toLowerCase()
+                  : "") +
                 (releaseNow ? " and released it." : " as a draft.") +
                 (hasOverflow ? " Overflow entries were left in a separate draft room." : ""),
             );
@@ -27836,6 +28563,17 @@
             if (event.target.matches('select[name^="roundFormat-"]')) {
               const round = String(event.target.name || "").replace("roundFormat-", "");
               syncRoundPlannerRowFromFormat(configurationForm, round);
+              return;
+            }
+          }
+
+          const drawGenerationForm = event.target.closest('form[data-form="generate-draw"]');
+          if (drawGenerationForm) {
+            if (
+              event.target.matches('select[name="round"]') ||
+              event.target.matches('select[name="method"]')
+            ) {
+              syncDrawGenerationForm(drawGenerationForm);
               return;
             }
           }
