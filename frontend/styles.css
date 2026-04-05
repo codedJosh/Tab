@@ -5787,6 +5787,200 @@
         }
       }
 
+      @media (max-width: 560px) {
+        .auth-top-ticker {
+          position: static;
+        }
+
+        .page-shell {
+          padding: 10px 10px 18px;
+        }
+
+        .hero-panel,
+        .auth-card,
+        .menu-panel,
+        .content-panel,
+        .surface,
+        .inline-card,
+        .directory-card,
+        .link-card,
+        .subsurface {
+          padding: 14px;
+          border-radius: 20px;
+        }
+
+        .workspace-topbar,
+        .auth-card,
+        .menu-welcome-card,
+        .search-result-card,
+        .participant-track-card,
+        .participant-team-card {
+          overflow: hidden;
+        }
+
+        .workspace-topbar::before,
+        .auth-card::before,
+        .menu-welcome-card::before,
+        .search-result-card::before,
+        .participant-track-card::before,
+        .participant-team-card::before {
+          left: 14px;
+          width: min(42%, 108px);
+        }
+
+        .workspace-topbar::after,
+        .auth-card::after,
+        .search-result-card::after,
+        .participant-track-card::after,
+        .participant-team-card::after {
+          width: 92px;
+          height: 92px;
+          inset: auto -18px -28px auto;
+        }
+
+        .hero-panel {
+          border-radius: 22px;
+        }
+
+        .hero-panel .hero-copy,
+        .hero-panel .manager-note,
+        .auth-footer,
+        .manager-note,
+        .muted,
+        .fine-print {
+          font-size: 0.92rem;
+          line-height: 1.45;
+        }
+
+        .hero-panel h1,
+        .hero-panel h2,
+        .hero-panel h3,
+        .topbar h1,
+        .section-heading h2,
+        .section-heading h3,
+        .section-heading h4 {
+          text-wrap: pretty;
+        }
+
+        h1 {
+          font-size: clamp(2rem, 11vw, 2.8rem);
+        }
+
+        h2 {
+          font-size: clamp(1.5rem, 7vw, 2rem);
+        }
+
+        h3 {
+          font-size: clamp(1.14rem, 5.4vw, 1.34rem);
+        }
+
+        .section-heading {
+          gap: 10px;
+        }
+
+        .section-heading > div {
+          gap: 3px;
+          width: 100%;
+        }
+
+        .button-row,
+        .toolbar-row,
+        .wrap-row,
+        .workspace-chip-row,
+        .chip-row,
+        .kpi-line,
+        .portal-meta,
+        .hero-stat-band {
+          gap: 8px;
+        }
+
+        .button-row > button,
+        .button-row > a,
+        .wrap-row > button,
+        .wrap-row > a,
+        .toolbar-row > button,
+        .toolbar-row > a {
+          width: 100%;
+          min-height: 44px;
+        }
+
+        .role-pill,
+        .status-pill,
+        .mini-pill {
+          max-width: 100%;
+          white-space: normal;
+          text-align: center;
+          justify-content: center;
+        }
+
+        .field-grid,
+        .field-grid.two,
+        .field-grid.three,
+        .field-grid.four,
+        .surface-grid,
+        .flat-grid,
+        .workspace-stat-grid,
+        .manager-grid,
+        .directory-grid,
+        .links-grid,
+        .overview-spotlight-grid,
+        .viewer-summary-grid,
+        .draw-board-grid,
+        .motion-board-grid,
+        .tournament-switch-grid,
+        .tournament-rail-grid,
+        .portal-info-grid,
+        .hero-stat-band,
+        .tournament-discovery-form,
+        .workspace-search-form {
+          grid-template-columns: 1fr;
+        }
+
+        .tournament-switch-card,
+        .tournament-rail-card,
+        .viewer-summary-card,
+        .draw-room-card,
+        .motion-board-card,
+        .spotlight-card {
+          padding: 14px;
+          border-radius: 18px;
+        }
+
+        .tournament-rail-card {
+          min-height: 0;
+        }
+
+        .topbar,
+        .workspace-topbar,
+        .portal-topline,
+        .section-heading {
+          align-items: stretch;
+        }
+
+        .workspace-topbar .topbar {
+          gap: 10px;
+        }
+
+        .private-shell {
+          max-width: 100%;
+        }
+
+        .table-wrap {
+          border-radius: 16px;
+        }
+
+        table {
+          font-size: 0.88rem;
+        }
+
+        input,
+        select,
+        textarea {
+          min-height: 46px;
+          padding: 12px 13px;
+        }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         *,
         *::before,
