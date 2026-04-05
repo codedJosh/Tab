@@ -3417,19 +3417,19 @@
 
       .participant-profile-shell {
         display: grid;
-        gap: 14px;
+        gap: 12px;
       }
 
       .participant-profile-head {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 14px;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, max-content);
+        gap: 12px 16px;
         align-items: start;
       }
 
       .participant-profile-heading {
         display: grid;
-        gap: 6px;
+        gap: 4px;
       }
 
       .participant-profile-heading > * {
@@ -3437,23 +3437,24 @@
       }
 
       .participant-profile-actions {
+        gap: 8px;
         justify-content: flex-end;
         align-self: start;
         max-width: 100%;
       }
 
       .participant-profile-stat-grid {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
         gap: 8px;
       }
 
       .participant-profile-stat-grid .stat-card {
-        padding: 10px 12px;
+        padding: 9px 11px;
       }
 
       .participant-profile-stat-grid .stat-card strong {
-        margin-top: 4px;
-        font-size: 1.18rem;
+        margin-top: 3px;
+        font-size: 1.08rem;
         line-height: 1.1;
       }
 
@@ -3463,11 +3464,14 @@
 
       .people-account-profile-header {
         display: grid;
-        gap: 12px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px 16px;
+        align-items: start;
       }
 
       .people-account-profile-actions {
-        justify-content: flex-start;
+        gap: 8px;
+        justify-content: flex-end;
       }
 
       .people-account-profile-actions > * {
@@ -3476,15 +3480,15 @@
 
       .people-account-profile-overview {
         display: grid;
-        gap: 12px;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       }
 
       .people-account-profile-card {
         display: grid;
-        gap: 8px;
-        padding: 14px 16px;
-        border-radius: 20px;
+        gap: 6px;
+        padding: 12px 14px;
+        border-radius: 16px;
         border: 1px solid rgba(20, 49, 38, 0.08);
         background:
           radial-gradient(circle at top right, rgba(225, 191, 67, 0.07), transparent 30%),
@@ -3500,17 +3504,17 @@
       }
 
       .people-account-profile-card strong {
-        font-size: 1.08rem;
-        line-height: 1.2;
+        font-size: 1rem;
+        line-height: 1.18;
         letter-spacing: -0.02em;
         overflow-wrap: anywhere;
       }
 
       .people-account-profile-meta-panel {
         display: grid;
-        gap: 12px;
-        padding: 16px 18px;
-        border-radius: 22px;
+        gap: 10px;
+        padding: 14px 16px;
+        border-radius: 18px;
         border: 1px solid rgba(20, 49, 38, 0.08);
         background:
           radial-gradient(circle at top right, rgba(225, 191, 67, 0.06), transparent 28%),
@@ -3520,13 +3524,13 @@
 
       .people-account-profile-meta-grid {
         display: grid;
-        gap: 12px 16px;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px 14px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       }
 
       .people-account-profile-detail {
         display: grid;
-        gap: 5px;
+        gap: 4px;
         min-width: 0;
       }
 
@@ -3539,9 +3543,9 @@
       }
 
       .people-account-profile-detail strong {
-        font-size: var(--text-body);
+        font-size: 0.98rem;
         font-weight: var(--weight-strong);
-        line-height: 1.4;
+        line-height: 1.32;
         overflow-wrap: anywhere;
       }
 
@@ -4270,8 +4274,8 @@
 
       .competitor-account-card {
         display: grid;
-        gap: 12px;
-        padding: 14px 16px;
+        gap: 10px;
+        padding: 12px 14px;
       }
 
       .competitor-account-topline {
@@ -4284,7 +4288,7 @@
 
       .competitor-account-name {
         display: block;
-        font-size: clamp(1.55rem, 2.5vw, 1.95rem);
+        font-size: clamp(1.32rem, 2.2vw, 1.7rem);
         line-height: 1.02;
         letter-spacing: -0.04em;
         text-wrap: balance;
@@ -4292,19 +4296,19 @@
 
       .competitor-account-meta {
         display: grid;
-        gap: 4px;
+        gap: 3px;
       }
 
       .competitor-account-email {
         margin: 0;
-        font-size: 0.98rem;
+        font-size: 0.94rem;
         line-height: 1.32;
         word-break: break-word;
       }
 
       .competitor-account-theme {
         margin: 0;
-        font-size: 0.9rem;
+        font-size: 0.86rem;
       }
 
       .competitor-account-actions {
@@ -4313,8 +4317,8 @@
 
       .competitor-account-actions > button,
       .competitor-account-actions > a {
-        min-height: 42px;
-        padding: 9px 14px;
+        min-height: 40px;
+        padding: 8px 13px;
       }
 
       .competitor-account-card .theme-quick-switch {
@@ -4351,8 +4355,8 @@
 
       .competitor-metric,
       .competitor-stat {
-        padding: 14px 16px;
-        border-radius: 18px;
+        padding: 11px 13px;
+        border-radius: 16px;
         border: 1px solid var(--line);
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(247, 251, 248, 0.82));
         box-shadow: var(--shadow-soft);
@@ -6615,6 +6619,14 @@
         }
 
         .participant-profile-actions {
+          justify-content: flex-start;
+        }
+
+        .people-account-profile-header {
+          grid-template-columns: 1fr;
+        }
+
+        .people-account-profile-actions {
           justify-content: flex-start;
         }
 
