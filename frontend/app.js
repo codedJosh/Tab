@@ -3829,6 +3829,87 @@
         );
       }
 
+      function getTournamentFlexibleFeatures(tournament) {
+        if (!tournament) {
+          return [];
+        }
+
+        const features = [];
+        const format = normalizeFormatName(tournament.format);
+        const participantModel = String(tournament.participantModel || "")
+          .trim()
+          .toLowerCase();
+        const preset = getFormatPreset(format);
+        const presetParticipantModel = String(preset?.participantModel || "")
+          .trim()
+          .toLowerCase();
+        const defaults = getFormatSelectionDefaults(format, participantModel);
+        const configuredScoring = normalizeScoringMethodChoice(tournament?.config?.scoringMethod);
+        const defaultScoring = normalizeScoringMethodChoice(defaults.scoringMethod);
+
+        if (format === "No Standard Format") {
+          features.push(tournament.customFormatName ? "Custom ruleset" : "Custom format");
+        }
+
+        if (hasVariableRoundStructure(tournament)) {
+          features.push("Round-by-round structure");
+        }
+
+        if (participantModel === "hybrid") {
+          features.push("Mixed team and individual field");
+        } else if (presetParticipantModel && participantModel && presetParticipantModel !== participantModel) {
+          features.push("Custom field model");
+        }
+
+        if (Boolean(tournament?.config?.randomTeamsAllowed)) {
+          features.push("Random teams enabled");
+        }
+
+        if (
+          !hasConfiguredValue(tournament?.config?.teamsPerRoom) ||
+          !hasConfiguredValue(tournament?.config?.teamSize) ||
+          !hasConfiguredValue(tournament?.config?.speakersPerSide)
+        ) {
+          features.push("Flexible room structure");
+        }
+
+        if (configuredScoring && defaultScoring && configuredScoring !== defaultScoring) {
+          features.push("Custom scoring");
+        }
+
+        return Array.from(new Set(features));
+      }
+
+      function usesFlexibleTournamentSetup(tournament) {
+        return getTournamentFlexibleFeatures(tournament).length > 0;
+      }
+
+      function getTournamentFormatContextLabel(tournament, options = {}) {
+        const formatLabel = getFormatLabel(tournament);
+        const parts = [formatLabel];
+        if (options.includeParticipantModel && tournament?.participantModel) {
+          parts.push(toTitleLabel(tournament.participantModel));
+        }
+        if (usesFlexibleTournamentSetup(tournament) && options.includeFlexibleLabel !== false) {
+          parts.push("Flexible setup");
+        }
+        return parts.filter(Boolean).join(" • ");
+      }
+
+      function getTournamentFlexibleSummary(tournament, limit = 2) {
+        const features = getTournamentFlexibleFeatures(tournament);
+        if (!features.length) {
+          return "";
+        }
+        return features.slice(0, Math.max(1, limit)).join(" • ");
+      }
+
+      function getTournamentSetupBadgeLabel(tournament) {
+        return usesFlexibleTournamentSetup(tournament)
+          ? "Flexible format"
+          : getFormatLabel(tournament) || "Setup";
+      }
+
       function getRoundStructureSummary(tournament) {
         const profiles = getRoundProfiles(tournament);
         const referenceProfile = profiles[0] || {};
@@ -12391,7 +12472,7 @@
                     <div class="stack">
                       <strong>${escapeHtml(tournament.name)}</strong>
                       <span class="muted">${escapeHtml(
-                        tournament.code + " • " + getFormatLabel(tournament),
+                        tournament.code + " • " + getTournamentFormatContextLabel(tournament),
                       )}</span>
                       <span class="fine-print">${escapeHtml(
                         note ||
@@ -13708,7 +13789,11 @@
                     <h3>${escapeHtml(tournament.name)}</h3>
                   </div>
                   <div class="kpi-line">
-                    <span>${escapeHtml(getFormatLabel(tournament))}</span>
+                    <span>${escapeHtml(
+                      getTournamentFormatContextLabel(tournament, {
+                        includeFlexibleLabel: true,
+                      }),
+                    )}</span>
                     <span>${escapeHtml(tournament.code)}</span>
                     <span>${escapeHtml(entryLabel)}</span>
                   </div>
@@ -15909,6 +15994,13 @@
                           <li>${escapeHtml(tournament.config.motionStyle)}</li>
                           <li>${escapeHtml(scoringExtras)}</li>
                           ${
+                            usesFlexibleTournamentSetup(tournament)
+                              ? `<li>${escapeHtml(
+                                  getTournamentFlexibleSummary(tournament, 3) || "Flexible setup enabled",
+                                )}</li>`
+                              : ""
+                          }
+                          ${
                             hasVariableRoundStructure(tournament)
                               ? `<li>Round structure changes across the tournament.</li>`
                               : ""
@@ -16108,6 +16200,7 @@
               <strong>${escapeHtml(tournament.name)}</strong>
               <span class="muted">${escapeHtml(
                 note ||
+                  getTournamentFlexibleSummary(tournament) ||
                   snapshot.attention[0] ||
                   (snapshot.latestPublishedRound
                     ? "Latest published round: " + snapshot.latestPublishedRound
@@ -16130,7 +16223,7 @@
             </span>
             <span class="tournament-rail-footer">
               <span class="tournament-rail-meta">${escapeHtml(
-                getFormatLabel(tournament) + " • " + latestLabel,
+                getTournamentFormatContextLabel(tournament) + " • " + latestLabel,
               )}</span>
               <span class="tournament-rail-cta">Open Tab Room</span>
             </span>
@@ -16332,11 +16425,11 @@
             key: "setup",
             label: "Setup",
             note: "Format structure, tournament profile, and scoring configuration.",
-            badge: getFormatLabel(tournament) || "Flexible",
+            badge: getTournamentSetupBadgeLabel(tournament),
             render: () =>
               renderAdminDrawer(
                 "Tournament Setup",
-                "Flexible format",
+                getTournamentSetupBadgeLabel(tournament),
                 renderTournamentSettingsPanel(tournament, feedbackCategories, scoringProfile),
                 { eyebrow: "Configuration", open: true },
               ),
@@ -16501,6 +16594,13 @@
                 <span class="role-pill">${escapeHtml(active.badge)}</span>
                 <span class="mini-pill success">${escapeHtml(tournament.code)}</span>
                 <span class="mini-pill success">${escapeHtml(getFormatLabel(tournament))}</span>
+                ${
+                  usesFlexibleTournamentSetup(tournament)
+                    ? `<span class="mini-pill warning">${escapeHtml(
+                        getTournamentFlexibleSummary(tournament, 1) || "Flexible setup",
+                      )}</span>`
+                    : ""
+                }
               </div>
             </div>
             ${
