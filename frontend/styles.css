@@ -5078,7 +5078,8 @@
           linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 245, 0.94));
       }
 
-      .people-directory-card > summary {
+      .people-directory-card > summary,
+      .people-directory-summary {
         display: grid;
         grid-template-columns: 1fr;
         gap: 12px;
@@ -5091,7 +5092,19 @@
         display: none;
       }
 
+      .people-directory-summary {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+          "top top"
+          "name action"
+          "footer action";
+        column-gap: 18px;
+        row-gap: 12px;
+        align-items: start;
+      }
+
       .people-directory-summary-top {
+        grid-area: top;
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
@@ -5099,32 +5112,41 @@
       }
 
       .people-directory-copy {
+        grid-area: name;
+        min-width: 0;
         gap: 6px;
         align-content: start;
       }
 
       .people-directory-copy h3 {
         margin: 0;
-        font-size: 1.46rem;
-        line-height: 1.02;
+        max-width: 14ch;
+        font-size: 1.34rem;
+        line-height: 1.04;
         letter-spacing: -0.02em;
+        overflow-wrap: anywhere;
       }
 
       .people-directory-summary-note {
         margin: 0;
-        font-size: 1rem;
+        max-width: 20ch;
+        font-size: 0.98rem;
         font-weight: 700;
         line-height: 1.35;
         color: rgba(26, 59, 47, 0.72);
+        overflow-wrap: anywhere;
       }
 
       .people-directory-summary-footer {
+        grid-area: footer;
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+        align-self: end;
       }
 
       .people-directory-configure {
+        grid-area: action;
         margin-top: auto;
         display: inline-flex;
         align-items: center;
@@ -5138,6 +5160,10 @@
         font-size: 0.95rem;
         font-weight: 800;
         letter-spacing: 0.01em;
+        justify-self: end;
+        align-self: end;
+        width: 118px;
+        text-align: center;
       }
 
       .people-directory-card[open] > summary {
@@ -5624,6 +5650,20 @@
         .people-directory-card > summary {
           min-height: 0;
           grid-template-columns: 1fr;
+        }
+
+        .people-directory-summary {
+          grid-template-columns: 1fr;
+          grid-template-areas:
+            "top"
+            "name"
+            "footer"
+            "action";
+        }
+
+        .people-directory-configure {
+          justify-self: stretch;
+          width: 100%;
         }
 
         .roster-speaker-layout .registration-speaker-card {
