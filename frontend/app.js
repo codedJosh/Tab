@@ -15612,9 +15612,16 @@
                       <h3>${escapeHtml(getFormatLabel(tournament))}</h3>
                       <p class="muted">${escapeHtml(formatDescription)}</p>
                     </div>
-                    <p class="fine-print tournament-viewer-hero-structure">${escapeHtml(
-                      structureSummary + " • " + scoringExtras,
-                    )}</p>
+                    <div class="tournament-viewer-hero-highlights">
+                      <div class="tournament-viewer-hero-highlight">
+                        <span class="theme-section-label">Round map</span>
+                        <strong>${escapeHtml(structureSummary)}</strong>
+                      </div>
+                      <div class="tournament-viewer-hero-highlight">
+                        <span class="theme-section-label">Scoring</span>
+                        <strong>${escapeHtml(scoringExtras)}</strong>
+                      </div>
+                    </div>
                   </div>
                   <div class="tournament-viewer-hero-side">
                     <span class="mini-pill ${tournament.publication.showPublicStandings ? "success" : "warning"}">${escapeHtml(
@@ -15671,9 +15678,16 @@
                     <h3>${escapeHtml(getFormatLabel(tournament))}</h3>
                     <p class="muted">${escapeHtml(formatDescription)}</p>
                   </div>
-                  <p class="fine-print tournament-viewer-hero-structure">${escapeHtml(
-                    structureSummary + " • " + scoringExtras,
-                  )}</p>
+                  <div class="tournament-viewer-hero-highlights">
+                    <div class="tournament-viewer-hero-highlight">
+                      <span class="theme-section-label">Round map</span>
+                      <strong>${escapeHtml(structureSummary)}</strong>
+                    </div>
+                    <div class="tournament-viewer-hero-highlight">
+                      <span class="theme-section-label">Scoring</span>
+                      <strong>${escapeHtml(scoringExtras)}</strong>
+                    </div>
+                  </div>
                 </div>
                 <div class="tournament-viewer-hero-side">
                   <span class="mini-pill ${tournament.publication.showPublicStandings ? "success" : "warning"}">Standings ${escapeHtml(
@@ -21066,18 +21080,18 @@
                   .map(
                     (teamRecord, index) => `
                       <div class="participant-team-card">
-                        <div class="section-heading">
-                          <strong>${escapeHtml(teamRecord.teamName)}</strong>
+                        <div class="participant-team-card-top">
+                          <strong class="participant-team-card-name">${escapeHtml(teamRecord.teamName)}</strong>
                           <span class="mini-pill ${index === 0 ? "success" : "warning"}">${escapeHtml(
                             index === 0 ? "Current team" : "Previous team",
                           )}</span>
                         </div>
-                        <p class="muted">${escapeHtml(
+                        <p class="muted participant-team-card-count">${escapeHtml(
                           teamRecord.tournaments.length +
                             " tournament" +
                             (teamRecord.tournaments.length === 1 ? "" : "s"),
                         )}</p>
-                        <div class="workspace-chip-row">
+                        <div class="workspace-chip-row participant-team-card-chips">
                           <span class="mini-pill success">${escapeHtml(
                             teamRecord.bestRank ? "Best finish #" + teamRecord.bestRank : "Best finish pending",
                           )}</span>
@@ -21085,7 +21099,7 @@
                             teamRecord.tournaments[0]?.tournamentName || "No latest tournament",
                           )}</span>
                         </div>
-                        <p class="fine-print">${escapeHtml(
+                        <p class="fine-print participant-team-card-note">${escapeHtml(
                           teamRecord.tournaments[0]?.standing
                             ? getStandingSummaryText(
                                 teamRecord.tournaments[0].tournament,
@@ -21093,7 +21107,7 @@
                               )
                             : "This team record is still building.",
                         )}</p>
-                        <div class="button-row wrap-row">
+                        <div class="button-row wrap-row participant-team-card-actions">
                           ${
                             teamRecord.tournaments[0]
                               ? renderTournamentNavigationButton(
