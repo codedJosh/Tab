@@ -1819,57 +1819,15 @@
           const base = Math.max(10, 28 - index);
           pushRecommendation(
             profile.name,
-            "Participant • " + (profile.latest?.tournamentCode || profile.email || "History"),
+            "Profile • " +
+              profile.tournamentsCount +
+              " tournament" +
+              (profile.tournamentsCount === 1 ? "" : "s") +
+              " tracked",
             base,
             [profile.email, ...(profile.institutions || []), ...(profile.teams || [])],
           );
-          if (profile.email) {
-            pushRecommendation(
-              profile.email,
-              "Account • " + (profile.name || "Participant"),
-              base - 2,
-              [profile.name],
-            );
-          }
-          (profile.institutions || []).forEach((institution) => {
-            pushRecommendation(
-              institution,
-              "Institution • " + (profile.name || "Participant"),
-              base - 3,
-              [profile.name, ...(profile.teams || [])],
-            );
-          });
         });
-
-        visibleTournaments
-          .flatMap((tournament) =>
-            getTournamentTeams(tournament).map((team) => ({
-              tournament,
-              label: getTeamDisplayLabel(team),
-              institution: team.institution,
-            })),
-          )
-          .forEach(({ tournament, label, institution }, index) => {
-            const base = Math.max(8, 22 - index);
-            pushRecommendation(
-              label,
-              "Team • " + tournament.code,
-              base,
-              [tournament.name, institution],
-            );
-          });
-
-        if (canAccessGlobalSettings()) {
-          state.users.forEach((user, index) => {
-            const base = Math.max(6, 18 - index);
-            pushRecommendation(
-              user.name,
-              "Account • " + toTitleLabel(user.globalRole),
-              base,
-              [user.email],
-            );
-          });
-        }
 
         return recommendations
           .sort(
@@ -9214,7 +9172,7 @@
           return;
         }
         if (intent.action === "delete-tournament") {
-          deleteTournament(intent.id);
+          await deleteTournament(intent.id);
           return;
         }
         if (intent.action === "delete-participant") {
@@ -17048,7 +17006,7 @@
       function renderParticipantSearchCards(profiles, options = {}) {
         if (!profiles.length) {
           return `<div class="empty-state">${escapeHtml(
-            options.emptyMessage || "No participant histories matched this search yet.",
+            options.emptyMessage || "No profile histories matched this search yet.",
           )}</div>`;
         }
 
@@ -17061,46 +17019,35 @@
                     <div class="section-heading">
                       <div>
                         <strong>${escapeHtml(profile.name)}</strong>
-                        <p class="muted">${escapeHtml(profile.email || "No email stored")}</p>
+                        <p class="muted">${escapeHtml(
+                          "Profile history across " +
+                            profile.tournamentsCount +
+                            " tournament" +
+                            (profile.tournamentsCount === 1 ? "" : "s") +
+                            ".",
+                        )}</p>
                       </div>
                       <span class="mini-pill success">${escapeHtml(
                         profile.tournamentsCount + " event" + (profile.tournamentsCount === 1 ? "" : "s"),
                       )}</span>
                     </div>
-                    <p class="muted">${escapeHtml(
-                      profile.institutions.join(", ") || "Institution not set",
-                    )}</p>
                     <div class="workspace-chip-row">
-                      <span class="role-pill">${escapeHtml(
-                        profile.latest?.teamName || "Independent",
-                      )}</span>
                       <span class="mini-pill ${profile.bestSpeakerRank ? "success" : "warning"}">${escapeHtml(
                         profile.bestSpeakerRank
                           ? "Best speaker rank #" + profile.bestSpeakerRank
                           : "Speaker history building",
                       )}</span>
+                      <span class="mini-pill success">${escapeHtml(
+                        "Average " + formatScoreValue(profile.averageSpeakerScore || 0),
+                      )}</span>
                     </div>
                     <p class="fine-print">${escapeHtml(
-                      profile.latest
-                        ? profile.latest.tournamentName + " • " + profile.latest.tournamentFormat
-                        : "No tournament record attached yet.",
+                      profile.history?.length
+                        ? "Open this profile to view full tournament history and performance details."
+                        : "This profile has been created, but tournament history is still building.",
                     )}</p>
                     <div class="button-row wrap-row">
                       ${renderParticipantProfileButton(profile.latest?.participant || profile, "Open Profile")}
-                      ${
-                        profile.latest
-                          ? renderTournamentNavigationButton(
-                              profile.latest.tournament,
-                              "Open Latest Tournament",
-                              true,
-                            )
-                          : ""
-                      }
-                      ${renderParticipantContactActions(profile, {
-                        emailLabel: "Email",
-                        copyLabel: "Copy Email",
-                        showFallback: true,
-                      })}
                     </div>
                   </article>
                 `,
@@ -17118,6 +17065,7 @@
         const latest = profile.latest;
         const historyForTrack = [...(profile.history || [])].reverse();
         const teamJourney = getParticipantTeamJourney(profile);
+        const canRevealContactDetails = canAccessGlobalSettings();
         const bestTeamFinish = (profile.history || []).reduce((best, entry) => {
           if (!entry.standing?.rank) {
             return best;
@@ -17135,9 +17083,9 @@
           <section class="surface participant-profile-shell">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Participant Profile</p>
+                <p class="eyebrow">Profile</p>
                 <h2>${escapeHtml(profile.name)}</h2>
-                <p class="muted">${escapeHtml(profile.email || "No email stored")}</p>
+                <p class="muted">Tournament-by-tournament performance history for this account.</p>
               </div>
               <div class="button-row wrap-row">
                 ${
@@ -17149,11 +17097,15 @@
                       )
                     : ""
                 }
-                ${renderParticipantContactActions(profile, {
-                  emailLabel: "Email Participant",
-                  copyLabel: "Copy Email",
-                  showFallback: true,
-                })}
+                ${
+                  canRevealContactDetails
+                    ? renderParticipantContactActions(profile, {
+                        emailLabel: "Email Participant",
+                        copyLabel: "Copy Email",
+                        showFallback: true,
+                      })
+                    : ""
+                }
                 <button class="secondary-button" type="button" data-action="clear-participant-profile">Close Profile</button>
               </div>
             </div>
@@ -17163,8 +17115,8 @@
                 <strong>${escapeHtml(profile.tournamentsCount)}</strong>
               </div>
               <div class="stat-card">
-                <span class="muted">Current team</span>
-                <strong>${escapeHtml(latest?.teamName || "Independent")}</strong>
+                <span class="muted">Tracked teams</span>
+                <strong>${escapeHtml(profile.teams.length || 0)}</strong>
               </div>
               <div class="stat-card">
                 <span class="muted">Average speaker score</span>
@@ -17184,18 +17136,6 @@
                 <span class="muted">Feedback items</span>
                 <strong>${escapeHtml(feedbackTotal)}</strong>
               </div>
-            </div>
-            <div class="participant-profile-meta">
-              <span class="role-pill">${escapeHtml(
-                profile.institutions.join(", ") || "Institution not set",
-              )}</span>
-              ${profile.teams
-                .slice(0, 4)
-                .map(
-                  (team) =>
-                    `<span class="mini-pill success">${escapeHtml(team || "Independent")}</span>`,
-                )
-                .join("")}
             </div>
             <div class="participant-profile-section">
               <div class="section-heading">
@@ -17336,7 +17276,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Search and Profiles</p>
-                <h2>Connected history across tournaments</h2>
+                <h2>One profile per person</h2>
               </div>
               <span class="role-pill">${escapeHtml(query ? "Live results" : "Directory mode")}</span>
             </div>
@@ -17345,7 +17285,7 @@
                 Search
                 <input type="search" name="query" value="${escapeHtml(
                   query,
-                )}" list="search-view-suggestions" autocomplete="off" placeholder="Find tournaments, participants, teams, institutions, or accounts" />
+                )}" list="search-view-suggestions" autocomplete="off" placeholder="Find tournaments or people by name, team, or institution" />
               </label>
               <div class="button-row wrap-row">
                 <button type="submit">Search</button>
@@ -17354,7 +17294,7 @@
             </form>
             ${renderSearchAssist(query, "search-view-suggestions")}
             <p class="fine-print">
-              Search now connects tournaments, participants, teams, and accounts so clicking one item can take you into related records, and members can email registered participants directly from search cards or profiles.
+              Search now resolves to a single profile card for each person, even when they have registered across multiple tournaments. Open a profile to view tournament history and performance details.
             </p>
           </section>
 
@@ -17368,10 +17308,7 @@
                       <h2>Matches for "${escapeHtml(query)}"</h2>
                     </div>
                     <span class="role-pill">${escapeHtml(
-                      (results.tournaments.length || 0) +
-                        (results.participants.length || 0) +
-                        (results.teams.length || 0) +
-                        (results.accounts.length || 0),
+                      (results.tournaments.length || 0) + (results.participants.length || 0),
                     )} matches</span>
                   </div>
                   <div class="search-results-shell">
@@ -17405,75 +17342,13 @@
                     </div>
                     <div class="search-results-section">
                       <div class="section-heading">
-                        <h3>Participants</h3>
+                        <h3>Profiles</h3>
                         <span class="mini-pill success">${escapeHtml(results.participants.length)}</span>
                       </div>
                       ${renderParticipantSearchCards(results.participants.slice(0, 8), {
-                        emptyMessage: "No participant histories matched this search.",
+                        emptyMessage: "No profile histories matched this search.",
                       })}
                     </div>
-                    <div class="search-results-section">
-                      <div class="section-heading">
-                        <h3>Teams</h3>
-                        <span class="mini-pill success">${escapeHtml(results.teams.length)}</span>
-                      </div>
-                      ${
-                        results.teams.length
-                          ? `<div class="leaderboard-list">
-                              ${results.teams
-                                .slice(0, 8)
-                                .map(
-                                  ({ tournament, team, label }) => `
-                                    <div class="leaderboard-row">
-                                      <div class="stack">
-                                        <strong>${escapeHtml(label)}</strong>
-                                        <span class="muted">${escapeHtml(
-                                          tournament.name + " • " + tournament.code,
-                                        )}</span>
-                                      </div>
-                                      ${renderTournamentNavigationButton(tournament, "Open Tournament")}
-                                    </div>
-                                  `,
-                                )
-                                .join("")}
-                            </div>`
-                          : `<div class="empty-state">No teams matched this search.</div>`
-                      }
-                    </div>
-                    ${
-                      canAccessGlobalSettings()
-                        ? `
-                          <div class="search-results-section">
-                            <div class="section-heading">
-                              <h3>Accounts</h3>
-                              <span class="mini-pill success">${escapeHtml(results.accounts.length)}</span>
-                            </div>
-                            ${
-                              results.accounts.length
-                                ? `<div class="leaderboard-list">
-                                    ${results.accounts
-                                      .slice(0, 8)
-                                      .map(
-                                        (account) => `
-                                          <div class="leaderboard-row">
-                                            <div class="stack">
-                                              <strong>${escapeHtml(account.name || account.email)}</strong>
-                                              <span class="muted">${escapeHtml(
-                                                account.email + " • " + toTitleLabel(account.globalRole),
-                                              )}</span>
-                                            </div>
-                                            <button class="secondary-button" type="button" data-action="set-view" data-view="people">Open People</button>
-                                          </div>
-                                        `,
-                                      )
-                                      .join("")}
-                                  </div>`
-                                : `<div class="empty-state">No accounts matched this search.</div>`
-                            }
-                          </div>
-                        `
-                        : ""
-                    }
                   </div>
                 </section>
               `
@@ -17481,13 +17356,13 @@
                 <section class="surface">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Participant History</p>
+                      <p class="eyebrow">Profile Directory</p>
                       <h2>Recurring speakers and debaters</h2>
                     </div>
                     <span class="role-pill">${escapeHtml(featuredProfiles.length)} featured</span>
                   </div>
                   ${renderParticipantSearchCards(featuredProfiles, {
-                    emptyMessage: "Participant history will appear here as tournaments are populated.",
+                    emptyMessage: "Profile history will appear here as tournaments are populated.",
                   })}
                 </section>
               `
@@ -20067,9 +19942,11 @@
         );
       }
 
-      function deleteTournament(tournamentId) {
+      async function deleteTournament(tournamentId) {
         const tournament = ensureTournamentManagerById(tournamentId);
         if (!tournament) return;
+        const previousState = clone(state);
+        const previousSession = normalizeSessionRecord(session);
         state.tournaments = state.tournaments.filter((entry) => entry.id !== tournamentId);
         state.users = state.users.map((user) => ({
           ...user,
@@ -20086,7 +19963,25 @@
         if (session.selectedTournamentId === tournamentId) {
           session.selectedTournamentId = "";
         }
-        persist("success", "Tournament deleted.");
+        try {
+          await persistStateToCloudNow({
+            skipRender: true,
+          });
+          setFlash("success", "Tournament deleted.");
+        } catch (error) {
+          if (error?.code !== "stale_revision") {
+            state = previousState;
+          }
+          session = previousSession;
+          setFlash(
+            error?.code === "stale_revision" ? "warning" : "error",
+            error?.message || "The tournament could not be deleted right now.",
+          );
+        }
+
+        saveState();
+        saveSession();
+        renderApp();
       }
 
       function togglePinnedTournament(tournamentId) {
