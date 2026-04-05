@@ -6646,8 +6646,9 @@
 
           (tournament?.participants || []).forEach((participant) => remember(participant?.email));
           (tournament?.judges || []).forEach((judge) => remember(judge?.email));
-          (tournament?.permissions?.debaterEmails || []).forEach(remember);
-          (tournament?.permissions?.judgeEmails || []).forEach(remember);
+          getTournamentPermissionKeys({ includeLegacy: true }).forEach((key) => {
+            (tournament?.permissions?.[key] || []).forEach(remember);
+          });
         });
 
         return (users || []).map((user) =>
@@ -11442,6 +11443,13 @@
         );
       }
 
+      function canClaimRegisteredUser(user = {}) {
+        return (
+          String(user.createdSource || "").trim().toLowerCase() === "registered" &&
+          !String(user.lastLoginAt || "").trim()
+        );
+      }
+
       async function reduceDevicePasswordAutoSignIn() {
         if (
           !navigator.credentials ||
@@ -11967,6 +11975,12 @@
         }
 
         return String(institution || "").trim() ? "institutional" : "independent";
+      }
+
+      function createTemporaryRegistrationPassword() {
+        return Array.from(crypto.getRandomValues(new Uint8Array(24)))
+          .map((value) => value.toString(16).padStart(2, "0"))
+          .join("");
       }
 
       function createJudgeRecord(name, email, institution = "", extras = {}) {
@@ -13320,9 +13334,6 @@
 
         if (String(tournament?.status || "").trim().toLowerCase() !== "open") {
           issues.push("Tournament is closed.");
-        }
-        if (!Boolean(tournament?.publication?.dashboardListed)) {
-          issues.push("Tournament is hidden from the public dashboard.");
         }
         if (!roleOpen) {
           issues.push(
@@ -15579,7 +15590,7 @@
         if (!tournaments.length) {
           return `<div class="empty-state">No tournaments are currently live for ${escapeHtml(
             role === "judge" ? "judge" : "debater",
-          )} registration. Staff need to keep the tournament open, visible on the dashboard, and the matching registration toggle turned on in Setup.</div>`;
+          )} registration. Staff need to keep the tournament open and turn on the matching registration toggle in Setup.</div>`;
         }
 
         return `
@@ -24278,11 +24289,7 @@
           return;
         }
 
-        if (state.users.some((user) => user.email === email)) {
-          setFlash("error", "An account with that email already exists.");
-          renderApp();
-          return;
-        }
+        const existingUser = state.users.find((user) => user.email === email) || null;
 
         if (await probeCloudBackend(true)) {
           try {
@@ -24332,12 +24339,27 @@
           return;
         }
 
-        const user = await buildUser(name, email, "member", password, {
-          createdSource: "self_signup",
-          createdBy: normalizeEmail(email),
-        });
-        user.lastLoginAt = timestamp();
-        state.users.push(user);
+        if (existingUser && !canClaimRegisteredUser(existingUser)) {
+          setFlash("error", "An account with that email already exists.");
+          renderApp();
+          return;
+        }
+
+        if (existingUser && canClaimRegisteredUser(existingUser)) {
+          Object.assign(existingUser, await buildSecurePasswordRecord(password), {
+            name: name || existingUser.name,
+            createdSource: "self_signup",
+            createdBy: normalizeEmail(email),
+            lastLoginAt: timestamp(),
+          });
+        } else {
+          const user = await buildUser(name, email, "member", password, {
+            createdSource: "self_signup",
+            createdBy: normalizeEmail(email),
+          });
+          user.lastLoginAt = timestamp();
+          state.users.push(user);
+        }
         session.userEmail = email;
         session.cloudSessionToken = "";
         session.view = getPreferredLandingView(email);
@@ -24396,7 +24418,15 @@
           }
           const passwordCheck = await verifyUserPassword(existingUser, password);
           if (!passwordCheck.ok) {
-            throw new Error("That password is not correct for the existing account.");
+            if (canClaimRegisteredUser(existingUser)) {
+              Object.assign(existingUser, await buildSecurePasswordRecord(password), {
+                name: name || existingUser.name,
+                createdSource,
+                createdBy: normalizeEmail(email),
+              });
+            } else {
+              throw new Error("That password is not correct for the existing account.");
+            }
           }
           if (passwordCheck.needsUpgrade) {
             Object.assign(existingUser, await buildSecurePasswordRecord(password));
@@ -24426,6 +24456,38 @@
         saveSession();
 
         return getCurrentUser();
+      }
+
+      async function ensurePassiveRegistrationUser({
+        name,
+        email,
+        createdSource = "registered",
+        createdBy = "",
+      }) {
+        const normalizedEmail = normalizeEmail(email);
+        if (!normalizedEmail) {
+          return null;
+        }
+
+        const existingUser = (state.users || []).find(
+          (user) => normalizeEmail(user.email) === normalizedEmail,
+        );
+        if (existingUser) {
+          return existingUser;
+        }
+
+        const user = await buildUser(
+          String(name || normalizedEmail.split("@")[0]).trim(),
+          normalizedEmail,
+          "member",
+          createTemporaryRegistrationPassword(),
+          {
+            createdSource,
+            createdBy: normalizeEmail(createdBy) || normalizedEmail,
+          },
+        );
+        state.users.push(user);
+        return user;
       }
 
       function ensureTournamentPermissionEmail(tournament, key, email) {
@@ -24603,6 +24665,57 @@
           return;
         }
 
+        const cloudAvailable = await probeCloudBackend(true);
+        if (cloudAvailable) {
+          try {
+            const result = await callCloud("register_debater", {
+              tournamentId,
+              name,
+              email,
+              password,
+              institution,
+              teamName,
+              teammateName,
+              teammateEmail,
+              notes,
+            });
+            cloudRuntime.initialized = true;
+            state = await rehydrateState(result.state);
+            session.userEmail = email;
+            session.cloudSessionToken = String(result.sessionToken || "").trim();
+            session.view = "links";
+            session.managedTournamentId = "";
+            session.selectedTournamentId = "";
+            recordRecentView(session.view);
+            updateAuthPrefsAfterCredentialChoice(email, false);
+            removePasswordFromDeviceVault(email);
+            clearFlash();
+            saveState();
+            saveSession();
+            setFlash(
+              "success",
+              teammateEmail
+                ? "Team registration saved. Both accounts and private links are now ready."
+                : "Team registration saved. Your access links are ready.",
+            );
+            renderApp();
+            return;
+          } catch (error) {
+            setFlash(
+              "error",
+              error.message || "The team registration could not be saved to the shared system.",
+            );
+            renderApp();
+            return;
+          }
+        }
+
+        if (requiresSharedBackend()) {
+          setFlash("error", getSharedBackendUnavailableMessage());
+          renderApp();
+          return;
+        }
+
         try {
           await ensureAuthenticatedRegistrationUser({
             name,
@@ -24610,6 +24723,14 @@
             password,
             createdSource: "self_signup",
           });
+          if (teammateEmail) {
+            await ensurePassiveRegistrationUser({
+              name: teammateName || teammateEmail,
+              email: teammateEmail,
+              createdSource: "registered",
+              createdBy: email,
+            });
+          }
         } catch (error) {
           setFlash("error", error.message || "Hummingbird Tab System could not sign you in for registration.");
           renderApp();
@@ -24701,6 +24822,50 @@
 
         if (password !== confirmPassword) {
           setFlash("error", "Passwords do not match.");
+          renderApp();
+          return;
+        }
+
+        const cloudAvailable = await probeCloudBackend(true);
+        if (cloudAvailable) {
+          try {
+            const result = await callCloud("register_judge", {
+              tournamentId,
+              name,
+              email,
+              password,
+              affiliationType,
+              institution,
+              notes,
+            });
+            cloudRuntime.initialized = true;
+            state = await rehydrateState(result.state);
+            session.userEmail = email;
+            session.cloudSessionToken = String(result.sessionToken || "").trim();
+            session.view = "links";
+            session.managedTournamentId = "";
+            session.selectedTournamentId = "";
+            recordRecentView(session.view);
+            updateAuthPrefsAfterCredentialChoice(email, false);
+            removePasswordFromDeviceVault(email);
+            clearFlash();
+            saveState();
+            saveSession();
+            setFlash("success", "Judge registration saved. Your access links are ready.");
+            renderApp();
+            return;
+          } catch (error) {
+            setFlash(
+              "error",
+              error.message || "The judge registration could not be saved to the shared system.",
+            );
+            renderApp();
+            return;
+          }
+        }
+
+        if (requiresSharedBackend()) {
+          setFlash("error", getSharedBackendUnavailableMessage());
           renderApp();
           return;
         }

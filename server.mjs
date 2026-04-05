@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -16,9 +17,15 @@ const JADE_SESSION_SECRET = String(process.env.JADE_SESSION_SECRET || "").trim()
 const WORKSPACE_ID = String(process.env.JADE_WORKSPACE_ID || "primary").trim() || "primary";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const FRONTEND_DIR = path.resolve(
-  String(process.env.FRONTEND_DIR || path.join(__dirname, "..")).trim() || path.join(__dirname, ".."),
-);
+const configuredFrontendDir = String(process.env.FRONTEND_DIR || "").trim();
+const FRONTEND_DIR = configuredFrontendDir
+  ? path.resolve(configuredFrontendDir)
+  : [
+      path.join(__dirname, "frontend"),
+      __dirname,
+      path.join(__dirname, "..", "frontend"),
+      path.join(__dirname, ".."),
+    ].find((candidate) => fs.existsSync(path.join(candidate, "index.html"))) || __dirname;
 const FRONTEND_ENTRY = path.join(FRONTEND_DIR, "index.html");
 
 const MANAGER_EMAIL = "joshuaatkins374@gmail.com";
@@ -27,6 +34,19 @@ const PASSWORD_HASH_VERSION = "pbkdf2-sha256-v1";
 const PASSWORD_HASH_ITERATIONS = 210000;
 const PASSWORD_SALT_BYTES = 16;
 const MAX_BODY_SIZE = "30mb";
+const TOURNAMENT_PERMISSION_KEYS = [
+  "managerEmails",
+  "tabManagerEmails",
+  "tabDirectorEmails",
+  "caTeamEmails",
+  "tournamentDirectorEmails",
+  "convenorEmails",
+  "registrationOfficerEmails",
+  "financeOfficerEmails",
+  "equityOfficerEmails",
+  "judgeEmails",
+  "debaterEmails",
+];
 
 if (!DATABASE_URL) {
   throw new Error("Missing DATABASE_URL for JADE backend.");
@@ -107,6 +127,38 @@ function normalizeStringList(value, max = 200) {
         .filter(Boolean),
     ),
   ).slice(0, max);
+}
+
+function normalizePermissionEmailList(value = [], max = 400) {
+  return normalizeStringList(
+    (Array.isArray(value) ? value : [])
+      .map((entry) => normalizeEmail(entry))
+      .filter(Boolean),
+    max,
+  );
+}
+
+function normalizeTournamentPermissions(record = {}) {
+  const next = record && typeof record === "object" ? clone(record) : {};
+  TOURNAMENT_PERMISSION_KEYS.forEach((key) => {
+    next[key] = normalizePermissionEmailList(
+      next[key],
+      key === "debaterEmails" ? 800 : 400,
+    );
+  });
+  return next;
+}
+
+function normalizeTextKey(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function createTemporaryRegistrationPassword() {
+  return crypto.randomBytes(24).toString("base64url");
 }
 
 function createPasswordSalt() {
@@ -215,6 +267,179 @@ function buildUser(name, email, globalRole, password, metadata = {}) {
   });
 }
 
+function canClaimRegisteredAccount(user = {}) {
+  return (
+    String(user.createdSource || "").trim().toLowerCase() === "registered" &&
+    !String(user.lastLoginAt || "").trim()
+  );
+}
+
+function normalizeTournamentRegistrationSettings(record = {}) {
+  const hasDebaterOpenSetting =
+    Object.prototype.hasOwnProperty.call(record, "debaterOpen") ||
+    Object.prototype.hasOwnProperty.call(record, "participantOpen") ||
+    Object.prototype.hasOwnProperty.call(record, "debaterRegistrationOpen") ||
+    Object.prototype.hasOwnProperty.call(record, "participantRegistrationOpen");
+  const hasJudgeOpenSetting =
+    Object.prototype.hasOwnProperty.call(record, "judgeOpen") ||
+    Object.prototype.hasOwnProperty.call(record, "judgeRegistrationOpen");
+
+  return {
+    debaterOpen: hasDebaterOpenSetting
+      ? Boolean(
+          record.debaterOpen ||
+            record.participantOpen ||
+            record.debaterRegistrationOpen ||
+            record.participantRegistrationOpen,
+        )
+      : true,
+    judgeOpen: hasJudgeOpenSetting
+      ? Boolean(record.judgeOpen || record.judgeRegistrationOpen)
+      : true,
+    debaterNote: String(
+      record.debaterNote || record.participantNote || record.debaterRegistrationNote || "",
+    ).trim(),
+    judgeNote: String(record.judgeNote || record.judgeRegistrationNote || "").trim(),
+  };
+}
+
+function getTournamentRegistrationAvailability(tournament, role = "debater") {
+  const targetRole = String(role || "debater").trim().toLowerCase() === "judge"
+    ? "judge"
+    : "debater";
+  const registration = normalizeTournamentRegistrationSettings(tournament?.registration || {});
+  const roleOpen = targetRole === "judge" ? registration.judgeOpen : registration.debaterOpen;
+  const issues = [];
+
+  if (String(tournament?.status || "").trim().toLowerCase() !== "open") {
+    issues.push("Tournament is closed.");
+  }
+
+  if (!roleOpen) {
+    issues.push(
+      targetRole === "judge"
+        ? "Judge registration is turned off in Setup."
+        : "Debater registration is turned off in Setup.",
+    );
+  }
+
+  return {
+    role: targetRole,
+    open: issues.length === 0,
+    roleOpen,
+    reason:
+      issues[0] ||
+      (targetRole === "judge" ? "Judge registration is live." : "Debater registration is live."),
+  };
+}
+
+function createTeamRecord(name, institution = "", extras = {}) {
+  return {
+    id: String(extras.id || createId("team")).trim(),
+    name: String(name || "").trim(),
+    institution: String(institution || "").trim(),
+    publicAlias: String(extras.publicAlias || "").trim(),
+    notes: String(extras.notes || "").trim(),
+    source: String(extras.source || "manual").trim() || "manual",
+    createdAt: String(extras.createdAt || nowText()).trim(),
+  };
+}
+
+function teamsLookEquivalent(left, right) {
+  if (!left || !right) {
+    return false;
+  }
+
+  const leftId = String(left.id || "").trim();
+  const rightId = String(right.id || "").trim();
+  if (leftId && rightId && leftId === rightId) {
+    return true;
+  }
+
+  const leftName = normalizeTextKey(left.name);
+  const rightName = normalizeTextKey(right.name);
+  const leftInstitution = normalizeTextKey(left.institution);
+  const rightInstitution = normalizeTextKey(right.institution);
+  const leftDisplay = normalizeTextKey(
+    [left.institution, left.name].filter(Boolean).join(" "),
+  );
+  const rightDisplay = normalizeTextKey(
+    [right.institution, right.name].filter(Boolean).join(" "),
+  );
+
+  return Boolean(
+    (leftName && rightName && leftName === rightName && leftInstitution === rightInstitution) ||
+      (leftDisplay && rightDisplay && leftDisplay === rightDisplay),
+  );
+}
+
+function createParticipantRecord(email, name, teamName = "", extras = {}) {
+  return {
+    id: String(extras.id || createId("participant")).trim(),
+    email: normalizeEmail(email),
+    name: String(name || "").trim(),
+    institution: String(extras.institution || "").trim(),
+    teamId: String(extras.teamId || "").trim(),
+    teamName: String(teamName || extras.teamName || "").trim(),
+    wins: Number(extras.wins || 0) || 0,
+    losses: Number(extras.losses || 0) || 0,
+    points: Number(extras.points || 0) || 0,
+    firsts: Number(extras.firsts || 0) || 0,
+    seconds: Number(extras.seconds || 0) || 0,
+    thirds: Number(extras.thirds || 0) || 0,
+    fourths: Number(extras.fourths || 0) || 0,
+    speakerScore: Number(extras.speakerScore || 0) || 0,
+    rank: Number(extras.rank || 0) || 0,
+    token: String(extras.token || createId("token")).trim(),
+    feedback: Array.isArray(extras.feedback) ? clone(extras.feedback) : [],
+  };
+}
+
+function normalizeJudgeAffiliationType(value, institution = "") {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ");
+
+  if (["independent", "independent judge", "ind"].includes(normalized)) {
+    return "independent";
+  }
+
+  if (
+    [
+      "institutional",
+      "institutionally affiliated",
+      "institutional judge",
+      "affiliated",
+      "institution",
+    ].includes(normalized)
+  ) {
+    return "institutional";
+  }
+
+  return String(institution || "").trim() ? "institutional" : "independent";
+}
+
+function createJudgeRecord(name, email, institution = "", extras = {}) {
+  const normalizedInstitution = String(institution || "").trim();
+  const affiliationType = normalizeJudgeAffiliationType(
+    extras.affiliationType || extras.affiliation,
+    normalizedInstitution,
+  );
+  return {
+    id: String(extras.id || createId("judge")).trim(),
+    name: String(name || "").trim() || String(email || "").trim().split("@")[0],
+    email: normalizeEmail(email),
+    institution: affiliationType === "independent" ? "" : normalizedInstitution,
+    affiliationType,
+    panelQuality: String(extras.panelQuality || "wing").trim() || "wing",
+    qualityTier: String(extras.qualityTier || "solid").trim() || "solid",
+    notes: String(extras.notes || "").trim(),
+    active: extras.active !== false,
+    createdAt: String(extras.createdAt || nowText()).trim(),
+  };
+}
+
 function ensureWorkspaceState(state) {
   const next = state && typeof state === "object" ? clone(state) : {};
   next.appSettings = next.appSettings && typeof next.appSettings === "object" ? next.appSettings : {};
@@ -281,11 +506,59 @@ function getAuditMergeKey(entry = {}) {
   );
 }
 
+function getDrawMergeKey(entry = {}) {
+  return (
+    String(entry.id || "").trim() ||
+    "draw:" +
+      String(entry.round || "").trim() +
+      "|" +
+      String(entry.room || "").trim().toLowerCase() +
+      "|" +
+      String(entry.matchup || "").trim().toLowerCase()
+  );
+}
+
+function getJudgeAllocationMergeKey(entry = {}) {
+  return (
+    String(entry.id || "").trim() ||
+    "allocation:" +
+      String(entry.drawId || "").trim() +
+      "|" +
+      normalizeEmail(entry.judgeEmail)
+  );
+}
+
+function getStandingMergeKey(entry = {}) {
+  return (
+    String(entry.id || "").trim() ||
+    "standing:" + normalizeTextKey(entry.name)
+  );
+}
+
+function getNoticeMergeKey(entry = {}) {
+  return (
+    String(entry.id || "").trim() ||
+    "notice:" + String(entry.createdAt || "").trim() + "|" + String(entry.title || "").trim()
+  );
+}
+
+function getFeedbackLedgerMergeKey(entry = {}) {
+  return (
+    String(entry.id || "").trim() ||
+    "feedback:" + String(entry.createdAt || "").trim() + "|" + String(entry.note || "").trim()
+  );
+}
+
+function getRoundControlMergeKey(entry = {}) {
+  return "round-control:" + String(entry.round || "").trim();
+}
+
 function synchronizeUserTournamentHistory(workspaceState) {
   const next = workspaceState && typeof workspaceState === "object" ? workspaceState : {};
   const users = Array.isArray(next.users) ? next.users.map((user) => normalizeUserRecord(user)) : [];
   const tournaments = Array.isArray(next.tournaments) ? next.tournaments : [];
   const historyByEmail = new Map();
+  const linkedUserSeeds = new Map();
 
   tournaments.forEach((tournament) => {
     const tournamentId = String(tournament?.id || "").trim();
@@ -304,13 +577,67 @@ function synchronizeUserTournamentHistory(workspaceState) {
       historyByEmail.get(normalizedEmail).add(tournamentId);
     };
 
-    (tournament?.participants || []).forEach((participant) => remember(participant?.email));
-    (tournament?.judges || []).forEach((judge) => remember(judge?.email));
-    (tournament?.permissions?.debaterEmails || []).forEach(remember);
-    (tournament?.permissions?.judgeEmails || []).forEach(remember);
+    (tournament?.participants || []).forEach((participant) => {
+      remember(participant?.email);
+      const normalizedEmail = normalizeEmail(participant?.email);
+      if (normalizedEmail && !linkedUserSeeds.has(normalizedEmail)) {
+        linkedUserSeeds.set(normalizedEmail, {
+          email: normalizedEmail,
+          name: String(participant?.name || normalizedEmail.split("@")[0]).trim(),
+          createdSource: "registered",
+        });
+      }
+    });
+    (tournament?.judges || []).forEach((judge) => {
+      remember(judge?.email);
+      const normalizedEmail = normalizeEmail(judge?.email);
+      if (normalizedEmail && !linkedUserSeeds.has(normalizedEmail)) {
+        linkedUserSeeds.set(normalizedEmail, {
+          email: normalizedEmail,
+          name: String(judge?.name || normalizedEmail.split("@")[0]).trim(),
+          createdSource: "registered",
+        });
+      }
+    });
+    TOURNAMENT_PERMISSION_KEYS.forEach((key) => {
+      (tournament?.permissions?.[key] || []).forEach(remember);
+    });
   });
 
-  next.users = users.map((user) =>
+  const nextUsers = users.map((user) =>
+    normalizeUserRecord({
+      ...user,
+      registeredTournamentIds: normalizeStringList(
+        [
+          ...(user.registeredTournamentIds || []),
+          ...Array.from(historyByEmail.get(user.email) || []),
+        ],
+        200,
+      ),
+    }),
+  );
+
+  const existingEmails = new Set(nextUsers.map((user) => user.email));
+  linkedUserSeeds.forEach((seed) => {
+    if (existingEmails.has(seed.email)) {
+      return;
+    }
+    nextUsers.push(
+      buildUser(
+        seed.name || seed.email.split("@")[0],
+        seed.email,
+        "member",
+        createTemporaryRegistrationPassword(),
+        {
+          createdSource: seed.createdSource || "registered",
+          createdBy: "system",
+        },
+      ),
+    );
+    existingEmails.add(seed.email);
+  });
+
+  next.users = nextUsers.map((user) =>
     normalizeUserRecord({
       ...user,
       registeredTournamentIds: normalizeStringList(
@@ -327,8 +654,21 @@ function synchronizeUserTournamentHistory(workspaceState) {
 }
 
 function mergeTournamentRecords(currentTournament = {}, incomingTournament = {}) {
-  const currentPermissions = currentTournament?.permissions || {};
-  const incomingPermissions = incomingTournament?.permissions || {};
+  const currentPermissions = normalizeTournamentPermissions(currentTournament?.permissions || {});
+  const incomingPermissions = normalizeTournamentPermissions(incomingTournament?.permissions || {});
+  const mergedPermissions = {
+    ...currentPermissions,
+    ...incomingPermissions,
+  };
+  TOURNAMENT_PERMISSION_KEYS.forEach((key) => {
+    mergedPermissions[key] = normalizePermissionEmailList(
+      [
+        ...(currentPermissions[key] || []),
+        ...(incomingPermissions[key] || []),
+      ],
+      key === "debaterEmails" ? 800 : 400,
+    );
+  });
   return {
     ...clone(currentTournament || {}),
     ...clone(incomingTournament || {}),
@@ -340,46 +680,15 @@ function mergeTournamentRecords(currentTournament = {}, incomingTournament = {})
       ...(currentTournament?.publication || {}),
       ...(incomingTournament?.publication || {}),
     },
-    permissions: {
-      ...currentPermissions,
-      ...incomingPermissions,
-      managerEmails: normalizeStringList(
-        [
-          ...(currentPermissions.managerEmails || []),
-          ...(incomingPermissions.managerEmails || []),
-        ],
-        200,
-      ),
-      tabManagerEmails: normalizeStringList(
-        [
-          ...(currentPermissions.tabManagerEmails || []),
-          ...(incomingPermissions.tabManagerEmails || []),
-        ],
-        200,
-      ),
-      judgeEmails: normalizeStringList(
-        [
-          ...(currentPermissions.judgeEmails || []),
-          ...(incomingPermissions.judgeEmails || []),
-        ],
-        400,
-      ),
-      debaterEmails: normalizeStringList(
-        [
-          ...(currentPermissions.debaterEmails || []),
-          ...(incomingPermissions.debaterEmails || []),
-        ],
-        800,
-      ),
-    },
+    permissions: mergedPermissions,
     settings: {
       ...(currentTournament?.settings || {}),
       ...(incomingTournament?.settings || {}),
     },
-    registration: {
+    registration: normalizeTournamentRegistrationSettings({
       ...(currentTournament?.registration || {}),
       ...(incomingTournament?.registration || {}),
-    },
+    }),
     teams: mergeRecordArrays(
       currentTournament?.teams || [],
       incomingTournament?.teams || [],
@@ -416,6 +725,60 @@ function mergeTournamentRecords(currentTournament = {}, incomingTournament = {})
         ...clone(incoming),
       }),
     ),
+    standings: mergeRecordArrays(
+      currentTournament?.standings || [],
+      incomingTournament?.standings || [],
+      getStandingMergeKey,
+      (existing, incoming) => ({
+        ...(existing || {}),
+        ...clone(incoming),
+      }),
+    ),
+    draw: mergeRecordArrays(
+      currentTournament?.draw || [],
+      incomingTournament?.draw || [],
+      getDrawMergeKey,
+      (existing, incoming) => ({
+        ...(existing || {}),
+        ...clone(incoming),
+      }),
+    ),
+    judgeAllocations: mergeRecordArrays(
+      currentTournament?.judgeAllocations || [],
+      incomingTournament?.judgeAllocations || [],
+      getJudgeAllocationMergeKey,
+      (existing, incoming) => ({
+        ...(existing || {}),
+        ...clone(incoming),
+      }),
+    ),
+    notices: mergeRecordArrays(
+      currentTournament?.notices || [],
+      incomingTournament?.notices || [],
+      getNoticeMergeKey,
+      (existing, incoming) => ({
+        ...(existing || {}),
+        ...clone(incoming),
+      }),
+    ),
+    feedbackLedger: mergeRecordArrays(
+      currentTournament?.feedbackLedger || [],
+      incomingTournament?.feedbackLedger || [],
+      getFeedbackLedgerMergeKey,
+      (existing, incoming) => ({
+        ...(existing || {}),
+        ...clone(incoming),
+      }),
+    ),
+    roundControls: mergeRecordArrays(
+      currentTournament?.roundControls || [],
+      incomingTournament?.roundControls || [],
+      getRoundControlMergeKey,
+      (existing, incoming) => ({
+        ...(existing || {}),
+        ...clone(incoming),
+      }),
+    ),
   };
 }
 
@@ -433,18 +796,51 @@ function mergeWorkspaceState(currentState, incomingState) {
       current.users || [],
       incoming.users || [],
       (user) => normalizeEmail(user?.email),
-      (existing, nextUser) =>
-        normalizeUserRecord({
-          ...(existing || {}),
-          ...clone(nextUser),
+      (existing, nextUser) => {
+        const existingUser = normalizeUserRecord(existing || {});
+        const incomingUser = normalizeUserRecord(nextUser || {});
+        return normalizeUserRecord({
+          ...existingUser,
+          ...incomingUser,
+          id: existingUser.id || incomingUser.id,
+          email: incomingUser.email || existingUser.email,
+          name: incomingUser.name || existingUser.name,
+          passwordHash: incomingUser.passwordHash || existingUser.passwordHash,
+          passwordSalt: incomingUser.passwordSalt || existingUser.passwordSalt,
+          passwordVersion: incomingUser.passwordVersion || existingUser.passwordVersion,
+          passwordIterations:
+            incomingUser.passwordIterations || existingUser.passwordIterations,
+          createdAt: existingUser.createdAt || incomingUser.createdAt,
+          createdAtKey: existingUser.createdAtKey || incomingUser.createdAtKey,
+          createdSource:
+            existingUser.createdSource &&
+            existingUser.createdSource !== "registered" &&
+            incomingUser.createdSource === "registered"
+              ? existingUser.createdSource
+              : incomingUser.createdSource || existingUser.createdSource,
+          createdBy: existingUser.createdBy || incomingUser.createdBy,
+          privateAccessToken:
+            existingUser.privateAccessToken || incomingUser.privateAccessToken,
+          privateAccessIssuedAt:
+            existingUser.privateAccessIssuedAt || incomingUser.privateAccessIssuedAt,
+          lastPrivateAccessAt:
+            incomingUser.lastPrivateAccessAt || existingUser.lastPrivateAccessAt,
+          pinnedTournamentIds: normalizeStringList(
+            [
+              ...(existingUser.pinnedTournamentIds || []),
+              ...(incomingUser.pinnedTournamentIds || []),
+            ],
+            12,
+          ),
           registeredTournamentIds: normalizeStringList(
             [
-              ...((existing && existing.registeredTournamentIds) || []),
-              ...((nextUser && nextUser.registeredTournamentIds) || []),
+              ...(existingUser.registeredTournamentIds || []),
+              ...(incomingUser.registeredTournamentIds || []),
             ],
             200,
           ),
-        }),
+        });
+      },
     ),
     recoveryRequests: mergeRecordArrays(
       current.recoveryRequests || [],
@@ -463,6 +859,260 @@ function mergeWorkspaceState(currentState, incomingState) {
   };
 
   return synchronizeUserTournamentHistory(merged);
+}
+
+function rememberUserTournamentHistory(state, email, tournamentId) {
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedTournamentId = String(tournamentId || "").trim();
+  if (!normalizedEmail || !normalizedTournamentId) {
+    return;
+  }
+
+  state.users = (state.users || []).map((user) =>
+    normalizeEmail(user.email) === normalizedEmail
+      ? normalizeUserRecord({
+          ...user,
+          registeredTournamentIds: normalizeStringList(
+            [...(user.registeredTournamentIds || []), normalizedTournamentId],
+            200,
+          ),
+        })
+      : normalizeUserRecord(user),
+  );
+}
+
+function ensureRegistrationUser(
+  state,
+  {
+    name,
+    email,
+    password = "",
+    createdSource = "registered",
+    createdBy = "",
+    requirePassword = false,
+    markLoggedIn = false,
+  } = {},
+) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const minimumPasswordLength = Number(state?.appSettings?.auth?.minimumPasswordLength || 12);
+  const existingUser = (state.users || []).find((user) => user.email === normalizedEmail) || null;
+
+  if (existingUser) {
+    if (!existingUser.active) {
+      const error = new Error("This account has been disabled by the manager.");
+      error.statusCode = 403;
+      error.code = "account_disabled";
+      throw error;
+    }
+
+    if (requirePassword) {
+      if (String(password || "").length < minimumPasswordLength) {
+        const error = new Error(
+          "Password must be at least " + minimumPasswordLength + " characters long.",
+        );
+        error.statusCode = 422;
+        error.code = "password_too_short";
+        throw error;
+      }
+
+      const passwordCheck = verifyUserPassword(existingUser, password);
+      if (!passwordCheck.ok) {
+        if (canClaimRegisteredAccount(existingUser)) {
+          Object.assign(existingUser, buildSecurePasswordRecord(password), {
+            name: String(name || existingUser.name || normalizedEmail.split("@")[0]).trim(),
+            createdSource,
+            createdBy: normalizeEmail(createdBy) || existingUser.createdBy,
+          });
+        } else {
+          const error = new Error("That password is not correct for the existing account.");
+          error.statusCode = 401;
+          error.code = "invalid_password";
+          throw error;
+        }
+      } else if (passwordCheck.needsUpgrade) {
+        Object.assign(existingUser, buildSecurePasswordRecord(password));
+      }
+    }
+
+    if (!String(existingUser.name || "").trim() && String(name || "").trim()) {
+      existingUser.name = String(name || "").trim();
+    }
+    if (markLoggedIn) {
+      existingUser.lastLoginAt = nowText();
+    }
+    return existingUser;
+  }
+
+  if (requirePassword && String(password || "").length < minimumPasswordLength) {
+    const error = new Error(
+      "Password must be at least " + minimumPasswordLength + " characters long.",
+    );
+    error.statusCode = 422;
+    error.code = "password_too_short";
+    throw error;
+  }
+
+  const user = buildUser(
+    String(name || normalizedEmail.split("@")[0]).trim(),
+    normalizedEmail,
+    "member",
+    requirePassword ? password : createTemporaryRegistrationPassword(),
+    {
+      createdSource,
+      createdBy: normalizeEmail(createdBy) || normalizedEmail,
+    },
+  );
+  if (markLoggedIn) {
+    user.lastLoginAt = nowText();
+  }
+  state.users.push(user);
+  return user;
+}
+
+function upsertTournamentRegistrationTeam(tournament, teamName, institution, notes = "") {
+  const normalizedTeamName = String(teamName || "").trim();
+  const normalizedInstitution = String(institution || "").trim();
+  if (!normalizedTeamName) {
+    return null;
+  }
+
+  const candidate = createTeamRecord(normalizedTeamName, normalizedInstitution, {
+    notes,
+    source: "manual",
+  });
+  const existingTeam =
+    (Array.isArray(tournament.teams) ? tournament.teams : []).find((team) =>
+      teamsLookEquivalent(team, candidate),
+    ) || null;
+
+  if (existingTeam) {
+    tournament.teams = (tournament.teams || []).map((team) =>
+      team.id === existingTeam.id
+        ? {
+            ...team,
+            institution: team.institution || normalizedInstitution,
+            notes: team.notes || notes,
+          }
+        : team,
+    );
+    return (tournament.teams || []).find((team) => team.id === existingTeam.id) || existingTeam;
+  }
+
+  tournament.teams = [...(tournament.teams || []), candidate];
+  return candidate;
+}
+
+function upsertTournamentParticipantRegistration(
+  tournament,
+  { name, email, institution, team, teamName } = {},
+) {
+  const normalizedName = String(name || "").trim();
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedTeamName = String(team?.name || teamName || "").trim();
+  if (!normalizedName && !normalizedEmail) {
+    return null;
+  }
+
+  const existingIndex = (tournament.participants || []).findIndex((participant) =>
+    normalizedEmail
+      ? normalizeEmail(participant.email) === normalizedEmail
+      : normalizeTextKey(participant.name) === normalizeTextKey(normalizedName) &&
+        normalizeTextKey(participant.teamName || "") === normalizeTextKey(normalizedTeamName),
+  );
+  const existing = existingIndex >= 0 ? tournament.participants[existingIndex] : null;
+  const nextParticipant = createParticipantRecord(
+    normalizedEmail,
+    normalizedName || normalizedEmail,
+    normalizedTeamName,
+    {
+      id: existing?.id,
+      institution: String(institution || team?.institution || existing?.institution || "").trim(),
+      teamId: String(team?.id || existing?.teamId || "").trim(),
+      wins: existing?.wins || 0,
+      losses: existing?.losses || 0,
+      points: existing?.points || 0,
+      firsts: existing?.firsts || 0,
+      seconds: existing?.seconds || 0,
+      thirds: existing?.thirds || 0,
+      fourths: existing?.fourths || 0,
+      speakerScore: existing?.speakerScore || 0,
+      token: existing?.token,
+      feedback: Array.isArray(existing?.feedback) ? existing.feedback : [],
+    },
+  );
+
+  if (existingIndex >= 0) {
+    tournament.participants[existingIndex] = nextParticipant;
+  } else {
+    tournament.participants = [...(tournament.participants || []), nextParticipant];
+  }
+
+  const debaterEmails = new Set(tournament.permissions?.debaterEmails || []);
+  if (normalizedEmail) {
+    debaterEmails.add(normalizedEmail);
+  }
+  tournament.permissions = normalizeTournamentPermissions({
+    ...(tournament.permissions || {}),
+    debaterEmails: Array.from(debaterEmails),
+  });
+  return nextParticipant;
+}
+
+function upsertTournamentJudgeRegistration(
+  tournament,
+  { name, email, institution, affiliationType, notes } = {},
+) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const existingJudge =
+    (tournament.judges || []).find((judge) => normalizeEmail(judge.email) === normalizedEmail) ||
+    null;
+  const judge = createJudgeRecord(
+    String(name || "").trim(),
+    normalizedEmail,
+    String(institution || "").trim(),
+    {
+      id: existingJudge?.id,
+      affiliationType,
+      panelQuality: existingJudge?.panelQuality || "wing",
+      qualityTier: existingJudge?.qualityTier || "solid",
+      notes: String(existingJudge?.notes || notes || "").trim(),
+      active: existingJudge?.active,
+      createdAt: existingJudge?.createdAt,
+    },
+  );
+
+  tournament.judges = existingJudge
+    ? (tournament.judges || []).map((entry) =>
+        normalizeEmail(entry.email) === normalizedEmail ? { ...entry, ...judge } : entry,
+      )
+    : [...(tournament.judges || []), judge];
+
+  const judgeEmails = new Set(tournament.permissions?.judgeEmails || []);
+  judgeEmails.add(normalizedEmail);
+  tournament.permissions = normalizeTournamentPermissions({
+    ...(tournament.permissions || {}),
+    judgeEmails: Array.from(judgeEmails),
+  });
+  return judge;
+}
+
+function addTournamentAuditEntry(tournament, actorEmail, message) {
+  const entry = {
+    id: createId("audit"),
+    actor: normalizeEmail(actorEmail),
+    at: nowText(),
+    message: String(message || "").trim(),
+  };
+  tournament.auditLog = [entry, ...(Array.isArray(tournament.auditLog) ? tournament.auditLog : [])];
+  return tournament;
 }
 
 function isSystemAdmin(state, email) {
@@ -843,24 +1493,253 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        if (state.users.some((user) => user.email === email)) {
-          const error = new Error("An account with that email already exists.");
-          error.statusCode = 409;
-          error.code = "account_exists";
-          throw error;
+        const existingUser = state.users.find((user) => user.email === email) || null;
+        if (existingUser) {
+          if (!existingUser.active) {
+            const error = new Error("This account has been disabled by the manager.");
+            error.statusCode = 403;
+            error.code = "account_disabled";
+            throw error;
+          }
+          if (canClaimRegisteredAccount(existingUser)) {
+            Object.assign(existingUser, buildSecurePasswordRecord(password), {
+              name: name || existingUser.name,
+              createdSource: "self_signup",
+              createdBy: normalizeEmail(email),
+              lastLoginAt: nowText(),
+            });
+          } else {
+            const error = new Error("An account with that email already exists.");
+            error.statusCode = 409;
+            error.code = "account_exists";
+            throw error;
+          }
+        } else {
+          const user = buildUser(name, email, "member", password, {
+            createdSource: "self_signup",
+            createdBy: normalizeEmail(email),
+          });
+          user.lastLoginAt = nowText();
+          state.users.push(user);
         }
-
-        const user = buildUser(name, email, "member", password, {
-          createdSource: "self_signup",
-          createdBy: normalizeEmail(email),
-        });
-        user.lastLoginAt = nowText();
-        state.users.push(user);
 
         const nextState = await writeWorkspaceState(client, state);
         const sessionToken = await issueSession(client, email);
         return {
           state: nextState,
+          sessionToken,
+        };
+      });
+
+      sendJson(response, 200, {
+        ok: true,
+        initialized: true,
+        sessionToken: result.sessionToken,
+        state: result.state,
+      });
+      return;
+    }
+
+    if (action === "register_debater") {
+      const tournamentId = String(request.body?.tournamentId || "").trim();
+      const name = String(request.body?.name || "").trim();
+      const email = normalizeEmail(request.body?.email);
+      const password = String(request.body?.password || "");
+      const institution = String(request.body?.institution || "").trim();
+      const teamName = String(request.body?.teamName || "").trim();
+      const teammateName = String(request.body?.teammateName || "").trim();
+      const teammateEmail = normalizeEmail(request.body?.teammateEmail);
+      const notes = String(request.body?.notes || "").trim();
+
+      const result = await withTransaction(async (client) => {
+        const state = await readWorkspaceState(client);
+        if (!state) {
+          const error = new Error("The shared backend workspace has not been initialized yet.");
+          error.statusCode = 409;
+          error.code = "workspace_not_initialized";
+          throw error;
+        }
+
+        const tournament =
+          (state.tournaments || []).find((entry) => String(entry.id || "").trim() === tournamentId) ||
+          null;
+        if (!tournament) {
+          const error = new Error("Choose a tournament before registering.");
+          error.statusCode = 404;
+          error.code = "tournament_not_found";
+          throw error;
+        }
+
+        const availability = getTournamentRegistrationAvailability(tournament, "debater");
+        if (!availability.open) {
+          const error = new Error(availability.reason);
+          error.statusCode = 409;
+          error.code = "registration_closed";
+          throw error;
+        }
+
+        if (!name || !email || !institution || !teamName) {
+          const error = new Error(
+            "Tournament, name, email, institution, and team name are required.",
+          );
+          error.statusCode = 422;
+          error.code = "missing_registration_fields";
+          throw error;
+        }
+
+        ensureRegistrationUser(state, {
+          name,
+          email,
+          password,
+          createdSource: "self_signup",
+          createdBy: email,
+          requirePassword: true,
+          markLoggedIn: true,
+        });
+
+        if (teammateEmail) {
+          ensureRegistrationUser(state, {
+            name: teammateName || teammateEmail,
+            email: teammateEmail,
+            createdSource: "registered",
+            createdBy: email,
+            requirePassword: false,
+            markLoggedIn: false,
+          });
+        }
+
+        const team = upsertTournamentRegistrationTeam(tournament, teamName, institution, notes);
+        upsertTournamentParticipantRegistration(tournament, {
+          name,
+          email,
+          institution,
+          team,
+          teamName,
+        });
+
+        if (teammateName || teammateEmail) {
+          upsertTournamentParticipantRegistration(tournament, {
+            name: teammateName || teammateEmail,
+            email: teammateEmail,
+            institution,
+            team,
+            teamName,
+          });
+        }
+
+        rememberUserTournamentHistory(state, email, tournamentId);
+        rememberUserTournamentHistory(state, teammateEmail, tournamentId);
+        addTournamentAuditEntry(
+          tournament,
+          email,
+          "Registered " +
+            name +
+            " for " +
+            tournament.name +
+            (teamName ? " under team " + teamName + "." : "."),
+        );
+
+        const savedState = await writeWorkspaceState(client, state);
+        const sessionToken = await issueSession(client, email);
+        return {
+          state: savedState,
+          sessionToken,
+        };
+      });
+
+      sendJson(response, 200, {
+        ok: true,
+        initialized: true,
+        sessionToken: result.sessionToken,
+        state: result.state,
+      });
+      return;
+    }
+
+    if (action === "register_judge") {
+      const tournamentId = String(request.body?.tournamentId || "").trim();
+      const name = String(request.body?.name || "").trim();
+      const email = normalizeEmail(request.body?.email);
+      const password = String(request.body?.password || "");
+      const institution = String(request.body?.institution || "").trim();
+      const affiliationType = String(request.body?.affiliationType || "").trim();
+      const notes = String(request.body?.notes || "").trim();
+
+      const result = await withTransaction(async (client) => {
+        const state = await readWorkspaceState(client);
+        if (!state) {
+          const error = new Error("The shared backend workspace has not been initialized yet.");
+          error.statusCode = 409;
+          error.code = "workspace_not_initialized";
+          throw error;
+        }
+
+        const tournament =
+          (state.tournaments || []).find((entry) => String(entry.id || "").trim() === tournamentId) ||
+          null;
+        if (!tournament) {
+          const error = new Error("Choose a tournament before registering.");
+          error.statusCode = 404;
+          error.code = "tournament_not_found";
+          throw error;
+        }
+
+        const availability = getTournamentRegistrationAvailability(tournament, "judge");
+        if (!availability.open) {
+          const error = new Error(availability.reason);
+          error.statusCode = 409;
+          error.code = "registration_closed";
+          throw error;
+        }
+
+        if (!name || !email) {
+          const error = new Error("Tournament, name, and email are required.");
+          error.statusCode = 422;
+          error.code = "missing_registration_fields";
+          throw error;
+        }
+
+        if (
+          normalizeJudgeAffiliationType(affiliationType, institution) === "institutional" &&
+          !institution
+        ) {
+          const error = new Error(
+            "Institutionally affiliated judges must enter an institution.",
+          );
+          error.statusCode = 422;
+          error.code = "missing_institution";
+          throw error;
+        }
+
+        ensureRegistrationUser(state, {
+          name,
+          email,
+          password,
+          createdSource: "self_signup",
+          createdBy: email,
+          requirePassword: true,
+          markLoggedIn: true,
+        });
+
+        upsertTournamentJudgeRegistration(tournament, {
+          name,
+          email,
+          institution,
+          affiliationType,
+          notes,
+        });
+
+        rememberUserTournamentHistory(state, email, tournamentId);
+        addTournamentAuditEntry(
+          tournament,
+          email,
+          "Registered judge " + name + " for " + tournament.name + ".",
+        );
+
+        const savedState = await writeWorkspaceState(client, state);
+        const sessionToken = await issueSession(client, email);
+        return {
+          state: savedState,
           sessionToken,
         };
       });
