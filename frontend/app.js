@@ -688,6 +688,7 @@
           userEmail: "",
           cloudSessionToken: "",
           view: "overview",
+          peopleSection: "hub",
           managedTournamentId: "",
           selectedTournamentId: "",
           selectedTournamentBoardTab: "overview",
@@ -867,6 +868,9 @@
           userEmail: normalizeEmail(record.userEmail),
           cloudSessionToken: String(record.cloudSessionToken || "").trim(),
           view: String(record.view || "overview").trim() || "overview",
+          peopleSection:
+            normalizePeopleSection(String(record.peopleSection || "hub").trim().toLowerCase()) ||
+            "hub",
           managedTournamentId: String(record.managedTournamentId || "").trim(),
           selectedTournamentId: String(record.selectedTournamentId || "").trim(),
           selectedTournamentBoardTab:
@@ -884,6 +888,14 @@
           searchQuery: String(record.searchQuery || "").trim(),
           selectedParticipantKey: String(record.selectedParticipantKey || "").trim(),
         };
+      }
+
+      function normalizePeopleSection(value = "") {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (["hub", "directory", "signups", "appointees", "access"].includes(normalized)) {
+          return normalized;
+        }
+        return "hub";
       }
 
       function timestamp() {
@@ -11154,7 +11166,9 @@
                       </p>
                     </div>
                     <div class="button-row wrap-row">
-                      <button class="secondary-button" type="button" data-action="set-public-view" data-view="auth">Back To Sign In</button>
+                      <a class="secondary-button" href="${escapeHtml(
+                        getDashboardLink(),
+                      )}">Back To Sign In</a>
                     </div>
                   </div>
                   <div class="stack">
@@ -17279,21 +17293,28 @@
         `;
       }
 
-      function renderPeopleView() {
-        const pending = getPendingEmails();
-        const trackedSignups = getTrackedSignupUsers();
-        const signupStats = getSignupStats();
-        const appointees = getTournamentAppointeeDashboard();
-        const appointeeStats = getTournamentAppointeeStats();
-        const peopleAccounts = getPeopleAccountCards();
+      function renderPeopleSectionCard(sectionKey, title, description, badge, active = false) {
+        return `
+          <button class="people-hub-card ${active ? "is-active" : ""}" type="button" data-action="open-people-section" data-section="${escapeHtml(
+            sectionKey,
+          )}">
+            <p class="eyebrow">People</p>
+            <h3>${escapeHtml(title)}</h3>
+            <p class="muted">${escapeHtml(description)}</p>
+            <span class="mini-pill success">${escapeHtml(badge)}</span>
+          </button>
+        `;
+      }
+
+      function renderPeopleAccessSection(pending) {
         return `
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">People</p>
-                <h2>Accounts and permissions</h2>
+                <p class="eyebrow">Access Control</p>
+                <h2>Grant and review people access</h2>
               </div>
-              <span class="role-pill">${escapeHtml(state.users.length)} accounts</span>
+              <button class="secondary-button" type="button" data-action="open-people-section" data-section="hub">Back To People</button>
             </div>
             ${
               canAccessGlobalSettings()
@@ -17353,15 +17374,21 @@
                 : `<div class="alert info">Only System Managers can change global roles, reset passwords, or assign access from this view.</div>`
             }
           </section>
-          ${renderSignupDashboardSection(trackedSignups, signupStats)}
-          ${renderTournamentAppointeeDashboardSection(appointees, appointeeStats)}
+        `;
+      }
+
+      function renderPeopleDirectorySection(peopleAccounts) {
+        return `
           <section class="surface">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Accounts</p>
                 <h2>People directory</h2>
               </div>
-              <span class="role-pill">${escapeHtml(state.users.length)} accounts</span>
+              <div class="button-row wrap-row">
+                <span class="role-pill">${escapeHtml(state.users.length)} accounts</span>
+                <button class="secondary-button" type="button" data-action="open-people-section" data-section="hub">Back To People</button>
+              </div>
             </div>
             <div class="people-directory-grid">
               ${peopleAccounts
@@ -17395,17 +17422,13 @@
                                 ? toTitleLabel(user.regionalRole)
                                 : toTitleLabel(user.globalRole),
                             )}</span>
-                          </div>
-                        </div>
-                        <div class="people-directory-summary-side">
-                          <div class="people-pill-cluster">
-                            <span class="mini-pill success">${escapeHtml(
-                              getUserCreationLabel(user),
-                            )}</span>
+                            <span class="mini-pill success">${escapeHtml(getUserCreationLabel(user))}</span>
                             <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
                               user.active ? "Active" : "Disabled",
                             )}</span>
                           </div>
+                        </div>
+                        <div class="people-directory-summary-side">
                           <span class="fine-print people-directory-joined">${escapeHtml(
                             "Joined " + joinedLabel,
                           )}</span>
@@ -17482,6 +17505,79 @@
                 .join("")}
             </div>
           </section>
+        `;
+      }
+
+      function renderPeopleView() {
+        const pending = getPendingEmails();
+        const trackedSignups = getTrackedSignupUsers();
+        const signupStats = getSignupStats();
+        const appointees = getTournamentAppointeeDashboard();
+        const appointeeStats = getTournamentAppointeeStats();
+        const peopleAccounts = getPeopleAccountCards();
+        const peopleSection = normalizePeopleSection(session.peopleSection);
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">People</p>
+                <h2>People control hub</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(state.users.length)} accounts</span>
+            </div>
+            <p class="workspace-view-note">Choose the people area you want to work in first, then open that specific dashboard instead of scrolling through everything at once.</p>
+            <div class="people-hub-grid">
+              ${renderPeopleSectionCard(
+                "directory",
+                "Directory",
+                "Open the full account list and configure one person at a time.",
+                state.users.length + " accounts",
+                peopleSection === "directory",
+              )}
+              ${renderPeopleSectionCard(
+                "signups",
+                "Sign-Ups",
+                "Review everyone who has entered the system through registration.",
+                trackedSignups.length + " tracked",
+                peopleSection === "signups",
+              )}
+              ${renderPeopleSectionCard(
+                "appointees",
+                "Tournament Appointees",
+                "Inspect who has been attached to tournaments and where.",
+                appointees.length + " tournaments",
+                peopleSection === "appointees",
+              )}
+              ${
+                canAccessGlobalSettings()
+                  ? renderPeopleSectionCard(
+                      "access",
+                      "Access Control",
+                      "Grant tournament access and review invitations waiting to be claimed.",
+                      pending.length + " pending",
+                      peopleSection === "access",
+                    )
+                  : ""
+              }
+            </div>
+          </section>
+          ${
+            peopleSection === "directory"
+              ? renderPeopleDirectorySection(peopleAccounts)
+              : peopleSection === "signups"
+                ? renderSignupDashboardSection(trackedSignups, signupStats).replace(
+                    '<section class="surface spotlight-shell">',
+                    '<section class="surface spotlight-shell"><div class="button-row wrap-row people-section-actions"><button class="secondary-button" type="button" data-action="open-people-section" data-section="hub">Back To People</button></div>',
+                  )
+                : peopleSection === "appointees"
+                  ? renderTournamentAppointeeDashboardSection(appointees, appointeeStats).replace(
+                      '<section class="surface spotlight-shell">',
+                      '<section class="surface spotlight-shell"><div class="button-row wrap-row people-section-actions"><button class="secondary-button" type="button" data-action="open-people-section" data-section="hub">Back To People</button></div>',
+                    )
+                  : peopleSection === "access"
+                    ? renderPeopleAccessSection(pending)
+                    : ""
+          }
         `;
       }
 
@@ -24938,6 +25034,11 @@
             const nextView = ["about", "register-debater", "register-judge", "regional-operations"].includes(requestedView)
               ? requestedView
               : "auth";
+            const nextUrl = nextView === "auth" ? getDashboardLink() : getPublicScreenLink(nextView);
+            if (isRegionalOperationsPortalPage() || nextView === "auth") {
+              window.location.assign(nextUrl);
+              return;
+            }
             const url = new URL(window.location.href);
             url.searchParams.delete("token");
             url.searchParams.delete("access");
@@ -24954,8 +25055,21 @@
             return;
           }
 
+          if (action === "open-people-section") {
+            session.view = "people";
+            session.peopleSection = normalizePeopleSection(button.dataset.section || "hub");
+            recordRecentView(session.view);
+            clearFlash();
+            saveSession();
+            renderApp();
+            return;
+          }
+
           if (action === "set-view") {
             session.view = button.dataset.view || "overview";
+            if (session.view === "people") {
+              session.peopleSection = "hub";
+            }
             if (session.view === "tournaments") {
               session.managedTournamentId = "";
               session.selectedTournamentId = "";
