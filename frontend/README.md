@@ -1,6 +1,6 @@
-# JADE Frontend
+# Hummingbird Frontend
 
-This folder is the static frontend publish target for JADE.
+This folder is the static frontend publish target for Hummingbird Tab System.
 
 Deploy this folder to Netlify, not the project root.
 

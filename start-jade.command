@@ -3,10 +3,9 @@
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BACKEND_DIR="$ROOT_DIR/backend"
 APP_URL="http://127.0.0.1:8787/"
 
-cd "$BACKEND_DIR"
+cd "$ROOT_DIR"
 
 if ! command -v node >/dev/null 2>&1; then
   echo "Node.js is not installed yet."
@@ -14,13 +13,33 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -d "$BACKEND_DIR/node_modules" ]; then
-  echo "Installing backend dependencies..."
+if [ ! -d "$ROOT_DIR/node_modules" ]; then
+  echo "Installing Hummingbird backend dependencies..."
   npm install
 fi
 
-echo "Opening JADE in your browser..."
-open "$APP_URL"
+echo "Starting Hummingbird backend..."
+npm run dev &
+SERVER_PID=$!
 
-echo "Starting JADE backend..."
-npm run dev
+cleanup() {
+  if kill -0 "$SERVER_PID" >/dev/null 2>&1; then
+    kill "$SERVER_PID" >/dev/null 2>&1 || true
+  fi
+}
+
+trap cleanup EXIT INT TERM
+
+echo "Waiting for Hummingbird to come online..."
+for _ in {1..30}; do
+  if curl -fsS "$APP_URL" >/dev/null 2>&1; then
+    echo "Opening Hummingbird in your browser..."
+    open "$APP_URL"
+    wait "$SERVER_PID"
+    exit $?
+  fi
+  sleep 1
+done
+
+echo "Hummingbird did not respond at $APP_URL in time."
+exit 1

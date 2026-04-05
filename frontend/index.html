@@ -5385,16 +5385,16 @@
         if (queryBackendUrl) {
           endpoints.push(queryBackendUrl.replace(/\/$/, ""));
         }
+        if (/^https?:$/i.test(window.location.protocol || "")) {
+          endpoints.push(new URL("/api", window.location.href).toString());
+          endpoints.push(new URL("./backend/api", window.location.href).toString());
+        }
         const configuredBackendUrl = String(window.JADE_BACKEND_URL || "").trim();
         if (configuredBackendUrl) {
           endpoints.push(configuredBackendUrl.replace(/\/$/, ""));
         }
         if (savedBackendUrl) {
           endpoints.push(savedBackendUrl.replace(/\/$/, ""));
-        }
-        if (/^https?:$/i.test(window.location.protocol || "")) {
-          endpoints.push(new URL("/api", window.location.href).toString());
-          endpoints.push(new URL("./backend/api", window.location.href).toString());
         }
         endpoints.push("http://127.0.0.1:8787/api");
         endpoints.push("http://localhost:8787/api");
