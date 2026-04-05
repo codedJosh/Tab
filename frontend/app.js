@@ -13119,51 +13119,53 @@
         `;
       }
 
+      function renderParticipantEntryForm(tournament) {
+        return `
+          <form class="stack compact-stack" data-form="add-participant" data-id="${escapeHtml(
+            tournament.id,
+          )}">
+            <div class="field-grid four">
+              <label>
+                Speaker Name
+                <input type="text" name="name" placeholder="Speaker or participant name" required />
+              </label>
+              <label>
+                Email
+                <input type="email" name="email" placeholder="participant@example.com" required />
+              </label>
+              <label>
+                Institution
+                <input type="text" name="institution" placeholder="Optional institution" />
+              </label>
+              <label>
+                Linked Team
+                <select name="teamId">
+                  ${getTeamOptionsMarkup(tournament)}
+                </select>
+              </label>
+            </div>
+            <div class="field-grid two">
+              <label>
+                Team Name
+                <input type="text" name="teamName" placeholder="Optional manual team name" />
+              </label>
+              <div class="empty-state">
+                Link the speaker to an existing team when possible. Manual team names are useful for custom or one-off pairings.
+              </div>
+            </div>
+            ${renderParticipantScoreFields(tournament)}
+            <button type="submit">Add Speaker</button>
+          </form>
+        `;
+      }
+
       function renderParticipantsPanel(tournament, canManage, canSeeScores, options = {}) {
+        const showForm = canManage && options.showForm !== false;
+        const showCards = options.showCards !== false;
         return `
           <div class="registration-speaker-shell">
-            ${
-              canManage
-                ? `
-                  <form class="stack compact-stack" data-form="add-participant" data-id="${escapeHtml(
-                    tournament.id,
-                  )}">
-                    <div class="field-grid four">
-                      <label>
-                        Speaker Name
-                        <input type="text" name="name" placeholder="Speaker or participant name" required />
-                      </label>
-                      <label>
-                        Email
-                        <input type="email" name="email" placeholder="participant@example.com" required />
-                      </label>
-                      <label>
-                        Institution
-                        <input type="text" name="institution" placeholder="Optional institution" />
-                      </label>
-                      <label>
-                        Linked Team
-                        <select name="teamId">
-                          ${getTeamOptionsMarkup(tournament)}
-                        </select>
-                      </label>
-                    </div>
-                    <div class="field-grid two">
-                      <label>
-                        Team Name
-                        <input type="text" name="teamName" placeholder="Optional manual team name" />
-                      </label>
-                      <div class="empty-state">
-                        Link the speaker to an existing team when possible. Manual team names are useful for custom or one-off pairings.
-                      </div>
-                    </div>
-                    ${renderParticipantScoreFields(tournament)}
-                    <button type="submit">Add Speaker</button>
-                  </form>
-                `
-                : ""
-            }
-            ${renderParticipantCards(tournament, canManage, canSeeScores, options)}
+            ${showForm ? renderParticipantEntryForm(tournament) : ""}
+            ${showCards ? renderParticipantCards(tournament, canManage, canSeeScores, options) : ""}
           </div>
         `;
       }
@@ -15159,7 +15161,7 @@
                   </label>
                   <button type="submit">Add Team</button>
                 </form>
-                <div class="flat-panel stack roster-speaker-panel">
+                <div class="flat-panel stack roster-speaker-panel roster-speaker-layout">
                   <div class="section-heading">
                     <div>
                       <h3>Add Speaker</h3>
@@ -15168,8 +15170,23 @@
                   </div>
                   ${renderParticipantsPanel(tournament, true, true, {
                     compact: true,
+                    showCards: false,
                   })}
                 </div>
+              </div>
+              <div class="flat-panel stack roster-speaker-list-panel roster-speaker-layout">
+                <div class="section-heading">
+                  <div>
+                    <h3>Speaker Roster</h3>
+                    <p class="fine-print">Compact speaker rectangles stay readable while using the full width of the roster studio.</p>
+                  </div>
+                  <span class="role-pill">${escapeHtml(
+                    tournament.participants.length,
+                  )} speakers</span>
+                </div>
+                ${renderParticipantCards(tournament, true, true, {
+                  compact: true,
+                })}
               </div>
             </div>
           </section>
