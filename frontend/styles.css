@@ -3144,127 +3144,6 @@
         color: inherit;
         opacity: 0.72;
       }
-
-      .counsel-shell {
-        gap: 14px;
-      }
-
-      .counsel-shell.is-compact {
-        gap: 12px;
-        padding: 16px 18px;
-      }
-
-      .counsel-grid {
-        display: grid;
-        gap: 14px;
-        grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr);
-        align-items: start;
-      }
-
-      .counsel-shell.is-compact .section-heading {
-        align-items: start;
-        gap: 12px;
-      }
-
-      .counsel-shell.is-compact .section-heading h3 {
-        margin: 0;
-        font-size: 1.24rem;
-        line-height: 1.15;
-      }
-
-      .counsel-shell.is-compact .workspace-search-field {
-        gap: 8px;
-      }
-
-      .counsel-main,
-      .counsel-sidebar,
-      .counsel-query-form,
-      .counsel-prompt-box,
-      .counsel-source-box {
-        display: grid;
-        gap: 12px;
-      }
-
-      .counsel-response-card {
-        align-content: start;
-        min-height: 0;
-      }
-
-      .counsel-response-card.is-compact {
-        gap: 10px;
-        padding: 16px 18px;
-      }
-
-      .counsel-page-shell {
-        display: grid;
-        gap: 16px;
-      }
-
-      .counsel-operating-grid {
-        display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        margin-top: 8px;
-      }
-
-      .counsel-operating-card {
-        display: grid;
-        gap: 6px;
-        padding: 12px 14px;
-        border-radius: 16px;
-        border: 1px solid var(--line);
-        background:
-          radial-gradient(circle at top right, rgba(225, 191, 67, 0.05), transparent 32%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 249, 245, 0.92));
-      }
-
-      .counsel-operating-card strong {
-        font-size: 0.98rem;
-        line-height: 1.45;
-        letter-spacing: -0.02em;
-      }
-
-      .counsel-bullet-list {
-        margin: 0;
-        padding-left: 18px;
-        display: grid;
-        gap: 8px;
-        color: var(--ink);
-      }
-
-      .counsel-bullet-list li {
-        line-height: 1.45;
-      }
-
-      .counsel-telemetry-grid {
-        display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .counsel-telemetry-card,
-      .counsel-prompt-box,
-      .counsel-source-box {
-        padding: 14px 16px;
-        border-radius: 18px;
-        border: 1px solid var(--line);
-        background:
-          radial-gradient(circle at top right, rgba(225, 191, 67, 0.06), transparent 30%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 249, 245, 0.9));
-        box-shadow: var(--surface-shadow);
-      }
-
-      .counsel-telemetry-card {
-        display: grid;
-        gap: 6px;
-      }
-
-      .counsel-telemetry-card strong {
-        font-size: 1.05rem;
-        line-height: 1.15;
-        letter-spacing: -0.02em;
-      }
-
       .context-rail,
       .theme-gallery-shell,
       .theme-quick-switch {
@@ -6350,9 +6229,7 @@
         .portal-focus-grid,
         .portal-round-list,
         .hero-feature-list,
-        .auth-support-grid,
-        .counsel-grid,
-        .people-hub-grid,
+        .auth-support-grid,        .people-hub-grid,
         .spotlight-grid,
         .tournament-rail-grid,
         .participant-track-grid,
@@ -6586,9 +6463,7 @@
         .manager-grid,
         .directory-grid,
         .links-grid,
-        .overview-spotlight-grid,
-        .counsel-telemetry-grid,
-        .viewer-summary-grid,
+        .overview-spotlight-grid,        .viewer-summary-grid,
         .draw-board-grid,
         .motion-board-grid,
         .tournament-switch-grid,
