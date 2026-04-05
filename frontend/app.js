@@ -868,9 +868,7 @@
           userEmail: normalizeEmail(record.userEmail),
           cloudSessionToken: String(record.cloudSessionToken || "").trim(),
           view: String(record.view || "overview").trim() || "overview",
-          peopleSection:
-            normalizePeopleSection(String(record.peopleSection || "hub").trim().toLowerCase()) ||
-            "hub",
+          peopleSection: "hub",
           managedTournamentId: String(record.managedTournamentId || "").trim(),
           selectedTournamentId: String(record.selectedTournamentId || "").trim(),
           selectedTournamentBoardTab:
@@ -17404,41 +17402,40 @@
                       ? "Self"
                       : user.createdBy
                     : "Unrecorded";
+                  const visibleRoleLabel = user.regionalRole
+                    ? `${toTitleLabel(user.regionalRole)}${
+                        user.regionalRegion ? " • " + user.regionalRegion : ""
+                      }`
+                    : toTitleLabel(user.globalRole);
                   return `
                     <details class="surface people-directory-card">
                       <summary class="people-directory-summary">
-                        <div class="summary-main people-directory-copy">
+                        <div class="people-directory-summary-top">
                           <p class="eyebrow">Account</p>
-                          <h3>${escapeHtml(user.name)}</h3>
-                          <p class="muted">${escapeHtml(user.email)}</p>
-                          <div class="people-directory-summary-footer">
-                            <span class="mini-pill">${escapeHtml(
-                              historicalTournamentCount +
-                                " tournament" +
-                                (historicalTournamentCount === 1 ? "" : "s"),
-                            )}</span>
-                            <span class="mini-pill">${escapeHtml(
-                              user.regionalRole
-                                ? toTitleLabel(user.regionalRole)
-                                : toTitleLabel(user.globalRole),
-                            )}</span>
-                            <span class="mini-pill success">${escapeHtml(getUserCreationLabel(user))}</span>
-                            <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
-                              user.active ? "Active" : "Disabled",
-                            )}</span>
-                          </div>
-                        </div>
-                        <div class="people-directory-summary-side">
-                          <span class="fine-print people-directory-joined">${escapeHtml(
-                            "Joined " + joinedLabel,
+                          <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
+                            user.active ? "Active" : "Disabled",
                           )}</span>
-                          <span class="people-directory-configure">${
-                            user.active ? "Open profile" : "Review account"
-                          }</span>
                         </div>
+                        <div class="summary-main people-directory-copy">
+                          <h3>${escapeHtml(user.name)}</h3>
+                          <p class="people-directory-summary-note">${escapeHtml(visibleRoleLabel)}</p>
+                        </div>
+                        <div class="people-directory-summary-footer">
+                          <span class="mini-pill">${escapeHtml(
+                            historicalTournamentCount +
+                              " tournament" +
+                              (historicalTournamentCount === 1 ? "" : "s"),
+                          )}</span>
+                          <span class="mini-pill success">${escapeHtml(getUserCreationLabel(user))}</span>
+                        </div>
+                        <span class="people-directory-configure">${
+                          user.active ? "Open profile" : "Review account"
+                        }</span>
                       </summary>
                       <div class="details-content people-directory-body">
                         <div class="people-meta-grid">
+                          <span>Email: ${escapeHtml(user.email)}</span>
+                          <span>Joined: ${escapeHtml(joinedLabel)}</span>
                           <span>Role: ${escapeHtml(toTitleLabel(user.globalRole))}</span>
                           <span>Last login: ${escapeHtml(user.lastLoginAt || "Never")}</span>
                           <span>Private URL issued: ${escapeHtml(
