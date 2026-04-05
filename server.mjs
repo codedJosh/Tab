@@ -1955,6 +1955,19 @@ app.post("/api", async (request, response) => {
       const incomingState = request.body?.state;
       const expectedRevision = normalizeWorkspaceRevision(request.body?.expectedRevision);
 
+      if (
+        !incomingState ||
+        typeof incomingState !== "object" ||
+        !Array.isArray(incomingState.users) ||
+        !Array.isArray(incomingState.tournaments) ||
+        !Array.isArray(incomingState.recoveryRequests)
+      ) {
+        const error = new Error("The shared workspace payload was incomplete.");
+        error.statusCode = 400;
+        error.code = "invalid_workspace_payload";
+        throw error;
+      }
+
       const result = await withTransaction(async (client) => {
         const session = await getSession(client, sessionToken);
         if (!session) {
@@ -1973,7 +1986,7 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        const nextState = mergeWorkspaceState(currentState, incomingState);
+        const nextState = ensureWorkspaceState(incomingState);
         const user = nextState.users.find((entry) => entry.email === normalizeEmail(session.email));
         if (!user || !user.active) {
           const error = new Error("This account is no longer allowed to access JADE.");
