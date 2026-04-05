@@ -11348,11 +11348,20 @@
             }
 
             try {
-              await callCloud("persist", {
+              const result = await callCloud("persist", {
                 sessionToken: session.cloudSessionToken,
                 state,
               });
               cloudRuntime.initialized = true;
+              if (result?.state) {
+                state = await rehydrateState(result.state);
+                updateCurrentUserRecord();
+                saveState();
+                saveSession();
+                if (requiresSharedBackend()) {
+                  renderApp();
+                }
+              }
             } catch (error) {
               console.error(error);
               setFlash(
@@ -21478,12 +21487,18 @@
       }
 
       function getPendingEmails() {
-        const registered = new Set(state.users.map((user) => user.email));
+        const usersByEmail = new Map((state.users || []).map((user) => [normalizeEmail(user.email), user]));
         const pending = new Set();
         state.tournaments.forEach((tournament) => {
           getTournamentPermissionKeys({ includeLegacy: true }).forEach((key) => {
             (tournament.permissions[key] || []).forEach((email) => {
-              if (!registered.has(email)) {
+              const normalizedEmail = normalizeEmail(email);
+              const linkedUser = usersByEmail.get(normalizedEmail);
+              if (
+                !linkedUser ||
+                (String(linkedUser.createdSource || "").trim().toLowerCase() === "registered" &&
+                  !String(linkedUser.lastLoginAt || "").trim())
+              ) {
                 pending.add(email);
               }
             });
@@ -25702,8 +25717,18 @@
         );
       }
 
-      function addParticipant(tournamentId, formData) {
+      async function addParticipant(tournamentId, formData) {
         if (!ensureTournamentManagerById(tournamentId)) return;
+
+        const participantEmail = normalizeEmail(formData.get("email"));
+        if (participantEmail) {
+          await ensurePassiveRegistrationUser({
+            name: String(formData.get("name") || participantEmail).trim(),
+            email: participantEmail,
+            createdSource: "registered",
+            createdBy: session.userEmail,
+          });
+        }
 
         updateTournament(
           tournamentId,
@@ -25957,8 +25982,18 @@
         );
       }
 
-      function addJudge(tournamentId, formData) {
+      async function addJudge(tournamentId, formData) {
         if (!ensureTournamentManagerById(tournamentId)) return;
+
+        const judgeEmail = normalizeEmail(formData.get("email"));
+        if (judgeEmail) {
+          await ensurePassiveRegistrationUser({
+            name: String(formData.get("name") || judgeEmail).trim(),
+            email: judgeEmail,
+            createdSource: "registered",
+            createdBy: session.userEmail,
+          });
+        }
 
         updateTournament(
           tournamentId,
@@ -28731,7 +28766,7 @@
           }
 
           if (form.dataset.form === "add-participant") {
-            addParticipant(form.dataset.id, formData);
+            await addParticipant(form.dataset.id, formData);
             return;
           }
 
@@ -28741,7 +28776,7 @@
           }
 
           if (form.dataset.form === "add-judge") {
-            addJudge(form.dataset.id, formData);
+            await addJudge(form.dataset.id, formData);
             return;
           }
 
