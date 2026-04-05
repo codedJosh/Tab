@@ -1512,6 +1512,38 @@
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
       }
 
+      .auth-feature-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+
+      .auth-feature-list li {
+        position: relative;
+        padding: 10px 12px 10px 34px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: rgba(245, 251, 247, 0.95);
+        font-size: 0.9rem;
+        line-height: 1.35;
+      }
+
+      .auth-feature-list li::before {
+        content: "";
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        transform: translateY(-50%);
+        background: linear-gradient(180deg, #d8b54a, #b98d18);
+        box-shadow: 0 0 0 4px rgba(216, 181, 74, 0.14);
+      }
+
       .auth-support-card h3 {
         margin-bottom: 6px;
       }

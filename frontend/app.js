@@ -10945,11 +10945,11 @@
                       <p class="manager-note">
                         Regional Coordinators, Deputy Regional Coordinators, managers, and system administrators. New accounts are created by managers inside the Regional Operations workspace, not from this public page.
                       </p>
-                      <div class="workspace-chip-row">
-                        <span class="mini-pill success">Biweekly school reports</span>
-                        <span class="mini-pill success">Transport stipend requests</span>
-                        <span class="mini-pill success">Manager review queue</span>
-                      </div>
+                      <ul class="auth-feature-list" aria-label="Regional Operations features">
+                        <li>Biweekly school reports</li>
+                        <li>Transport stipend requests</li>
+                        <li>Manager review queue</li>
+                      </ul>
                     </div>
                   </div>
                 </section>
