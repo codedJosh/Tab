@@ -14130,8 +14130,6 @@
                 const summaryText = canSeeScores
                   ? getParticipantSummaryText(tournament, participant)
                   : teamLabel;
-                const compactSummaryText =
-                  teamLabel + (participant.institution ? " • " + participant.institution : "");
                 const compactFeedbackLabel =
                   feedbackEntries.length +
                   (feedbackEntries.length === 1 ? " note" : " notes");
@@ -14146,23 +14144,25 @@
                                 <div class="section-heading">
                                   <strong>${escapeHtml(participant.name)}</strong>
                                 </div>
-                                <p class="fine-print registration-speaker-card-email">${escapeHtml(
-                                  participant.email,
-                                )}</p>
-                                <p class="fine-print registration-speaker-card-summary">${escapeHtml(
-                                  compactSummaryText,
-                                )}</p>
-                              </div>
-                              <div class="registration-speaker-card-side">
-                                <div class="workspace-chip-row">
-                                  <span class="role-pill">${escapeHtml(teamLabel)}</span>
-                                  <span class="mini-pill ${latestFeedback ? "warning" : "success"}">${escapeHtml(
-                                    compactFeedbackLabel,
-                                  )}</span>
-                                </div>
                               </div>
                             </summary>
                             <div class="registration-speaker-card-compact-body">
+                              <div class="workspace-chip-row">
+                                <span class="role-pill">${escapeHtml(teamLabel)}</span>
+                                <span class="mini-pill ${latestFeedback ? "warning" : "success"}">${escapeHtml(
+                                  compactFeedbackLabel,
+                                )}</span>
+                              </div>
+                              <p class="fine-print registration-speaker-card-email">${escapeHtml(
+                                participant.email,
+                              )}</p>
+                              ${
+                                participant.institution
+                                  ? `<p class="fine-print registration-speaker-card-summary">${escapeHtml(
+                                      participant.institution,
+                                    )}</p>`
+                                  : ""
+                              }
                               ${
                                 latestFeedback
                                   ? `<p class="fine-print registration-speaker-card-feedback-note">${escapeHtml(
@@ -19656,55 +19656,14 @@
                 ? `<div class="people-directory-grid">
               ${pageAccounts
                 .map((user) => {
-                  const historicalTournamentCount = normalizeStringList(
-                    user.registeredTournamentIds,
-                    200,
-                  ).length;
-                  const eventCountLabel =
-                    historicalTournamentCount +
-                    " event" +
-                    (historicalTournamentCount === 1 ? "" : "s");
-                  const visibleRoleLabel = user.regionalRole
-                    ? `${toTitleLabel(user.regionalRole)}${
-                        user.regionalRegion ? " • " + user.regionalRegion : ""
-                      }`
-                    : toTitleLabel(user.globalRole);
                   return `
                     <article class="surface people-directory-card">
-                      <details class="compact-list-card people-directory-disclosure">
-                        <summary class="people-directory-summary">
-                          <div class="people-directory-topline">
-                            <h3>${escapeHtml(user.name)}</h3>
-                            <div class="people-directory-summary-badges">
-                              <span class="mini-pill success">${escapeHtml(getCompactUserCreationLabel(user))}</span>
-                              <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
-                                user.active ? "Active" : "Disabled",
-                              )}</span>
-                            </div>
-                          </div>
-                          <div class="people-directory-copy">
-                            <p class="people-directory-role">${escapeHtml(visibleRoleLabel)}</p>
-                            <div class="people-directory-summary-footer">
-                              <span class="mini-pill success">${escapeHtml(eventCountLabel)}</span>
-                              ${
-                                user.regionalRegion
-                                  ? `<span class="mini-pill warning">${escapeHtml(
-                                      user.regionalRegion,
-                                    )}</span>`
-                                  : ""
-                              }
-                            </div>
-                          </div>
-                        </summary>
-                        <div class="people-directory-body">
-                          <p class="people-directory-email">${escapeHtml(user.email)}</p>
-                          <div class="button-row wrap-row">
-                            <button class="secondary-button people-directory-configure" type="button" data-action="open-people-account" data-email="${escapeHtml(
-                              user.email,
-                            )}">Open profile</button>
-                          </div>
-                        </div>
-                      </details>
+                      <div class="people-directory-summary">
+                        <h3>${escapeHtml(user.name)}</h3>
+                        <button class="secondary-button people-directory-configure" type="button" data-action="open-people-account" data-email="${escapeHtml(
+                          user.email,
+                        )}" aria-label="${escapeHtml(`Open profile for ${user.name}`)}">Open profile</button>
+                      </div>
                     </article>
                   `;
                 })
