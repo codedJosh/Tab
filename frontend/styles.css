@@ -3134,6 +3134,72 @@
         opacity: 0.72;
       }
 
+      .counsel-shell {
+        gap: 14px;
+      }
+
+      .counsel-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr);
+        align-items: start;
+      }
+
+      .counsel-main,
+      .counsel-sidebar,
+      .counsel-query-form,
+      .counsel-prompt-box,
+      .counsel-source-box {
+        display: grid;
+        gap: 12px;
+      }
+
+      .counsel-response-card {
+        align-content: start;
+        min-height: 0;
+      }
+
+      .counsel-bullet-list {
+        margin: 0;
+        padding-left: 18px;
+        display: grid;
+        gap: 8px;
+        color: var(--ink);
+      }
+
+      .counsel-bullet-list li {
+        line-height: 1.45;
+      }
+
+      .counsel-telemetry-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .counsel-telemetry-card,
+      .counsel-prompt-box,
+      .counsel-source-box {
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background:
+          radial-gradient(circle at top right, rgba(225, 191, 67, 0.06), transparent 30%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 249, 245, 0.9));
+        box-shadow: var(--surface-shadow);
+      }
+
+      .counsel-telemetry-card {
+        display: grid;
+        gap: 6px;
+      }
+
+      .counsel-telemetry-card strong {
+        font-size: 1.05rem;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+      }
+
       .context-rail,
       .theme-gallery-shell,
       .theme-quick-switch {
@@ -6154,6 +6220,7 @@
         .portal-round-list,
         .hero-feature-list,
         .auth-support-grid,
+        .counsel-grid,
         .people-hub-grid,
         .spotlight-grid,
         .tournament-rail-grid,
@@ -6389,6 +6456,7 @@
         .directory-grid,
         .links-grid,
         .overview-spotlight-grid,
+        .counsel-telemetry-grid,
         .viewer-summary-grid,
         .draw-board-grid,
         .motion-board-grid,
