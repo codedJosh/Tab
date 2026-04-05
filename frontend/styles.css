@@ -1191,8 +1191,8 @@
 
       .workspace-shell {
         display: grid;
-        grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-        gap: 24px;
+        grid-template-columns: minmax(272px, 304px) minmax(0, 1fr);
+        gap: 18px;
         align-items: start;
       }
 
@@ -1238,7 +1238,7 @@
       .directory-card,
       .link-card,
       .subsurface {
-        padding: 16px;
+        padding: 14px;
         scroll-margin-top: 28px;
       }
 
@@ -1313,11 +1313,11 @@
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        min-height: 600px;
+        min-height: 520px;
       }
 
       .auth-hero {
-        min-height: 640px;
+        min-height: 560px;
       }
 
       .hero-panel > *,
@@ -1444,7 +1444,7 @@
         max-width: 56ch;
         color: var(--muted);
         font-size: var(--text-body-lg);
-        line-height: 1.62;
+        line-height: 1.52;
       }
 
       .hero-grid,
@@ -2110,7 +2110,7 @@
 
       .quick-access-strip {
         display: grid;
-        gap: 12px;
+        gap: 10px;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         align-items: stretch;
       }
@@ -2152,13 +2152,13 @@
 
       .overview-panel {
         display: grid;
-        gap: 16px;
+        gap: 14px;
       }
 
       .overview-quick-row {
         display: grid;
-        gap: 14px;
-        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+        gap: 12px 16px;
+        grid-template-columns: minmax(0, 1fr) minmax(340px, 0.95fr);
         align-items: start;
       }
 
@@ -2172,6 +2172,88 @@
 
       .overview-spotlight-grid {
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      }
+
+      .overview-launch-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .overview-launch-card {
+        display: grid;
+        gap: 8px;
+        align-content: start;
+        padding: 14px 15px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background:
+          radial-gradient(circle at top right, rgba(225, 191, 67, 0.08), transparent 30%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 245, 0.94));
+        box-shadow: var(--surface-shadow);
+      }
+
+      .overview-launch-card.is-warning {
+        background:
+          radial-gradient(circle at top right, rgba(225, 191, 67, 0.12), transparent 32%),
+          linear-gradient(180deg, rgba(255, 251, 242, 0.98), rgba(247, 244, 234, 0.94));
+      }
+
+      .overview-launch-card.is-danger {
+        background:
+          radial-gradient(circle at top right, rgba(181, 74, 74, 0.12), transparent 32%),
+          linear-gradient(180deg, rgba(255, 248, 248, 0.98), rgba(249, 238, 238, 0.94));
+      }
+
+      .overview-launch-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .overview-launch-card h3 {
+        margin: 0;
+        font-size: 1.02rem;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+      }
+
+      .overview-launch-card .muted {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.42;
+      }
+
+      .overview-launch-card .button-row {
+        margin-top: auto;
+      }
+
+      .overview-queue-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+
+      .overview-queue-card {
+        display: grid;
+        gap: 6px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(20, 49, 38, 0.08);
+        background: rgba(255, 255, 255, 0.78);
+      }
+
+      .overview-queue-card strong {
+        font-size: 1.22rem;
+        line-height: 1.02;
+        letter-spacing: -0.03em;
+      }
+
+      .overview-queue-card .muted {
+        font-size: 0.86rem;
+        line-height: 1.36;
+        margin: 0;
       }
 
       .overview-queue-list {
@@ -2293,7 +2375,7 @@
 
       .content-panel {
         display: grid;
-        gap: 16px;
+        gap: 14px;
       }
 
       .topbar {
@@ -6548,7 +6630,9 @@
 
         .workspace-overview-band,
         .focus-nav-grid,
-        .quick-access-strip {
+        .quick-access-strip,
+        .overview-launch-grid,
+        .overview-queue-grid {
           grid-template-columns: 1fr;
         }
 

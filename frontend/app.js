@@ -11044,6 +11044,43 @@
         `;
       }
 
+      function renderOverviewLaunchDeck(items = []) {
+        const launchItems = Array.isArray(items) ? items.filter(Boolean) : [];
+        if (!launchItems.length) {
+          return "";
+        }
+        return `
+          <div class="overview-launch-grid">
+            ${launchItems
+              .map((item) => {
+                const tone = ["success", "warning", "danger"].includes(item.tone)
+                  ? item.tone
+                  : "success";
+                return `
+                  <article class="overview-launch-card ${escapeHtml(item.tone ? "is-" + tone : "")}">
+                    <div class="overview-launch-card-top">
+                      <p class="eyebrow">${escapeHtml(item.eyebrow || "Launch")}</p>
+                      ${
+                        item.badge
+                          ? `<span class="mini-pill ${escapeHtml(tone)}">${escapeHtml(item.badge)}</span>`
+                          : ""
+                      }
+                    </div>
+                    <h3>${escapeHtml(item.title || "Open")}</h3>
+                    <p class="muted">${escapeHtml(item.body || "")}</p>
+                    ${
+                      item.actionMarkup
+                        ? `<div class="button-row wrap-row">${item.actionMarkup}</div>`
+                        : ""
+                    }
+                  </article>
+                `;
+              })
+              .join("")}
+          </div>
+        `;
+      }
+
       function getManagedTournamentSnapshotList(visibleTournaments = getVisibleTournaments()) {
         return (Array.isArray(visibleTournaments) ? visibleTournaments : [])
           .filter((tournament) => canManageTournament(tournament))
@@ -13068,16 +13105,54 @@
                       : "Use this landing view to jump into live tournaments, public boards, and your private access."
                   }</p>
                 </div>
-                <div class="quick-access-strip overview-quick-actions">
-                  <button class="secondary-button" data-action="set-view" data-view="search">Search Profiles</button>
-                  <button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournaments</button>
-                  ${
-                    capabilities.canViewJudging
-                      ? `<button class="secondary-button" data-action="set-view" data-view="judging">Open Judging</button>`
-                      : ""
-                  }
-                  <button class="secondary-button" data-action="set-view" data-view="links">Open Access Links</button>
-                </div>
+                ${renderOverviewLaunchDeck([
+                  {
+                    eyebrow: "Directory",
+                    title: "Search profiles",
+                    body: "Jump straight into people, institutions, and history without trawling the full workspace.",
+                    badge: stats.registeredUsers + " accounts",
+                    tone: "success",
+                    actionMarkup:
+                      '<button class="secondary-button" data-action="set-view" data-view="search">Open Search</button>',
+                  },
+                  {
+                    eyebrow: "Tournament desk",
+                    title: "Open tournaments",
+                    body: "Move directly into the currently visible events and public tournament surfaces.",
+                    badge: stats.openTournaments + " open",
+                    tone: stats.openTournaments ? "success" : "warning",
+                    actionMarkup:
+                      '<button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournaments</button>',
+                  },
+                  capabilities.canViewJudging
+                    ? {
+                        eyebrow: "Judging",
+                        title: "Judge queue",
+                        body: "See assigned rooms, ballots, and live adjudication instructions in one place.",
+                        badge: judgeAssignments.length + " rooms",
+                        tone: judgeAssignments.length ? "warning" : "success",
+                        actionMarkup:
+                          '<button class="secondary-button" data-action="set-view" data-view="judging">Open Judging</button>',
+                      }
+                    : {
+                        eyebrow: "Boards",
+                        title: "Public boards",
+                        body: "Open the standings and draw views already visible to your account.",
+                        badge: publicDraws + " draws",
+                        tone: publicDraws ? "success" : "warning",
+                        actionMarkup:
+                          '<button class="secondary-button" data-action="set-view" data-view="tournaments">View Boards</button>',
+                      },
+                  {
+                    eyebrow: "Access",
+                    title: "Private links",
+                    body: "Open the private access area and move without signing in again.",
+                    badge: getUserAccessLinkRecords().length + " links",
+                    tone: "success",
+                    actionMarkup:
+                      '<button class="secondary-button" data-action="set-view" data-view="links">Open Access Links</button>',
+                  },
+                ])}
               </div>
               <div class="spotlight-grid overview-spotlight-grid">
                 <article class="spotlight-card">
@@ -13248,23 +13323,52 @@
             <div class="overview-quick-row">
               <div class="summary-main">
                 <p class="eyebrow">Operations overview</p>
-                <h2>Tournaments, people, and access</h2>
-                <p class="muted">Start with a quick action, then scan the live totals and the current manager queue.</p>
+                <h2>Run the workspace like a control deck</h2>
+                <p class="muted">Launch the next action, scan the live totals, then work the queues that are actually moving.</p>
               </div>
-              <div class="quick-access-strip overview-quick-actions">
-                <button class="secondary-button" data-action="set-view" data-view="search">Search Profiles</button>
-                <button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournaments</button>
-                ${
-                  capabilities.canViewLinks
-                    ? `<button class="secondary-button" data-action="set-view" data-view="links">Review Private Links</button>`
-                    : ""
-                }
-                ${
-                  capabilities.canViewSettings
-                    ? `<button class="secondary-button" data-action="set-view" data-view="settings">Settings</button>`
-                    : ""
-                }
-              </div>
+              ${renderOverviewLaunchDeck([
+                {
+                  eyebrow: "Directory",
+                  title: "Search profiles",
+                  body: "Move into people, appointees, and account history without opening the full directory first.",
+                  badge: stats.registeredUsers + " accounts",
+                  tone: "success",
+                  actionMarkup:
+                    '<button class="secondary-button" data-action="set-view" data-view="search">Search Profiles</button>',
+                },
+                {
+                  eyebrow: "Tournaments",
+                  title: "Open tournaments",
+                  body: "Jump into live tab rooms, structure, results, and publication controls from one launch point.",
+                  badge: stats.openTournaments + " open",
+                  tone: stats.openTournaments ? "success" : "warning",
+                  actionMarkup:
+                    '<button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournaments</button>',
+                },
+                capabilities.canViewLinks
+                  ? {
+                      eyebrow: "Access",
+                      title: "Review private links",
+                      body: "Check private URLs, rotate them, and confirm access is aligned before the next rush.",
+                      badge: stats.privateLinks + " issued",
+                      tone: stats.privateLinks ? "success" : "warning",
+                      actionMarkup:
+                        '<button class="secondary-button" data-action="set-view" data-view="links">Review Private Links</button>',
+                    }
+                  : null,
+                capabilities.canViewSettings
+                  ? {
+                      eyebrow: "Controls",
+                      title: "Workspace settings",
+                      body: "Manage roles, defaults, regional operations, recovery, and global system behavior.",
+                      badge: managerMetrics.pendingAccounts + " pending",
+                      tone:
+                        managerMetrics.pendingAccounts || openRecoveryRequests.length ? "warning" : "success",
+                      actionMarkup:
+                        '<button class="secondary-button" data-action="set-view" data-view="settings">Open Settings</button>',
+                    }
+                  : null,
+              ])}
             </div>
             <div class="spotlight-grid overview-spotlight-grid">
               <article class="spotlight-card">
@@ -13348,58 +13452,38 @@
                       </div>
                       <span class="role-pill">Manager tools</span>
                     </div>
-                    ${
-                      managerMetrics.pendingAccounts ||
-                      managerMetrics.passwordResetRequests ||
-                      managerMetrics.hiddenStandings ||
-                      managerMetrics.inactiveUsers ||
-                      managerMetrics.archivedTournaments
-                        ? `<div class="spotlight-watchlist overview-queue-list">
-                            <div class="spotlight-note">
-                              <div class="overview-queue-copy">
-                                <strong>Pending sign-ups</strong>
-                                <span class="muted">Accounts with permissions but no password yet.</span>
-                              </div>
-                              <span class="mini-pill warning">${escapeHtml(
-                                managerMetrics.pendingAccounts,
-                              )}</span>
-                            </div>
-                            <div class="spotlight-note">
-                              <div class="overview-queue-copy">
-                                <strong>Password reset requests</strong>
-                                <span class="muted">Open recovery requests waiting on manager action.</span>
-                              </div>
-                              <span class="mini-pill warning">${escapeHtml(
-                                openRecoveryRequests.length,
-                              )}</span>
-                            </div>
-                            <div class="spotlight-note">
-                              <div class="overview-queue-copy">
-                                <strong>Hidden standings</strong>
-                                <span class="muted">Tournaments where standings are still private.</span>
-                              </div>
-                              <span class="mini-pill success">${escapeHtml(
-                                managerMetrics.hiddenStandings,
-                              )}</span>
-                            </div>
-                            <div class="spotlight-note">
-                              <div class="overview-queue-copy">
-                                <strong>Inactive accounts</strong>
-                                <span class="muted">Accounts currently disabled in the workspace.</span>
-                              </div>
-                              <span class="mini-pill warning">${escapeHtml(
-                                managerMetrics.inactiveUsers,
-                              )}</span>
-                            </div>
-                            <div class="spotlight-note">
-                              <div class="overview-queue-copy">
-                                <strong>Archived tournaments</strong>
-                                <span class="muted">Tournaments moved out of the live rotation.</span>
-                              </div>
-                              <span class="mini-pill success">${escapeHtml(
-                                managerMetrics.archivedTournaments,
-                              )}</span>
-                            </div>
+                      ${
+                        managerMetrics.pendingAccounts ||
+                        managerMetrics.passwordResetRequests ||
+                        managerMetrics.hiddenStandings ||
+                        managerMetrics.inactiveUsers ||
+                        managerMetrics.archivedTournaments
+                        ? `<div class="overview-queue-grid">
+                            <article class="overview-queue-card">
+                              <p class="eyebrow">Accounts</p>
+                              <strong>${escapeHtml(managerMetrics.pendingAccounts)}</strong>
+                              <p class="muted">Pending sign-ups still waiting to be claimed.</p>
+                            </article>
+                            <article class="overview-queue-card">
+                              <p class="eyebrow">Recovery</p>
+                              <strong>${escapeHtml(openRecoveryRequests.length)}</strong>
+                              <p class="muted">Password reset requests still waiting on manager action.</p>
+                            </article>
+                            <article class="overview-queue-card">
+                              <p class="eyebrow">Standings</p>
+                              <strong>${escapeHtml(managerMetrics.hiddenStandings)}</strong>
+                              <p class="muted">Tournaments where the standings are still private.</p>
+                            </article>
+                            <article class="overview-queue-card">
+                              <p class="eyebrow">Accounts disabled</p>
+                              <strong>${escapeHtml(managerMetrics.inactiveUsers)}</strong>
+                              <p class="muted">Accounts currently disabled in the workspace.</p>
+                            </article>
+                            <article class="overview-queue-card">
+                              <p class="eyebrow">Archived</p>
+                              <strong>${escapeHtml(managerMetrics.archivedTournaments)}</strong>
+                              <p class="muted">Tournaments moved out of the live rotation.</p>
+                            </article>
                           </div>`
                         : `<div class="alert success">Nothing urgent is waiting right now.</div>`
                     }
