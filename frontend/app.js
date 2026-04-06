@@ -11298,7 +11298,7 @@
                         return `
                           <article class="spotlight-card smart-insight-card">
                             <div class="smart-insight-card-top">
-                              <p class="eyebrow">${escapeHtml(item.eyebrow || "Smart prompt")}</p>
+                              <h3>${escapeHtml(item.title || "Next action")}</h3>
                               ${
                                 item.label
                                   ? `<span class="mini-pill ${escapeHtml(tone)}">${escapeHtml(
@@ -11307,7 +11307,6 @@
                                   : ""
                             }
                           </div>
-                          <h3>${escapeHtml(item.title || "Next action")}</h3>
                             ${
                               item.actionMarkup
                                 ? `<div class="button-row wrap-row">${item.actionMarkup}</div>`
@@ -15224,15 +15223,10 @@
                 </select>
               </label>
             </div>
-            <div class="field-grid two">
-              <label>
-                Team Name
-                <input type="text" name="teamName" placeholder="Optional manual team name" />
-              </label>
-              <div class="empty-state">
-                Link the speaker to an existing team when possible. Manual team names are useful for custom or one-off pairings.
-              </div>
-            </div>
+            <label>
+              Team Name
+              <input type="text" name="teamName" placeholder="Optional manual team name" />
+            </label>
             ${renderParticipantScoreFields(tournament)}
             <button type="submit">Add Speaker</button>
           </form>
@@ -17311,7 +17305,6 @@
                   <div class="section-heading">
                     <div>
                       <h3>Add Team</h3>
-                      <p class="fine-print">Institution names and team names stay separate for cleaner tabbing.</p>
                     </div>
                   </div>
                   <label>
@@ -17336,7 +17329,6 @@
                   <div class="section-heading">
                     <div>
                       <h3>Add Speaker</h3>
-                      <p class="fine-print">Link speakers to teams where possible, or leave the setup flexible for changing formats.</p>
                     </div>
                   </div>
                   ${renderParticipantsPanel(tournament, true, true, {
@@ -17349,7 +17341,6 @@
                 <div class="section-heading">
                   <div>
                     <h3>Speaker Roster</h3>
-                    <p class="fine-print">Compact speaker rectangles stay readable while using the full width of the roster studio.</p>
                   </div>
                   <span class="role-pill">${escapeHtml(
                     tournament.participants.length,
@@ -19510,7 +19501,6 @@
           <article class="spotlight-card people-dashboard-metric">
             <p class="eyebrow">${escapeHtml(eyebrow)}</p>
             <h3>${escapeHtml(headline)}</h3>
-            ${support ? `<p class="muted">${escapeHtml(support)}</p>` : ""}
           </article>
         `;
       }
@@ -19880,7 +19870,7 @@
       }
 
       function renderPeopleDirectorySection(peopleAccounts) {
-        const pageSize = 24;
+        const pageSize = 40;
         const filteredAccounts = getPeopleDirectoryRecords(peopleAccounts);
         const totalMatches = filteredAccounts.length;
         const totalPages = Math.max(1, Math.ceil(totalMatches / pageSize));
@@ -20210,7 +20200,6 @@
               </div>
               <span class="role-pill">${escapeHtml(state.users.length)} accounts</span>
             </div>
-            <p class="workspace-view-note">Choose the people area you want to work in first, then open that specific dashboard instead of scrolling through everything at once.</p>
             <div class="people-hub-grid">
               ${renderPeopleSectionCard(
                 "directory",

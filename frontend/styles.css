@@ -988,47 +988,6 @@
         color: var(--ink);
       }
 
-      :is(.hero-panel, .portal-ribbon, .workspace-hero, .competitor-hero)
-        :is(.secondary-button, .ghost-button, .inline-link) {
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05))
-            padding-box,
-          linear-gradient(180deg, rgba(91, 153, 117, 0.9), rgba(24, 87, 57, 0.98)) border-box;
-        color: #f7fbf8;
-        border: 1px solid transparent;
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.16),
-          0 10px 20px rgba(6, 20, 13, 0.18);
-        font-weight: 800;
-        letter-spacing: 0.005em;
-        backdrop-filter: blur(12px);
-      }
-
-      :is(.hero-panel, .portal-ribbon, .workspace-hero, .competitor-hero)
-        :is(.secondary-button, .ghost-button, .inline-link),
-      :is(.hero-panel, .portal-ribbon, .workspace-hero, .competitor-hero)
-        :is(.secondary-button, .ghost-button, .inline-link) * {
-        color: #f7fbf8 !important;
-      }
-
-      :is(.hero-panel, .portal-ribbon, .workspace-hero, .competitor-hero)
-        :is(.secondary-button, .ghost-button, .inline-link):hover {
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08))
-            padding-box,
-          linear-gradient(180deg, rgba(113, 177, 138, 0.96), rgba(31, 106, 78, 1)) border-box;
-        color: #ffffff;
-        border-color: transparent;
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.2),
-          0 12px 24px rgba(6, 20, 13, 0.2);
-      }
-
-      :is(.hero-panel, .portal-ribbon, .workspace-hero, .competitor-hero)
-        a:is(.secondary-button, .ghost-button):visited {
-        color: #f7fbf8;
-      }
-
       .danger-button {
         background:
           linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0))
@@ -1549,8 +1508,13 @@
       }
 
       .registration-speaker-grid {
-        gap: 8px;
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        align-items: start;
+      }
+
+      .registration-speaker-grid > * {
+        min-width: 0;
       }
 
       .stat-card {
@@ -2468,9 +2432,13 @@
 
       .registration-speaker-card {
         display: grid;
-        gap: 5px;
-        padding: 10px 11px;
-        border-radius: 12px;
+        gap: 8px;
+        padding: 12px 13px;
+        border-radius: 14px;
+      }
+
+      .registration-speaker-card > * {
+        min-width: 0;
       }
 
       .registration-speaker-card .section-heading {
@@ -2518,21 +2486,17 @@
       }
 
       .roster-speaker-list-panel .registration-speaker-grid {
-        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 10px;
         align-items: start;
       }
 
       .roster-speaker-layout .registration-speaker-card {
-        grid-template-columns: minmax(0, 1.25fr) minmax(190px, 0.9fr);
-        grid-template-areas:
-          "primary side"
-          "admin admin"
-          "foot foot";
+        grid-template-columns: 1fr;
         align-items: start;
-        gap: 8px 12px;
-        padding: 10px 11px;
-        border-radius: 12px;
+        gap: 10px;
+        padding: 12px 13px;
+        border-radius: 14px;
         align-self: start;
       }
 
@@ -2543,9 +2507,9 @@
 
       .roster-speaker-layout .registration-speaker-card-side {
         grid-area: side;
-        justify-items: end;
+        justify-items: start;
         align-content: start;
-        text-align: right;
+        text-align: left;
       }
 
       .roster-speaker-layout .registration-speaker-card-admin {
@@ -2606,9 +2570,11 @@
       .registration-speaker-card-disclosure > summary {
         list-style: none;
         cursor: pointer;
-        display: block;
+        display: flex;
+        align-items: center;
         position: relative;
         padding-right: 22px;
+        min-height: 38px;
       }
 
       .registration-speaker-card-disclosure > summary::-webkit-details-marker {
@@ -2635,9 +2601,9 @@
 
       .registration-speaker-card-compact-body {
         display: grid;
-        gap: 14px;
+        gap: 12px;
         margin-top: 6px;
-        padding-top: 10px;
+        padding-top: 12px;
         border-top: 1px solid rgba(20, 49, 38, 0.08);
       }
 
@@ -2646,15 +2612,15 @@
       }
 
       .registration-speaker-card-compact-summary .section-heading {
-        min-height: 40px;
-        gap: 0;
+        min-height: 44px;
+        gap: 4px;
       }
 
       .registration-speaker-card-compact-summary .section-heading strong {
         display: block;
-        font-size: 0.98rem;
-        line-height: 1.08;
-        letter-spacing: -0.03em;
+        font-size: 1.06rem;
+        line-height: 1.16;
+        letter-spacing: -0.02em;
         overflow-wrap: break-word;
         word-break: normal;
         display: -webkit-box;
@@ -2666,6 +2632,8 @@
       .registration-speaker-card-compact-layout {
         display: grid;
         gap: 12px;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 270px);
+        align-items: start;
       }
 
       .registration-speaker-card-compact-meta,
@@ -2673,6 +2641,7 @@
         display: grid;
         gap: 10px;
         min-width: 0;
+        align-content: start;
       }
 
       .registration-speaker-card-compact-meta {
@@ -2701,15 +2670,16 @@
       }
 
       .registration-speaker-card-compact-meta .registration-speaker-card-email {
-        font-size: 1rem;
-        line-height: 1.32;
-        font-weight: var(--weight-medium);
+        font-size: 0.95rem;
+        line-height: 1.36;
+        font-weight: var(--weight-strong);
         color: rgba(26, 59, 47, 0.82);
+        overflow-wrap: anywhere;
       }
 
       .registration-speaker-card-compact-meta .registration-speaker-card-summary {
-        font-size: 0.96rem;
-        line-height: 1.42;
+        font-size: 0.9rem;
+        line-height: 1.38;
         color: rgba(26, 59, 47, 0.76);
       }
 
@@ -2724,7 +2694,7 @@
       .registration-speaker-card-actions-grid {
         display: grid;
         gap: 8px;
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .registration-speaker-card-actions-danger {
@@ -2737,6 +2707,11 @@
       .registration-speaker-card-actions-danger > * {
         width: 100%;
         justify-content: center;
+        min-width: 0;
+      }
+
+      .registration-speaker-card-actions-grid > *:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
       }
 
       .registration-speaker-card-actions-danger .danger-button {
@@ -2744,14 +2719,15 @@
       }
 
       .registration-speaker-card-sanctions {
-        margin-top: 0;
+        margin-top: 4px;
         padding-top: 12px;
         padding-left: 0;
+        border-top: 1px solid rgba(20, 49, 38, 0.08);
         border-left: 0;
       }
 
       .registration-speaker-card-sanctions .field-grid.two {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       }
 
       .registration-speaker-card-sanctions label {
@@ -2811,7 +2787,7 @@
 
       .compact-card-disclosure {
         border-top: 1px solid rgba(20, 49, 38, 0.08);
-        padding-top: 6px;
+        padding-top: 8px;
       }
 
       .compact-card-disclosure summary {
@@ -2846,6 +2822,12 @@
         transform: translateY(-4px);
         border-color: rgba(31, 106, 78, 0.18);
         box-shadow: var(--surface-shadow-hover);
+      }
+
+      .people-directory-card:hover,
+      .registration-speaker-card:hover {
+        transform: none;
+        box-shadow: var(--surface-shadow);
       }
 
       .subsurface:hover {
@@ -6128,9 +6110,9 @@
 
       .people-directory-grid {
         display: grid;
-        gap: 6px;
+        gap: 10px;
         align-items: start;
-        grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       }
 
       .people-directory-card {
@@ -6144,20 +6126,24 @@
       .people-directory-summary {
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        min-height: 92px;
-        padding: 9px 10px;
+        gap: 10px;
+        min-height: 122px;
+        padding: 12px;
         width: 100%;
+      }
+
+      .people-directory-summary > * {
+        min-width: 0;
       }
 
       .people-directory-summary h3 {
         margin: 0;
-        font-size: 0.9rem;
-        line-height: 0.98;
-        letter-spacing: -0.03em;
+        font-size: 1.08rem;
+        line-height: 1.16;
+        letter-spacing: -0.015em;
         overflow-wrap: anywhere;
         display: -webkit-box;
-        -webkit-line-clamp: 3;
+        -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
       }
@@ -6166,8 +6152,8 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 30px;
-        padding: 6px 11px;
+        min-height: 36px;
+        padding: 8px 12px;
         border-radius: 999px;
         background: rgba(20, 49, 38, 0.05);
         border: 1px solid rgba(20, 49, 38, 0.08);
@@ -6175,10 +6161,10 @@
         font-size: var(--text-caption);
         font-weight: var(--weight-heavy);
         letter-spacing: 0.005em;
-        justify-self: start;
-        align-self: flex-start;
+        justify-self: stretch;
+        align-self: stretch;
         margin-top: auto;
-        width: auto;
+        width: 100%;
         min-width: 0;
         text-align: center;
       }
@@ -6786,12 +6772,13 @@
         .portal-focus-grid,
         .portal-round-list,
         .hero-feature-list,
-        .auth-support-grid,        .people-hub-grid,
+        .auth-support-grid,
+        .people-hub-grid,
         .spotlight-grid,
         .tournament-rail-grid,
         .participant-track-grid,
         .registration-speaker-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         }
 
         .tournament-rail-stats,
@@ -6806,7 +6793,7 @@
         }
 
         .people-directory-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
         }
 
         .people-directory-toolbar,
@@ -6877,16 +6864,12 @@
           justify-content: flex-start;
         }
 
-        .roster-speaker-layout .registration-speaker-card {
-          grid-template-columns: 1fr;
-          grid-template-areas:
-            "primary"
-            "side"
-            "admin"
-            "foot";
+        .roster-speaker-list-panel .registration-speaker-grid {
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         }
 
-        .roster-speaker-list-panel .registration-speaker-grid {
+        .registration-speaker-card-compact-layout,
+        .registration-speaker-card-actions-grid {
           grid-template-columns: 1fr;
         }
 
@@ -6917,6 +6900,17 @@
       }
 
       @media (max-width: 560px) {
+        .people-directory-grid,
+        .registration-speaker-grid,
+        .roster-speaker-list-panel .registration-speaker-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .registration-speaker-card-compact-layout,
+        .registration-speaker-card-actions-grid {
+          grid-template-columns: 1fr;
+        }
+
         .auth-top-ticker {
           position: static;
         }
