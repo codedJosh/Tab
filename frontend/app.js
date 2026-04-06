@@ -11170,11 +11170,6 @@
         toolbarMarkup = "",
         footerMarkup = "",
       } = {}) {
-        const canReviewAll = canAccessGlobalSettings();
-        const helperText = canReviewAll
-          ? "These private URLs sign users in automatically. You can copy or rotate them for any active account."
-          : "This private URL signs you in automatically without asking for your password again.";
-
         return `
           <section class="${escapeHtml(surfaceClass)}">
             <div class="section-heading">
@@ -11184,7 +11179,6 @@
               </div>
               <span class="role-pill">${escapeHtml(records.length)} available</span>
             </div>
-            <div class="alert info">${escapeHtml(helperText)}</div>
             ${toolbarMarkup}
             ${
               records.length
@@ -12137,34 +12131,151 @@
           .sort((left, right) => Number(right.round || 0) - Number(left.round || 0))[0] || null;
       }
 
-      function getStandingWindow(tournament, participant, radius = 2) {
-        const sortedStandings = [...getComputedStandings(tournament)].sort(
-          (left, right) => Number(left.rank || 0) - Number(right.rank || 0),
-        );
-        if (!sortedStandings.length) {
-          return [];
+      function getParticipantOfficialFeedbackForDrawEntry(tournament, participant, drawEntry) {
+        const drawId = String(drawEntry?.id || "").trim();
+        if (!drawId || !participant) {
+          return null;
         }
 
-        const standingRecord = findStandingForParticipant(tournament, participant);
-        if (!standingRecord) {
-          return sortedStandings.slice(0, Math.min(sortedStandings.length, radius * 2 + 1));
+        const officialEntries = getOfficialParticipantFeedbackEntries(tournament, participant)
+          .filter((entry) => {
+            if (String(entry?.drawId || "").trim() === drawId) {
+              return true;
+            }
+            const allocation = getFeedbackAllocation(tournament, entry);
+            return String(allocation?.drawId || "").trim() === drawId;
+          })
+          .sort(
+            (left, right) =>
+              Number(normalizeTimestampKey(right?.createdAtKey, right?.createdAt) || 0) -
+                Number(normalizeTimestampKey(left?.createdAtKey, left?.createdAt) || 0) ||
+              String(right?.judgeEmail || "").localeCompare(String(left?.judgeEmail || "")),
+          );
+
+        return officialEntries[0] || null;
+      }
+
+      function getParticipantRoundPerformanceRows(tournament, participant) {
+        return getParticipantDrawEntries(tournament, participant)
+          .slice()
+          .sort(
+            (left, right) =>
+              Number(left.round || 0) - Number(right.round || 0) ||
+              String(left.room || "").localeCompare(String(right.room || "")),
+          )
+          .map((drawEntry) => {
+            const round = normalizeRoundCount(drawEntry.round, 1);
+            const roundProfile = getRoundProfileForRound(tournament, round);
+            const slotDetails = getParticipantDrawSlotDetails(tournament, drawEntry, participant);
+            const participantSlot = slotDetails.slot;
+            const participantSlotKey = participantSlot ? getDrawSlotCheckInKey(participantSlot) : "";
+            const orderedSlots = getOrderedDrawSlotsForDisplay(tournament, drawEntry);
+            const opponents = orderedSlots
+              .filter(
+                ({ slot }) =>
+                  !participantSlotKey || getDrawSlotCheckInKey(slot) !== participantSlotKey,
+              )
+              .map(({ slot, index }) =>
+                getDrawSlotDisplayLabel(tournament, slot, {
+                  drawEntry,
+                  slotIndex: index,
+                  forcePrivate: true,
+                }),
+              )
+              .filter(Boolean)
+              .join(" • ");
+            const resultMode = getDrawOfficialResultMode(tournament, drawEntry);
+            const officialResults = normalizeDrawOfficialResults(drawEntry.officialResults);
+            const slotResult = participantSlotKey ? officialResults[participantSlotKey] || null : null;
+            let resultLabel = "Pending";
+            let resultPosted = false;
+
+            if (slotResult) {
+              if (resultMode === "bp_rank" && slotResult.rank) {
+                const rank = normalizeOptionalCount(slotResult.rank, null);
+                const points = [3, 2, 1, 0][Math.max(0, Number(rank || 0) - 1)] ?? 0;
+                resultLabel =
+                  formatOrdinal(Number(rank || 0)) +
+                  " • " +
+                  formatScoreValue(points) +
+                  " team pts";
+                resultPosted = true;
+              } else if (resultMode === "win_loss" && slotResult.outcome) {
+                const normalizedOutcome = String(slotResult.outcome || "").trim().toLowerCase();
+                const points = normalizedOutcome === "win" ? 3 : 1;
+                resultLabel =
+                  toTitleLabel(normalizedOutcome) +
+                  " • " +
+                  formatScoreValue(points) +
+                  " team pts";
+                resultPosted = true;
+              } else {
+                resultLabel = "Posted";
+                resultPosted = true;
+              }
+            }
+
+            const officialFeedback = getParticipantOfficialFeedbackForDrawEntry(
+              tournament,
+              participant,
+              drawEntry,
+            );
+            const speakerScore = officialFeedback ? getFeedbackSpeakerScore(officialFeedback) : null;
+
+            return {
+              round,
+              roundLabel: String(roundProfile?.label || "Round " + round).trim(),
+              room: String(drawEntry.room || "Room TBA").trim(),
+              side: String(slotDetails.label || participant.teamName || "Entry").trim(),
+              opponents,
+              resultLabel,
+              resultPosted,
+              speakerScore,
+            };
+          });
+      }
+
+      function renderPortalTeamPerformanceWindow(tournament, participant) {
+        const rows = getParticipantRoundPerformanceRows(tournament, participant);
+        if (!rows.length) {
+          return `<div class="empty-state">No published rounds are available for your entry yet.</div>`;
         }
 
-        const recordIndex = sortedStandings.findIndex(
-          (entry) => entry.id === standingRecord.id || entry.name === standingRecord.name,
-        );
-        if (recordIndex < 0) {
-          return sortedStandings.slice(0, Math.min(sortedStandings.length, radius * 2 + 1));
-        }
-
-        const start = Math.max(0, recordIndex - radius);
-        const end = Math.min(sortedStandings.length, recordIndex + radius + 1);
-        return sortedStandings.slice(start, end);
+        return `
+          <div class="table-wrap">
+            <table class="compact-table">
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Room</th>
+                  <th>Side</th>
+                  <th>Opponents</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows
+                  .map(
+                    (row) => `
+                      <tr>
+                        <td>${escapeHtml(row.roundLabel)}</td>
+                        <td>${escapeHtml(row.room)}</td>
+                        <td>${escapeHtml(row.side || "Entry")}</td>
+                        <td>${escapeHtml(row.opponents || "TBA")}</td>
+                        <td>${escapeHtml(row.resultLabel)}</td>
+                      </tr>
+                    `,
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
       }
 
       function renderPortalStandingWindow(tournament, participant) {
         const standingRecord = findStandingForParticipant(tournament, participant);
-        const windowRows = getStandingWindow(tournament, participant);
+        const windowRows = getComputedStandings(tournament);
         const columns = getStandingsColumns(tournament);
 
         if (!windowRows.length) {
@@ -12209,33 +12320,67 @@
               </tbody>
             </table>
           </div>
-          <p class="table-caption">${
-            standingRecord
-              ? "Your current position is highlighted."
-              : "This view shows the current top published entries."
-          }</p>
+          <p class="table-caption">Your row is highlighted when available.</p>
         `;
       }
 
-      function getSpeakerWindow(tournament, participant, radius = 2) {
-        const speakerStandings = getSpeakerStandings(tournament);
-        if (!speakerStandings.length) {
-          return [];
+      function renderPortalSpeakerPerformanceWindow(tournament, participant) {
+        const rows = getParticipantRoundPerformanceRows(tournament, participant);
+        if (!rows.length) {
+          return `<div class="empty-state">No published rounds are available for your speaker record yet.</div>`;
         }
 
-        const speakerRecord = speakerStandings.find((entry) => entry.id === participant.id);
-        if (!speakerRecord) {
-          return speakerStandings.slice(0, Math.min(speakerStandings.length, radius * 2 + 1));
-        }
+        let cumulative = 0;
+        let scoredRounds = 0;
 
-        const recordIndex = speakerStandings.findIndex((entry) => entry.id === speakerRecord.id);
-        const start = Math.max(0, recordIndex - radius);
-        const end = Math.min(speakerStandings.length, recordIndex + radius + 1);
-        return speakerStandings.slice(start, end);
+        return `
+          <div class="table-wrap">
+            <table class="compact-table">
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Room</th>
+                  <th>Side</th>
+                  <th>Score</th>
+                  <th>Cumulative</th>
+                  <th>Average</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows
+                  .map((row) => {
+                    const hasScore = row.speakerScore !== null && row.speakerScore !== undefined;
+                    const scoreText = hasScore ? formatScoreValue(row.speakerScore) : "Pending";
+                    let cumulativeText = "—";
+                    let averageText = "—";
+
+                    if (hasScore) {
+                      cumulative += Number(row.speakerScore || 0);
+                      scoredRounds += 1;
+                      cumulativeText = formatScoreValue(cumulative);
+                      averageText = formatScoreValue(cumulative / Math.max(1, scoredRounds));
+                    }
+
+                    return `
+                      <tr>
+                        <td>${escapeHtml(row.roundLabel)}</td>
+                        <td>${escapeHtml(row.room)}</td>
+                        <td>${escapeHtml(row.side || "Entry")}</td>
+                        <td>${escapeHtml(scoreText)}</td>
+                        <td>${escapeHtml(cumulativeText)}</td>
+                        <td>${escapeHtml(averageText)}</td>
+                      </tr>
+                    `;
+                  })
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
       }
 
       function renderPortalSpeakerWindow(tournament, participant) {
-        const speakerWindow = getSpeakerWindow(tournament, participant);
+        const speakerWindow = getSpeakerStandings(tournament);
         if (!speakerWindow.length) {
           return `<div class="empty-state">Speaker rankings will appear once judges submit ballots.</div>`;
         }
@@ -12271,7 +12416,7 @@
               </tbody>
             </table>
           </div>
-          <p class="table-caption">Your speaker row is highlighted. Match scores list each scored round, alongside your cumulative and average speaker scores.</p>
+          <p class="table-caption">Your speaker row is highlighted.</p>
         `;
       }
 
@@ -14420,40 +14565,42 @@
                                   }
                                 </div>
                               </div>
-                              ${
-                                canManage
-                                  ? renderParticipantTeamAssignmentForm(tournament, participant, {
-                                      compact: true,
-                                    })
-                                  : ""
-                              }
-                              ${
-                                canSanction
-                                  ? `<details class="registration-speaker-card-footnote compact-card-disclosure registration-speaker-card-sanctions">
-                                      <summary class="compact-card-summary">Sanctions</summary>
-                                      <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
-                                        tournament.id,
-                                      )}" data-participant-id="${escapeHtml(participant.id)}">
-                                        <div class="field-grid two">
-                                          <label>
-                                            Sanction
-                                            <select name="level">
-                                              <option value="Notice">Notice</option>
-                                              <option value="Warning">Warning</option>
-                                              <option value="Penalty">Penalty</option>
-                                              <option value="Removal">Removal</option>
-                                            </select>
-                                          </label>
-                                          <label>
-                                            Note
-                                            <input type="text" name="note" placeholder="Brief reason" required />
-                                          </label>
-                                        </div>
-                                        <button class="secondary-button" type="submit">Save</button>
-                                      </form>
-                                    </details>`
-                                  : ""
-                              }
+                              <div class="registration-speaker-card-compact-sections">
+                                ${
+                                  canManage
+                                    ? renderParticipantTeamAssignmentForm(tournament, participant, {
+                                        compact: true,
+                                      })
+                                    : ""
+                                }
+                                ${
+                                  canSanction
+                                    ? `<details class="registration-speaker-card-footnote compact-card-disclosure registration-speaker-card-sanctions">
+                                        <summary class="compact-card-summary">Sanctions</summary>
+                                        <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
+                                          tournament.id,
+                                        )}" data-participant-id="${escapeHtml(participant.id)}">
+                                          <div class="field-grid two">
+                                            <label>
+                                              Sanction
+                                              <select name="level">
+                                                <option value="Notice">Notice</option>
+                                                <option value="Warning">Warning</option>
+                                                <option value="Penalty">Penalty</option>
+                                                <option value="Removal">Removal</option>
+                                              </select>
+                                            </label>
+                                            <label>
+                                              Note
+                                              <input type="text" name="note" placeholder="Brief reason" required />
+                                            </label>
+                                          </div>
+                                          <button class="secondary-button" type="submit">Save</button>
+                                        </form>
+                                      </details>`
+                                    : ""
+                                }
+                              </div>
                             </div>
                           </details>
                         `
@@ -15365,7 +15512,6 @@
                   <div class="section-heading">
                     <div>
                       <h3>Add Judge</h3>
-                      <p class="fine-print">Add a judge once, then assign them to any room in this tournament.</p>
                     </div>
                   </div>
                   <div class="field-grid three">
@@ -15411,7 +15557,6 @@
                   <div class="section-heading">
                     <div>
                       <h3>Assign Judge To Room</h3>
-                      <p class="fine-print">Each room can have one assigned chair and up to two assigned panelists.</p>
                     </div>
                   </div>
                   <div class="field-grid three">
@@ -15437,7 +15582,6 @@
                   <div class="section-heading">
                     <div>
                       <h3>Auto-Allocate Round Judges</h3>
-                      <p class="fine-print">The system assigns one chair per room, then fills up to two panel seats. Higher-priority debates receive the strongest available panels first, and no judge is reused in two rooms in the same round.</p>
                     </div>
                   </div>
                   <div class="field-grid three">
@@ -15463,7 +15607,6 @@
                   <div class="section-heading">
                     <div>
                       <h3>Judge Roster</h3>
-                      <p class="fine-print">These judges can be assigned to any room in this tournament.</p>
                     </div>
                     <span class="role-pill">${escapeHtml(judges.length)} active</span>
                   </div>
@@ -15494,7 +15637,6 @@
                   <div class="section-heading">
                     <div>
                       <h3>Room Allocations</h3>
-                      <p class="fine-print">Judges will see these rooms in their separate judging dashboard.</p>
                     </div>
                     <span class="role-pill">${escapeHtml(allocations.length)} allocations</span>
                   </div>
@@ -18123,7 +18265,6 @@
                   <div class="section-heading">
                     <div>
                       <h3>Generate Round Draw</h3>
-                      <p class="fine-print">Use automatic, randomised, power-paired, or folded pairings for the selected round.</p>
                     </div>
                     <span class="mini-pill ${escapeHtml(
                       isOutroundProfile(suggestedRoundProfile) ? "warning" : "success",
@@ -18178,12 +18319,6 @@
                       "auto",
                     ),
                   )}</p>
-                  <p class="fine-print">
-                    If this round uses individual entries with a team-sized room structure, JADE will first build speaker pairings from the round plan and then place those paired entries into rooms.
-                  </p>
-                  <p class="fine-print">
-                    JADE now only auto-builds complete teams and complete rooms for the selected format. Any leftover entries are parked in a separate draft overflow room so staff can resolve them manually.
-                  </p>
                   <button type="submit">Build Draw</button>
                 </form>
 
@@ -18193,7 +18328,6 @@
                   <div class="section-heading">
                     <div>
                       <h3>Round Publishing</h3>
-                      <p class="fine-print">Move draft rooms live or clear a round so you can rebuild it.</p>
                     </div>
                   </div>
                   <div class="round-ops-grid">
@@ -18214,7 +18348,6 @@
                   <div class="section-heading">
                     <div>
                       <h3>Clear A Round</h3>
-                      <p class="fine-print">Remove saved rooms for a round when you need to rebuild the pairing.</p>
                     </div>
                   </div>
                   <div class="round-ops-grid">
@@ -18236,7 +18369,6 @@
                 <div class="section-heading">
                   <div>
                     <h3>Craft A Manual Room</h3>
-                    <p class="fine-print">Use this for bespoke pairings, swing rooms, or late edits after the main draw is created.</p>
                   </div>
                 </div>
                 <div class="field-grid three">
@@ -19110,7 +19242,6 @@
                         <button class="secondary-button" type="button" data-action="set-view" data-view="search">Search Profiles</button>
                       </div>
                     </div>
-                    <p class="fine-print">This focused tournament view keeps one event open at a time and gives it cleaner board tabs for draw, motions, leaderboard, rankings, and results.</p>
                   </section>
                   ${renderTournamentCard(selectedTournament)}
                 `
@@ -19123,7 +19254,6 @@
                       </div>
                       <span class="role-pill">${escapeHtml(visible.length)} visible</span>
                     </div>
-                    <p class="fine-print">Choose a tournament card to open its public boards, rankings, draw, and role-specific details without scrolling through every event at once.</p>
                     ${
                       visible.length
                         ? `<div class="tournament-switch-grid">
@@ -19157,7 +19287,6 @@
                     </div>
                     <span class="role-pill">${escapeHtml(visible.length)} visible</span>
                   </div>
-                  <p class="fine-print">Choose a tournament card to open a focused workspace without clutter from extra navigation panels.</p>
                   ${
                     visible.length
                       ? `<div class="tournament-switch-grid">
@@ -19838,7 +19967,6 @@
                       <div class="section-heading">
                         <div>
                           <h3>Grant tournament access</h3>
-                          <p class="fine-print">Assign managers, tab staff, judges, or debaters by email.</p>
                         </div>
                       </div>
                       <form class="stack" data-form="people-assign-access">
@@ -19872,7 +20000,6 @@
                       <div class="section-heading">
                         <div>
                           <h3>Pending sign-up emails</h3>
-                          <p class="fine-print">These email addresses already have permissions but have not created a password yet.</p>
                         </div>
                       </div>
                       ${
@@ -20410,7 +20537,6 @@
                       <div class="section-heading">
                         <div>
                           <h3>Create a regional account</h3>
-                          <p class="fine-print">Managers and system administrators can create Regional Coordinator and Deputy Regional Coordinator accounts here, or attach regional access to an existing JADE Hummingbird account.</p>
                         </div>
                       </div>
                       <form class="stack" data-form="create-regional-ops-user">
@@ -20438,7 +20564,6 @@
                             <input type="password" name="password" placeholder="Optional for existing accounts" />
                           </label>
                         </div>
-                        <p class="fine-print">If the email already belongs to an existing account, this form adds regional access to that same account. Add a password here only if you want to set or reset it.</p>
                         <button class="secondary-button" type="submit">Create Or Update Regional Account</button>
                       </form>
                     </section>
@@ -21924,9 +22049,6 @@
           session.linksAccountPage,
           12,
         );
-        const helperCopy = canAccessGlobalSettings()
-          ? "Managers can copy a private link or a ready-to-send invitation message directly from this view."
-          : "If you have a debater portal entry, open it from here whenever you need your tournament-specific round and feedback view.";
         return `
           ${renderUserAccessLinksSection({
             title: "Account Access URLs",
@@ -21949,9 +22071,6 @@
                 <h2>Debater Private Links</h2>
               </div>
               <span class="role-pill">${escapeHtml(records.totalRecords)} visible links</span>
-            </div>
-            <div class="alert info">
-              ${escapeHtml(helperCopy)}
             </div>
             ${renderCollectionToolbar({
               formName: "links-portal-search",
@@ -22690,7 +22809,6 @@
         if (getWorkspaceCapabilities().regionalPortalMode) {
           return "";
         }
-        const showGuidance = Boolean(state?.appSettings?.accessibility?.showScreenReaderGuidance);
         return `
           <form class="workspace-search-form compact-top-search" data-form="workspace-search" role="search" aria-label="Workspace search">
             <label class="workspace-search-field">
@@ -22708,11 +22826,6 @@
               }
             </div>
           </form>
-          ${
-            showGuidance
-              ? `<p class="fine-print">Screen reader tip: use the skip link first, then landmark navigation and this search field to move quickly between tournaments, people, and judging records.</p>`
-              : ""
-          }
           ${renderSearchAssist(session.searchQuery, "workspace-top-suggestions")}
         `;
       }
@@ -22893,7 +23006,6 @@
           state.appSettings.portal.showFeedbackInPrivatePortal;
         const teamPointStandings = usesTeamPointStandings(tournament);
         const standingRecord = findStandingForParticipant(tournament, participant);
-        const computedStandings = getComputedStandings(tournament);
         const speakerStanding = getSpeakerStandingForParticipant(tournament, participant);
         const computedSpeakerScore = getParticipantComputedSpeakerScore(
           tournament,
@@ -22902,7 +23014,12 @@
         const feedbackEntries = getPortalFeedbackEntries(tournament, participant);
         const latestFeedback = feedbackEntries[feedbackEntries.length - 1] || null;
         const primaryDrawEntry = getPrimaryParticipantDrawEntry(tournament, participant);
-        const personalDrawEntries = getParticipantDrawEntries(tournament, participant);
+        const roundPerformanceRows = getParticipantRoundPerformanceRows(tournament, participant);
+        const postedResultCount = roundPerformanceRows.filter((row) => row.resultPosted).length;
+        const scoredRoundCount = roundPerformanceRows.filter(
+          (row) => row.speakerScore !== null && row.speakerScore !== undefined,
+        ).length;
+        const canShowPerformance = canShowStandings;
         const welcomeNote =
           state.appSettings.portal.welcomeNote ||
           "This private page is designed to show only the essentials for competitors.";
@@ -23079,26 +23196,53 @@
               <section class="surface compact-stack">
                 <details class="portal-accordion" open>
                   <summary>
-                    <strong>Your rounds</strong>
+                    <strong>Team tab</strong>
                     <span class="portal-summary-copy">${escapeHtml(
-                      canShowDraw
-                        ? primaryDrawEntry
-                          ? "Latest: Round " + primaryDrawEntry.round
-                          : "Awaiting posting"
+                      canShowPerformance
+                        ? roundPerformanceRows.length
+                          ? postedResultCount +
+                            " result" +
+                            (postedResultCount === 1 ? "" : "s") +
+                            " across " +
+                            roundPerformanceRows.length +
+                            " round" +
+                            (roundPerformanceRows.length === 1 ? "" : "s")
+                          : "Awaiting results"
                         : "Hidden for this portal",
                     )}</span>
                   </summary>
                   <div class="portal-body">
                     ${
-                      canShowDraw
-                        ? renderPortalDrawWindow(tournament, participant, token)
-                        : `<div class="empty-state">The draw is not available in this portal at the moment.</div>`
+                      canShowPerformance
+                        ? renderPortalTeamPerformanceWindow(tournament, participant)
+                        : `<div class="empty-state">Performance data is hidden for this portal.</div>`
                     }
                   </div>
                 </details>
                 <details class="portal-accordion" ${compactLayout ? "" : "open"}>
                   <summary>
-                    <strong>Your standings snapshot</strong>
+                    <strong>Speaker tab</strong>
+                    <span class="portal-summary-copy">${escapeHtml(
+                      canShowPerformance
+                        ? scoredRoundCount
+                          ? scoredRoundCount +
+                            " scored round" +
+                            (scoredRoundCount === 1 ? "" : "s")
+                          : "Awaiting scored ballots"
+                        : "Hidden for this portal",
+                    )}</span>
+                  </summary>
+                  <div class="portal-body">
+                    ${
+                      canShowPerformance
+                        ? renderPortalSpeakerPerformanceWindow(tournament, participant)
+                        : `<div class="empty-state">Speaker performance data is hidden for this portal.</div>`
+                    }
+                  </div>
+                </details>
+                <details class="portal-accordion" ${compactLayout ? "" : "open"}>
+                  <summary>
+                    <strong>Team standings</strong>
                     <span class="portal-summary-copy">${escapeHtml(
                       canShowStandings
                         ? standingRecord
@@ -23117,15 +23261,21 @@
                 </details>
                 <details class="portal-accordion" ${compactLayout ? "" : "open"}>
                   <summary>
-                    <strong>Your speaker ranking</strong>
+                    <strong>Speaker standings</strong>
                     <span class="portal-summary-copy">${escapeHtml(
-                      speakerStanding
-                        ? "Current speaker rank: #" + speakerStanding.speakerRank
-                        : "Awaiting speaker scores",
+                      canShowStandings
+                        ? speakerStanding
+                          ? "Current speaker rank: #" + speakerStanding.speakerRank
+                          : "Awaiting speaker scores"
+                        : "Hidden for this portal",
                     )}</span>
                   </summary>
                   <div class="portal-body">
-                    ${renderPortalSpeakerWindow(tournament, participant)}
+                    ${
+                      canShowStandings
+                        ? renderPortalSpeakerWindow(tournament, participant)
+                        : `<div class="empty-state">Speaker standings are hidden for this portal.</div>`
+                    }
                   </div>
                 </details>
                 <details class="portal-accordion" ${compactLayout ? "" : "open"}>
@@ -23148,55 +23298,6 @@
                     }
                   </div>
                 </details>
-                ${
-                  canShowDraw && tournament.draw.length > 2
-                    ? `
-                      <details class="portal-accordion">
-                        <summary>
-                          <strong>Full published draw</strong>
-                          <span class="portal-summary-copy">${escapeHtml(
-                            personalDrawEntries.length
-                              ? "Published board available below"
-                              : "General board available below",
-                          )}</span>
-                        </summary>
-                        <div class="portal-body">
-                          ${renderDrawTable(tournament, false, true)}
-                        </div>
-                      </details>
-                    `
-                    : ""
-                }
-                ${
-                  canShowStandings && computedStandings.length > 5
-                    ? `
-                      <details class="portal-accordion">
-                        <summary>
-                          <strong>Full standings board</strong>
-                          <span class="portal-summary-copy">Published board available below</span>
-                        </summary>
-                        <div class="portal-body">
-                          ${renderStandingsTable(tournament, false, true)}
-                        </div>
-                      </details>
-                    `
-                    : ""
-                }
-                ${
-                  tournament.participants.length > 5
-                    ? `
-                      <details class="portal-accordion">
-                        <summary>
-                          <strong>Full speaker board</strong>
-                          <span class="portal-summary-copy">Published speaker ranking available below</span>
-                        </summary>
-                        <div class="portal-body">
-                          ${renderSpeakerStandingsTable(tournament)}
-                        </div>
-                      </details>
-                    `
-                    : ""
-                }
               </section>
               <p><a class="inline-link" href="${escapeHtml(getDashboardLink())}">Open the main sign-in page</a></p>
             </div>

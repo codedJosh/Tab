@@ -2535,12 +2535,6 @@
         line-height: 1.14;
       }
 
-      @supports selector(:has(*)) {
-        .roster-speaker-layout .registration-speaker-card:has(.registration-speaker-card-disclosure[open]) {
-          grid-column: 1 / -1;
-        }
-      }
-
       .roster-speaker-layout .registration-speaker-card .muted,
       .roster-speaker-layout .registration-speaker-card .fine-print,
       .roster-speaker-layout .registration-speaker-card .token-link {
@@ -2630,8 +2624,20 @@
       .registration-speaker-card-compact-layout {
         display: grid;
         gap: 12px;
-        grid-template-columns: minmax(0, 1fr) minmax(220px, 270px);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: start;
+      }
+
+      .registration-speaker-card-compact-sections {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        align-items: start;
+      }
+
+      .registration-speaker-card-compact-sections > * {
+        min-width: 0;
+        align-self: start;
       }
 
       .registration-speaker-card-compact-meta,
@@ -2728,16 +2734,25 @@
       .registration-speaker-card-sanctions {
         display: grid;
         gap: 8px;
+        align-content: start;
       }
 
       .registration-speaker-card-team .compact-card-summary,
       .registration-speaker-card-sanctions .compact-card-summary {
-        width: fit-content;
+        width: 100%;
         max-width: 100%;
+        justify-content: space-between;
       }
 
       .registration-speaker-card-sanctions .field-grid.two {
         grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      }
+
+      .registration-speaker-card-compact-sections .field-grid,
+      .registration-speaker-card-compact-sections .field-grid.two,
+      .registration-speaker-card-compact-sections .field-grid.three,
+      .registration-speaker-card-compact-sections .field-grid.four {
+        grid-template-columns: 1fr;
       }
 
       .registration-speaker-card-sanctions label {
@@ -4422,6 +4437,16 @@
         color: var(--muted);
         font-size: 0.96rem;
         line-height: 1.45;
+      }
+
+      .table-caption,
+      .workspace-view-note,
+      [data-round-planner-guidance],
+      [data-format-guidance],
+      [data-scoring-note],
+      [data-round-control-prep],
+      [data-draw-round-stage-note] {
+        display: none !important;
       }
 
       .workspace-topbar .brand-lockup .jade-logo-wrap {
@@ -6969,7 +6994,8 @@
         }
 
         .registration-speaker-card-compact-layout,
-        .registration-speaker-card-actions-grid {
+        .registration-speaker-card-actions-grid,
+        .registration-speaker-card-compact-sections {
           grid-template-columns: 1fr;
         }
 
@@ -7007,7 +7033,8 @@
         }
 
         .registration-speaker-card-compact-layout,
-        .registration-speaker-card-actions-grid {
+        .registration-speaker-card-actions-grid,
+        .registration-speaker-card-compact-sections {
           grid-template-columns: 1fr;
         }
 
