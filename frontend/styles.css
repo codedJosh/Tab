@@ -2692,6 +2692,21 @@
         gap: 6px;
       }
 
+      .registration-speaker-card-actions-primary,
+      .registration-speaker-card-actions-secondary,
+      .registration-speaker-card-actions-danger {
+        justify-content: flex-start;
+      }
+
+      .registration-speaker-card-actions-primary > *,
+      .registration-speaker-card-actions-secondary > * {
+        flex: 0 1 auto;
+      }
+
+      .registration-speaker-card-actions-danger .danger-button {
+        min-width: 108px;
+      }
+
       .registration-speaker-card-sanctions {
         margin-top: 2px;
       }

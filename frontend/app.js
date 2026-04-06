@@ -14175,25 +14175,29 @@
                                   }
                                 </div>
                                 <div class="registration-speaker-card-compact-controls">
-                                  <div class="button-row registration-speaker-card-actions">
+                                  <div class="button-row registration-speaker-card-actions registration-speaker-card-actions-primary">
                                     ${renderParticipantProfileButton(participant, "History")}
                                     ${renderTournamentNavigationButton(tournament, "Tournament", true)}
-                                    ${
-                                      canManage
-                                        ? `
+                                  </div>
+                                  ${
+                                    canManage
+                                      ? `
+                                          <div class="button-row registration-speaker-card-actions registration-speaker-card-actions-secondary">
                                             <a class="secondary-button inline-link roster-private-link" href="${escapeHtml(
                                               getPrivateLink(participant.token),
                                             )}" target="_blank" rel="noreferrer">Private URL</a>
                                             <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
                                               tournament.id,
                                             )}" data-participant-id="${escapeHtml(participant.id)}">Rotate</button>
+                                          </div>
+                                          <div class="button-row registration-speaker-card-actions registration-speaker-card-actions-danger">
                                             <button class="danger-button" type="button" data-action="delete-participant" data-id="${escapeHtml(
                                               tournament.id,
                                             )}" data-participant-id="${escapeHtml(participant.id)}">Remove</button>
-                                          `
-                                        : ""
-                                    }
-                                  </div>
+                                          </div>
+                                        `
+                                      : ""
+                                  }
                                 </div>
                               </div>
                               ${
