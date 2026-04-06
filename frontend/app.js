@@ -14194,35 +14194,35 @@
                                         : ""
                                     }
                                   </div>
-                                  ${
-                                    canSanction
-                                      ? `<details class="registration-speaker-card-footnote compact-card-disclosure">
-                                          <summary>Sanctions</summary>
-                                          <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
-                                            tournament.id,
-                                          )}" data-participant-id="${escapeHtml(participant.id)}">
-                                            <div class="field-grid two">
-                                              <label>
-                                                Sanction
-                                                <select name="level">
-                                                  <option value="Notice">Notice</option>
-                                                  <option value="Warning">Warning</option>
-                                                  <option value="Penalty">Penalty</option>
-                                                  <option value="Removal">Removal</option>
-                                                </select>
-                                              </label>
-                                              <label>
-                                                Note
-                                                <input type="text" name="note" placeholder="Brief reason" required />
-                                              </label>
-                                            </div>
-                                            <button class="secondary-button" type="submit">Save</button>
-                                          </form>
-                                        </details>`
-                                      : ""
-                                  }
                                 </div>
                               </div>
+                              ${
+                                canSanction
+                                  ? `<details class="registration-speaker-card-footnote compact-card-disclosure registration-speaker-card-sanctions">
+                                      <summary>Sanctions</summary>
+                                      <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
+                                        tournament.id,
+                                      )}" data-participant-id="${escapeHtml(participant.id)}">
+                                        <div class="field-grid two">
+                                          <label>
+                                            Sanction
+                                            <select name="level">
+                                              <option value="Notice">Notice</option>
+                                              <option value="Warning">Warning</option>
+                                              <option value="Penalty">Penalty</option>
+                                              <option value="Removal">Removal</option>
+                                            </select>
+                                          </label>
+                                          <label>
+                                            Note
+                                            <input type="text" name="note" placeholder="Brief reason" required />
+                                          </label>
+                                        </div>
+                                        <button class="secondary-button" type="submit">Save</button>
+                                      </form>
+                                    </details>`
+                                  : ""
+                              }
                             </div>
                           </details>
                         `

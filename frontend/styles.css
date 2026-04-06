@@ -2675,6 +2675,10 @@
         min-width: 0;
       }
 
+      .registration-speaker-card-compact-controls {
+        align-content: start;
+      }
+
       .registration-speaker-card-summary,
       .registration-speaker-card-feedback-note {
         overflow-wrap: break-word;
@@ -2688,10 +2692,32 @@
         gap: 6px;
       }
 
+      .registration-speaker-card-sanctions {
+        margin-top: 2px;
+      }
+
+      .registration-speaker-card-sanctions .field-grid.two {
+        grid-template-columns: 1fr;
+      }
+
+      .registration-speaker-card-sanctions label {
+        min-width: 0;
+      }
+
+      .registration-speaker-card-sanctions input,
+      .registration-speaker-card-sanctions select,
+      .registration-speaker-card-sanctions button {
+        width: 100%;
+      }
+
       @media (min-width: 760px) {
         .roster-speaker-layout .registration-speaker-card-compact-layout {
           grid-template-columns: minmax(0, 1fr) minmax(240px, 0.9fr);
           align-items: start;
+        }
+
+        .registration-speaker-card-sanctions .field-grid.two {
+          grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
         }
       }
 
