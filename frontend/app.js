@@ -4,6 +4,7 @@
       const DEVICE_PASSWORD_KEY_STORAGE_KEY = STORAGE_KEY + "-device-password-key";
       const DEVICE_PASSWORD_VAULT_STORAGE_KEY = STORAGE_KEY + "-device-password-vault";
       const BACKEND_ENDPOINT_STORAGE_KEY = STORAGE_KEY + "-backend-endpoint";
+      const PENDING_CLOUD_SYNC_STORAGE_KEY = STORAGE_KEY + "-pending-cloud-sync";
       const CLOUD_FUNCTION_ENDPOINTS = (() => {
         const endpoints = [];
         let queryBackendUrl = "";
@@ -595,6 +596,7 @@
       };
       let cloudPersistQueue = Promise.resolve();
       let cloudRefreshInFlight = null;
+      let pendingCloudSync = null;
 
       function clone(value) {
         return JSON.parse(JSON.stringify(value));
@@ -7010,6 +7012,97 @@
         }
       }
 
+      function normalizePendingCloudSyncRecord(record = {}) {
+        const id = String(record.id || "").trim();
+        const userEmail = normalizeEmail(record.userEmail);
+        const createdAt = String(record.createdAt || "").trim();
+        const incomingState = record.state;
+        if (!id || !incomingState || typeof incomingState !== "object" || Array.isArray(incomingState)) {
+          return null;
+        }
+
+        const snapshot = clone(incomingState);
+        assertWorkspaceContract(snapshot, "pending cloud sync");
+
+        return {
+          id,
+          userEmail,
+          createdAt,
+          state: snapshot,
+        };
+      }
+
+      function loadPendingCloudSyncRecord() {
+        const saved = localStorage.getItem(PENDING_CLOUD_SYNC_STORAGE_KEY);
+        if (!saved) {
+          return null;
+        }
+
+        try {
+          const parsed = JSON.parse(saved);
+          const normalized = normalizePendingCloudSyncRecord(parsed);
+          if (!normalized) {
+            localStorage.removeItem(PENDING_CLOUD_SYNC_STORAGE_KEY);
+            return null;
+          }
+          return normalized;
+        } catch (error) {
+          localStorage.removeItem(PENDING_CLOUD_SYNC_STORAGE_KEY);
+          return null;
+        }
+      }
+
+      function savePendingCloudSyncRecord(snapshot, syncId) {
+        if (!snapshot || !syncId) {
+          return;
+        }
+
+        const normalizedSnapshot = clone(snapshot);
+        normalizedSnapshot.workspaceContractVersion = WORKSPACE_CONTRACT_VERSION;
+        assertWorkspaceContract(normalizedSnapshot, "pending cloud sync");
+
+        pendingCloudSync = {
+          id: String(syncId).trim(),
+          userEmail: normalizeEmail(session.userEmail),
+          createdAt: new Date().toISOString(),
+          state: normalizedSnapshot,
+        };
+        localStorage.setItem(
+          PENDING_CLOUD_SYNC_STORAGE_KEY,
+          JSON.stringify(pendingCloudSync),
+        );
+      }
+
+      function clearPendingCloudSyncRecord(syncId = "") {
+        const normalizedSyncId = String(syncId || "").trim();
+        if (normalizedSyncId && pendingCloudSync?.id && pendingCloudSync.id !== normalizedSyncId) {
+          return;
+        }
+
+        pendingCloudSync = null;
+        localStorage.removeItem(PENDING_CLOUD_SYNC_STORAGE_KEY);
+      }
+
+      function hasPendingCloudSyncForCurrentSession() {
+        if (!pendingCloudSync?.state) {
+          return false;
+        }
+
+        const currentEmail = normalizeEmail(session.userEmail);
+        return !pendingCloudSync.userEmail || pendingCloudSync.userEmail === currentEmail;
+      }
+
+      async function refreshSharedStateSafely(options = {}) {
+        if (hasPendingCloudSyncForCurrentSession()) {
+          await flushCloudPersistQueue();
+          if (hasPendingCloudSyncForCurrentSession()) {
+            return false;
+          }
+        }
+
+        return refreshStateFromBackend(options);
+      }
+
       function createPublicBootstrapState(appSettings = {}) {
         return {
           workspaceContractVersion: WORKSPACE_CONTRACT_VERSION,
@@ -7236,6 +7329,15 @@
       }
 
       function queueCloudPersist(options = {}) {
+        const syncId = createId("cloud-sync");
+        const queuedSnapshotSource =
+          options.snapshot && typeof options.snapshot === "object" ? options.snapshot : state;
+        if (!queuedSnapshotSource) {
+          return;
+        }
+        const queuedState = clone(queuedSnapshotSource);
+        savePendingCloudSyncRecord(queuedState, syncId);
+
         cloudPersistQueue = cloudPersistQueue
           .then(async () => {
             if (!(await probeCloudBackend()) || !session.cloudSessionToken || !getCurrentUser()) {
@@ -7243,22 +7345,19 @@
             }
 
             try {
-              const snapshot = await rehydrateState(state);
-              state = snapshot;
-              updateCurrentUserRecord();
-              saveState();
-              saveSession();
+              const snapshot = await rehydrateState(queuedState);
               const result = await callCloud("persist", {
                 sessionToken: session.cloudSessionToken,
                 state: snapshot,
                 expectedRevision: cloudRuntime.revision,
               });
               cloudRuntime.initialized = true;
-              if (result?.state) {
+              if (result?.state && pendingCloudSync?.id === syncId) {
                 state = await rehydrateState(result.state);
                 updateCurrentUserRecord();
                 saveState();
                 saveSession();
+                clearPendingCloudSyncRecord(syncId);
                 if (requiresSharedBackend() && !options.skipSuccessRender) {
                   renderApp();
                 }
@@ -7266,17 +7365,25 @@
             } catch (error) {
               console.error(error);
               if (error.code === "stale_revision") {
-                await refreshStateFromBackend({ skipRender: true });
-                setFlash(
-                  "warning",
-                  "Another device changed JADE Hummingbird first, so this page refreshed to the newest shared version before your latest local edit could sync.",
-                );
-                renderApp();
+                try {
+                  await callCloud("get_state", {
+                    sessionToken: session.cloudSessionToken,
+                  });
+                } catch (_refreshError) {
+                  // Keep the preserved local snapshot even if the revision refresh fails.
+                }
+                if (pendingCloudSync?.id === syncId) {
+                  setFlash(
+                    "warning",
+                    "JADE Hummingbird kept your newest local edit on this device, but another device changed the shared workspace first. Review the result and save again so nothing gets overwritten.",
+                  );
+                  renderApp();
+                }
                 return;
               }
               setFlash(
                 "warning",
-                "Saved on this device, but JADE Hummingbird could not sync to the backend right now.",
+                "JADE Hummingbird kept this change on the device and will retry the shared backend save when the connection settles.",
               );
               renderApp();
             }
@@ -7317,12 +7424,11 @@
         }
 
         let result;
+        const syncId = createId("cloud-sync");
+        const queuedState = clone(state);
+        savePendingCloudSyncRecord(queuedState, syncId);
         try {
-          const snapshot = await rehydrateState(state);
-          state = snapshot;
-          updateCurrentUserRecord();
-          saveState();
-          saveSession();
+          const snapshot = await rehydrateState(queuedState);
           result = await callCloud("persist", {
             sessionToken: session.cloudSessionToken,
             state: snapshot,
@@ -7330,6 +7436,7 @@
           });
         } catch (error) {
           if (error.code === "stale_revision") {
+            clearPendingCloudSyncRecord(syncId);
             await refreshStateFromBackend({ skipRender: true });
             const conflictError = new Error(
               "Another device changed JADE Hummingbird first. The page was refreshed to the latest shared version; please apply that edit again.",
@@ -7344,6 +7451,7 @@
         updateCurrentUserRecord();
         saveState();
         saveSession();
+        clearPendingCloudSyncRecord(syncId);
 
         if (!skipRender) {
           renderApp();
@@ -10193,6 +10301,9 @@
         }
 
         if (requiresSharedBackend()) {
+          if (hasPendingCloudSyncForCurrentSession()) {
+            return await rehydrateState(pendingCloudSync.state);
+          }
           return buildHostedBlankState();
         }
 
@@ -27585,16 +27696,19 @@
 
       function installEventHandlers() {
         window.addEventListener("focus", () => {
-          refreshStateFromBackend({
+          refreshSharedStateSafely({
             skipRender: false,
           }).catch(() => {});
         });
 
         document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState !== "visible") {
+          if (document.visibilityState === "hidden") {
+            if (hasPendingCloudSyncForCurrentSession()) {
+              flushCloudPersistQueue().catch(() => {});
+            }
             return;
           }
-          refreshStateFromBackend({
+          refreshSharedStateSafely({
             skipRender: false,
           }).catch(() => {});
         });
@@ -28876,6 +28990,7 @@
         startStartupSplashSequence();
         try {
           session = loadStoredSession();
+          pendingCloudSync = loadPendingCloudSyncRecord();
           state = await loadState();
           await hydrateAuthAutofill();
           await applyUserAccessLinkFromUrl();
@@ -28883,7 +28998,19 @@
           applyBranding();
           saveSession();
           installEventHandlers();
+          if (hasPendingCloudSyncForCurrentSession() && session.cloudSessionToken) {
+            setFlash(
+              "warning",
+              "Recovered local changes that were still waiting to reach the shared backend. Retrying sync now.",
+            );
+          }
           renderApp();
+          if (hasPendingCloudSyncForCurrentSession() && session.cloudSessionToken) {
+            queueCloudPersist({
+              snapshot: pendingCloudSync.state,
+              skipSuccessRender: false,
+            });
+          }
         } catch (error) {
           console.error(error);
           startupSplashFailed = true;
