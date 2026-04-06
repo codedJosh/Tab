@@ -26032,71 +26032,20 @@
           (judge) => normalizeJudgePanelQuality(judge.panelQuality) === "chair",
         );
         const perRoom = Math.min(judgesPerRoom, rankedJudges.length);
-        const preservedForRound = replaceExisting
-          ? []
-          : (tournament.judgeAllocations || []).filter(
-              (allocation) => Number(allocation.round) === Number(round),
-            );
-        const roundUsedEmails = new Set(
-          preservedForRound.map((allocation) => normalizeEmail(allocation.judgeEmail)),
-        );
-        let requiredChairs = 0;
-        let requiredAssignments = 0;
-
-        roundDraw.forEach((drawEntry) => {
-          const roomAllocations = preservedForRound.filter(
-            (allocation) => allocation.drawId === drawEntry.id,
-          );
-          const roomCount = Math.min(3, perRoom);
-          const hasChair = roomAllocations.some(
-            (allocation) =>
-              normalizeJudgeAllocationRole(allocation.panelRole, "panelist") === "chair",
-          );
-          const total = roomAllocations.length;
-          const roomAssignmentsNeeded = Math.max(0, roomCount - total);
-
-          if (!hasChair && roomAssignmentsNeeded > 0) {
-            requiredChairs += 1;
-          }
-          requiredAssignments += roomAssignmentsNeeded;
-        });
-
-        const availableJudgeCount = rankedJudges.filter(
-          (judge) => !roundUsedEmails.has(normalizeEmail(judge.email)),
-        ).length;
-        const availableChairCount = chairPool.filter(
-          (judge) => !roundUsedEmails.has(normalizeEmail(judge.email)),
-        ).length;
-
-        if (availableChairCount < requiredChairs) {
-          setFlash(
-            "error",
-            "You need at least " +
-              requiredChairs +
-              " available chair-quality judge" +
-              (requiredChairs === 1 ? "" : "s") +
-              " to cover every room in that round.",
-          );
-          renderApp();
-          return;
-        }
-
-        if (availableJudgeCount < requiredAssignments) {
-          setFlash(
-            "error",
-            "You do not have enough available judges to fill " +
-              perRoom +
-              " spot" +
-              (perRoom === 1 ? "" : "s") +
-              " per room in that round.",
-          );
-          renderApp();
-          return;
-        }
+        let allocationSummary = {
+          added: 0,
+          totalRoundAssignments: 0,
+          targetAssignments: perRoom * roundDraw.length,
+          unfilledSeats: 0,
+          chairlessRooms: 0,
+        };
 
         updateTournament(
           tournamentId,
           (currentTournament) => {
+            const existingRoundAllocations = (currentTournament.judgeAllocations || []).filter(
+              (allocation) => Number(allocation.round) === Number(round),
+            );
             const preserved = replaceExisting
               ? (currentTournament.judgeAllocations || []).filter(
                   (allocation) => Number(allocation.round) !== Number(round),
@@ -26132,6 +26081,28 @@
               return null;
             }
 
+            function addJudgeToRoom(drawEntry, panelRolePreference, roomUsedEmails) {
+              if (panelRolePreference === "chair") {
+                const chairJudge = takeJudge(chairPool, "chairs", roomUsedEmails, drawEntry);
+                if (chairJudge) {
+                  return {
+                    judgeRecord: chairJudge,
+                    panelRole: "chair",
+                  };
+                }
+              }
+
+              const anyJudge = takeJudge(rankedJudges, "all", roomUsedEmails, drawEntry);
+              if (!anyJudge) {
+                return null;
+              }
+
+              return {
+                judgeRecord: anyJudge,
+                panelRole: "panelist",
+              };
+            }
+
             roundDraw.forEach((drawEntry) => {
               const roomAllocations = preserved.filter(
                 (allocation) => allocation.drawId === drawEntry.id,
@@ -26139,30 +26110,19 @@
               const usedEmails = new Set(
                 roomAllocations.map((allocation) => normalizeEmail(allocation.judgeEmail)),
               );
-              const rolesToAdd = [];
               const hasChair = roomAllocations.some(
                 (allocation) =>
                   normalizeJudgeAllocationRole(allocation.panelRole, "panelist") === "chair",
               );
+              let roomHasChair = hasChair;
 
-              if (!hasChair && perRoom > 0 && roomAllocations.length < perRoom) {
-                rolesToAdd.push("chair");
-              }
-
-              while (roomAllocations.length + rolesToAdd.length < perRoom) {
-                rolesToAdd.push("panelist");
-              }
-
-              rolesToAdd.forEach((panelRole) => {
-                const preferredPool = panelRole === "chair" ? chairPool : rankedJudges;
-                const preferredKey = panelRole === "chair" ? "chairs" : "all";
-                const judgeRecord =
-                  takeJudge(preferredPool, preferredKey, usedEmails, drawEntry) ||
-                  takeJudge(rankedJudges, "all", usedEmails, drawEntry);
-
-                if (!judgeRecord) {
-                  return;
+              while (roomAllocations.length < perRoom) {
+                const preference = roomHasChair ? "panelist" : "chair";
+                const allocationPick = addJudgeToRoom(drawEntry, preference, usedEmails);
+                if (!allocationPick) {
+                  break;
                 }
+                const { judgeRecord, panelRole } = allocationPick;
 
                 const exists = preserved.some(
                   (allocation) =>
@@ -26177,24 +26137,118 @@
                       panelRole,
                     }),
                   );
+                  roomAllocations.push({
+                    judgeEmail: judgeRecord.email,
+                    panelRole,
+                    drawId: drawEntry.id,
+                    round: drawEntry.round,
+                  });
+                  if (panelRole === "chair") {
+                    roomHasChair = true;
+                  }
                 }
-              });
+              }
             });
+
+            const finalRoundAllocations = preserved.filter(
+              (allocation) => Number(allocation.round) === Number(round),
+            );
+            const finalByDrawId = finalRoundAllocations.reduce((map, allocation) => {
+              const key = String(allocation.drawId || "").trim();
+              if (!key) {
+                return map;
+              }
+              if (!map.has(key)) {
+                map.set(key, []);
+              }
+              map.get(key).push(allocation);
+              return map;
+            }, new Map());
+
+            let unfilledSeats = 0;
+            let chairlessRooms = 0;
+            roundDraw.forEach((drawEntry) => {
+              const roomAllocations = finalByDrawId.get(drawEntry.id) || [];
+              unfilledSeats += Math.max(0, perRoom - roomAllocations.length);
+              if (
+                roomAllocations.length &&
+                !roomAllocations.some(
+                  (allocation) =>
+                    normalizeJudgeAllocationRole(allocation.panelRole, "panelist") === "chair",
+                )
+              ) {
+                chairlessRooms += 1;
+              }
+            });
+
+            allocationSummary = {
+              added: Math.max(
+                0,
+                finalRoundAllocations.length - existingRoundAllocations.length,
+              ),
+              totalRoundAssignments: finalRoundAllocations.length,
+              targetAssignments: perRoom * roundDraw.length,
+              unfilledSeats,
+              chairlessRooms,
+            };
 
             currentTournament.judgeAllocations = preserved;
             return addAudit(
               currentTournament,
               "Auto-allocated judges for Round " +
                 round +
-                " with " +
+                " toward " +
                 perRoom +
                 " judge" +
                 (perRoom === 1 ? "" : "s") +
-                " per room using chair and panel quality.",
+                " per room. " +
+                allocationSummary.totalRoundAssignments +
+                " of " +
+                allocationSummary.targetAssignments +
+                " seats are now filled.",
             );
           },
           "Judges auto-allocated.",
         );
+
+        if (allocationSummary.unfilledSeats || allocationSummary.chairlessRooms) {
+          setFlash(
+            "warning",
+            "Auto-allocation applied best-effort coverage: " +
+              allocationSummary.totalRoundAssignments +
+              "/" +
+              allocationSummary.targetAssignments +
+              " seats filled." +
+              (allocationSummary.unfilledSeats
+                ? " " +
+                  allocationSummary.unfilledSeats +
+                  " seat" +
+                  (allocationSummary.unfilledSeats === 1 ? "" : "s") +
+                  " remain open."
+                : "") +
+              (allocationSummary.chairlessRooms
+                ? " " +
+                  allocationSummary.chairlessRooms +
+                  " room" +
+                  (allocationSummary.chairlessRooms === 1 ? "" : "s") +
+                  " still need a chair-quality judge."
+                : ""),
+          );
+          renderApp();
+          return;
+        }
+
+        setFlash(
+          "success",
+          "Auto-allocation filled " +
+            allocationSummary.totalRoundAssignments +
+            "/" +
+            allocationSummary.targetAssignments +
+            " seats for Round " +
+            round +
+            ".",
+        );
+        renderApp();
       }
 
       function deleteJudgeAllocation(tournamentId, allocationId) {
