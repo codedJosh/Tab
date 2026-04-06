@@ -5819,8 +5819,79 @@
         return String(sideLabels[resolvedIndex] || explicitSide || "").trim();
       }
 
-      function getDrawOfficialResultSummary(tournament, drawEntry) {
+      function getCanonicalDrawSideOrderForFormat(format) {
+        const normalizedFormat = String(format || "").trim();
+        if (
+          normalizedFormat === "British Parliamentary" ||
+          normalizedFormat === "Iron Person British Parliamentary"
+        ) {
+          return [
+            ["og", "opening government"],
+            ["oo", "opening opposition"],
+            ["cg", "closing government"],
+            ["co", "closing opposition"],
+          ];
+        }
+
+        if (normalizedFormat === "World Schools") {
+          return [
+            ["proposition", "prop"],
+            ["opposition", "opp"],
+          ];
+        }
+
+        if (
+          normalizedFormat === "American Parliamentary" ||
+          normalizedFormat === "JADE Parliamentary"
+        ) {
+          return [
+            ["government", "gov"],
+            ["opposition", "opp"],
+          ];
+        }
+
+        return [];
+      }
+
+      function getDrawSlotDisplaySortValue(tournament, drawEntry, slot, slotIndex = -1) {
+        const format = getRoundFormat(
+          tournament,
+          drawEntry?.round ?? drawEntry ?? null,
+        );
+        const canonicalOrder = getCanonicalDrawSideOrderForFormat(format);
+        const resolvedLabel = normalizeTextKey(
+          getResolvedDrawSlotSideLabel(tournament, drawEntry, slot, slotIndex),
+        );
+        const canonicalIndex = canonicalOrder.findIndex((aliases) => aliases.includes(resolvedLabel));
+        if (canonicalIndex >= 0) {
+          return canonicalIndex;
+        }
+
+        const genericMatch = resolvedLabel.match(/^side\s+(\d+)$/i);
+        if (genericMatch) {
+          return 100 + Math.max(0, Number.parseInt(genericMatch[1], 10) || 0);
+        }
+
+        return 1000 + Math.max(0, slotIndex);
+      }
+
+      function getOrderedDrawSlotsForDisplay(tournament, drawEntry) {
         const slots = Array.isArray(drawEntry?.slots) ? drawEntry.slots : [];
+        return slots
+          .map((slot, index) => ({
+            slot,
+            index,
+            sortValue: getDrawSlotDisplaySortValue(tournament, drawEntry, slot, index),
+          }))
+          .sort(
+            (left, right) =>
+              left.sortValue - right.sortValue ||
+              left.index - right.index,
+          );
+      }
+
+      function getDrawOfficialResultSummary(tournament, drawEntry) {
+        const slots = getOrderedDrawSlotsForDisplay(tournament, drawEntry).map((entry) => entry.slot);
         const officialResults = normalizeDrawOfficialResults(drawEntry?.officialResults);
         const resultMode = getDrawOfficialResultMode(tournament, drawEntry);
         if (!slots.length || !Object.keys(officialResults).length) {
@@ -6017,8 +6088,8 @@
 
       function getDrawMatchupForDisplay(tournament, drawEntry, options = {}) {
         if (Array.isArray(drawEntry?.slots) && drawEntry.slots.length) {
-          const labels = drawEntry.slots
-            .map((slot, index) =>
+          const labels = getOrderedDrawSlotsForDisplay(tournament, drawEntry)
+            .map(({ slot, index }) =>
               getDrawSlotDisplayLabel(tournament, slot, {
                 ...options,
                 drawEntry,
@@ -6035,8 +6106,25 @@
         return String(drawEntry?.matchup || "").trim();
       }
 
-      function getDrawSlotLabels(slots) {
-        return (Array.isArray(slots) ? slots : [])
+      function getDrawSlotLabels(tournament, slots, roundOrProfile = null) {
+        const normalizedSlots = Array.isArray(slots) ? slots : [];
+        const slotRecords = tournament
+          ? normalizedSlots
+              .map((slot, index) => ({
+                slot,
+                index,
+                sortValue: getDrawSlotDisplaySortValue(
+                  tournament,
+                  { round: roundOrProfile, slots: normalizedSlots },
+                  slot,
+                  index,
+                ),
+              }))
+              .sort((left, right) => left.sortValue - right.sortValue || left.index - right.index)
+              .map((entry) => entry.slot)
+          : normalizedSlots;
+
+        return slotRecords
           .map((slot) =>
             slot.side
               ? String(slot.side || "").trim() + ": " + String(slot.label || "").trim()
@@ -6079,9 +6167,9 @@
           .map((item) => item.entry);
       }
 
-      function formatDrawMatchup(target) {
+      function formatDrawMatchup(tournament, target, roundOrProfile = null) {
         if (Array.isArray(target) && target.length && target[0]?.side) {
-          const slotLabels = getDrawSlotLabels(target);
+          const slotLabels = getDrawSlotLabels(tournament, target, roundOrProfile);
           return slotLabels.length <= 2 ? slotLabels.join(" vs ") : slotLabels.join(" • ");
         }
 
@@ -6094,7 +6182,7 @@
         }
 
         if (target && Array.isArray(target.slots) && target.slots.length) {
-          const slotLabels = getDrawSlotLabels(target.slots);
+          const slotLabels = getDrawSlotLabels(tournament, target.slots, target.round);
           return slotLabels.length <= 2 ? slotLabels.join(" vs ") : slotLabels.join(" • ");
         }
 
@@ -6157,7 +6245,7 @@
           id: payload.id || createId("draw"),
           round: Number(payload.round || 1),
           room: String(payload.room || "").trim(),
-          matchup: String(payload.matchup || formatDrawMatchup(slots)).trim(),
+          matchup: String(payload.matchup || formatDrawMatchup(tournament, slots, roundProfile)).trim(),
           status,
           priority: normalizeRoomPriority(payload.priority, 3),
           createdAt,
@@ -8259,9 +8347,21 @@
       }
 
       function orderParticipantsForDrawEntry(tournament, drawEntry, participants = []) {
+        const slotDisplayOrder = new Map(
+          getOrderedDrawSlotsForDisplay(tournament, drawEntry).map((entry, index) => [
+            getDrawSlotCheckInKey(entry.slot),
+            index,
+          ]),
+        );
         return [...(Array.isArray(participants) ? participants : [])].sort((left, right) => {
           const leftSlot = getParticipantDrawSlotDetails(tournament, drawEntry, left);
           const rightSlot = getParticipantDrawSlotDetails(tournament, drawEntry, right);
+          const leftDisplayIndex = leftSlot.slot
+            ? slotDisplayOrder.get(getDrawSlotCheckInKey(leftSlot.slot))
+            : leftSlot.slotIndex;
+          const rightDisplayIndex = rightSlot.slot
+            ? slotDisplayOrder.get(getDrawSlotCheckInKey(rightSlot.slot))
+            : rightSlot.slotIndex;
           const leftPosition =
             leftSlot.slot && Array.isArray(leftSlot.slot.participantIds)
               ? leftSlot.slot.participantIds.indexOf(left.id)
@@ -8272,7 +8372,8 @@
               : -1;
 
           return (
-            leftSlot.slotIndex - rightSlot.slotIndex ||
+            Number(leftDisplayIndex ?? leftSlot.slotIndex) -
+              Number(rightDisplayIndex ?? rightSlot.slotIndex) ||
             leftPosition - rightPosition ||
             String(left.name || "").localeCompare(String(right.name || ""))
           );
@@ -8280,9 +8381,8 @@
       }
 
       function getDrawRoleDisplayLabels(tournament, drawEntry) {
-        const slots = Array.isArray(drawEntry?.slots) ? drawEntry.slots : [];
-        return slots
-          .map((slot, index) =>
+        return getOrderedDrawSlotsForDisplay(tournament, drawEntry)
+          .map(({ slot, index }) =>
             getDrawSlotDisplayLabel(tournament, slot, {
               drawEntry,
               slotIndex: index,
@@ -8550,8 +8650,8 @@
 
         const matchingLabels = Array.from(
           new Set(
-            (Array.isArray(drawEntry.slots) ? drawEntry.slots : [])
-              .map((slot, index) => ({
+            getOrderedDrawSlotsForDisplay(tournament, drawEntry)
+              .map(({ slot, index }) => ({
                 slot,
                 index,
                 institution: getDrawSlotInstitution(tournament, slot),
@@ -21844,7 +21944,9 @@
         const canSubmitBallot = canJudgeAllocationSubmitBallot(tournament, allocation);
         const ballotLocked = Boolean(allocation.submittedAt);
         const resultMode = getDrawOfficialResultMode(tournament, drawEntry);
-        const roomSlots = Array.isArray(drawEntry?.slots) ? drawEntry.slots : [];
+        const roomSlots = getOrderedDrawSlotsForDisplay(tournament, drawEntry).map(
+          (entry) => entry.slot,
+        );
         const matchupLabel = drawEntry
           ? getDrawMatchupForDisplay(tournament, drawEntry, {
               forcePrivate: true,
