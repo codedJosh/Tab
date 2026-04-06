@@ -14351,9 +14351,9 @@
                           <details class="registration-speaker-card-disclosure">
                             <summary class="registration-speaker-card-compact-summary">
                               <div class="registration-speaker-card-primary">
-                                <div class="section-heading">
-                                  <strong>${escapeHtml(participant.name)}</strong>
-                                </div>
+                                <p class="registration-speaker-card-name">${escapeHtml(
+                                  participant.name,
+                                )}</p>
                               </div>
                             </summary>
                             <div class="registration-speaker-card-compact-body">
@@ -14390,6 +14390,16 @@
                                     ${renderTournamentNavigationButton(tournament, "Tournament", true)}
                                     ${
                                       canManage
+                                        ? `<button class="secondary-button" type="button" data-action="toggle-participant-team-editor" data-target="${escapeHtml(
+                                            getParticipantTeamEditorId(
+                                              tournament.id,
+                                              participant.id,
+                                            ),
+                                          )}">Edit Team</button>`
+                                        : ""
+                                    }
+                                    ${
+                                      canManage
                                         ? `
                                             <a class="secondary-button inline-link roster-private-link" href="${escapeHtml(
                                               getPrivateLink(participant.token),
@@ -14424,7 +14434,7 @@
                               ${
                                 canSanction
                                   ? `<details class="registration-speaker-card-footnote compact-card-disclosure registration-speaker-card-sanctions">
-                                      <summary>Sanctions</summary>
+                                      <summary class="compact-card-summary">Sanctions</summary>
                                       <form class="stack compact-stack" data-form="add-sanction" data-id="${escapeHtml(
                                         tournament.id,
                                       )}" data-participant-id="${escapeHtml(participant.id)}">
@@ -15246,6 +15256,15 @@
         return String(linkedByName?.id || "").trim();
       }
 
+      function getParticipantTeamEditorId(tournamentId, participantId) {
+        const raw =
+          "team-editor-" +
+          String(tournamentId || "").trim() +
+          "-" +
+          String(participantId || "").trim();
+        return raw.replace(/[^a-zA-Z0-9\-_:.]/g, "-");
+      }
+
       function renderParticipantTeamAssignmentForm(tournament, participant, options = {}) {
         if (!participant) {
           return "";
@@ -15256,8 +15275,10 @@
         const manualTeamName = linkedTeamId ? "" : String(participant.teamName || "").trim();
 
         return `
-          <details class="registration-speaker-card-footnote compact-card-disclosure registration-speaker-card-team">
-            <summary>Team</summary>
+          <details id="${escapeHtml(
+            getParticipantTeamEditorId(tournament.id, participant.id),
+          )}" class="registration-speaker-card-footnote compact-card-disclosure registration-speaker-card-team">
+            <summary class="compact-card-summary">Edit Team</summary>
             <form class="stack compact-stack" data-form="update-participant-team" data-id="${escapeHtml(
               tournament.id,
             )}" data-participant-id="${escapeHtml(participant.id)}">
@@ -17191,94 +17212,99 @@
               .map((team) => {
                 const speakers = getTeamSpeakers(tournament, team);
                 const standing = getTeamStanding(tournament, team);
+                const standingSummary = standing
+                  ? getStandingDisplayName(tournament, standing, {
+                      forcePrivate: true,
+                    }) +
+                    " • " +
+                    getStandingSummaryText(tournament, standing)
+                  : "No standings row entered yet.";
                 return `
                   <article class="team-card">
-                    <div class="section-heading">
-                      <div>
-                        <strong>${escapeHtml(getTeamDisplayLabel(team))}</strong>
-                        <p class="muted">${escapeHtml(team.institution || "No institution set")}</p>
-                      </div>
-                      <span class="role-pill">${escapeHtml(speakers.length)} speakers</span>
-                    </div>
-                    ${
-                      team.publicAlias
-                        ? `<p class="fine-print">Public alias: ${escapeHtml(team.publicAlias)}</p>`
-                        : ""
-                    }
-                    ${
-                      standing
-                        ? `<p class="fine-print">${escapeHtml(
-                            getStandingDisplayName(tournament, standing, {
-                              forcePrivate: true,
-                            }) +
-                              " • " +
-                              getStandingSummaryText(tournament, standing),
-                          )}</p>`
-                        : `<p class="fine-print">No standings row entered yet.</p>`
-                    }
-                    ${
-                      team.notes
-                        ? `<p class="muted">${escapeHtml(team.notes)}</p>`
-                        : ""
-                    }
-                    <div class="chip-row">
-                      ${
-                        speakers.length
-                          ? speakers
-                              .map(
-                                (speaker) =>
-                                  `<button class="secondary-button" type="button" data-action="open-participant-profile" data-key="${escapeHtml(
-                                    getParticipantIdentityKey(speaker),
-                                  )}">${escapeHtml(speaker.name)}</button>`,
-                              )
-                              .join("")
-                          : `<span class="mini-pill warning">No speakers linked</span>`
-                      }
-                    </div>
-                    ${
-                      canManage
-                        ? `
-                            <form class="stack compact-stack" data-form="update-team" data-id="${escapeHtml(
-                              tournament.id,
-                            )}" data-team-id="${escapeHtml(team.id)}">
-                              <div class="field-grid two">
-                                <label>
-                                  Team Name
-                                  <input type="text" name="name" value="${escapeHtml(
-                                    team.name,
-                                  )}" required />
-                                </label>
-                                <label>
-                                  Institution
-                                  <input type="text" name="institution" value="${escapeHtml(
-                                    team.institution,
-                                  )}" />
-                                </label>
-                              </div>
-                              <div class="field-grid two">
-                                <label>
-                                  Public Alias
-                                  <input type="text" name="publicAlias" value="${escapeHtml(
-                                    team.publicAlias,
-                                  )}" placeholder="Optional public code name" />
-                                </label>
-                                <label>
-                                  Notes
-                                  <input type="text" name="notes" value="${escapeHtml(
-                                    team.notes,
-                                  )}" placeholder="Optional note" />
-                                </label>
-                              </div>
-                              <div class="button-row">
-                                <button class="secondary-button" type="submit">Save Team</button>
-                                <button class="danger-button" type="button" data-action="delete-team" data-id="${escapeHtml(
+                    <details class="team-card-disclosure">
+                      <summary class="team-card-summary">
+                        <div class="team-card-summary-main">
+                          <strong class="team-card-name">${escapeHtml(
+                            getTeamDisplayLabel(team),
+                          )}</strong>
+                          <p class="muted">${escapeHtml(team.institution || "No institution set")}</p>
+                        </div>
+                        <div class="workspace-chip-row team-card-summary-chips">
+                          <span class="role-pill">${escapeHtml(speakers.length)} speakers</span>
+                        </div>
+                      </summary>
+                      <div class="team-card-body">
+                        ${
+                          team.publicAlias
+                            ? `<p class="fine-print">Public alias: ${escapeHtml(team.publicAlias)}</p>`
+                            : ""
+                        }
+                        <p class="fine-print">${escapeHtml(standingSummary)}</p>
+                        ${
+                          team.notes
+                            ? `<p class="muted">${escapeHtml(team.notes)}</p>`
+                            : ""
+                        }
+                        <div class="chip-row">
+                          ${
+                            speakers.length
+                              ? speakers
+                                  .map(
+                                    (speaker) =>
+                                      `<button class="secondary-button" type="button" data-action="open-participant-profile" data-key="${escapeHtml(
+                                        getParticipantIdentityKey(speaker),
+                                      )}">${escapeHtml(speaker.name)}</button>`,
+                                  )
+                                  .join("")
+                              : `<span class="mini-pill warning">No speakers linked</span>`
+                          }
+                        </div>
+                        ${
+                          canManage
+                            ? `
+                                <form class="stack compact-stack" data-form="update-team" data-id="${escapeHtml(
                                   tournament.id,
-                                )}" data-team-id="${escapeHtml(team.id)}">Remove Team</button>
-                              </div>
-                            </form>
-                          `
-                        : ""
-                    }
+                                )}" data-team-id="${escapeHtml(team.id)}">
+                                  <div class="field-grid two">
+                                    <label>
+                                      Team Name
+                                      <input type="text" name="name" value="${escapeHtml(
+                                        team.name,
+                                      )}" required />
+                                    </label>
+                                    <label>
+                                      Institution
+                                      <input type="text" name="institution" value="${escapeHtml(
+                                        team.institution,
+                                      )}" />
+                                    </label>
+                                  </div>
+                                  <div class="field-grid two">
+                                    <label>
+                                      Public Alias
+                                      <input type="text" name="publicAlias" value="${escapeHtml(
+                                        team.publicAlias,
+                                      )}" placeholder="Optional public code name" />
+                                    </label>
+                                    <label>
+                                      Notes
+                                      <input type="text" name="notes" value="${escapeHtml(
+                                        team.notes,
+                                      )}" placeholder="Optional note" />
+                                    </label>
+                                  </div>
+                                  <div class="button-row">
+                                    <button class="secondary-button" type="submit">Save Team</button>
+                                    <button class="danger-button" type="button" data-action="delete-team" data-id="${escapeHtml(
+                                      tournament.id,
+                                    )}" data-team-id="${escapeHtml(team.id)}">Remove Team</button>
+                                  </div>
+                                </form>
+                              `
+                            : ""
+                        }
+                      </div>
+                    </details>
                   </article>
                 `;
               })
@@ -28480,6 +28506,25 @@
 
           if (action === "dismiss-recovery-request") {
             dismissRecoveryRequest(button.dataset.requestId);
+            return;
+          }
+
+          if (action === "toggle-participant-team-editor") {
+            const targetId = String(button.dataset.target || "").trim();
+            const editor = targetId ? document.getElementById(targetId) : null;
+            if (!editor || editor.tagName !== "DETAILS") {
+              setFlash("error", "Team editor could not be opened for that speaker.");
+              renderApp();
+              return;
+            }
+            editor.open = !editor.open;
+            if (editor.open) {
+              editor.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              const firstField = editor.querySelector("select, input");
+              if (firstField && typeof firstField.focus === "function") {
+                firstField.focus({ preventScroll: true });
+              }
+            }
             return;
           }
 

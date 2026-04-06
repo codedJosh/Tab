@@ -2573,8 +2573,9 @@
         display: flex;
         align-items: center;
         position: relative;
-        padding-right: 22px;
-        min-height: 38px;
+        width: 100%;
+        min-height: 44px;
+        padding: 6px 34px 6px 2px;
       }
 
       .registration-speaker-card-disclosure > summary::-webkit-details-marker {
@@ -2582,21 +2583,20 @@
       }
 
       .registration-speaker-card-disclosure > summary::after {
-        content: "";
+        content: "▾";
         position: absolute;
-        top: 10px;
-        right: 2px;
-        width: 8px;
-        height: 8px;
-        border-right: 2px solid rgba(26, 59, 47, 0.42);
-        border-bottom: 2px solid rgba(26, 59, 47, 0.42);
-        transform: rotate(45deg);
-        transition: transform 180ms ease, top 180ms ease;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        font-size: 0.9rem;
+        font-weight: var(--weight-heavy);
+        color: rgba(26, 59, 47, 0.6);
+        transition: color 180ms ease;
       }
 
       .registration-speaker-card-disclosure[open] > summary::after {
-        top: 14px;
-        transform: rotate(225deg);
+        content: "▴";
+        color: rgba(26, 59, 47, 0.74);
       }
 
       .registration-speaker-card-compact-body {
@@ -2608,19 +2608,17 @@
       }
 
       .registration-speaker-card-compact-summary .registration-speaker-card-primary {
-        gap: 0;
-      }
-
-      .registration-speaker-card-compact-summary .section-heading {
-        min-height: 44px;
-        gap: 4px;
-      }
-
-      .registration-speaker-card-compact-summary .section-heading strong {
         display: block;
-        font-size: 1.06rem;
-        line-height: 1.16;
-        letter-spacing: -0.02em;
+      }
+
+      .registration-speaker-card-name {
+        margin: 0;
+        display: block;
+        font-size: 1.08rem;
+        font-weight: var(--weight-strong);
+        line-height: 1.22;
+        letter-spacing: -0.01em;
+        text-wrap: pretty;
         overflow-wrap: break-word;
         word-break: normal;
         display: -webkit-box;
@@ -2726,6 +2724,18 @@
         border-left: 0;
       }
 
+      .registration-speaker-card-team,
+      .registration-speaker-card-sanctions {
+        display: grid;
+        gap: 8px;
+      }
+
+      .registration-speaker-card-team .compact-card-summary,
+      .registration-speaker-card-sanctions .compact-card-summary {
+        width: fit-content;
+        max-width: 100%;
+      }
+
       .registration-speaker-card-sanctions .field-grid.two {
         grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       }
@@ -2792,18 +2802,38 @@
 
       .compact-card-disclosure summary {
         cursor: pointer;
-        font-size: 0.76rem;
-        font-weight: 800;
-        color: var(--accent);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 34px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(18, 63, 47, 0.12);
+        background: rgba(255, 255, 255, 0.96);
+        font-size: var(--text-caption);
+        font-weight: var(--weight-heavy);
+        color: var(--ink);
         list-style: none;
+        line-height: 1.2;
       }
 
       .compact-card-disclosure summary::-webkit-details-marker {
         display: none;
       }
 
+      .compact-card-disclosure summary::after {
+        content: "▾";
+        margin-left: 4px;
+        font-size: 0.8rem;
+        color: rgba(26, 59, 47, 0.58);
+      }
+
       .compact-card-disclosure[open] summary {
         margin-bottom: 8px;
+      }
+
+      .compact-card-disclosure[open] summary::after {
+        content: "▴";
       }
 
       .registration-speaker-card button,
