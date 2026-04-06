@@ -14416,6 +14416,13 @@
                                 </div>
                               </div>
                               ${
+                                canManage
+                                  ? renderParticipantTeamAssignmentForm(tournament, participant, {
+                                      compact: true,
+                                    })
+                                  : ""
+                              }
+                              ${
                                 canSanction
                                   ? `<details class="registration-speaker-card-footnote compact-card-disclosure registration-speaker-card-sanctions">
                                       <summary>Sanctions</summary>
@@ -14515,6 +14522,13 @@
                                 </div>`
                           }
                         `
+                        : ""
+                    }
+                    ${
+                      canManage && !compact
+                        ? renderParticipantTeamAssignmentForm(tournament, participant, {
+                            compact: false,
+                          })
                         : ""
                     }
                     ${
@@ -15222,6 +15236,60 @@
             ${renderParticipantScoreFields(tournament)}
             <button type="submit">Add Speaker</button>
           </form>
+        `;
+      }
+
+      function getParticipantLinkedTeamId(tournament, participant) {
+        const directTeamId = String(participant?.teamId || "").trim();
+        if (directTeamId) {
+          return directTeamId;
+        }
+
+        const linkedByName = findTournamentTeamByName(
+          tournament,
+          String(participant?.teamName || "").trim(),
+        );
+        return String(linkedByName?.id || "").trim();
+      }
+
+      function renderParticipantTeamAssignmentForm(tournament, participant, options = {}) {
+        if (!participant) {
+          return "";
+        }
+
+        const compact = options.compact === true;
+        const linkedTeamId = getParticipantLinkedTeamId(tournament, participant);
+        const manualTeamName = linkedTeamId ? "" : String(participant.teamName || "").trim();
+
+        return `
+          <details class="registration-speaker-card-footnote compact-card-disclosure registration-speaker-card-team">
+            <summary>Team</summary>
+            <form class="stack compact-stack" data-form="update-participant-team" data-id="${escapeHtml(
+              tournament.id,
+            )}" data-participant-id="${escapeHtml(participant.id)}">
+              <div class="field-grid ${escapeHtml(compact ? "two" : "three")}">
+                <label>
+                  Linked Team
+                  <select name="teamId">
+                    ${getTeamOptionsMarkup(tournament, linkedTeamId)}
+                  </select>
+                </label>
+                <label>
+                  Manual Team Name
+                  <input type="text" name="teamName" value="${escapeHtml(
+                    manualTeamName,
+                  )}" placeholder="Optional manual team name" />
+                </label>
+                <label>
+                  Institution
+                  <input type="text" name="institution" value="${escapeHtml(
+                    participant.institution || "",
+                  )}" placeholder="Optional institution" />
+                </label>
+              </div>
+              <button class="secondary-button" type="submit">Save Team</button>
+            </form>
+          </details>
         `;
       }
 
@@ -25417,6 +25485,63 @@
         );
       }
 
+      function updateParticipantTeam(tournamentId, participantId, formData) {
+        const tournament = ensureTournamentManagerById(tournamentId);
+        if (!tournament) return;
+
+        const existingParticipant = getParticipantById(tournament, participantId);
+        if (!existingParticipant) {
+          setFlash("error", "That speaker could not be found.");
+          renderApp();
+          return;
+        }
+
+        const selectedTeamId = String(formData.get("teamId") || "").trim();
+        const manualTeamName = String(formData.get("teamName") || "").trim();
+        const manualInstitution = String(formData.get("institution") || "").trim();
+
+        updateTournament(
+          tournamentId,
+          (currentTournament) => {
+            const linkedTeam =
+              getTournamentTeams(currentTournament).find((team) => team.id === selectedTeamId) ||
+              null;
+            let updatedParticipant = null;
+
+            currentTournament.participants = (currentTournament.participants || []).map((entry) => {
+              if (entry.id !== participantId) {
+                return normalizeParticipantRecord(entry);
+              }
+
+              const normalizedEntry = normalizeParticipantRecord(entry);
+              updatedParticipant = {
+                ...normalizedEntry,
+                teamId: linkedTeam ? linkedTeam.id : "",
+                teamName: linkedTeam ? linkedTeam.name : manualTeamName,
+                institution:
+                  manualInstitution ||
+                  (linkedTeam ? linkedTeam.institution : normalizedEntry.institution || ""),
+              };
+              return updatedParticipant;
+            });
+
+            synchronizeTournamentTeamReferences(currentTournament);
+
+            const auditTeamLabel =
+              String(updatedParticipant?.teamName || "").trim() || "Independent";
+            return addAudit(
+              currentTournament,
+              "Updated speaker team assignment for " +
+                String(updatedParticipant?.name || participantId).trim() +
+                " to " +
+                auditTeamLabel +
+                ".",
+            );
+          },
+          "Speaker team updated.",
+        );
+      }
+
       function addParticipantSanction(tournamentId, participantId, formData) {
         const tournament = getTournamentById(tournamentId);
         if (!tournament || !canSanctionTournamentParticipants(tournament)) {
@@ -28813,6 +28938,11 @@
 
           if (form.dataset.form === "add-participant") {
             await addParticipant(form.dataset.id, formData);
+            return;
+          }
+
+          if (form.dataset.form === "update-participant-team") {
+            updateParticipantTeam(form.dataset.id, form.dataset.participantId, formData);
             return;
           }
 
