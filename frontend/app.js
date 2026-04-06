@@ -6823,11 +6823,7 @@
       }
 
       function renderParticipantScoreFields() {
-        return `
-          <div class="empty-state">
-            Speaker scores and results are recorded through the judge ballot for each round, not during registration.
-          </div>
-        `;
+        return ``;
       }
 
       function renderStandingEntryField(tournament, placeholder) {
@@ -22796,11 +22792,6 @@
                       <h1>${escapeHtml(
                         focusedParticipantProfile ? focusedParticipantProfile.name : currentNavItem.label,
                       )}</h1>
-                      <p class="workspace-view-note">${escapeHtml(
-                        focusedParticipantProfile
-                          ? "This profile is isolated here so you can review one person’s tournament history and performance without scrolling through the search directory."
-                          : getWorkspaceViewSupportText(currentNavItem.key, session.userEmail),
-                      )}</p>
                       ${
                         focusedParticipantProfile
                           ? `<div class="button-row wrap-row">

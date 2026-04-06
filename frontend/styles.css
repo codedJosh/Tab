@@ -5971,13 +5971,75 @@
       .team-card {
         display: grid;
         gap: 10px;
-        padding: 18px;
+        padding: 0;
         border-radius: 20px;
         background:
           radial-gradient(circle at top right, rgba(225, 191, 67, 0.08), transparent 28%),
           linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 249, 245, 0.88));
         border: 1px solid var(--line);
         box-shadow: var(--shadow-soft);
+      }
+
+      .team-card-disclosure {
+        display: block;
+      }
+
+      .team-card-disclosure > summary {
+        list-style: none;
+        cursor: pointer;
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: start;
+        padding: 14px 42px 12px 14px;
+      }
+
+      .team-card-disclosure > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .team-card-disclosure > summary::after {
+        content: "▾";
+        position: absolute;
+        top: 18px;
+        right: 14px;
+        font-size: 0.9rem;
+        font-weight: var(--weight-heavy);
+        color: rgba(26, 59, 47, 0.58);
+      }
+
+      .team-card-disclosure[open] > summary::after {
+        content: "▴";
+      }
+
+      .team-card-summary-main {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .team-card-name {
+        display: block;
+        font-size: 1.04rem;
+        line-height: 1.18;
+        letter-spacing: -0.015em;
+        overflow-wrap: break-word;
+      }
+
+      .team-card-summary-main .muted {
+        margin: 0;
+      }
+
+      .team-card-summary-chips {
+        justify-content: flex-end;
+      }
+
+      .team-card-body {
+        display: grid;
+        gap: 10px;
+        padding: 12px 14px 14px;
+        border-top: 1px solid rgba(20, 49, 38, 0.08);
       }
 
       .team-card .chip-row {
@@ -6859,6 +6921,14 @@
 
         .participant-team-journey {
           grid-template-columns: 1fr;
+        }
+
+        .team-card-disclosure > summary {
+          grid-template-columns: 1fr;
+        }
+
+        .team-card-summary-chips {
+          justify-content: flex-start;
         }
 
         .participant-team-card-top,
