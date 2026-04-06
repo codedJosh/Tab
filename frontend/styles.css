@@ -2518,7 +2518,7 @@
       }
 
       .roster-speaker-list-panel .registration-speaker-grid {
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
         gap: 8px;
         align-items: start;
       }
@@ -2590,7 +2590,8 @@
         font-size: var(--text-body-sm);
         font-weight: var(--weight-body);
         line-height: 1.36;
-        overflow-wrap: anywhere;
+        overflow-wrap: break-word;
+        word-break: normal;
       }
 
       .roster-speaker-layout .registration-speaker-card .workspace-chip-row,
@@ -2651,11 +2652,15 @@
 
       .registration-speaker-card-compact-summary .section-heading strong {
         display: block;
-        font-size: 0.92rem;
-        line-height: 1.04;
+        font-size: 0.98rem;
+        line-height: 1.08;
         letter-spacing: -0.03em;
-        overflow-wrap: anywhere;
-        text-wrap: balance;
+        overflow-wrap: break-word;
+        word-break: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
 
       .registration-speaker-card-compact-layout {
@@ -2668,6 +2673,12 @@
         display: grid;
         gap: 8px;
         min-width: 0;
+      }
+
+      .registration-speaker-card-summary,
+      .registration-speaker-card-feedback-note {
+        overflow-wrap: break-word;
+        word-break: normal;
       }
 
       .registration-speaker-card-compact-controls .registration-speaker-card-actions {
