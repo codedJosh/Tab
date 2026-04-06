@@ -2435,6 +2435,7 @@
         gap: 8px;
         padding: 12px 13px;
         border-radius: 14px;
+        container-type: inline-size;
       }
 
       .registration-speaker-card > * {
@@ -2501,29 +2502,29 @@
       }
 
       .roster-speaker-layout .registration-speaker-card-primary {
-        grid-area: primary;
+        grid-area: auto;
         min-width: 0;
       }
 
       .roster-speaker-layout .registration-speaker-card-side {
-        grid-area: side;
+        grid-area: auto;
         justify-items: start;
         align-content: start;
         text-align: left;
       }
 
       .roster-speaker-layout .registration-speaker-card-admin {
-        grid-area: admin;
+        grid-area: auto;
         align-self: start;
       }
 
       .roster-speaker-layout .registration-speaker-card-feedback {
-        grid-area: feedback;
+        grid-area: auto;
         align-self: center;
       }
 
       .roster-speaker-layout .registration-speaker-card-footnote {
-        grid-area: foot;
+        grid-area: auto;
       }
 
       .roster-speaker-layout .registration-speaker-card .section-heading {
@@ -2624,20 +2625,21 @@
       .registration-speaker-card-compact-layout {
         display: grid;
         gap: 12px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
         align-items: start;
       }
 
       .registration-speaker-card-compact-sections {
         display: grid;
         gap: 10px;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        grid-template-columns: 1fr;
         align-items: start;
       }
 
       .registration-speaker-card-compact-sections > * {
         min-width: 0;
         align-self: start;
+        grid-area: auto;
       }
 
       .registration-speaker-card-compact-meta,
@@ -2697,8 +2699,10 @@
 
       .registration-speaker-card-actions-grid {
         display: grid;
-        gap: 8px;
+        column-gap: 10px;
+        row-gap: 8px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
       }
 
       .registration-speaker-card-actions-danger {
@@ -2712,6 +2716,9 @@
         width: 100%;
         justify-content: center;
         min-width: 0;
+        line-height: 1.2;
+        white-space: normal;
+        overflow-wrap: anywhere;
       }
 
       .registration-speaker-card-actions-grid > *:last-child:nth-child(odd) {
@@ -2739,9 +2746,11 @@
 
       .registration-speaker-card-team .compact-card-summary,
       .registration-speaker-card-sanctions .compact-card-summary {
+        display: flex;
         width: 100%;
         max-width: 100%;
         justify-content: space-between;
+        padding-inline: 12px;
       }
 
       .registration-speaker-card-sanctions .field-grid.two {
@@ -2755,8 +2764,26 @@
         grid-template-columns: 1fr;
       }
 
+      .registration-speaker-card-compact-sections .stack.compact-stack {
+        gap: 10px;
+      }
+
+      .registration-speaker-card-compact-sections label {
+        gap: 6px;
+        font-size: 0.88rem;
+        line-height: 1.28;
+      }
+
       .registration-speaker-card-sanctions label {
         min-width: 0;
+      }
+
+      .registration-speaker-card-compact-sections input,
+      .registration-speaker-card-compact-sections select,
+      .registration-speaker-card-compact-sections textarea,
+      .registration-speaker-card-compact-sections button {
+        min-height: 40px;
+        padding: 10px 12px;
       }
 
       .registration-speaker-card-sanctions input,
@@ -2767,6 +2794,18 @@
 
       .registration-speaker-card-sanctions summary {
         margin-bottom: 2px;
+      }
+
+      @container (min-width: 640px) {
+        .registration-speaker-card-compact-layout {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @container (min-width: 980px) {
+        .registration-speaker-card-compact-sections {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
 
       .roster-speaker-layout .registration-speaker-card-actions {

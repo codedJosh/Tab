@@ -12015,6 +12015,63 @@
           .filter(Boolean);
       }
 
+      function getParticipantTeammateNames(tournament, participant, drawEntry = null) {
+        if (!tournament || !participant) {
+          return [];
+        }
+
+        const roster = (tournament.participants || []).map((entry) =>
+          normalizeParticipantRecord(entry),
+        );
+        const participantId = String(participant.id || "").trim();
+        const teamId = String(participant.teamId || "").trim();
+        const teamNameKey = normalizeTextKey(participant.teamName || "");
+
+        let candidateIds = [];
+        if (drawEntry && participantId) {
+          const matchingSlot = (Array.isArray(drawEntry.slots) ? drawEntry.slots : []).find((slot) =>
+            Array.isArray(slot.participantIds) && slot.participantIds.includes(participantId),
+          );
+          if (matchingSlot && Array.isArray(matchingSlot.participantIds)) {
+            candidateIds = matchingSlot.participantIds
+              .map((id) => String(id || "").trim())
+              .filter(Boolean);
+          }
+        }
+
+        if (!candidateIds.length && teamId) {
+          candidateIds = roster
+            .filter((entry) => String(entry.teamId || "").trim() === teamId)
+            .map((entry) => String(entry.id || "").trim())
+            .filter(Boolean);
+        }
+
+        if (!candidateIds.length && teamNameKey) {
+          candidateIds = roster
+            .filter(
+              (entry) =>
+                normalizeTextKey(entry.teamName || "") === teamNameKey &&
+                String(entry.id || "").trim(),
+            )
+            .map((entry) => String(entry.id || "").trim());
+        }
+
+        const seen = new Set();
+        return candidateIds
+          .map((id) => roster.find((entry) => String(entry.id || "").trim() === id) || null)
+          .filter(Boolean)
+          .filter((entry) => String(entry.id || "").trim() !== participantId)
+          .map((entry) => String(entry.name || entry.email || "").trim())
+          .filter((name) => {
+            const key = normalizeTextKey(name);
+            if (!key || seen.has(key)) {
+              return false;
+            }
+            seen.add(key);
+            return true;
+          });
+      }
+
       function getParticipantDrawEntries(tournament, participant) {
         const searchTerms = getParticipantSearchTerms(participant);
         return (tournament.draw || [])
@@ -12168,6 +12225,31 @@
             const roundProfile = getRoundProfileForRound(tournament, round);
             const slotDetails = getParticipantDrawSlotDetails(tournament, drawEntry, participant);
             const participantSlot = slotDetails.slot;
+            const sideLabel = participantSlot
+              ? getResolvedDrawSlotSideLabel(
+                  tournament,
+                  drawEntry,
+                  participantSlot,
+                  slotDetails.slotIndex,
+                )
+              : "";
+            const fullSlotLabel = participantSlot
+              ? getDrawSlotDisplayLabel(tournament, participantSlot, {
+                  drawEntry,
+                  slotIndex: slotDetails.slotIndex,
+                  forcePrivate: true,
+                })
+              : "";
+            const teamLabel =
+              sideLabel && fullSlotLabel.toLowerCase().startsWith(sideLabel.toLowerCase() + ":")
+                ? String(fullSlotLabel.slice(sideLabel.length + 1)).trim()
+                : fullSlotLabel ||
+                  String(participant.teamName || participant.institution || participant.name || "Entry").trim();
+            const teammateNames = getParticipantTeammateNames(
+              tournament,
+              participant,
+              drawEntry,
+            );
             const participantSlotKey = participantSlot ? getDrawSlotCheckInKey(participantSlot) : "";
             const orderedSlots = getOrderedDrawSlotsForDisplay(tournament, drawEntry);
             const opponents = orderedSlots
@@ -12226,7 +12308,9 @@
               round,
               roundLabel: String(roundProfile?.label || "Round " + round).trim(),
               room: String(drawEntry.room || "Room TBA").trim(),
-              side: String(slotDetails.label || participant.teamName || "Entry").trim(),
+              side: String(sideLabel || "TBA").trim(),
+              teamLabel: String(teamLabel || participant.teamName || participant.name || "Entry").trim(),
+              teammateLabel: teammateNames.length ? teammateNames.join(", ") : "No teammate listed",
               opponents,
               resultLabel,
               resultPosted,
@@ -12248,7 +12332,9 @@
                 <tr>
                   <th>Round</th>
                   <th>Room</th>
-                  <th>Side</th>
+                  <th>Position</th>
+                  <th>Team</th>
+                  <th>Teammates</th>
                   <th>Opponents</th>
                   <th>Result</th>
                 </tr>
@@ -12260,7 +12346,9 @@
                       <tr>
                         <td>${escapeHtml(row.roundLabel)}</td>
                         <td>${escapeHtml(row.room)}</td>
-                        <td>${escapeHtml(row.side || "Entry")}</td>
+                        <td>${escapeHtml(row.side || "TBA")}</td>
+                        <td>${escapeHtml(row.teamLabel || "Entry")}</td>
+                        <td>${escapeHtml(row.teammateLabel || "No teammate listed")}</td>
                         <td>${escapeHtml(row.opponents || "TBA")}</td>
                         <td>${escapeHtml(row.resultLabel)}</td>
                       </tr>
@@ -12439,6 +12527,41 @@
                     participant.id,
                   ),
                 );
+                const participantSlotDetails = getParticipantDrawSlotDetails(
+                  tournament,
+                  entry,
+                  participant,
+                );
+                const participantPosition = participantSlotDetails.slot
+                  ? getResolvedDrawSlotSideLabel(
+                      tournament,
+                      entry,
+                      participantSlotDetails.slot,
+                      participantSlotDetails.slotIndex,
+                    )
+                  : "";
+                const participantSlotDisplay = participantSlotDetails.slot
+                  ? getDrawSlotDisplayLabel(tournament, participantSlotDetails.slot, {
+                      drawEntry: entry,
+                      slotIndex: participantSlotDetails.slotIndex,
+                      forcePrivate: true,
+                    })
+                  : "";
+                const participantTeamLabel =
+                  participantPosition &&
+                  participantSlotDisplay
+                    .toLowerCase()
+                    .startsWith(participantPosition.toLowerCase() + ":")
+                    ? String(participantSlotDisplay.slice(participantPosition.length + 1)).trim()
+                    : participantSlotDisplay ||
+                      String(
+                        participant.teamName || participant.institution || participant.name || "",
+                      ).trim();
+                const participantTeammates = getParticipantTeammateNames(
+                  tournament,
+                  participant,
+                  entry,
+                );
                 const participantCheckedIn = participantSlot
                   ? Boolean(entry.entryCheckIns?.[getDrawSlotCheckInKey(participantSlot)])
                   : false;
@@ -12447,6 +12570,21 @@
                     <span class="muted">Round ${escapeHtml(entry.round)}</span>
                     <strong>${escapeHtml(entry.room)}</strong>
                     <p>${escapeHtml(getDrawMatchupForDisplay(tournament, entry))}</p>
+                    ${
+                      participantSlotDetails.slot
+                        ? `<p class="fine-print">${escapeHtml(
+                            (participantPosition ? participantPosition + " • " : "") +
+                              (participantTeamLabel || "Entry"),
+                          )}</p>`
+                        : ""
+                    }
+                    ${
+                      participantTeammates.length
+                        ? `<p class="fine-print">${escapeHtml(
+                            "Teammates: " + participantTeammates.join(", "),
+                          )}</p>`
+                        : ""
+                    }
                     <div class="workspace-chip-row">
                       <span class="mini-pill ${String(entry.status || "").toLowerCase() === "published" ? "success" : "warning"}">${escapeHtml(entry.status || "Posted")}</span>
                       <span class="mini-pill ${escapeHtml(
@@ -23014,6 +23152,41 @@
         const feedbackEntries = getPortalFeedbackEntries(tournament, participant);
         const latestFeedback = feedbackEntries[feedbackEntries.length - 1] || null;
         const primaryDrawEntry = getPrimaryParticipantDrawEntry(tournament, participant);
+        const primarySlotDetails = primaryDrawEntry
+          ? getParticipantDrawSlotDetails(tournament, primaryDrawEntry, participant)
+          : { slot: null, slotIndex: -1, label: "" };
+        const primaryPosition = primarySlotDetails.slot
+          ? getResolvedDrawSlotSideLabel(
+              tournament,
+              primaryDrawEntry,
+              primarySlotDetails.slot,
+              primarySlotDetails.slotIndex,
+            )
+          : "";
+        const primarySlotDisplay = primarySlotDetails.slot
+          ? getDrawSlotDisplayLabel(tournament, primarySlotDetails.slot, {
+              drawEntry: primaryDrawEntry,
+              slotIndex: primarySlotDetails.slotIndex,
+              forcePrivate: true,
+            })
+          : "";
+        const portalTeamLabel =
+          primaryPosition &&
+          primarySlotDisplay.toLowerCase().startsWith(primaryPosition.toLowerCase() + ":")
+            ? String(primarySlotDisplay.slice(primaryPosition.length + 1)).trim()
+            : primarySlotDisplay ||
+              String(participant.teamName || participant.institution || participant.name || "Individual").trim();
+        const portalTeammates = getParticipantTeammateNames(
+          tournament,
+          participant,
+          primaryDrawEntry,
+        );
+        const portalEntrySupport = [
+          primaryPosition ? "Position " + primaryPosition : "",
+          portalTeammates.length ? "Teammates: " + portalTeammates.join(", ") : "",
+        ]
+          .filter(Boolean)
+          .join(" • ");
         const roundPerformanceRows = getParticipantRoundPerformanceRows(tournament, participant);
         const postedResultCount = roundPerformanceRows.filter((row) => row.resultPosted).length;
         const scoredRoundCount = roundPerformanceRows.filter(
@@ -23105,9 +23278,10 @@
                   <div class="portal-focus-grid">
                     <div class="portal-focus-card">
                       <span class="muted">Entry</span>
-                      <strong>${escapeHtml(participant.teamName || participant.name || "Individual")}</strong>
+                      <strong>${escapeHtml(portalTeamLabel || participant.name || "Individual")}</strong>
                       <span class="portal-summary-copy">${escapeHtml(
-                        participant.teamName ? "Registered team or pairing" : "Individual entry",
+                        portalEntrySupport ||
+                          (participant.teamName ? "Registered team or pairing" : "Individual entry"),
                       )}</span>
                     </div>
                     <div class="portal-focus-card">
@@ -25043,7 +25217,83 @@
         persist("success", "Password reset request dismissed.");
       }
 
-      function updateTournament(id, updater, successMessage) {
+      function updateTournament(id, updater, successMessage, options = {}) {
+        return updateTournamentWithOptions(id, updater, successMessage, options);
+      }
+
+      async function persistTournamentMutationDurably(id, updater, successMessage, options = {}) {
+        const previousState = clone(state);
+        const previousSession = normalizeSessionRecord(session);
+        const maxAttempts = Math.max(1, Number(options.maxAttempts || 3));
+        const errorMessage =
+          String(options.errorMessage || "").trim() ||
+          "The shared backend could not save that tournament change.";
+
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          let found = false;
+          state.tournaments = state.tournaments.map((tournament) => {
+            if (tournament.id !== id) {
+              return tournament;
+            }
+            found = true;
+            return updater(clone(tournament));
+          });
+
+          if (!found) {
+            state = previousState;
+            session = previousSession;
+            setFlash("error", "Tournament not found.");
+            saveState();
+            saveSession();
+            renderApp();
+            return false;
+          }
+
+          try {
+            await persistStateToCloudNow({
+              skipRender: true,
+            });
+            setFlash("success", successMessage);
+            saveState();
+            saveSession();
+            renderApp();
+            return true;
+          } catch (error) {
+            if (error?.code === "stale_revision" && attempt + 1 < maxAttempts) {
+              continue;
+            }
+
+            if (error?.code !== "stale_revision") {
+              state = previousState;
+            }
+            session = previousSession;
+            setFlash(
+              error?.code === "stale_revision" ? "warning" : "error",
+              error?.message || errorMessage,
+            );
+            saveState();
+            saveSession();
+            renderApp();
+            return false;
+          }
+        }
+
+        state = previousState;
+        session = previousSession;
+        setFlash("error", errorMessage);
+        saveState();
+        saveSession();
+        renderApp();
+        return false;
+      }
+
+      function updateTournamentWithOptions(id, updater, successMessage, options = {}) {
+        const forceCloud = options.forceCloud === true;
+        if (forceCloud) {
+          void persistTournamentMutationDurably(id, updater, successMessage, options);
+          return;
+        }
+
         let found = false;
         state.tournaments = state.tournaments.map((tournament) => {
           if (tournament.id !== id) {
@@ -26535,6 +26785,10 @@
             );
           },
           "Round priorities updated.",
+          {
+            forceCloud: true,
+            errorMessage: "Round priorities could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -26556,6 +26810,10 @@
             return addAudit(tournament, "Updated room priority and status.");
           },
           "Room updated.",
+          {
+            forceCloud: true,
+            errorMessage: "Room updates could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -26585,6 +26843,10 @@
             return addAudit(tournament, "Updated room check-in status.");
           },
           "Room check-ins updated.",
+          {
+            forceCloud: true,
+            errorMessage: "Room check-ins could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -26605,6 +26867,10 @@
             return addAudit(tournament, "Updated ballot return tracking for a room.");
           },
           "Ballot tracking updated.",
+          {
+            forceCloud: true,
+            errorMessage: "Ballot tracking changes could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -26870,6 +27136,10 @@
             );
           },
           currentlyCheckedIn ? "Round check-in removed." : "You are checked in for this round.",
+          {
+            forceCloud: true,
+            errorMessage: "Your round check-in could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -27026,6 +27296,10 @@
           previewHasOverflow
             ? "Round draw generated. Overflow entries were left in a separate draft room."
             : "Round draw generated.",
+          {
+            forceCloud: true,
+            errorMessage: "The generated draw could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -27069,6 +27343,10 @@
                 (conflictSummary.total === 1 ? "" : "s") +
                 " to review."
             : "Round released.",
+          {
+            forceCloud: true,
+            errorMessage: "The round release could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -27094,6 +27372,10 @@
             return addAudit(tournament, "Cleared the draw for Round " + round + ".");
           },
           "Round draw cleared.",
+          {
+            forceCloud: true,
+            errorMessage: "The round clear could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -27225,6 +27507,10 @@
             return addAudit(tournament, "Posted a draw row.");
           },
           "Draw row posted.",
+          {
+            forceCloud: true,
+            errorMessage: "The draw row could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -27241,6 +27527,10 @@
             return addAudit(tournament, "Deleted a draw row.");
           },
           "Draw row deleted.",
+          {
+            forceCloud: true,
+            errorMessage: "The draw row deletion could not be synced to the shared backend.",
+          },
         );
       }
 
