@@ -1184,8 +1184,8 @@
             return;
           }
           Object.entries(values).forEach(([fieldName, value]) => {
-            const fields = form.querySelectorAll(
-              `[name="${CSS.escape(fieldName)}"]`,
+            const fields = Array.from(form.querySelectorAll("[name]")).filter(
+              (field) => String(field.name || "") === String(fieldName || ""),
             );
             if (!fields.length) {
               return;
@@ -3149,6 +3149,9 @@
         if (["judge", "judges", "adjudicators"].includes(normalized)) {
           return "judges";
         }
+        if (["debater", "debaters", "participant", "participants", "competitors"].includes(normalized)) {
+          return "debaters";
+        }
         if (["staff", "manager", "managers", "tab", "admins"].includes(normalized)) {
           return "staff";
         }
@@ -3158,6 +3161,7 @@
       function getNoticeAudienceLabel(value) {
         return {
           everyone: "Everyone",
+          debaters: "Debaters",
           judges: "Judges",
           staff: "Staff",
         }[normalizeNoticeAudience(value)];
@@ -3188,6 +3192,7 @@
         const current = normalizeNoticeAudience(currentValue, "everyone");
         return [
           { value: "everyone", label: "Everyone" },
+          { value: "debaters", label: "Debaters" },
           { value: "judges", label: "Judges" },
           { value: "staff", label: "Staff" },
         ]
@@ -3210,6 +3215,9 @@
           .filter((notice) => {
             if (scope === "manager") {
               return true;
+            }
+            if (scope === "participant" || scope === "debater") {
+              return notice.audience === "everyone" || notice.audience === "debaters";
             }
             if (scope === "judge") {
               return notice.audience === "everyone" || notice.audience === "judges";
@@ -11138,6 +11146,7 @@
         const url = new URL(window.location.href);
         url.searchParams.delete("access");
         url.searchParams.delete("screen");
+        clearWorkspaceRouteParams(url);
         url.searchParams.set("token", token);
         return url.toString();
       }
@@ -11146,6 +11155,7 @@
         const url = new URL(window.location.href);
         url.searchParams.delete("token");
         url.searchParams.delete("screen");
+        clearWorkspaceRouteParams(url);
         url.searchParams.set("access", token);
         return url.toString();
       }
@@ -11169,6 +11179,7 @@
         url.searchParams.delete("token");
         url.searchParams.delete("access");
         url.searchParams.delete("screen");
+        clearWorkspaceRouteParams(url);
         url.hash = "";
         return url.toString();
       }
@@ -11255,6 +11266,15 @@
           url.searchParams.set("people", normalizePeopleSection(session.peopleSection));
           if (session.selectedPeopleEmail) {
             url.searchParams.set("account", normalizeEmail(session.selectedPeopleEmail));
+          }
+          if (
+            normalizePeopleSection(session.peopleSection) === "appointees" &&
+            session.peopleAppointeeTournamentId
+          ) {
+            url.searchParams.set(
+              "event",
+              String(session.peopleAppointeeTournamentId || "").trim(),
+            );
           }
         } else if (normalizedView === "tournaments") {
           if (session.managedTournamentId) {
@@ -11401,6 +11421,7 @@
             cloudRuntime.initialized = true;
             state = await rehydrateState(result.state);
             url.searchParams.delete("access");
+            clearWorkspaceRouteParams(url);
             window.history.replaceState({}, "", url.toString());
             session.userEmail = normalizeEmail(result.userEmail || "");
             session.cloudSessionToken = String(result.sessionToken || "").trim();
@@ -11413,6 +11434,7 @@
             return true;
           } catch (error) {
             url.searchParams.delete("access");
+            clearWorkspaceRouteParams(url);
             window.history.replaceState({}, "", url.toString());
             setFlash(
               "error",
@@ -11426,6 +11448,7 @@
 
         const user = getUserByAccessToken(token);
         url.searchParams.delete("access");
+        clearWorkspaceRouteParams(url);
         window.history.replaceState({}, "", url.toString());
 
         if (!user) {
@@ -23907,7 +23930,7 @@
               </section>
               ${
                 renderTournamentNoticeboardPreview(tournament, {
-                  scope: "public",
+                  scope: "participant",
                   limit: 3,
                 })
                   ? `<section class="surface">
@@ -23918,7 +23941,7 @@
                         </div>
                       </div>
                       ${renderTournamentNoticeboardPreview(tournament, {
-                        scope: "public",
+                        scope: "participant",
                         limit: 3,
                       })}
                     </section>`
@@ -29020,6 +29043,7 @@
             const url = new URL(window.location.href);
             url.searchParams.delete("token");
             url.searchParams.delete("access");
+            clearWorkspaceRouteParams(url);
             if (nextView === "auth") {
               url.searchParams.delete("screen");
             } else {
@@ -29406,6 +29430,7 @@
             );
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -29417,6 +29442,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -29426,6 +29452,7 @@
               String(button.dataset.tab || "overview").trim().toLowerCase() || "overview";
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -29776,6 +29803,7 @@
             session.view = "search";
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -29788,6 +29816,7 @@
             recordRecentParticipant(session.selectedParticipantKey);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -29796,6 +29825,7 @@
             session.selectedParticipantKey = "";
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -29888,6 +29918,7 @@
             session.view = "search";
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -30304,9 +30335,13 @@
           await hydrateAuthAutofill();
           await applyUserAccessLinkFromUrl();
           updateCurrentUserRecord();
+          applySessionRouteFromUrl({
+            fallbackToPreferred: false,
+          });
           applyBranding();
           saveSession();
           installEventHandlers();
+          ensureLiveSyncLoop();
           if (hasPendingCloudSyncForCurrentSession() && session.cloudSessionToken) {
             setFlash(
               "warning",
