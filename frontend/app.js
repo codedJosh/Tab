@@ -15,8 +15,8 @@
         "section",
         "profile",
       ];
-      const LIVE_SYNC_INTERVAL_MS = 4500;
-      const LIVE_SYNC_MIN_GAP_MS = 900;
+      const LIVE_SYNC_INTERVAL_MS = 12000;
+      const LIVE_SYNC_MIN_GAP_MS = 2500;
       const SENSITIVE_FORM_DRAFTS = new Set([
         "sign-in",
         "regional-ops-sign-in",
@@ -1228,6 +1228,9 @@
           return false;
         }
         if (document.visibilityState === "hidden") {
+          return false;
+        }
+        if (dirtyFormDraftKeys.size) {
           return false;
         }
         const token = String(new URL(window.location.href).searchParams.get("token") || "").trim();
@@ -7687,22 +7690,37 @@
         }
 
         cloudRefreshInFlight = (async () => {
-          const latestState = await getCloudAuthenticatedState();
-          if (!latestState) {
+          const previousRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
+          try {
+            const result = await callCloud("get_state", {
+              sessionToken: session.cloudSessionToken,
+            });
+            cloudRuntime.initialized = true;
+            const latestRevision = normalizeWorkspaceRevision(result?.revision);
+            const revisionUnchanged =
+              previousRevision > 0 &&
+              latestRevision > 0 &&
+              latestRevision === previousRevision;
+
+            if (revisionUnchanged && !options.forceApply) {
+              return false;
+            }
+
+            state = await rehydrateState(result.state);
+            updateCurrentUserRecord();
+            applyBranding();
+            saveState();
+            saveSession();
+
+            if (!options.skipRender) {
+              renderApp();
+            }
+            return true;
+          } catch (error) {
+            session.cloudSessionToken = "";
+            saveSession();
             return false;
           }
-
-          state = latestState;
-          updateCurrentUserRecord();
-          applyBranding();
-          saveState();
-          saveSession();
-
-          if (!options.skipRender) {
-            renderApp();
-          }
-
-          return true;
         })();
 
         try {
@@ -29855,7 +29873,6 @@
           if (event.submitter?.name) {
             formData.set(event.submitter.name, event.submitter.value);
           }
-          clearFormDraft(form);
 
           if (form.dataset.form === "sign-in") {
             await signIn(formData);
