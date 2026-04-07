@@ -5,6 +5,29 @@
       const DEVICE_PASSWORD_VAULT_STORAGE_KEY = STORAGE_KEY + "-device-password-vault";
       const BACKEND_ENDPOINT_STORAGE_KEY = STORAGE_KEY + "-backend-endpoint";
       const PENDING_CLOUD_SYNC_STORAGE_KEY = STORAGE_KEY + "-pending-cloud-sync";
+      const WORKSPACE_ROUTE_QUERY_KEYS = [
+        "view",
+        "people",
+        "account",
+        "manage",
+        "event",
+        "tab",
+        "section",
+        "profile",
+      ];
+      const LIVE_SYNC_INTERVAL_MS = 4500;
+      const LIVE_SYNC_MIN_GAP_MS = 900;
+      const SENSITIVE_FORM_DRAFTS = new Set([
+        "sign-in",
+        "regional-ops-sign-in",
+        "sign-up",
+        "forgot-password",
+        "manager-reset-password",
+        "reset-user-password",
+        "reset-regional-ops-password",
+        "resolve-recovery-request",
+        "update-device-password-preference",
+      ]);
       const CLOUD_FUNCTION_ENDPOINTS = (() => {
         const endpoints = [];
         let queryBackendUrl = "";
@@ -597,6 +620,12 @@
       let cloudPersistQueue = Promise.resolve();
       let cloudRefreshInFlight = null;
       let pendingCloudSync = null;
+      let pendingSessionHistoryMode = "replace";
+      let suppressSessionHistorySync = false;
+      let liveSyncTimer = null;
+      let lastLiveSyncAt = 0;
+      let formDraftCache = new Map();
+      let dirtyFormDraftKeys = new Set();
 
       function clone(value) {
         return JSON.parse(JSON.stringify(value));
@@ -986,6 +1015,253 @@
         }
         const parsed = Date.parse(String(fallbackText || "").trim());
         return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+      }
+
+      function clearWorkspaceRouteParams(url) {
+        if (!url) {
+          return;
+        }
+        WORKSPACE_ROUTE_QUERY_KEYS.forEach((key) => {
+          url.searchParams.delete(key);
+        });
+      }
+
+      function requestSessionHistoryPush() {
+        pendingSessionHistoryMode = "push";
+      }
+
+      function shouldTrackFormDraft(form) {
+        if (!form || form.tagName !== "FORM") {
+          return false;
+        }
+        const formName = String(form.dataset.form || "").trim();
+        if (!formName || SENSITIVE_FORM_DRAFTS.has(formName)) {
+          return false;
+        }
+        return true;
+      }
+
+      function getFormDraftKey(form) {
+        if (!shouldTrackFormDraft(form)) {
+          return "";
+        }
+        const keyParts = [String(form.dataset.form || "").trim()];
+        [
+          "id",
+          "participantId",
+          "teamId",
+          "allocationId",
+          "drawId",
+          "email",
+          "requestId",
+          "targetAllocationId",
+          "feedbackType",
+        ].forEach((datasetKey) => {
+          const value = String(form.dataset[datasetKey] || "").trim();
+          if (value) {
+            keyParts.push(datasetKey + ":" + value);
+          }
+        });
+        return keyParts.join("|");
+      }
+
+      function readFormDraftValues(form) {
+        const values = {};
+        const fields = form.querySelectorAll("input[name], textarea[name], select[name]");
+        fields.forEach((field) => {
+          if (!field.name || field.disabled || field.type === "file") {
+            return;
+          }
+          const fieldName = String(field.name).trim();
+          if (!fieldName) {
+            return;
+          }
+          if (field.type === "radio") {
+            if (field.checked) {
+              values[fieldName] = String(field.value || "");
+            }
+            return;
+          }
+          if (field.type === "checkbox") {
+            values[fieldName] = Boolean(field.checked);
+            return;
+          }
+          if (field.tagName === "SELECT" && field.multiple) {
+            values[fieldName] = Array.from(field.options)
+              .filter((option) => option.selected)
+              .map((option) => String(option.value || ""));
+            return;
+          }
+          values[fieldName] = String(field.value || "");
+        });
+        return values;
+      }
+
+      function hasMeaningfulDraftValues(values = {}) {
+        return Object.values(values).some((value) => {
+          if (Array.isArray(value)) {
+            return value.length > 0;
+          }
+          if (typeof value === "boolean") {
+            return value;
+          }
+          return Boolean(String(value || "").trim());
+        });
+      }
+
+      function rememberFormDraft(form) {
+        const draftKey = getFormDraftKey(form);
+        if (!draftKey) {
+          return;
+        }
+        const values = readFormDraftValues(form);
+        if (!hasMeaningfulDraftValues(values)) {
+          dirtyFormDraftKeys.delete(draftKey);
+          formDraftCache.delete(draftKey);
+          return;
+        }
+        dirtyFormDraftKeys.add(draftKey);
+        formDraftCache.set(draftKey, values);
+      }
+
+      function clearFormDraft(form) {
+        const draftKey = getFormDraftKey(form);
+        if (!draftKey) {
+          return;
+        }
+        dirtyFormDraftKeys.delete(draftKey);
+        formDraftCache.delete(draftKey);
+      }
+
+      function captureVisibleFormDrafts() {
+        if (!dirtyFormDraftKeys.size) {
+          return;
+        }
+        document.querySelectorAll("form[data-form]").forEach((form) => {
+          const draftKey = getFormDraftKey(form);
+          if (!draftKey || !dirtyFormDraftKeys.has(draftKey)) {
+            return;
+          }
+          rememberFormDraft(form);
+        });
+      }
+
+      function applyDraftValueToField(field, value) {
+        if (!field || field.disabled || field.type === "file") {
+          return;
+        }
+        if (field.type === "radio") {
+          field.checked = String(field.value || "") === String(value || "");
+          return;
+        }
+        if (field.type === "checkbox") {
+          field.checked = Boolean(value);
+          return;
+        }
+        if (field.tagName === "SELECT" && field.multiple && Array.isArray(value)) {
+          const selected = new Set(value.map((entry) => String(entry || "")));
+          Array.from(field.options).forEach((option) => {
+            option.selected = selected.has(String(option.value || ""));
+          });
+          return;
+        }
+        if (typeof value === "string" || typeof value === "number") {
+          field.value = String(value);
+        }
+      }
+
+      function restoreTrackedFormDrafts() {
+        if (!dirtyFormDraftKeys.size || !formDraftCache.size) {
+          return;
+        }
+        document.querySelectorAll("form[data-form]").forEach((form) => {
+          const draftKey = getFormDraftKey(form);
+          if (!draftKey || !dirtyFormDraftKeys.has(draftKey)) {
+            return;
+          }
+          const values = formDraftCache.get(draftKey);
+          if (!values || typeof values !== "object") {
+            return;
+          }
+          Object.entries(values).forEach(([fieldName, value]) => {
+            const fields = form.querySelectorAll(
+              `[name="${CSS.escape(fieldName)}"]`,
+            );
+            if (!fields.length) {
+              return;
+            }
+            fields.forEach((field) => {
+              applyDraftValueToField(field, value);
+            });
+          });
+        });
+      }
+
+      function hasEditableFocus() {
+        const active = document.activeElement;
+        if (!active || active === document.body) {
+          return false;
+        }
+        const tag = String(active.tagName || "").toLowerCase();
+        if (tag === "textarea") {
+          return !active.disabled && !active.readOnly;
+        }
+        if (tag === "select") {
+          return !active.disabled;
+        }
+        if (tag === "input") {
+          const type = String(active.type || "text").trim().toLowerCase();
+          if (
+            ["button", "submit", "reset", "radio", "checkbox", "file", "image", "color"].includes(
+              type,
+            )
+          ) {
+            return false;
+          }
+          return !active.disabled && !active.readOnly;
+        }
+        return Boolean(active.isContentEditable);
+      }
+
+      function canRunLiveSharedRefresh() {
+        if (!getCurrentUser() || !session.cloudSessionToken) {
+          return false;
+        }
+        if (document.visibilityState === "hidden") {
+          return false;
+        }
+        const token = String(new URL(window.location.href).searchParams.get("token") || "").trim();
+        if (token) {
+          return false;
+        }
+        if (hasEditableFocus()) {
+          return false;
+        }
+        return true;
+      }
+
+      async function refreshSharedStateIfIdle(options = {}) {
+        const force = Boolean(options.force);
+        if (!force && !canRunLiveSharedRefresh()) {
+          return false;
+        }
+        const now = Date.now();
+        if (!force && now - lastLiveSyncAt < LIVE_SYNC_MIN_GAP_MS) {
+          return false;
+        }
+        lastLiveSyncAt = now;
+        return refreshSharedStateSafely({
+          skipRender: false,
+        }).catch(() => false);
+      }
+
+      function ensureLiveSyncLoop() {
+        if (liveSyncTimer) {
+          return;
+        }
+        liveSyncTimer = window.setInterval(() => {
+          void refreshSharedStateIfIdle();
+        }, LIVE_SYNC_INTERVAL_MS);
       }
 
       function escapeHtml(value) {
@@ -10934,6 +11210,166 @@
 
       function isRegionalOperationsPortalPage() {
         return getPublicScreenView() === "regional-operations";
+      }
+
+      function syncBrowserUrlWithSession(options = {}) {
+        if (suppressSessionHistorySync) {
+          suppressSessionHistorySync = false;
+          pendingSessionHistoryMode = "replace";
+          return;
+        }
+
+        const mode = options.mode || pendingSessionHistoryMode || "replace";
+        pendingSessionHistoryMode = "replace";
+
+        const url = new URL(window.location.href);
+        const privateToken = String(url.searchParams.get("token") || "").trim();
+        if (privateToken) {
+          return;
+        }
+
+        if (!getCurrentUser()) {
+          clearWorkspaceRouteParams(url);
+          const currentScreen = getPublicScreenView();
+          if (currentScreen) {
+            url.searchParams.set("screen", currentScreen);
+          } else {
+            url.searchParams.delete("screen");
+          }
+          const nextUrl = url.toString();
+          if (nextUrl !== window.location.href) {
+            window.history.replaceState({}, "", nextUrl);
+          }
+          return;
+        }
+
+        const normalizedView = normalizeWorkspaceView(session.view, session.userEmail);
+        session.view = normalizedView;
+        url.searchParams.delete("token");
+        url.searchParams.delete("access");
+        url.searchParams.delete("screen");
+        clearWorkspaceRouteParams(url);
+
+        url.searchParams.set("view", normalizedView);
+        if (normalizedView === "people") {
+          url.searchParams.set("people", normalizePeopleSection(session.peopleSection));
+          if (session.selectedPeopleEmail) {
+            url.searchParams.set("account", normalizeEmail(session.selectedPeopleEmail));
+          }
+        } else if (normalizedView === "tournaments") {
+          if (session.managedTournamentId) {
+            url.searchParams.set("manage", String(session.managedTournamentId || "").trim());
+          }
+          if (session.selectedTournamentId) {
+            url.searchParams.set("event", String(session.selectedTournamentId || "").trim());
+          }
+          if (session.selectedTournamentBoardTab) {
+            url.searchParams.set(
+              "tab",
+              String(session.selectedTournamentBoardTab || "overview").trim().toLowerCase(),
+            );
+          }
+          if (session.focusedTournamentSection) {
+            url.searchParams.set(
+              "section",
+              String(session.focusedTournamentSection || "spotlight").trim().toLowerCase(),
+            );
+          }
+        } else if (normalizedView === "search" && session.selectedParticipantKey) {
+          url.searchParams.set("profile", String(session.selectedParticipantKey || "").trim());
+        }
+
+        const nextUrl = url.toString();
+        if (nextUrl === window.location.href) {
+          return;
+        }
+        if (mode === "push") {
+          window.history.pushState({}, "", nextUrl);
+          return;
+        }
+        window.history.replaceState({}, "", nextUrl);
+      }
+
+      function applySessionRouteFromUrl(options = {}) {
+        const fallbackToPreferred = options.fallbackToPreferred !== false;
+        const url = new URL(window.location.href);
+        if (String(url.searchParams.get("token") || "").trim()) {
+          return false;
+        }
+
+        if (!getCurrentUser()) {
+          session.view = getPublicScreenView() || "auth";
+          return true;
+        }
+
+        const hasRoute = WORKSPACE_ROUTE_QUERY_KEYS.some((key) => url.searchParams.has(key));
+        if (!hasRoute) {
+          if (fallbackToPreferred) {
+            session.view = getPreferredLandingView(session.userEmail);
+            session.peopleSection = "hub";
+            session.selectedPeopleEmail = "";
+            session.managedTournamentId = "";
+            session.selectedTournamentId = "";
+            session.selectedTournamentBoardTab = "overview";
+            session.focusedTournamentSection = "spotlight";
+            session.selectedParticipantKey = "";
+          }
+          return false;
+        }
+
+        const requestedView = String(url.searchParams.get("view") || "").trim().toLowerCase();
+        session.view = normalizeWorkspaceView(
+          requestedView || getPreferredLandingView(session.userEmail),
+          session.userEmail,
+        );
+
+        if (session.view === "people") {
+          session.peopleSection = normalizePeopleSection(url.searchParams.get("people") || "hub");
+          session.selectedPeopleEmail = normalizeEmail(url.searchParams.get("account"));
+          session.peopleAppointeeTournamentId = "";
+          if (session.peopleSection === "appointees") {
+            session.peopleAppointeeTournamentId = String(
+              url.searchParams.get("event") || "",
+            ).trim();
+          }
+        } else {
+          session.peopleSection = "hub";
+          session.selectedPeopleEmail = "";
+          session.peopleAppointeeTournamentId = "";
+        }
+
+        if (session.view === "tournaments") {
+          session.managedTournamentId = String(url.searchParams.get("manage") || "").trim();
+          session.selectedTournamentId = String(url.searchParams.get("event") || "").trim();
+          session.selectedTournamentBoardTab =
+            String(url.searchParams.get("tab") || "overview").trim().toLowerCase() || "overview";
+          session.focusedTournamentSection =
+            String(url.searchParams.get("section") || "spotlight").trim().toLowerCase() ||
+            "spotlight";
+        } else {
+          session.managedTournamentId = "";
+          session.selectedTournamentId = "";
+          session.selectedTournamentBoardTab = "overview";
+          session.focusedTournamentSection = "spotlight";
+        }
+
+        if (session.view === "search") {
+          session.selectedParticipantKey = String(url.searchParams.get("profile") || "").trim();
+        } else {
+          session.selectedParticipantKey = "";
+        }
+
+        recordRecentView(session.view);
+        if (session.managedTournamentId) {
+          recordRecentTournament(session.managedTournamentId);
+        }
+        if (session.selectedTournamentId) {
+          recordRecentTournament(session.selectedTournamentId);
+        }
+        if (session.selectedParticipantKey) {
+          recordRecentParticipant(session.selectedParticipantKey);
+        }
+        return true;
       }
 
       function getUserAccessRecord(email = session.userEmail) {
@@ -23626,14 +24062,11 @@
           return;
         }
 
+        captureVisibleFormDrafts();
         applyBranding();
         applyAccessibilityPreferences();
         const token = new URL(window.location.href).searchParams.get("token");
-        const publicView =
-          getPublicScreenView() ||
-          (["about", "register-debater", "register-judge", "regional-operations"].includes(session.view)
-            ? session.view
-            : "auth");
+        const publicView = getPublicScreenView() || "auth";
         if (!getCurrentUser() && session.view !== publicView) {
           session.view = publicView;
         }
@@ -23651,6 +24084,8 @@
                     ? renderRegionalOperationsPublicView()
                   : renderAuthView();
         document.querySelector("#app").innerHTML = appMarkup + renderConfirmationDialog();
+        restoreTrackedFormDrafts();
+        syncBrowserUrlWithSession();
         if (pendingTournamentSectionJumpId) {
           const targetId = pendingTournamentSectionJumpId;
           pendingTournamentSectionJumpId = "";
@@ -28514,9 +28949,7 @@
 
       function installEventHandlers() {
         window.addEventListener("focus", () => {
-          refreshSharedStateSafely({
-            skipRender: false,
-          }).catch(() => {});
+          void refreshSharedStateIfIdle();
         });
 
         document.addEventListener("visibilitychange", () => {
@@ -28526,9 +28959,17 @@
             }
             return;
           }
-          refreshSharedStateSafely({
-            skipRender: false,
-          }).catch(() => {});
+          void refreshSharedStateIfIdle();
+        });
+
+        window.addEventListener("popstate", () => {
+          applySessionRouteFromUrl({
+            fallbackToPreferred: true,
+          });
+          suppressSessionHistorySync = true;
+          clearFlash();
+          saveSession();
+          renderApp();
         });
 
         document.addEventListener("keydown", (event) => {
@@ -28536,6 +28977,14 @@
             event.preventDefault();
             closeConfirmationDialog();
           }
+        });
+
+        document.addEventListener("input", (event) => {
+          const form = event.target.closest("form[data-form]");
+          if (!form) {
+            return;
+          }
+          rememberFormDraft(form);
         });
 
         document.addEventListener("click", async (event) => {
@@ -28576,7 +29025,7 @@
             } else {
               url.searchParams.set("screen", nextView);
             }
-            window.history.replaceState({}, "", url.toString());
+            window.history.pushState({}, "", url.toString());
             session.view = nextView;
             clearFlash();
             saveSession();
@@ -28594,6 +29043,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -28606,6 +29056,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -28617,6 +29068,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -28715,6 +29167,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -28726,6 +29179,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -28864,6 +29318,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             if (["people", "tournaments", "links", "judging", "search", "regional"].includes(session.view)) {
               await refreshStateFromBackend({
                 skipRender: true,
@@ -28881,6 +29336,7 @@
             url.searchParams.delete("screen");
             url.searchParams.delete("access");
             url.searchParams.delete("token");
+            clearWorkspaceRouteParams(url);
             window.history.replaceState({}, "", url.toString());
             renderApp();
             return;
@@ -28905,6 +29361,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -28923,6 +29380,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -28934,6 +29392,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            requestSessionHistoryPush();
             renderApp();
             return;
           }
@@ -29366,6 +29825,7 @@
           if (event.submitter?.name) {
             formData.set(event.submitter.name, event.submitter.value);
           }
+          clearFormDraft(form);
 
           if (form.dataset.form === "sign-in") {
             await signIn(formData);
@@ -29743,6 +30203,11 @@
         });
 
         document.addEventListener("change", (event) => {
+          const changedForm = event.target.closest("form[data-form]");
+          if (changedForm) {
+            rememberFormDraft(changedForm);
+          }
+
           const configurationForm = event.target.closest(
             'form[data-form="create-tournament"], form[data-form="tournament-settings"]',
           );
