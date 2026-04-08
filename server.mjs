@@ -2384,24 +2384,14 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        const workspace = await readWorkspaceRecord(client);
-        const state = workspace?.state;
-        if (!state) {
+        const revision = await readWorkspaceRevision(client);
+        if (!revision) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
           error.statusCode = 409;
           error.code = "workspace_not_initialized";
           throw error;
         }
 
-        const user = state.users.find((entry) => entry.email === normalizeEmail(session.email));
-        if (!user || !user.active) {
-          const error = new Error("This account is no longer allowed to access JADE.");
-          error.statusCode = 403;
-          error.code = "account_disabled";
-          throw error;
-        }
-
-        const revision = await readWorkspaceRevision(client);
         return {
           revision,
         };
