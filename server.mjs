@@ -1644,6 +1644,15 @@ async function readWorkspaceState(client) {
   return record?.state || null;
 }
 
+async function readWorkspaceRevision(client) {
+  const result = await client.query(
+    "select revision from jade_workspaces where id = $1 limit 1",
+    [WORKSPACE_ID],
+  );
+  const revision = normalizeWorkspaceRevision(result.rows[0]?.revision);
+  return revision || 0;
+}
+
 async function writeWorkspaceState(client, state, options = {}) {
   const normalized = ensureWorkspaceState(state);
   const expectedRevision = normalizeWorkspaceRevision(options.expectedRevision);
@@ -2360,6 +2369,49 @@ app.post("/api", async (request, response) => {
       });
 
       sendStatePayload(response, 200, result);
+      return;
+    }
+
+    if (action === "get_revision") {
+      const sessionToken = String(request.body?.sessionToken || "").trim();
+
+      const result = await withTransaction(async (client) => {
+        const session = await getSession(client, sessionToken);
+        if (!session) {
+          const error = new Error("Your backend session has expired. Please sign in again.");
+          error.statusCode = 401;
+          error.code = "invalid_session";
+          throw error;
+        }
+
+        const workspace = await readWorkspaceRecord(client);
+        const state = workspace?.state;
+        if (!state) {
+          const error = new Error("The shared backend workspace has not been initialized yet.");
+          error.statusCode = 409;
+          error.code = "workspace_not_initialized";
+          throw error;
+        }
+
+        const user = state.users.find((entry) => entry.email === normalizeEmail(session.email));
+        if (!user || !user.active) {
+          const error = new Error("This account is no longer allowed to access JADE.");
+          error.statusCode = 403;
+          error.code = "account_disabled";
+          throw error;
+        }
+
+        const revision = await readWorkspaceRevision(client);
+        return {
+          revision,
+        };
+      });
+
+      sendJson(response, 200, {
+        ok: true,
+        initialized: true,
+        revision: normalizeWorkspaceRevision(result.revision),
+      });
       return;
     }
 

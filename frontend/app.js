@@ -1253,8 +1253,18 @@
           return false;
         }
         lastLiveSyncAt = now;
+
+        if (!force) {
+          const latestRevision = await getCloudWorkspaceRevision();
+          const currentRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
+          if (latestRevision > 0 && latestRevision === currentRevision) {
+            return false;
+          }
+        }
+
         return refreshSharedStateSafely({
           skipRender: false,
+          forceApply: true,
         }).catch(() => false);
       }
 
@@ -7677,6 +7687,24 @@
           session.cloudSessionToken = "";
           saveSession();
           return null;
+        }
+      }
+
+      async function getCloudWorkspaceRevision() {
+        if (!(await probeCloudBackend()) || !session.cloudSessionToken) {
+          return 0;
+        }
+
+        try {
+          const result = await callCloud("get_revision", {
+            sessionToken: session.cloudSessionToken,
+          });
+          cloudRuntime.initialized = true;
+          return normalizeWorkspaceRevision(result?.revision);
+        } catch (error) {
+          session.cloudSessionToken = "";
+          saveSession();
+          return 0;
         }
       }
 
@@ -29361,12 +29389,10 @@
             clearFlash();
             saveSession();
             requestSessionHistoryPush();
-            if (["people", "tournaments", "links", "judging", "search", "regional"].includes(session.view)) {
-              await refreshStateFromBackend({
-                skipRender: true,
-              });
-            }
             renderApp();
+            void refreshSharedStateIfIdle({
+              force: false,
+            });
             return;
           }
 
