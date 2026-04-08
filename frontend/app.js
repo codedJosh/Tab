@@ -17,6 +17,18 @@
       ];
       const LIVE_SYNC_INTERVAL_MS = 12000;
       const LIVE_SYNC_MIN_GAP_MS = 2500;
+      const LIVE_SYNC_INTERACTION_COOLDOWN_MS = 900;
+      const TRACKED_FORM_DRAFT_DATASET_KEYS = [
+        "id",
+        "participantId",
+        "teamId",
+        "allocationId",
+        "drawId",
+        "email",
+        "requestId",
+        "targetAllocationId",
+        "feedbackType",
+      ];
       const SENSITIVE_FORM_DRAFTS = new Set([
         "sign-in",
         "regional-ops-sign-in",
@@ -624,6 +636,7 @@
       let suppressSessionHistorySync = false;
       let liveSyncTimer = null;
       let lastLiveSyncAt = 0;
+      let lastUserInteractionAt = 0;
       let formDraftCache = new Map();
       let dirtyFormDraftKeys = new Set();
 
@@ -1030,6 +1043,10 @@
         pendingSessionHistoryMode = "push";
       }
 
+      function markUserInteraction() {
+        lastUserInteractionAt = Date.now();
+      }
+
       function shouldTrackFormDraft(form) {
         if (!form || form.tagName !== "FORM") {
           return false;
@@ -1046,23 +1063,92 @@
           return "";
         }
         const keyParts = [String(form.dataset.form || "").trim()];
-        [
-          "id",
-          "participantId",
-          "teamId",
-          "allocationId",
-          "drawId",
-          "email",
-          "requestId",
-          "targetAllocationId",
-          "feedbackType",
-        ].forEach((datasetKey) => {
+        TRACKED_FORM_DRAFT_DATASET_KEYS.forEach((datasetKey) => {
           const value = String(form.dataset[datasetKey] || "").trim();
           if (value) {
             keyParts.push(datasetKey + ":" + value);
           }
         });
         return keyParts.join("|");
+      }
+
+      function escapeCssSelectorValue(value = "") {
+        if (window.CSS && typeof window.CSS.escape === "function") {
+          return window.CSS.escape(String(value || ""));
+        }
+        return String(value || "")
+          .replaceAll("\\", "\\\\")
+          .replaceAll('"', '\\"');
+      }
+
+      function normalizeDraftDatasetAttributeKey(datasetKey = "") {
+        return "data-" + String(datasetKey || "").replace(/[A-Z]/g, (match) => "-" + match.toLowerCase());
+      }
+
+      function parseFormDraftKey(draftKey = "") {
+        const normalized = String(draftKey || "").trim();
+        if (!normalized) {
+          return null;
+        }
+        const tokens = normalized.split("|").filter(Boolean);
+        if (!tokens.length) {
+          return null;
+        }
+        const formName = String(tokens[0] || "").trim();
+        if (!formName) {
+          return null;
+        }
+        const datasetValues = {};
+        tokens.slice(1).forEach((token) => {
+          const splitIndex = token.indexOf(":");
+          if (splitIndex <= 0) {
+            return;
+          }
+          const datasetKey = String(token.slice(0, splitIndex) || "").trim();
+          if (!TRACKED_FORM_DRAFT_DATASET_KEYS.includes(datasetKey)) {
+            return;
+          }
+          const datasetValue = String(token.slice(splitIndex + 1) || "").trim();
+          if (!datasetValue) {
+            return;
+          }
+          datasetValues[datasetKey] = datasetValue;
+        });
+        return {
+          formName,
+          datasetValues,
+        };
+      }
+
+      function getTrackedFormElementByDraftKey(draftKey = "") {
+        const parsed = parseFormDraftKey(draftKey);
+        if (!parsed) {
+          return null;
+        }
+        const selectorParts = [
+          `form[data-form="${escapeCssSelectorValue(parsed.formName)}"]`,
+        ];
+        Object.entries(parsed.datasetValues).forEach(([datasetKey, datasetValue]) => {
+          selectorParts.push(
+            `[${normalizeDraftDatasetAttributeKey(datasetKey)}="${escapeCssSelectorValue(
+              datasetValue,
+            )}"]`,
+          );
+        });
+        const selector = selectorParts.join("");
+        const exactMatch = document.querySelector(selector);
+        if (exactMatch && getFormDraftKey(exactMatch) === draftKey) {
+          return exactMatch;
+        }
+        const scopedForms = document.querySelectorAll(
+          `form[data-form="${escapeCssSelectorValue(parsed.formName)}"]`,
+        );
+        for (const form of scopedForms) {
+          if (getFormDraftKey(form) === draftKey) {
+            return form;
+          }
+        }
+        return null;
       }
 
       function readFormDraftValues(form) {
@@ -1137,9 +1223,9 @@
         if (!dirtyFormDraftKeys.size) {
           return;
         }
-        document.querySelectorAll("form[data-form]").forEach((form) => {
-          const draftKey = getFormDraftKey(form);
-          if (!draftKey || !dirtyFormDraftKeys.has(draftKey)) {
+        dirtyFormDraftKeys.forEach((draftKey) => {
+          const form = getTrackedFormElementByDraftKey(draftKey);
+          if (!form) {
             return;
           }
           rememberFormDraft(form);
@@ -1174,9 +1260,9 @@
         if (!dirtyFormDraftKeys.size || !formDraftCache.size) {
           return;
         }
-        document.querySelectorAll("form[data-form]").forEach((form) => {
-          const draftKey = getFormDraftKey(form);
-          if (!draftKey || !dirtyFormDraftKeys.has(draftKey)) {
+        dirtyFormDraftKeys.forEach((draftKey) => {
+          const form = getTrackedFormElementByDraftKey(draftKey);
+          if (!form) {
             return;
           }
           const values = formDraftCache.get(draftKey);
@@ -1224,10 +1310,14 @@
       }
 
       function canRunLiveSharedRefresh() {
+        const now = Date.now();
         if (!getCurrentUser() || !session.cloudSessionToken) {
           return false;
         }
         if (document.visibilityState === "hidden") {
+          return false;
+        }
+        if (now - lastUserInteractionAt < LIVE_SYNC_INTERACTION_COOLDOWN_MS) {
           return false;
         }
         if (dirtyFormDraftKeys.size) {
@@ -29042,6 +29132,7 @@
         });
 
         document.addEventListener("keydown", (event) => {
+          markUserInteraction();
           if (event.key === "Escape" && confirmDialog) {
             event.preventDefault();
             closeConfirmationDialog();
@@ -29053,12 +29144,14 @@
           if (!form) {
             return;
           }
+          markUserInteraction();
           rememberFormDraft(form);
         });
 
         document.addEventListener("click", async (event) => {
           const button = event.target.closest("[data-action]");
           if (!button) return;
+          markUserInteraction();
 
           const action = button.dataset.action;
 
@@ -29390,9 +29483,6 @@
             saveSession();
             requestSessionHistoryPush();
             renderApp();
-            void refreshSharedStateIfIdle({
-              force: false,
-            });
             return;
           }
 
@@ -29894,6 +29984,7 @@
         document.addEventListener("submit", async (event) => {
           const form = event.target.closest("form[data-form]");
           if (!form) return;
+          markUserInteraction();
           event.preventDefault();
           const formData = new FormData(form);
           if (event.submitter?.name) {
