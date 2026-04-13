@@ -1210,15 +1210,6 @@
         formDraftCache.set(draftKey, values);
       }
 
-      function clearFormDraft(form) {
-        const draftKey = getFormDraftKey(form);
-        if (!draftKey) {
-          return;
-        }
-        dirtyFormDraftKeys.delete(draftKey);
-        formDraftCache.delete(draftKey);
-      }
-
       function captureVisibleFormDrafts() {
         if (!dirtyFormDraftKeys.size) {
           return;
@@ -2303,26 +2294,6 @@
         return hasFullTournamentAdminAccess(getTournamentAccess(tournament));
       }
 
-      function canOperateTournament(tournament) {
-        return hasTournamentOperationsAccess(getTournamentAccess(tournament));
-      }
-
-      function canAccessTournamentBackstage(tournament) {
-        return hasTournamentBackstageAccess(getTournamentAccess(tournament));
-      }
-
-      function canAccessTournamentPeopleView(tournament) {
-        return hasTournamentPeopleAccess(getTournamentAccess(tournament));
-      }
-
-      function canEditTournamentRoster(tournament) {
-        return hasTournamentOperationsAccess(getTournamentAccess(tournament));
-      }
-
-      function canEditTournamentJudges(tournament) {
-        return hasTournamentOperationsAccess(getTournamentAccess(tournament));
-      }
-
       function canSanctionTournamentParticipants(tournament) {
         return hasTournamentSanctionAccess(getTournamentAccess(tournament));
       }
@@ -2388,14 +2359,6 @@
           normalizeTextKey(participant?.name) +
           "::" +
           normalizeTextKey(participant?.institution)
-        );
-      }
-
-      function getParticipantDisplayIdentity(profileOrParticipant) {
-        return (
-          String(profileOrParticipant?.name || "").trim() ||
-          String(profileOrParticipant?.email || "").trim() ||
-          "Participant"
         );
       }
 
@@ -2745,16 +2708,6 @@
           </div>
         `;
       }
-
-      function renderExternalActionLink(label, href) {
-        const target = String(href || "").trim();
-        if (!target) {
-          return "";
-        }
-        return `<a class="secondary-button inline-link" href="${escapeHtml(
-          target,
-        )}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`;
-      }
       function getWorkspaceCapabilities(email = session.userEmail) {
         const target = normalizeEmail(email);
         const accessRecords = state.tournaments.map((tournament) => ({
@@ -3093,19 +3046,6 @@
         return normalizeStringList(session.recentParticipantKeys, 8);
       }
 
-      function getRecentParticipantProfiles(email = session.userEmail) {
-        const seen = new Set();
-        return getRecentParticipantKeys()
-          .map((identityKey) => getParticipantProfileByKey(identityKey, email))
-          .filter((profile) => {
-            if (!profile || seen.has(profile.identityKey)) {
-              return false;
-            }
-            seen.add(profile.identityKey);
-            return true;
-          });
-      }
-
       function recordRecentParticipant(identityKey) {
         const targetKey = String(identityKey || "").trim();
         if (!targetKey) {
@@ -3354,38 +3294,6 @@
           .filter(Boolean);
 
         return values.some((value) => value.includes(normalizedQuery));
-      }
-
-      function tournamentMatchesFilter(tournament, filter) {
-        const normalizedFilter = String(filter || "all").trim().toLowerCase();
-        const archived = isTournamentArchived(tournament);
-        if (!normalizedFilter || normalizedFilter === "all") {
-          return !archived;
-        }
-        if (normalizedFilter === "pinned") {
-          return !archived && isTournamentPinned(tournament.id);
-        }
-        if (normalizedFilter === "recent") {
-          return (
-            !archived &&
-            getRecentTournamentIds().includes(String(tournament.id || "").trim())
-          );
-        }
-        if (normalizedFilter === "attention") {
-          return !archived && getTournamentOpsSnapshot(tournament).attentionCount > 0;
-        }
-        if (normalizedFilter === "open" || normalizedFilter === "closed" || normalizedFilter === "archived") {
-          return String(tournament.status || "").trim().toLowerCase() === normalizedFilter;
-        }
-        return true;
-      }
-
-      function getFilteredTournamentList(tournaments = getVisibleTournaments()) {
-        return tournaments.filter(
-          (tournament) =>
-            tournamentMatchesQuery(tournament, session.tournamentQuery) &&
-            tournamentMatchesFilter(tournament, session.tournamentFilter),
-        );
       }
 
       function renderBrandLockup({
@@ -5309,10 +5217,6 @@
         };
       }
 
-      function buildSpeakerPairingTeamEntries(tournament, roundProfile = {}, method = "random") {
-        return buildSpeakerPairingTeamPlan(tournament, roundProfile, method).entries;
-      }
-
       function getSupplementalRoundTeamPlan(tournament, roundProfile = {}, method = "random") {
         const structure = getEffectiveRoundStructure(tournament, roundProfile);
         const eligibleTeamEntries = getEligibleTeamDrawEntriesForRound(tournament, roundProfile);
@@ -5337,23 +5241,6 @@
           eligibleTeamEntries,
           supplementalPairingPlan,
         };
-      }
-
-      function getDrawGenerationEntries(tournament, roundProfile = {}, method = "power") {
-        const participantModel = String(tournament?.participantModel || "").trim().toLowerCase();
-        const hasManagedTeams = getTournamentTeams(tournament).some(
-          (team) => normalizeTeamSource(team?.source) === "manual",
-        );
-        if (shouldGenerateSpeakerPairingTeams(tournament, roundProfile)) {
-          return buildSpeakerPairingTeamEntries(tournament, roundProfile, method);
-        }
-        if (participantModel === "individuals") {
-          return getSpeakerDrawEntriesForTournament(tournament);
-        }
-        if (participantModel === "hybrid" && !hasManagedTeams) {
-          return getSpeakerDrawEntriesForTournament(tournament);
-        }
-        return getDrawEntriesForTournament(tournament);
       }
 
       function getDrawGenerationPlan(
@@ -5910,26 +5797,6 @@
               `<option value="${escapeHtml(item.value)}" ${selected(
                 item.value,
                 normalizeRoundStage(current),
-              )}>${escapeHtml(item.label)}</option>`,
-          )
-          .join("");
-      }
-
-      function getOutroundPairingMethodOptionMarkup(current = "", autoMethod = "power") {
-        const normalized = normalizeOutroundPairingMethod(current);
-        return [
-          {
-            value: "",
-            label: "Automatic (" + getOutroundPairingMethodLabel(autoMethod) + ")",
-          },
-          { value: "power", label: "Power Paired" },
-          { value: "fold", label: "Folded" },
-        ]
-          .map(
-            (item) =>
-              `<option value="${escapeHtml(item.value)}" ${selected(
-                item.value,
-                normalized,
               )}>${escapeHtml(item.label)}</option>`,
           )
           .join("");
@@ -6791,17 +6658,6 @@
         );
       }
 
-      function getParticipantAverageSpeakerScore(tournament, participant) {
-        const breakdown = getParticipantSpeakerScoreBreakdown(tournament, participant);
-        if (!breakdown.length) {
-          return Number(normalizeParticipantRecord(participant).speakerScore || 0);
-        }
-        return roundScoreValue(
-          breakdown.reduce((sum, entry) => sum + Number(entry.score || 0), 0) / breakdown.length,
-          2,
-        );
-      }
-
       function hasSpeakerRankingData(participant) {
         return (
           (Array.isArray(participant?.scoreBreakdown) && participant.scoreBreakdown.length > 0) ||
@@ -7229,101 +7085,6 @@
         return ``;
       }
 
-      function renderStandingEntryField(tournament, placeholder) {
-        const listId = "standing-entry-list-" + tournament.id;
-        const options =
-          tournament.participantModel === "teams" || tournament.participantModel === "hybrid"
-            ? getTournamentTeams(tournament).map((team) => ({
-                value: team.name,
-                label: team.institution ? team.institution + " " + team.name : team.name,
-              }))
-            : (tournament.participants || []).map((participant) => ({
-                value: participant.name,
-                label: participant.institution
-                  ? participant.institution + " " + participant.name
-                  : participant.name,
-              }));
-
-        return `
-          <label>
-            Standings entry
-            <input type="text" name="name" list="${escapeHtml(listId)}" placeholder="${escapeHtml(
-              placeholder,
-            )}" required />
-            <datalist id="${escapeHtml(listId)}">
-              ${options
-                .map(
-                  (option) =>
-                    `<option value="${escapeHtml(option.value)}" label="${escapeHtml(
-                      option.label,
-                    )}"></option>`,
-                )
-                .join("")}
-            </datalist>
-          </label>
-        `;
-      }
-
-      function renderStandingInputFields(tournament) {
-        const profile = getScoringProfile(tournament);
-
-        if (profile.mode === "bp_team") {
-          return `
-            ${renderStandingEntryField(tournament, "Team name")}
-            <div class="field-grid four">
-              <label>
-                1st places
-                <input type="number" min="0" name="firsts" value="0" required />
-              </label>
-              <label>
-                2nd places
-                <input type="number" min="0" name="seconds" value="0" required />
-              </label>
-              <label>
-                3rd places
-                <input type="number" min="0" name="thirds" value="0" required />
-              </label>
-              <label>
-                4th places
-                <input type="number" min="0" name="fourths" value="0" required />
-              </label>
-            </div>
-            <p class="fine-print">${escapeHtml(profile.note)}</p>
-          `;
-        }
-
-        if (profile.mode === "win_loss_team") {
-          return `
-            ${renderStandingEntryField(tournament, "Team name")}
-            <div class="field-grid two">
-              <label>
-                Wins
-                <input type="number" min="0" name="wins" value="0" required />
-              </label>
-              <label>
-                Losses
-                <input type="number" min="0" name="losses" value="0" required />
-              </label>
-            </div>
-            <p class="fine-print">${escapeHtml(profile.note)}</p>
-          `;
-        }
-
-        return `
-          <div class="field-grid three">
-            ${renderStandingEntryField(tournament, "Team or individual name")}
-            <label>
-              Wins
-              <input type="number" min="0" name="wins" value="0" required />
-            </label>
-            <label>
-              Points
-              <input type="number" min="0" name="points" value="0" required />
-            </label>
-          </div>
-        `;
-      }
-
       function buildStandingMetricsFromForm(tournament, formData) {
         const profile = getScoringProfile(tournament);
         if (profile.mode === "bp_team") {
@@ -7588,49 +7349,6 @@
         }
 
         return refreshStateFromBackend(options);
-      }
-
-      function createPublicBootstrapState(appSettings = {}) {
-        return {
-          workspaceContractVersion: WORKSPACE_CONTRACT_VERSION,
-          version: 1,
-          appSettings: {
-            ...clone(DEFAULT_SETTINGS),
-            ...appSettings,
-            branding: {
-              ...clone(DEFAULT_SETTINGS.branding),
-              ...(appSettings.branding || {}),
-            },
-            auth: {
-              ...clone(DEFAULT_SETTINGS.auth),
-              ...(appSettings.auth || {}),
-            },
-            defaults: {
-              ...clone(DEFAULT_SETTINGS.defaults),
-              ...(appSettings.defaults || {}),
-            },
-            portal: {
-              ...clone(DEFAULT_SETTINGS.portal),
-              ...(appSettings.portal || {}),
-            },
-            feedback: {
-              ...clone(DEFAULT_SETTINGS.feedback),
-              ...(appSettings.feedback || {}),
-            },
-            manager: {
-              ...clone(DEFAULT_SETTINGS.manager),
-              ...(appSettings.manager || {}),
-            },
-            accessibility: {
-              ...clone(DEFAULT_SETTINGS.accessibility),
-              ...(appSettings.accessibility || {}),
-            },
-          },
-          users: [],
-          recoveryRequests: [],
-          tournaments: [],
-          regionalOperations: normalizeRegionalOperationsState(),
-        };
       }
 
       async function probeCloudBackend(force = false) {
@@ -8712,22 +8430,6 @@
           }
         });
         return Array.from(found);
-      }
-
-      function inferTeamIdsFromMatchup(tournament, matchup) {
-        const text = String(matchup || "").trim().toLowerCase();
-        if (!text) {
-          return [];
-        }
-
-        return getTournamentTeams(tournament)
-          .filter((team) => {
-            const labels = [team.name, getTeamDisplayLabel(team)]
-              .map((value) => String(value || "").trim().toLowerCase())
-              .filter(Boolean);
-            return labels.some((label) => text.includes(label));
-          })
-          .map((team) => team.id);
       }
 
       function getDrawEntryById(tournament, drawId) {
@@ -13252,18 +12954,6 @@
         `;
       }
 
-      function getUserOptionsMarkup(selectedEmail = "") {
-        return state.users
-          .map(
-            (user) =>
-              `<option value="${escapeHtml(user.email)}" ${selected(
-                user.email,
-                selectedEmail,
-              )}>${escapeHtml(user.name)} (${escapeHtml(user.email)})</option>`,
-          )
-          .join("");
-      }
-
       function getNonManagerUserOptionsMarkup(selectedEmail = "") {
         const users = state.users.filter(
           (user) => normalizeEmail(user.email) !== normalizeEmail(MANAGER_EMAIL),
@@ -17366,180 +17056,12 @@
         `;
       }
 
-      function getTournamentExplorerFilterOptionsMarkup(current = "all") {
-        return [
-          { value: "all", label: "All Tournaments" },
-          { value: "open", label: "Open" },
-          { value: "closed", label: "Closed" },
-          { value: "archived", label: "Archived" },
-          { value: "attention", label: "Needs Attention" },
-          { value: "pinned", label: "Pinned" },
-          { value: "recent", label: "Recent" },
-        ]
-          .map(
-            (item) =>
-              `<option value="${escapeHtml(item.value)}" ${selected(
-                item.value,
-                current,
-              )}>${escapeHtml(item.label)}</option>`,
-          )
-          .join("");
-      }
-
       function getFocusedTournamentSectionId(tournamentOrId, sectionKey) {
         const tournamentId =
           typeof tournamentOrId === "string"
             ? tournamentOrId
             : tournamentOrId?.id || "";
         return "focus-" + String(sectionKey || "").trim() + "-" + String(tournamentId || "").trim();
-      }
-
-      function renderTournamentRailCard(tournament, eyebrow, note) {
-        const snapshot = getTournamentOpsSnapshot(tournament);
-        const teams = getTournamentTeams(tournament).length;
-        const latestLabel = snapshot.latestPublishedRound
-          ? "Latest release: Round " + snapshot.latestPublishedRound
-          : snapshot.totalRooms
-            ? snapshot.totalRooms + " rooms prepared"
-            : "Ready to open";
-        return `
-          <button class="tournament-rail-card" type="button" data-action="focus-tournament" data-id="${escapeHtml(
-            tournament.id,
-          )}">
-            <span class="tournament-rail-topline">
-              <span class="tournament-rail-kicker">
-                <span class="eyebrow">${escapeHtml(eyebrow)}</span>
-                <span class="tournament-rail-code">${escapeHtml(tournament.code)}</span>
-              </span>
-              <span class="mini-pill ${snapshot.attentionCount ? "warning" : "success"}">${escapeHtml(
-                snapshot.attentionCount
-                  ? snapshot.attentionCount + " watchpoint" + (snapshot.attentionCount === 1 ? "" : "s")
-                  : "Ready",
-              )}</span>
-            </span>
-            <span class="tournament-rail-visual" aria-hidden="true">
-              <span class="tournament-rail-visual-mark">${escapeHtml(tournament.code)}</span>
-              <span class="tournament-rail-visual-line one"></span>
-              <span class="tournament-rail-visual-line two"></span>
-            </span>
-            <span class="tournament-rail-body">
-              <strong>${escapeHtml(tournament.name)}</strong>
-              <span class="muted">${escapeHtml(
-                note ||
-                  getTournamentFlexibleSummary(tournament) ||
-                  snapshot.attention[0] ||
-                  (snapshot.latestPublishedRound
-                    ? "Latest published round: " + snapshot.latestPublishedRound
-                    : "Open the tab room for focused control."),
-              )}</span>
-            </span>
-            <span class="tournament-rail-stats">
-              <span class="tournament-rail-stat">
-                <strong>${escapeHtml(tournament.rounds)}</strong>
-                <span>Rounds</span>
-              </span>
-              <span class="tournament-rail-stat">
-                <strong>${escapeHtml(teams)}</strong>
-                <span>Teams</span>
-              </span>
-              <span class="tournament-rail-stat">
-                <strong>${escapeHtml(tournament.participants.length)}</strong>
-                <span>Speakers</span>
-              </span>
-            </span>
-            <span class="tournament-rail-footer">
-              <span class="tournament-rail-meta">${escapeHtml(
-                getTournamentFormatContextLabel(tournament) + " • " + latestLabel,
-              )}</span>
-              <span class="tournament-rail-cta">Open Tab Room</span>
-            </span>
-          </button>
-        `;
-      }
-
-      function renderTournamentRail(title, subtitle, tournaments, eyebrow) {
-        if (!tournaments.length) {
-          return "";
-        }
-
-        return `
-          <div class="flat-panel">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">${escapeHtml(eyebrow)}</p>
-                <h3>${escapeHtml(title)}</h3>
-              </div>
-            </div>
-            <p class="fine-print">${escapeHtml(subtitle)}</p>
-            <div class="tournament-rail-grid">
-              ${tournaments.map((tournament) => renderTournamentRailCard(tournament, eyebrow)).join("")}
-            </div>
-          </div>
-        `;
-      }
-
-      function renderTournamentExplorerHub(visibleTournaments, filteredTournaments) {
-        const pinnedTournaments = getPinnedTournaments(visibleTournaments).slice(0, 4);
-        const recentTournaments = getRecentTournaments(visibleTournaments).slice(0, 4);
-        const attentionTournaments = [...visibleTournaments]
-          .filter((tournament) => getTournamentOpsSnapshot(tournament).attentionCount > 0)
-          .sort(
-            (left, right) =>
-              getTournamentOpsSnapshot(right).attentionCount -
-                getTournamentOpsSnapshot(left).attentionCount ||
-              String(left.name).localeCompare(String(right.name)),
-          )
-          .slice(0, 4);
-
-        return `
-          <section class="surface">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Tournament Navigator</p>
-                <h2>Find, reopen, and manage tournaments faster</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(filteredTournaments.length)} showing</span>
-            </div>
-            <form class="tournament-discovery-form" data-form="tournament-discovery">
-              <label class="tournament-search-field">
-                Search Tournaments
-                <input type="search" name="query" value="${escapeHtml(
-                  session.tournamentQuery,
-                )}" placeholder="Search by name, code, format, or note" />
-              </label>
-              <label>
-                View
-                <select name="filter">${getTournamentExplorerFilterOptionsMarkup(
-                  session.tournamentFilter,
-                )}</select>
-              </label>
-              <div class="button-row wrap-row">
-                <button type="submit">Apply</button>
-                <button class="secondary-button" type="button" data-action="clear-tournament-discovery">Clear</button>
-              </div>
-            </form>
-            <div class="stack">
-              ${renderTournamentRail(
-                "Pinned Tab Rooms",
-                "Keep your most important tournaments within one click.",
-                pinnedTournaments,
-                "Pinned",
-              )}
-              ${renderTournamentRail(
-                "Continue Where You Left Off",
-                "Recent tournament rooms stay ready to reopen immediately.",
-                recentTournaments,
-                "Recent",
-              )}
-              ${renderTournamentRail(
-                "Needs Attention",
-                "These tournaments still have unresolved workflow items.",
-                attentionTournaments,
-                "Watchlist",
-              )}
-            </div>
-          </section>
-        `;
       }
 
       function getFocusedTournamentSections(
@@ -22147,107 +21669,6 @@
         `;
       }
 
-      function renderNavigationCompass(email = session.userEmail) {
-        const currentView = normalizeWorkspaceView(session.view, email);
-        const currentViewLabel =
-          getWorkspaceNavItems(email).find((item) => item.key === currentView)?.label || "Overview";
-        const capabilities = getWorkspaceCapabilities(email);
-        const activeTournament = capabilities.canManageAny
-          ? getManagedTournamentForSession()
-          : getSelectedTournamentForSession(email);
-        const selectedProfile = session.selectedParticipantKey
-          ? getParticipantProfileByKey(session.selectedParticipantKey, email)
-          : null;
-        const quickDestinations = getWorkspaceNavItems(email).filter(
-          (item) =>
-            ["overview", "tournaments", "search", "judging", "settings"].includes(item.key) &&
-            item.key !== currentView,
-        );
-        const visibleTournaments = getVisibleTournaments(email);
-        const pinned = getPinnedTournaments(visibleTournaments).slice(0, 2);
-        const recent = getRecentTournaments(visibleTournaments)
-          .filter((tournament) => !pinned.some((entry) => entry.id === tournament.id))
-          .slice(0, 2);
-
-        return `
-          <div class="context-rail">
-            <div class="context-crumbs">
-              <span class="context-label">Navigation</span>
-              <button class="ghost-button" type="button" data-action="set-view" data-view="overview">Home</button>
-              <span class="context-separator">/</span>
-              <span class="context-current">${escapeHtml(currentViewLabel)}</span>
-              ${
-                activeTournament
-                  ? `
-                      <span class="context-separator">/</span>
-                      <button class="ghost-button" type="button" data-action="${escapeHtml(
-                        getTournamentOpenAction(activeTournament),
-                      )}" data-id="${escapeHtml(activeTournament.id)}">${escapeHtml(
-                        activeTournament.code || activeTournament.name,
-                      )}</button>
-                    `
-                  : ""
-              }
-              ${
-                selectedProfile
-                  ? `
-                      <span class="context-separator">/</span>
-                      <button class="ghost-button" type="button" data-action="open-participant-profile" data-key="${escapeHtml(
-                        selectedProfile.identityKey,
-                      )}">${escapeHtml(selectedProfile.name)}</button>
-                    `
-                  : ""
-              }
-            </div>
-            <div class="context-shortcuts">
-              ${quickDestinations
-                .slice(0, 4)
-                .map(
-                  (item) => `
-                    <button class="secondary-button" type="button" data-action="set-view" data-view="${escapeHtml(
-                      item.key,
-                    )}">${escapeHtml(item.label)}</button>
-                  `,
-                )
-                .join("")}
-              ${
-                activeTournament
-                  ? `<button class="secondary-button" type="button" data-action="${
-                      capabilities.canManageAny ? "clear-focused-tournament" : "clear-selected-tournament"
-                    }">${escapeHtml(
-                      capabilities.canManageAny ? "Back To Tournament Boxes" : "Back To Tournaments",
-                    )}</button>`
-                  : ""
-              }
-              ${
-                selectedProfile
-                  ? `<button class="secondary-button" type="button" data-action="clear-participant-profile">Close Profile</button>`
-                  : ""
-              }
-            </div>
-            ${
-              pinned.length || recent.length
-                ? `
-                    <div class="context-saved">
-                      <span class="context-label">Jump Fast</span>
-                      ${pinned
-                        .map((tournament) =>
-                          renderTournamentShortcutButton(tournament, "Pinned " + tournament.code),
-                        )
-                        .join("")}
-                      ${recent
-                        .map((tournament) =>
-                          renderTournamentShortcutButton(tournament, "Recent " + tournament.code),
-                        )
-                        .join("")}
-                    </div>
-                  `
-                : ""
-            }
-          </div>
-        `;
-      }
-
       function renderParticipantProfileButton(participant, label = "Open Profile", secondary = false) {
         if (!participant) {
           return "";
@@ -26327,16 +25748,6 @@
             );
           },
           "Tournament permissions updated.",
-        );
-      }
-
-      function getTournamentRoleKeyForEmail(tournament, email) {
-        const targetEmail = normalizeEmail(email);
-        const entries = getTournamentPermissionKeys({ includeLegacy: true });
-        return (
-          entries.find((key) =>
-            (tournament.permissions?.[key] || []).includes(targetEmail),
-          ) || ""
         );
       }
 
