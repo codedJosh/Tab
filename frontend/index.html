@@ -3,16 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JADE Hummingbird | Tournament Management</title>
+    <title>Hummingbird Tab System | Debate Tournament Management</title>
     <meta
       name="description"
-      content="JADE Hummingbird is a polished tournament management platform for debate events, judging, motions, draw release, standings, speaker rankings, and private access links."
+      content="Hummingbird Tab System manages debate tournaments, judging, registration, motions, results publishing, standings, and private access links."
     />
     <meta name="theme-color" content="#123f2f" />
     <link rel="icon" type="image/svg+xml" href="jade-hummingbird-mark.svg" />
     <link rel="shortcut icon" href="jade-hummingbird-mark.svg" />
     <link rel="apple-touch-icon" href="jade-hummingbird-mark.svg" />
     <script src="backend-config.js"></script>
+    <script>
+      try {
+        if (
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+          window.sessionStorage.getItem("hummingbird-startup-splash-seen-v1") === "1"
+        ) {
+          document.documentElement.classList.add("skip-startup-splash");
+        }
+      } catch (error) {
+        // Ignore session storage availability issues and keep the splash as a safe fallback.
+      }
+    </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -31,10 +43,10 @@
           </div>
         </div>
         <div class="startup-wordmark">
-          <p class="startup-kicker">JADE Hummingbird</p>
-          <strong class="startup-title">Professional Tournament Control</strong>
+          <p class="startup-kicker">Hummingbird Tab System</p>
+          <strong class="startup-title">Professional Debate Tournament Management</strong>
           <p class="startup-motto">Fuelling a Thinking Revolution</p>
-          <span class="startup-subtitle" id="startup-progress-label">Initializing secure workspace...</span>
+          <span class="startup-subtitle" id="startup-progress-label">Opening your tournament workspace...</span>
         </div>
         <div class="startup-status-stack">
           <div class="startup-chip-row" aria-hidden="true">
@@ -44,13 +56,14 @@
           </div>
           <div class="startup-progress-shell">
             <div class="startup-progress-meta">
-              <span id="startup-progress-stage">Booting JADE Hummingbird systems</span>
+              <span id="startup-progress-stage">Opening dashboard</span>
               <strong id="startup-progress-value" class="startup-progress-value">12%</strong>
             </div>
             <div class="startup-progress-track">
               <span id="startup-progress-bar" class="startup-progress-bar"></span>
             </div>
           </div>
+          <button id="startup-skip" class="startup-skip-button" type="button">Skip intro</button>
         </div>
       </div>
     </div>

@@ -119,37 +119,46 @@
       const JADE_LOGO_SRC = "jade-logo.jpg";
       const MAX_TOURNAMENT_ROUNDS = 20;
       const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const STARTUP_SPLASH_MIN_MS = REDUCED_MOTION ? 0 : 2400;
-      const STARTUP_SPLASH_EXIT_MS = REDUCED_MOTION ? 20 : 760;
+      const STARTUP_SPLASH_STORAGE_KEY = "hummingbird-startup-splash-seen-v1";
+      const SHOULD_SHOW_STARTUP_SPLASH = (() => {
+        if (REDUCED_MOTION) {
+          return false;
+        }
+        try {
+          return window.sessionStorage.getItem(STARTUP_SPLASH_STORAGE_KEY) !== "1";
+        } catch (error) {
+          return true;
+        }
+      })();
+      const STARTUP_SPLASH_MIN_MS = SHOULD_SHOW_STARTUP_SPLASH ? 850 : 0;
+      const STARTUP_SPLASH_EXIT_MS = SHOULD_SHOW_STARTUP_SPLASH ? 260 : 0;
       const STARTUP_SPLASH_STARTED_AT = Date.now();
-      const STARTUP_PROGRESS_STEPS = REDUCED_MOTION
-        ? []
-        : [
+      const STARTUP_PROGRESS_STEPS = SHOULD_SHOW_STARTUP_SPLASH
+        ? [
             {
               delay: 120,
-              percent: 16,
-              stage: "Authenticating secure workspace",
-              label: "Establishing protected access for staff and competitors.",
+              percent: 28,
+              stage: "Checking saved access",
+              label: "Restoring the fastest route back into your tournaments.",
             },
             {
-              delay: 620,
-              percent: 39,
-              stage: "Preparing tab room controls",
-              label: "Configuring round structures, draw logic, and tournament settings.",
+              delay: 420,
+              percent: 56,
+              stage: "Loading tournament data",
+              label: "Bringing rounds, registrations, and results into view.",
             },
             {
-              delay: 1180,
-              percent: 67,
-              stage: "Indexing ballots and standings",
-              label: "Connecting judging flows, speaker rankings, and live boards.",
+              delay: 760,
+              percent: 82,
+              stage: "Preparing overview",
+              label: "Getting the dashboard ready for tabbing, judging, and publishing.",
             },
-            {
-              delay: 1780,
-              percent: 88,
-              stage: "Finalising publishing surfaces",
-              label: "Shaping the competitor portal for calm, focused access.",
-            },
-          ];
+          ]
+        : [];
+      const CLOUD_PROBE_TIMEOUT_MS = 1200;
+      const CLOUD_BOOT_REQUEST_TIMEOUT_MS = 1800;
+      const CLOUD_AUTH_BOOT_TIMEOUT_MS = 2200;
+      const CLOUD_REQUEST_TIMEOUT_MS = 9000;
 
       const FORMAT_PRESETS = {
         "British Parliamentary": {
@@ -678,10 +687,20 @@
       }
 
       function startStartupSplashSequence() {
+        const splash = document.querySelector("#startup-splash");
+        const skipButton = document.querySelector("#startup-skip");
+        if (skipButton) {
+          skipButton.hidden = !SHOULD_SHOW_STARTUP_SPLASH;
+          skipButton.onclick = () => dismissStartupSplash();
+        }
+        if (!splash || !SHOULD_SHOW_STARTUP_SPLASH) {
+          dismissStartupSplash();
+          return;
+        }
         startupSplashFailed = false;
         setStartupSplashProgress(
           12,
-          "Booting JADE Hummingbird systems",
+          "Opening dashboard",
           "Preparing your tournament workspace.",
         );
         clearStartupSplashTimers();
@@ -698,6 +717,12 @@
         if (!splash || startupSplashDismissed) return;
         startupSplashDismissed = true;
         clearStartupSplashTimers();
+        try {
+          window.sessionStorage.setItem(STARTUP_SPLASH_STORAGE_KEY, "1");
+        } catch (error) {
+          // Ignore storage errors and continue dismissing the splash.
+        }
+        document.documentElement.classList.add("skip-startup-splash");
         splash.classList.add("is-exiting");
         window.setTimeout(() => {
           splash.setAttribute("hidden", "hidden");
@@ -714,8 +739,8 @@
         if (!startupSplashFailed) {
           setStartupSplashProgress(
             100,
-            "Workspace ready",
-            "Ready to open JADE Hummingbird.",
+            "Ready",
+            "Your tournament dashboard is ready.",
           );
         }
         const elapsed = Date.now() - STARTUP_SPLASH_STARTED_AT;
@@ -7351,6 +7376,26 @@
         return refreshStateFromBackend(options);
       }
 
+      async function fetchWithTimeout(resource, options = {}, timeoutMs = CLOUD_REQUEST_TIMEOUT_MS) {
+        const controller = new AbortController();
+        const timerId = window.setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          return await fetch(resource, {
+            ...options,
+            signal: controller.signal,
+          });
+        } catch (error) {
+          if (error?.name === "AbortError") {
+            const timeoutError = new Error("The shared backend took too long to respond.");
+            timeoutError.code = "backend_timeout";
+            throw timeoutError;
+          }
+          throw error;
+        } finally {
+          window.clearTimeout(timerId);
+        }
+      }
+
       async function probeCloudBackend(force = false) {
         if (cloudRuntime.checked && !force) {
           return cloudRuntime.available;
@@ -7368,12 +7413,16 @@
 
         for (const endpoint of endpoints) {
           try {
-            const response = await fetch(endpoint, {
+            const response = await fetchWithTimeout(
+              endpoint,
+              {
               method: "GET",
               headers: {
                 Accept: "application/json",
               },
-            });
+              },
+              CLOUD_PROBE_TIMEOUT_MS,
+            );
             if (!response.ok) {
               continue;
             }
@@ -7413,19 +7462,23 @@
         return false;
       }
 
-      async function callCloud(action, payload = {}) {
+      async function callCloud(action, payload = {}, options = {}) {
         const endpoint = cloudRuntime.endpoint || CLOUD_FUNCTION_ENDPOINTS[0];
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
+        const response = await fetchWithTimeout(
+          endpoint,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              action,
+              ...payload,
+            }),
           },
-          body: JSON.stringify({
-            action,
-            ...payload,
-          }),
-        });
+          options.timeoutMs || CLOUD_REQUEST_TIMEOUT_MS,
+        );
 
         let result = {};
         try {
@@ -7470,7 +7523,9 @@
         }
 
         try {
-          const result = await callCloud("bootstrap");
+          const result = await callCloud("bootstrap", {}, {
+            timeoutMs: CLOUD_BOOT_REQUEST_TIMEOUT_MS,
+          });
           if (typeof result?.initialized === "boolean") {
             cloudRuntime.initialized = result.initialized;
           }
@@ -7488,12 +7543,16 @@
         try {
           const result = await callCloud("get_state", {
             sessionToken: session.cloudSessionToken,
+          }, {
+            timeoutMs: CLOUD_AUTH_BOOT_TIMEOUT_MS,
           });
           cloudRuntime.initialized = true;
           return await rehydrateState(result.state);
         } catch (error) {
-          session.cloudSessionToken = "";
-          saveSession();
+          if (error?.code === "invalid_session" || error?.code === "401" || error?.code === "403") {
+            session.cloudSessionToken = "";
+            saveSession();
+          }
           return null;
         }
       }
@@ -7510,8 +7569,10 @@
           cloudRuntime.initialized = true;
           return normalizeWorkspaceRevision(result?.revision);
         } catch (error) {
-          session.cloudSessionToken = "";
-          saveSession();
+          if (error?.code === "invalid_session" || error?.code === "401" || error?.code === "403") {
+            session.cloudSessionToken = "";
+            saveSession();
+          }
           return 0;
         }
       }
@@ -7553,8 +7614,10 @@
             }
             return true;
           } catch (error) {
-            session.cloudSessionToken = "";
-            saveSession();
+            if (error?.code === "invalid_session" || error?.code === "401" || error?.code === "403") {
+              session.cloudSessionToken = "";
+              saveSession();
+            }
             return false;
           }
         })();
@@ -12981,264 +13044,341 @@
             ? String(authAutofill?.password || "")
             : "";
         const savePasswordChecked = authPrefs?.savePasswordOnDevice !== false;
-        const tickerItems = new Array(14)
-          .fill("Fuelling a Thinking Revolution")
-          .map(
-            (item, index) =>
-              `<span class="auth-top-ticker-item" ${index > 6 ? 'aria-hidden="true"' : ""}>${escapeHtml(
-                item,
-              )}</span>`,
-          )
-          .join("");
+        const overviewStats = getOverviewStats();
+        const openDebaterRegistrations = getOpenRegistrationTournaments("debater");
+        const openJudgeRegistrations = getOpenRegistrationTournaments("judge");
+        const registrationTournamentCount = new Set(
+          [...openDebaterRegistrations, ...openJudgeRegistrations].map((tournament) =>
+            String(tournament?.id || "").trim(),
+          ),
+        ).size;
+        const institutionCount = new Set(
+          state.tournaments.flatMap((tournament) =>
+            [
+              ...(tournament.teams || []).map((team) => team?.institution),
+              ...(tournament.judges || []).map((judge) => judge?.institution),
+              ...(tournament.participants || []).map((participant) => participant?.institution),
+            ]
+              .map((value) => String(value || "").trim())
+              .filter(Boolean),
+          ),
+        ).size;
+        const publicFeatureCards = [
+          {
+            title: "Tabbing",
+            body: "Create formats, build rounds, manage rooms, and keep standings moving from one workspace.",
+          },
+          {
+            title: "Judge allocation",
+            body: "Assign panels, track clashes, and keep ballot flow attached to the correct rooms.",
+          },
+          {
+            title: "Motion release",
+            body: "Publish motions, prep windows, and round notes without burying judges or debaters in extra steps.",
+          },
+          {
+            title: "Registration",
+            body: "Let debaters and judges register directly for open tournaments with private links created automatically.",
+          },
+          {
+            title: "Rankings",
+            body: "Keep team points, speaker scores, averages, and ties visible in the right format for each event.",
+          },
+          {
+            title: "Results publishing",
+            body: "Control when draws, standings, ballots, and feedback become visible to the right people.",
+          },
+        ];
+        const onboardingSteps = [
+          {
+            step: "1",
+            title: "Create the tournament",
+            body: "Set the format, round count, registration access, and publishing rules in a few core fields.",
+          },
+          {
+            step: "2",
+            title: "Run rounds and staffing",
+            body: "Manage pairings, judge allocations, motions, ballots, and room-level issues from the tournament workspace.",
+          },
+          {
+            step: "3",
+            title: "Publish what matters",
+            body: "Release draws, standings, speaker rankings, and feedback when each round is ready.",
+          },
+        ];
 
         return `
           <div class="auth-page">
-            <div class="auth-top-ticker" aria-label="JADE Hummingbird motto ticker">
-              <div class="auth-top-ticker-track">
-                ${tickerItems}
-              </div>
-            </div>
             <div class="page-shell">
-              <div class="auth-shell">
-              <section class="hero-panel auth-hero">
-                <div class="stack">
-                  ${renderBrandLockup({
-                    kicker: "JADE Hummingbird Platform",
-                    size: "hero featured",
-                    subtitle:
-                      "Premium tournament operations, controlled publishing, and competitor access that stays calm.",
-                  })}
-                  <div>
-                    <p class="eyebrow">Designed For Serious Debate</p>
-                    <h1>Run tab with polish. Keep competitor access simple.</h1>
-                    <p class="hero-copy">
-                      JADE Hummingbird gives managers fine control over tournament formats, publishing, permissions, feedback, and private links without forcing competitors through staff-heavy screens.
-                    </p>
-                  </div>
-                  <div class="hero-feature-list">
-                    <div class="hero-feature">
-                      <strong>Quiet competitor access</strong>
-                      <p class="muted">Competitors land on only the rounds, standings, speaker scores, and feedback they actually need.</p>
-                    </div>
-                    <div class="hero-feature">
-                      <strong>Flexible tournament structures</strong>
-                      <p class="muted">Run BP, American Parliamentary, JADE Parliamentary, Iron Person BP, World Schools, or a fully custom tournament format.</p>
-                    </div>
-                    <div class="hero-feature">
-                      <strong>Manager-grade control</strong>
-                      <p class="muted">Permissions, publishing, judging, and staff access can all be managed with clean email-based controls.</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="stack">
-                  <div class="hero-stat-band">
-                    <div class="hero-stat-chip">
-                      <span class="muted">Authentication</span>
-                      <strong>Password protected</strong>
-                    </div>
-                    <div class="hero-stat-chip">
-                      <span class="muted">Private access</span>
-                      <strong>Personal email links</strong>
-                    </div>
-                    <div class="hero-stat-chip">
-                      <span class="muted">Control</span>
-                      <strong>Manager-led configuration</strong>
-                    </div>
-                  </div>
-                  <div class="inline-card auth-about-card">
-                    <h3>About JADE</h3>
-                    <p class="manager-note">
-                      Built for calm competitor access and flexible tournament control, with an About page that explains JADE’s wider mission in debating and empowerment.
-                    </p>
-                    <div class="button-row">
-                      <button class="secondary-button" type="button" data-action="set-view" data-view="about">Open About Page</button>
-                    </div>
-                  </div>
-                </div>
-              </section>
-              <section class="auth-card">
-                <div class="auth-layout">
-                  <div class="auth-primary">
-                    <div class="form-shell">
-                      <div class="section-heading">
-                        <div>
-                          <p class="eyebrow">Sign In</p>
-                          <h2>Access JADE Hummingbird</h2>
-                        </div>
-                        <span class="role-pill">Password-protected access</span>
+              <div class="stack public-front-page">
+                <section class="hero-panel auth-hero public-hero-panel">
+                  <div class="public-hero-grid">
+                    <div class="stack public-hero-copy">
+                      ${renderBrandLockup({
+                        kicker: "Hummingbird Tab System",
+                        size: "hero featured",
+                        subtitle: "Professional debate tournament management.",
+                      })}
+                      <div>
+                        <h1>Run debate tournaments without the clutter.</h1>
+                        <p class="hero-copy">
+                          Manage tabbing, judge allocation, team registration, motions, rankings, and results from one calmer workspace that stays readable under pressure.
+                        </p>
                       </div>
-                      ${renderFlash()}
-                      <form class="stack" data-form="sign-in" autocomplete="on">
-                        <label>
-                          Email Address
-                          <input type="email" name="email" value="${escapeHtml(preferredEmail)}" placeholder="you@example.com" autocomplete="username" required />
-                        </label>
-                        <label>
-                          Password
-                          <input type="password" name="password" value="${escapeHtml(preferredPassword)}" placeholder="Your password" autocomplete="current-password" required />
-                        </label>
-                        <label class="checkbox-row">
-                          <input type="checkbox" name="savePasswordOnDevice" ${checked(
-                            savePasswordChecked,
-                          )} />
-                          <span>Save Password Securely On This Device</span>
-                        </label>
-                        <button type="submit">Sign In</button>
-                      </form>
-                      <p class="auth-footer">
-                        Use the same email address that was assigned to your tournament access. If you enable device saving, JADE Hummingbird can also bring that password back into this device-local app experience.
-                      </p>
+                      <div class="button-row wrap-row public-cta-row">
+                        <a href="${signupDisabled ? "#auth-sign-in" : "#auth-sign-up"}">Create Tournament</a>
+                        <a class="secondary-button" href="#auth-sign-in">Sign In</a>
+                        ${
+                          signupDisabled
+                            ? `<button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Register For A Tournament</button>`
+                            : `<button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Register For A Tournament</button>`
+                        }
+                        <a class="secondary-button" href="#platform-overview">Learn More</a>
+                      </div>
+                      <div class="kpi-line public-hero-tags">
+                        <span>Tabbing</span>
+                        <span>Judge allocation</span>
+                        <span>Registration</span>
+                        <span>Results publishing</span>
+                      </div>
                     </div>
-                    <div class="auth-security-note">
-                      <p class="eyebrow">Best Experience</p>
-                      <h3>Competitors should usually use their private link</h3>
-                      <p>
-                        Private links open a quieter, compact portal built around rounds, standings, speaker scores, and feedback. Staff should sign in here for management tools.
-                      </p>
+                    <div class="public-trust-grid">
+                      <article class="public-trust-card">
+                        <span class="muted">Tournaments</span>
+                        <strong>${escapeHtml(overviewStats.visibleTournaments)}</strong>
+                        <p class="fine-print">Events already configured in the shared workspace.</p>
+                      </article>
+                      <article class="public-trust-card">
+                        <span class="muted">Open registration</span>
+                        <strong>${escapeHtml(registrationTournamentCount)}</strong>
+                        <p class="fine-print">Tournaments currently accepting debater or judge sign-ups.</p>
+                      </article>
+                      <article class="public-trust-card">
+                        <span class="muted">Accounts</span>
+                        <strong>${escapeHtml(overviewStats.registeredUsers)}</strong>
+                        <p class="fine-print">Stored user accounts across managers, judges, debaters, and members.</p>
+                      </article>
+                      <article class="public-trust-card">
+                        <span class="muted">Institutions</span>
+                        <strong>${escapeHtml(institutionCount)}</strong>
+                        <p class="fine-print">Institution records already represented across tournaments and judging.</p>
+                      </article>
                     </div>
                   </div>
-                  <div class="auth-support-grid">
-                    <section class="auth-support-card">
-                      <div class="section-heading">
-                        <div>
-                          <p class="eyebrow">Password Help</p>
-                          <h3>Forgot your password?</h3>
+                </section>
+
+                <section id="platform-overview" class="surface">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Platform overview</p>
+                      <h2>Everything the system handles</h2>
+                    </div>
+                    <span class="role-pill">Clearer first view</span>
+                  </div>
+                  <div class="public-feature-grid">
+                    ${publicFeatureCards
+                      .map(
+                        (item) => `
+                          <article class="public-feature-card">
+                            <h3>${escapeHtml(item.title)}</h3>
+                            <p>${escapeHtml(item.body)}</p>
+                          </article>
+                        `,
+                      )
+                      .join("")}
+                  </div>
+                </section>
+
+                <section class="surface">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">How it works</p>
+                      <h2>Three steps from setup to published results</h2>
+                    </div>
+                    <span class="role-pill">Managers, judges, competitors</span>
+                  </div>
+                  <div class="public-steps-grid">
+                    ${onboardingSteps
+                      .map(
+                        (item) => `
+                          <article class="public-step-card">
+                            <span class="mini-pill success">Step ${escapeHtml(item.step)}</span>
+                            <h3>${escapeHtml(item.title)}</h3>
+                            <p>${escapeHtml(item.body)}</p>
+                          </article>
+                        `,
+                      )
+                      .join("")}
+                  </div>
+                </section>
+
+                <section class="auth-card">
+                  <div class="auth-layout">
+                    <div class="auth-primary" id="auth-sign-in">
+                      <div class="form-shell">
+                        <div class="section-heading">
+                          <div>
+                            <p class="eyebrow">Sign In</p>
+                            <h2>Access your workspace</h2>
+                          </div>
+                          <span class="role-pill">Password protected</span>
                         </div>
+                        ${renderFlash()}
+                        <form class="stack" data-form="sign-in" autocomplete="on">
+                          <label>
+                            Email address
+                            <input type="email" name="email" value="${escapeHtml(preferredEmail)}" placeholder="you@example.com" autocomplete="username" required />
+                          </label>
+                          <label>
+                            Password
+                            <input type="password" name="password" value="${escapeHtml(preferredPassword)}" placeholder="Your password" autocomplete="current-password" required />
+                          </label>
+                          <label class="checkbox-row">
+                            <input type="checkbox" name="savePasswordOnDevice" ${checked(
+                              savePasswordChecked,
+                            )} />
+                            <span>Save password on this device</span>
+                          </label>
+                          <button type="submit">Sign In</button>
+                        </form>
+                        <p class="auth-footer">
+                          Use the email address attached to your tournament access. Competitors can also skip staff screens entirely by using their private link.
+                        </p>
                       </div>
-                      ${
-                        state.appSettings.auth.allowPasswordResetRequests
-                          ? `
-                            <form class="stack" data-form="forgot-password">
-                              <label>
-                                Email address
-                                <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
-                              </label>
-                              <label>
-                                Note for the manager
-                                <textarea name="note" rows="2" placeholder="Optional context, such as the tournament you need to access."></textarea>
-                              </label>
-                              <button type="submit">Send Reset Request</button>
-                            </form>
-                            <p class="auth-footer">The request appears in the manager dashboard for review and a manual reset.</p>
-                          `
-                          : `<div class="alert info">Password reset requests are currently disabled. Please contact the manager directly.</div>`
-                      }
-                    </section>
-                    <section class="auth-support-card">
-                      <div class="section-heading">
-                        <div>
-                          <p class="eyebrow">${escapeHtml(
-                            needsBootstrapManager ? "First-Time Setup" : "Create Account",
-                          )}</p>
-                          <h3>${escapeHtml(
-                            needsBootstrapManager
-                              ? "Create the first system manager"
-                              : "Create your password",
-                          )}</h3>
+                      <div class="auth-security-note">
+                        <h3>Using a private link?</h3>
+                        <p>
+                          Private links open the compact competitor portal with rounds, standings, speaker scores, and feedback already focused for that account.
+                        </p>
+                      </div>
+                    </div>
+                    <div class="auth-support-grid public-support-grid">
+                      <section class="auth-support-card">
+                        <div class="section-heading">
+                          <div>
+                            <p class="eyebrow">Password Help</p>
+                            <h3>Forgot your password?</h3>
+                          </div>
                         </div>
-                      </div>
-                      ${
-                        needsBootstrapManager
-                          ? `<div class="alert info">This local workspace does not have a System Manager yet. The first account created here will become the first System Manager for this workspace.</div>`
-                          : ""
-                      }
-                      ${
-                        signupDisabled
-                          ? `<div class="alert warning">Self sign-up is currently disabled by the manager.</div>`
-                          : `
-                            <form class="stack" data-form="sign-up" autocomplete="on">
-                              <label>
-                                Full name
-                                <input type="text" name="name" placeholder="Your name" autocomplete="name" required />
-                              </label>
-                              <label>
-                                Email address
-                                <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
-                              </label>
-                              <div class="field-grid two">
+                        ${
+                          state.appSettings.auth.allowPasswordResetRequests
+                            ? `
+                              <form class="stack" data-form="forgot-password">
                                 <label>
-                                  Password
-                                  <input type="password" name="password" placeholder="Create password" autocomplete="new-password" required />
+                                  Email address
+                                  <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
                                 </label>
                                 <label>
-                                  Confirm password
-                                  <input type="password" name="confirmPassword" placeholder="Repeat password" autocomplete="new-password" required />
+                                  Note for the manager
+                                  <textarea name="note" rows="2" placeholder="Optional context, such as the tournament you need to access."></textarea>
                                 </label>
-                              </div>
-                              <label class="checkbox-row">
-                                <input type="checkbox" name="savePasswordOnDevice" ${checked(
-                                  savePasswordChecked,
-                                )} />
-                                <span>Save Password Securely On This Device</span>
-                              </label>
-                              <button type="submit">${escapeHtml(
-                                needsBootstrapManager
-                                  ? "Create System Manager"
-                                  : "Create Account",
-                              )}</button>
-                            </form>
-                          `
-                      }
-                    </section>
-                    <section class="auth-support-card">
-                      <div class="section-heading">
-                        <div>
-                          <p class="eyebrow">Tournament Registration</p>
-                          <h3>Register directly for an event</h3>
+                                <button type="submit">Send Reset Request</button>
+                              </form>
+                              <p class="auth-footer">Managers can review and resolve reset requests from the dashboard.</p>
+                            `
+                            : `<div class="alert info">Password reset requests are currently disabled. Please contact a manager directly.</div>`
+                        }
+                      </section>
+                      <section class="auth-support-card" id="auth-sign-up">
+                        <div class="section-heading">
+                          <div>
+                            <p class="eyebrow">${escapeHtml(
+                              needsBootstrapManager ? "First-Time Setup" : "Create Account",
+                            )}</p>
+                            <h3>${escapeHtml(
+                              needsBootstrapManager
+                                ? "Create the first system manager"
+                                : "Create your password",
+                            )}</h3>
+                          </div>
                         </div>
-                      </div>
-                      <p>
-                        Debaters can register teams and judges can declare affiliation before signing in, then JADE Hummingbird drops them straight into their private access links.
-                      </p>
-                      <div class="button-row wrap-row">
-                        <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Debater Registration</button>
-                        <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-judge">Judge Registration</button>
-                      </div>
-                      <p class="auth-footer">${escapeHtml(
-                        getOpenRegistrationTournaments("debater").length +
-                          " debater events and " +
-                          getOpenRegistrationTournaments("judge").length +
-                          " judge events are currently accepting registrations.",
-                      )}</p>
-                    </section>
-                    <section class="auth-support-card">
-                      <div class="section-heading">
-                        <div>
-                          <p class="eyebrow">Regional Operations</p>
-                          <h3>Coordinator portal</h3>
+                        ${
+                          needsBootstrapManager
+                            ? `<div class="alert info">This workspace does not have a system manager yet. The first account created here will become the first system manager.</div>`
+                            : ""
+                        }
+                        ${
+                          signupDisabled
+                            ? `<div class="alert warning">Self sign-up is currently disabled by a manager.</div>`
+                            : `
+                              <form class="stack" data-form="sign-up" autocomplete="on">
+                                <label>
+                                  Full name
+                                  <input type="text" name="name" placeholder="Your name" autocomplete="name" required />
+                                </label>
+                                <label>
+                                  Email address
+                                  <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
+                                </label>
+                                <div class="field-grid two">
+                                  <label>
+                                    Password
+                                    <input type="password" name="password" placeholder="Create password" autocomplete="new-password" required />
+                                  </label>
+                                  <label>
+                                    Confirm password
+                                    <input type="password" name="confirmPassword" placeholder="Repeat password" autocomplete="new-password" required />
+                                  </label>
+                                </div>
+                                <label class="checkbox-row">
+                                  <input type="checkbox" name="savePasswordOnDevice" ${checked(
+                                    savePasswordChecked,
+                                  )} />
+                                  <span>Save password on this device</span>
+                                </label>
+                                <button type="submit">${escapeHtml(
+                                  needsBootstrapManager
+                                    ? "Create System Manager"
+                                    : "Create Account",
+                                )}</button>
+                              </form>
+                            `
+                        }
+                      </section>
+                      <section class="auth-support-card">
+                        <div class="section-heading">
+                          <div>
+                            <p class="eyebrow">Tournament Registration</p>
+                            <h3>Register directly for an event</h3>
+                          </div>
                         </div>
-                      </div>
-                      <p>
-                        Regional Coordinators and Deputy Regional Coordinators sign in here to file biweekly school reports and request transport stipends for their assigned region.
-                      </p>
-                      <div class="button-row wrap-row">
-                        <a class="secondary-button" href="${escapeHtml(
-                          getRegionalOperationsLandingLink(),
-                        )}">Open Regional Operations</a>
-                      </div>
-                      <p class="auth-footer">${escapeHtml(
-                        getRegionalOperationsUsers().length +
-                          " regional staff account" +
-                          (getRegionalOperationsUsers().length === 1 ? "" : "s") +
-                          " are currently active in the system.",
-                      )}</p>
-                    </section>
-                    <section class="auth-support-card">
-                      <p class="eyebrow">Security</p>
-                      <h3>Access notes</h3>
-                      <p>
-                        New passwords must be at least ${escapeHtml(
+                        <p>
+                          Debaters can register teams, and judges can declare institutional affiliation or independence before entering the main workspace.
+                        </p>
+                        <div class="button-row wrap-row">
+                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Debater Registration</button>
+                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-judge">Judge Registration</button>
+                        </div>
+                        <p class="auth-footer">${escapeHtml(
+                          openDebaterRegistrations.length +
+                            " debater events and " +
+                            openJudgeRegistrations.length +
+                            " judge events are currently live for registration.",
+                        )}</p>
+                      </section>
+                      <section class="auth-support-card">
+                        <div class="section-heading">
+                          <div>
+                            <p class="eyebrow">More Access</p>
+                            <h3>Other public entry points</h3>
+                          </div>
+                        </div>
+                        <p>
+                          Use the About page for the platform mission, or open the Regional Operations portal if you are filing coordinator reports and stipend requests.
+                        </p>
+                        <div class="button-row wrap-row">
+                          <button class="secondary-button" type="button" data-action="set-view" data-view="about">About The Platform</button>
+                          <a class="secondary-button" href="${escapeHtml(
+                            getRegionalOperationsLandingLink(),
+                          )}">Regional Operations</a>
+                        </div>
+                        <p class="auth-footer">Passwords must be at least ${escapeHtml(
                           state.appSettings.auth.minimumPasswordLength,
-                        )} characters long, and JADE Hummingbird stores only a salted, hardened password hash rather than the raw password.
-                      </p>
-                      <p class="auth-footer">
-                        If a manager has already granted your email tournament access, signing up with that same email address will attach those permissions automatically after login. Saved passwords are delegated to the device password manager when supported.
-                      </p>
-                    </section>
+                        )} characters long.</p>
+                      </section>
+                    </div>
                   </div>
                 </div>
-              </section>
-              </div>
             </div>
           </div>
         `;
@@ -13301,19 +13441,6 @@
 
         return `
           <div class="auth-page">
-            <div class="auth-top-ticker" aria-label="JADE Hummingbird motto ticker">
-              <div class="auth-top-ticker-track">
-                ${new Array(14)
-                  .fill("Fuelling a Thinking Revolution")
-                  .map(
-                    (item, index) =>
-                      `<span class="auth-top-ticker-item" ${index > 6 ? 'aria-hidden="true"' : ""}>${escapeHtml(
-                        item,
-                      )}</span>`,
-                  )
-                  .join("")}
-              </div>
-            </div>
             <div class="page-shell">
               <div class="auth-shell">
                 <section class="hero-panel auth-hero">
@@ -13535,19 +13662,6 @@
 
         return `
           <div class="auth-page">
-            <div class="auth-top-ticker" aria-label="JADE Hummingbird motto ticker">
-              <div class="auth-top-ticker-track">
-                ${new Array(14)
-                  .fill("Fuelling a Thinking Revolution")
-                  .map(
-                    (item, index) =>
-                      `<span class="auth-top-ticker-item" ${index > 6 ? 'aria-hidden="true"' : ""}>${escapeHtml(
-                        item,
-                      )}</span>`,
-                  )
-                  .join("")}
-              </div>
-            </div>
             <div class="page-shell">
               <div class="auth-shell">
                 <section class="hero-panel auth-hero">
@@ -13675,25 +13789,26 @@
           .filter((tournament) => !menuPinnedTournaments.some((entry) => entry.id === tournament.id))
           .slice(0, 2);
         const menuSubtitle = capabilities.regionalPortalMode
-          ? "A dedicated regional workspace for coordinator accounts, reports, and stipend requests."
+          ? "Regional coordination, reporting, and stipend requests."
           : capabilities.judgeOnly
-          ? "Judging access with your assigned rooms, public tournament details, and private links."
+          ? "Judging access with your assigned rooms and private links."
           : capabilities.regionalOnly
-            ? "Regional reporting, stipend requests, and shared operations history in one portal."
+            ? "Regional reporting and shared operations history."
           : capabilities.competitorOnly
-            ? "Private access for your rounds, results, feedback, and essential JADE Hummingbird details."
+            ? "Private access for rounds, results, and feedback."
             : !capabilities.canManageAny
-              ? "A streamlined workspace for public tournament details and your private access URL."
-            : "Staff workspace for permissions, publishing, and tournament operations.";
+              ? "Tournament tracking and private access."
+            : "Staff workspace for tournament operations.";
 
         return `
           <a class="skip-link" href="#workspace-main">Skip to main content</a>
           <aside class="menu-panel" role="navigation" aria-label="Primary workspace navigation">
             <div class="menu-brand">
               ${renderBrandLockup({
-                kicker: "JADE Hummingbird Menu",
+                kicker: "Workspace Menu",
                 size: "compact",
                 subtitle: menuSubtitle,
+                showSubtitle: false,
               })}
             </div>
             <div class="inline-card menu-welcome-card">
@@ -13714,25 +13829,6 @@
                       )}" aria-current="${currentView === item.key ? "page" : "false"}">
                         <span class="menu-nav-copy">
                           <strong>${escapeHtml(item.label)}</strong>
-                          <span>${escapeHtml(
-                            item.key === "overview"
-                              ? "Start here"
-                              : item.key === "tournaments"
-                                ? "Events and tab rooms"
-                                : item.key === "launch"
-                                  ? "Create and stage new events"
-                                : item.key === "search"
-                                  ? "Profiles and history"
-                                  : item.key === "judging"
-                                    ? "Assigned ballots"
-                                    : item.key === "people"
-                                      ? "Accounts and appointees"
-                                      : item.key === "links"
-                                        ? "Private access URLs"
-                                        : item.key === "about"
-                                          ? "Platform context"
-                                          : "Personal workspace setup",
-                          )}</span>
                         </span>
                         <span class="menu-nav-count">${escapeHtml(item.count)}</span>
                       </button>
@@ -13967,13 +14063,13 @@
                   }</p>
                   <h2>${
                     capabilities.canJudgeAny
-                      ? "Assigned rooms and live tournament access"
-                      : "Follow the tournaments that matter to you"
+                      ? "See your judging rooms and live events quickly"
+                      : "See the tournaments that matter to you"
                   }</h2>
                   <p class="muted">${
                     capabilities.canJudgeAny
-                      ? "Everything you need for judging and public tournament tracking stays in one clean landing view."
-                      : "Use this landing view to jump into live tournaments, public boards, and your private access."
+                      ? "Your judging assignments, public boards, and private access stay close together in one simple overview."
+                      : "Use this overview to jump straight into tournaments, public boards, and your private access."
                   }</p>
                 </div>
                 ${renderOverviewLaunchDeck([
@@ -14057,10 +14153,10 @@
               </div>
             </section>
             ${renderSmartInsightSection({
-              eyebrow: "Smart Focus",
-              title: "What the workspace thinks you should do next",
+              eyebrow: "Next actions",
+              title: "What needs attention next",
               intro:
-                "JADE Hummingbird is scanning your live access, rooms, tournaments, and private links to surface the cleanest next move.",
+                "This view highlights the most useful next action from your live tournaments, rooms, and private access.",
               items: workspaceSmartInsights,
               badgeLabel: workspaceSmartInsights.length + " live cues",
               emptyMessage:
@@ -14194,8 +14290,8 @@
             <div class="overview-quick-row">
               <div class="summary-main">
                 <p class="eyebrow">Operations overview</p>
-                <h2>Run the workspace like a control deck</h2>
-                <p class="muted">Launch the next action, scan the live totals, then work the queues that are actually moving.</p>
+                <h2>Run debate tournaments from one workspace</h2>
+                <p class="muted">See the live totals, open the right tournament, and handle the next task without wading through extra panels.</p>
               </div>
               ${renderOverviewLaunchDeck([
                 {
@@ -14265,10 +14361,10 @@
             </div>
           </section>
           ${renderSmartInsightSection({
-            eyebrow: "Hummingbird Intelligence",
+            eyebrow: "Next actions",
             title: "What deserves attention next",
             intro:
-              "The workspace is now reading tournament pressure, people queues, and access flow to suggest the strongest manager moves first.",
+              "This overview surfaces the tournaments, staffing queues, and access issues that most likely need a manager first.",
             items: workspaceSmartInsights,
             badgeLabel: workspaceSmartInsights.length + " live priorities",
             emptyMessage:
@@ -18971,158 +19067,194 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Create Tournament</p>
-                <h2>Launch a new event</h2>
+                <p class="eyebrow">Tournament launcher</p>
+                <h2>Create a new tournament</h2>
               </div>
               <span class="role-pill">${escapeHtml(getFormatLabel({ format: defaults.format }))}</span>
             </div>
+            <p class="muted launch-lead">
+              Start with the essentials here. You can refine rounds, staffing, motions, and publication details inside the tournament workspace after launch.
+            </p>
             <form class="stack" data-form="create-tournament">
-              <div class="field-grid three">
-                <label>
-                  Tournament name
-                  <input type="text" name="name" placeholder="Caribbean Debates Open" required />
-                </label>
-                <label>
-                  Code
-                  <input type="text" name="code" placeholder="CDO-26" required />
-                </label>
-                <label>
-                  Format preset
-                  <select name="format">${getFormatOptionMarkup(defaults.format)}</select>
-                </label>
+              <div class="stack launch-form-section">
+                <div class="section-heading">
+                  <div>
+                    <h3>Basics</h3>
+                    <p class="fine-print">Name the tournament, choose the format, and set the round count.</p>
+                  </div>
+                </div>
+                <div class="field-grid three">
+                  <label>
+                    Tournament name
+                    <input type="text" name="name" placeholder="Caribbean Debates Open" required />
+                  </label>
+                  <label>
+                    Code
+                    <input type="text" name="code" placeholder="CDO-26" required />
+                  </label>
+                  <label>
+                    Format
+                    <select name="format">${getFormatOptionMarkup(defaults.format)}</select>
+                  </label>
+                </div>
+                <div class="field-grid three">
+                  <label>
+                    Participant model
+                    <select name="participantModel">${getParticipantModelOptions(
+                      defaults.participantModel,
+                    )}</select>
+                  </label>
+                  <label>
+                    Rounds
+                    <input type="number" min="1" max="${escapeHtml(MAX_TOURNAMENT_ROUNDS)}" name="rounds" value="${escapeHtml(
+                      defaults.rounds,
+                    )}" required />
+                  </label>
+                  <label>
+                    Break size
+                    <input type="number" min="0" max="64" name="breakSize" value="${escapeHtml(
+                      defaults.breakSize,
+                    )}" placeholder="Optional" />
+                  </label>
+                </div>
               </div>
-              <p class="fine-print">
-                The preset only gives you a starting point. You can override the structure, scoring, and round design below.
-              </p>
-              <p class="fine-print" data-format-guidance>${escapeHtml(defaultFormatGuidance)}</p>
-              <div class="field-grid three">
-                <label>
-                  Custom format name
-                  <input type="text" name="customFormatName" placeholder="Optional custom label" />
-                </label>
-                <label>
-                  Participant model
-                  <select name="participantModel">${getParticipantModelOptions(
-                    defaults.participantModel,
-                  )}</select>
-                </label>
-                <label>
-                  Rounds
-                  <input type="number" min="1" max="${escapeHtml(MAX_TOURNAMENT_ROUNDS)}" name="rounds" value="${escapeHtml(
-                    defaults.rounds,
-                  )}" required />
-                </label>
+
+              <div class="stack launch-form-section">
+                <div class="section-heading">
+                  <div>
+                    <h3>Room structure</h3>
+                    <p class="fine-print">Use the preset as a starting point, then adjust the room shape if needed.</p>
+                  </div>
+                </div>
+                <div class="field-grid three">
+                  <label>
+                    Teams per room
+                    <input type="number" min="1" max="8" name="teamsPerRoom" value="${escapeHtml(
+                      defaults.teamsPerRoom,
+                    )}" placeholder="Optional" />
+                  </label>
+                  <label>
+                    Team size
+                    <input type="number" min="1" max="8" name="teamSize" value="${escapeHtml(
+                      defaults.teamSize,
+                    )}" placeholder="Optional" />
+                  </label>
+                  <label>
+                    Speakers per side
+                    <input type="number" min="1" max="8" name="speakersPerSide" value="${escapeHtml(
+                      defaults.speakersPerSide,
+                    )}" placeholder="Optional" />
+                  </label>
+                </div>
+                <p class="fine-print" data-format-guidance>${escapeHtml(defaultFormatGuidance)}</p>
               </div>
-              <div class="field-grid three">
-                <label>
-                  Teams per room
-                  <input type="number" min="1" max="8" name="teamsPerRoom" value="${escapeHtml(
-                    defaults.teamsPerRoom,
-                  )}" placeholder="Optional" />
-                </label>
-                <label>
-                  Team size
-                  <input type="number" min="1" max="8" name="teamSize" value="${escapeHtml(
-                    defaults.teamSize,
-                  )}" placeholder="Optional" />
-                </label>
-                <label>
-                  Speakers per side
-                  <input type="number" min="1" max="8" name="speakersPerSide" value="${escapeHtml(
-                    defaults.speakersPerSide,
-                  )}" placeholder="Optional" />
-                </label>
+
+              <div class="stack launch-form-section">
+                <div class="section-heading">
+                  <div>
+                    <h3>Scoring and visibility</h3>
+                    <p class="fine-print">Choose how results are tracked and what can be seen publicly.</p>
+                  </div>
+                </div>
+                <div class="field-grid two">
+                  <label>
+                    <span data-scoring-method-label>${escapeHtml(
+                      getScoringMethodFieldLabel(defaults.participantModel, defaults.format),
+                    )}</span>
+                    <select name="scoringMethod">${getScoringMethodOptionsMarkup(
+                      defaults.scoringMethod,
+                      defaults.participantModel,
+                      defaults.format,
+                    )}</select>
+                  </label>
+                  <label>
+                    Motion style
+                    <input type="text" name="motionStyle" value="${escapeHtml(
+                      defaults.motionStyle,
+                    )}" required />
+                  </label>
+                </div>
+                ${renderScoringOptionToggles(defaults)}
+                <p class="fine-print" data-scoring-note>${escapeHtml(
+                  getScoringProfileHelperText({
+                    format: defaults.format,
+                    participantModel: defaults.participantModel,
+                  }),
+                )}</p>
+                <div class="field-grid two launch-toggle-grid">
+                  <label class="checkbox-row">
+                    <input type="checkbox" name="dashboardListed" ${checked(
+                      defaults.dashboardListed,
+                    )} />
+                    <span>List tournament publicly</span>
+                  </label>
+                  <label class="checkbox-row">
+                    <input type="checkbox" name="publicStandings" ${checked(
+                      defaults.publicStandings,
+                    )} />
+                    <span>Publish standings publicly</span>
+                  </label>
+                  <label class="checkbox-row">
+                    <input type="checkbox" name="publicDraw" ${checked(
+                      defaults.publicDraw,
+                    )} />
+                    <span>Publish the draw publicly</span>
+                  </label>
+                  <label class="checkbox-row">
+                    <input type="checkbox" name="registrationDebaterOpen" checked />
+                    <span>Open debater registration</span>
+                  </label>
+                  <label class="checkbox-row">
+                    <input type="checkbox" name="registrationJudgeOpen" checked />
+                    <span>Open judge registration</span>
+                  </label>
+                </div>
               </div>
-              <div class="field-grid three">
-                <label>
-                  Break size
-                  <input type="number" min="0" max="64" name="breakSize" value="${escapeHtml(
-                    defaults.breakSize,
-                  )}" placeholder="Optional" />
-                </label>
-                <label>
-                  <span data-scoring-method-label>${escapeHtml(
-                    getScoringMethodFieldLabel(defaults.participantModel, defaults.format),
-                  )}</span>
-                  <select name="scoringMethod">${getScoringMethodOptionsMarkup(
-                    defaults.scoringMethod,
-                    defaults.participantModel,
-                    defaults.format,
-                  )}</select>
-                </label>
-                <label>
-                  Motion style
-                  <input type="text" name="motionStyle" value="${escapeHtml(
-                    defaults.motionStyle,
-                )}" required />
-                </label>
-              </div>
-              ${renderScoringOptionToggles(defaults)}
-              <p class="fine-print">
-                Leave these defaults blank if your tournaments do not use a fixed room size, team size, or break. For points, choose the standard team or individual option that best fits the event.
-              </p>
-              <p class="fine-print" data-scoring-note>${escapeHtml(
-                getScoringProfileHelperText({
-                  format: defaults.format,
-                  participantModel: defaults.participantModel,
-                }),
-              )}</p>
-              <div class="field-grid two">
-                <label class="checkbox-row">
-                  <input type="checkbox" name="randomTeamsAllowed" ${checked(
-                    defaults.randomTeamsAllowed,
-                  )} />
-                  <span>Allow random teams</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="dashboardListed" ${checked(
-                    defaults.dashboardListed,
-                  )} />
-                  <span>Show on dashboard listing</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="publicStandings" ${checked(
-                    defaults.publicStandings,
-                  )} />
-                  <span>Show standings publicly</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="publicDraw" ${checked(
-                    defaults.publicDraw,
-                  )} />
-                  <span>Show draw publicly</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="usePublicTeamAliases" />
-                  <span>Use public team aliases on public boards</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="registrationDebaterOpen" checked />
-                  <span>Open debater registration publicly</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="registrationJudgeOpen" checked />
-                  <span>Open judge registration publicly</span>
-                </label>
-              </div>
-              <label>
-                Notes
-                <textarea name="notes" rows="3" placeholder="Special categories, break notes, or logistics"></textarea>
-              </label>
-              <label>
-                Announcement
-                <textarea name="announcement" rows="2" placeholder="What should competitors see first?"></textarea>
-              </label>
-              <label>
-                Custom rules
-                <textarea name="customRules" rows="3" placeholder="Use this for non-standard formats or special tab rules."></textarea>
-              </label>
+
+              <details class="launcher-advanced">
+                <summary>
+                  <strong>Advanced options</strong>
+                  <span>Custom labels, announcements, and special rules</span>
+                </summary>
+                <div class="stack launcher-advanced-body">
+                  <div class="field-grid two">
+                    <label>
+                      Custom format name
+                      <input type="text" name="customFormatName" placeholder="Optional custom label" />
+                    </label>
+                    <label>
+                      Announcement
+                      <textarea name="announcement" rows="2" placeholder="What should competitors see first?"></textarea>
+                    </label>
+                  </div>
+                  <label>
+                    Notes
+                    <textarea name="notes" rows="3" placeholder="Special categories, logistics, or break notes"></textarea>
+                  </label>
+                  <label>
+                    Custom rules
+                    <textarea name="customRules" rows="3" placeholder="Use this for non-standard formats or special tab rules."></textarea>
+                  </label>
+                  <div class="field-grid two">
+                    <label class="checkbox-row">
+                      <input type="checkbox" name="randomTeamsAllowed" ${checked(
+                        defaults.randomTeamsAllowed,
+                      )} />
+                      <span>Allow random team generation</span>
+                    </label>
+                    <label class="checkbox-row">
+                      <input type="checkbox" name="usePublicTeamAliases" />
+                      <span>Use public team aliases on boards</span>
+                    </label>
+                  </div>
+                </div>
+              </details>
               <div class="stack">
                 <div class="section-heading">
                   <div>
                     <h3>Round-by-round structure planner</h3>
                     <p class="fine-print">
-                      This planner now reacts to the round count and base structure above. Use it to mark in-rounds versus outrounds and set round-level pairing plans, including random in-rounds and folded break rounds, without leaving the launcher.
+                      This planner reacts to the round count and format above. Use it when a tournament needs round-level changes before launch.
                     </p>
                   </div>
                   <span class="round-plan-badge">Optional</span>
@@ -19132,7 +19264,7 @@
                   tournamentFormat: defaults.format,
                 })}
               </div>
-              <button type="submit">Create advanced tournament</button>
+              <button type="submit">Launch Tournament</button>
             </form>
           </section>
         `;
@@ -19148,12 +19280,12 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Tournament Launcher</p>
-                <h2>Launch a new event without crowding tournament management</h2>
+                <h2>Create a tournament and open it when you are ready</h2>
               </div>
               <span class="role-pill">${escapeHtml(openTournaments.length)} open now</span>
             </div>
-            <p class="fine-print">
-              Use this dashboard only for creating and staging new tournaments. Ongoing tab work stays inside each tournament room.
+            <p class="muted launch-lead">
+              Keep the setup lean here, then move into the tournament workspace for rounds, staffing, registration review, and publishing.
             </p>
           </section>
           ${renderCreateTournamentForm()}
@@ -21541,27 +21673,27 @@
         const capabilities = getWorkspaceCapabilities(email);
         const messages = {
           overview:
-            "Overview keeps your current tournaments, judging workload, and saved access points in one refined landing space.",
+            "Overview keeps your tournaments, judging workload, and saved access points in one place.",
           tournaments:
-            "Tournaments stay separated into focused workspaces so roster, boards, judging, and results remain easy to control.",
+            "Open a tournament workspace to manage rosters, boards, judging, and results.",
           launch:
-            "Launcher is reserved for creating and staging new tournaments so the active tournament workspace stays leaner.",
+            "Create a new tournament, choose the structure, and open registration and publishing settings.",
           search:
-            "Search links together tournaments, people, teams, institutions, and accounts so you can move through the system without getting stuck.",
+            "Search people, teams, institutions, and tournament history from one place.",
           counsel:
-            "Counsel gives Hummingbird its own focused workspace so you can ask for strategy, diagnosis, and next actions without crowding the rest of the app.",
+            "Counsel gives you a separate space for strategy, troubleshooting, and next-step help.",
           regional:
-            "Regional Operations keeps coordinator accounts, biweekly reports, and stipend requests together in one durable shared portal.",
+            "Regional Operations keeps coordinator accounts, reports, and stipend requests together.",
           judging:
-            "Judging keeps assigned rooms, official chair ballots, and tournament context close together without exposing unnecessary controls.",
+            "Judging keeps assigned rooms, chair ballots, and round context close together.",
           people:
-            "People centralises users and tournament appointees so staffing decisions stay fast, clear, and auditable.",
+            "People keeps user accounts and tournament appointments easy to review and edit.",
           links:
-            "Access Links keeps private URLs organised for managers, judges, debaters, and regular members.",
+            "Access Links keeps private URLs organized for managers, judges, debaters, and members.",
           about:
-            "About brings together JADE's mission, role, and the purpose behind the platform.",
+            "About explains the platform mission and the role it plays in debate operations.",
           settings:
-            "Settings is structured to keep personal workspace preferences and system-wide controls calm and consistent.",
+            "Settings manages personal preferences and system-wide controls.",
         };
 
         if (capabilities.regionalPortalMode) {
@@ -23164,15 +23296,15 @@
                     kicker: "JADE Hummingbird Workspace",
                     size: "compact",
                     subtitle: focusedParticipantProfile
-                      ? "A focused profile view for one person at a time, without the surrounding search clutter."
+                      ? "A focused profile view for one person at a time."
                       :
                       capabilities.regionalPortalMode
-                        ? "A dedicated regional workspace for coordinator accounts, field reporting, and stipend oversight."
+                        ? "A dedicated regional workspace for coordinator accounts, reporting, and stipend oversight."
                         : capabilities.canManageAny
-                        ? "A refined staff workspace for tournament control, permissions, judging, and publishing."
+                        ? "Manage tournaments, permissions, judging, registration, and publishing from one place."
                         : capabilities.canJudgeAny
                           ? "A focused workspace for judging assignments, tournament details, and private access."
-                          : "A streamlined workspace for public tournament tracking and private access.",
+                          : "A streamlined workspace for tournament tracking and private access.",
                   })}
                   <div class="topbar">
                     <div>
