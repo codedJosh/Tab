@@ -506,7 +506,7 @@
 
       const DEFAULT_SETTINGS = {
         branding: {
-          appName: "JADE Hummingbird",
+          appName: "Hummingbird Tab System",
           subtitle:
             "Premium tournament operations, controlled publishing, and calm competitor access in one place.",
           accent: "#1f6a4e",
@@ -545,7 +545,7 @@
           welcomeNote:
             "This private page is designed to show only the essentials for competitors.",
           emailTemplate:
-            "Hello {{name}}, your private JADE Hummingbird access link for {{tournament}} is {{link}}.",
+            "Hello {{name}}, your private Hummingbird Tab System access link for {{tournament}} is {{link}}.",
         },
         feedback: {
           categories: ["Analysis", "Style", "Strategy"],
@@ -566,7 +566,8 @@
         return (
           normalized === "debatetab command" ||
           normalized === "jade debate tab" ||
-          normalized === "hummingbird tab system" ||
+          normalized === "jade hummingbird" ||
+          normalized === "jadehummingbird" ||
           normalized === "jade corporate tab" ||
           normalized === "corporate tab" ||
           normalized === "jade corporate tab system" ||
@@ -803,7 +804,7 @@
 
       function createWorkspaceContractError(context = "workspace", detail = "") {
         const error = new Error(
-          "JADE Hummingbird blocked a workspace sync because the live data contract did not match the current system" +
+          "Hummingbird Tab System blocked a workspace sync because the live data contract did not match the current system" +
             (detail ? ": " + detail : "."),
         );
         error.code = "workspace_contract_mismatch";
@@ -936,7 +937,7 @@
 
       function getSharedBackendUnavailableMessage() {
         if (cloudRuntime.contractMismatch) {
-          return "The shared JADE Hummingbird backend is running a different data contract. Redeploy the frontend and backend together before using shared accounts.";
+          return "The shared Hummingbird Tab System backend is running a different data contract. Redeploy the frontend and backend together before using shared accounts.";
         }
         return "The shared account service is unavailable right now. Please try again in a moment.";
       }
@@ -3322,7 +3323,7 @@
       }
 
       function renderBrandLockup({
-        kicker = "JADE Hummingbird",
+        kicker = "Tournament Workspace",
         subtitle = "",
         size = "compact",
         className = "",
@@ -3336,7 +3337,7 @@
         return `
           <div class="brand-lockup ${escapeHtml(size)} ${escapeHtml(className)}">
             <div class="jade-logo-wrap">
-              <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird logo" />
+              <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="Hummingbird Tab System logo" />
             </div>
             <div class="brand-copy">
               <p class="brand-kicker">${escapeHtml(kicker)}</p>
@@ -7489,7 +7490,7 @@
 
         if (!response.ok || result.ok === false) {
           const error = new Error(
-            String(result?.error || result?.message || "JADE Hummingbird backend request failed."),
+            String(result?.error || result?.message || "Hummingbird Tab System backend request failed."),
           );
           error.code = result?.code || String(response.status || "backend_error");
           throw error;
@@ -7676,7 +7677,7 @@
                 if (pendingCloudSync?.id === syncId) {
                   setFlash(
                     "warning",
-                    "JADE Hummingbird kept your newest local edit on this device, but another device changed the shared workspace first. Review the result and save again so nothing gets overwritten.",
+                    "Hummingbird Tab System kept your newest local edit on this device, but another device changed the shared workspace first. Review the result and save again so nothing gets overwritten.",
                   );
                   renderApp();
                 }
@@ -7684,7 +7685,7 @@
               }
               setFlash(
                 "warning",
-                "JADE Hummingbird kept this change on the device and will retry the shared backend save when the connection settles.",
+                "Hummingbird Tab System kept this change on the device and will retry the shared backend save when the connection settles.",
               );
               renderApp();
             }
@@ -7740,7 +7741,7 @@
             clearPendingCloudSyncRecord(syncId);
             await refreshStateFromBackend({ skipRender: true });
             const conflictError = new Error(
-              "Another device changed JADE Hummingbird first. The page was refreshed to the latest shared version; please apply that edit again.",
+              "Another device changed Hummingbird Tab System first. The page was refreshed to the latest shared version; please apply that edit again.",
             );
             conflictError.code = "stale_revision";
             throw conflictError;
@@ -11161,6 +11162,7 @@
         url.searchParams.delete("access");
         url.searchParams.delete("screen");
         clearWorkspaceRouteParams(url);
+        url.hash = "";
 
         url.searchParams.set("view", normalizedView);
         if (normalizedView === "people") {
@@ -13122,7 +13124,7 @@
                       <div>
                         <h1>Run debate tournaments without the clutter.</h1>
                         <p class="hero-copy">
-                          Manage tabbing, judge allocation, team registration, motions, rankings, and results from one calmer workspace that stays readable under pressure.
+                          Run registrations, rounds, judge allocation, motions, standings, and results from one structured workspace that stays readable when the event gets busy.
                         </p>
                       </div>
                       <div class="button-row wrap-row public-cta-row">
@@ -13462,8 +13464,8 @@
                       <p class="hero-copy">
                         ${escapeHtml(
                           isJudge
-                            ? "Choose an available event, declare whether you are institutionally affiliated or independent, and JADE Hummingbird will route you straight into your private access once registration is complete."
-                            : "Choose an available event, enter your team details, and JADE Hummingbird will create the roster entry faster while sending you directly to your private access links.",
+                            ? "Choose an available event, declare whether you are institutionally affiliated or independent, and the system will route you straight into private access once registration is complete."
+                            : "Choose an available event, enter your team details, and the system will create the roster entry faster while sending you directly to your private access links.",
                         )}
                       </p>
                     </div>
@@ -13614,8 +13616,8 @@
                         <p class="auth-footer">
                           ${escapeHtml(
                             isJudge
-                              ? "If you already have an account, use the same email and password here and JADE Hummingbird will attach this judge registration to your existing access."
-                              : "If you already have an account, use the same email and password here and JADE Hummingbird will add this tournament registration to your existing access.",
+                              ? "If you already have an account, use the same email and password here and the judge registration will attach to your existing access."
+                              : "If you already have an account, use the same email and password here and the tournament registration will attach to your existing access.",
                           )}
                         </p>
                       </div>
@@ -13643,7 +13645,7 @@
                           ${escapeHtml(
                             isJudge
                               ? "Once saved, your institution is used to block chair or panel assignments into rooms containing an affiliated team."
-                              : "Once saved, JADE Hummingbird creates your roster record, links your team where possible, and sends you straight to your personal access links.",
+                              : "Once saved, the system creates your roster record, links your team where possible, and sends you straight to your personal access links.",
                           )}
                         </p>
                       </section>
@@ -13745,7 +13747,7 @@
                           <button type="submit">Enter Regional Operations</button>
                         </form>
                         <p class="auth-footer">
-                          Managers and system administrators can use their existing JADE Hummingbird credentials here. Regional Coordinators and Deputy Regional Coordinators need an account created for them by a manager first.
+                          Managers and system administrators can use their existing Hummingbird Tab System credentials here. Regional Coordinators and Deputy Regional Coordinators need an account created for them by a manager first.
                         </p>
                       </div>
                     </div>
@@ -13789,16 +13791,16 @@
           .filter((tournament) => !menuPinnedTournaments.some((entry) => entry.id === tournament.id))
           .slice(0, 2);
         const menuSubtitle = capabilities.regionalPortalMode
-          ? "Regional coordination, reporting, and stipend requests."
+          ? "Regional coordination and reporting."
           : capabilities.judgeOnly
-          ? "Judging access with your assigned rooms and private links."
+          ? "Assigned rooms, ballots, and private access."
           : capabilities.regionalOnly
             ? "Regional reporting and shared operations history."
           : capabilities.competitorOnly
-            ? "Private access for rounds, results, and feedback."
+            ? "Rounds, results, and feedback in one place."
             : !capabilities.canManageAny
               ? "Tournament tracking and private access."
-            : "Staff workspace for tournament operations.";
+            : "Tournament control for staff and managers.";
 
         return `
           <a class="skip-link" href="#workspace-main">Skip to main content</a>
@@ -13813,7 +13815,7 @@
             </div>
             <div class="inline-card menu-welcome-card">
               <div class="section-heading">
-                <strong>Welcome, ${escapeHtml(displayName)}!</strong>
+                <strong>${escapeHtml(displayName)}</strong>
                 <span class="role-pill">${escapeHtml(
                   toTitleLabel(getCurrentRole()),
                 )}</span>
@@ -13886,16 +13888,16 @@
               <section class="hero-panel about-hero">
                 <div class="stack">
                   ${renderBrandLockup({
-                    kicker: "About JADE",
+                    kicker: "About The Platform",
                     size: "hero featured",
                     subtitle:
-                      "A platform shaped around debating, public speaking, critical thinking, and efficient tournament administration.",
+                      "Built for debating, public speaking, critical thinking, and clean tournament administration.",
                   })}
                   <div>
-                    <p class="eyebrow">More Than Debate</p>
-                    <h1>Debating as empowerment, not just competition.</h1>
+                    <p class="eyebrow">Platform mission</p>
+                    <h1>Debate tournament management that stays useful under pressure.</h1>
                     <p class="hero-copy">
-                      JADE stands for the Jamaican Association for Debating and Empowerment. In its public materials, JADE describes itself as the national umbrella organization for the advancement of debating, public speaking, and critical thinking in Jamaica. It presents that work not simply as competition management, but as a route to empowerment, youth development, stronger communication, and sharper civic thinking.
+                      Hummingbird Tab System is shaped around the real work of debate events: registration, adjudication, publishing, participant growth, and clear staff control when a tournament gets busy.
                     </p>
                   </div>
                 </div>
@@ -13959,7 +13961,7 @@
               <section class="surface">
                 <div class="section-heading">
                   <div>
-                    <p class="eyebrow">This Website</p>
+                    <p class="eyebrow">This platform</p>
                     <h2>Why the platform is built this way</h2>
                   </div>
                   <span class="role-pill">JADE-Aligned Design</span>
@@ -13989,8 +13991,8 @@
               <section class="surface">
                 <div class="section-heading">
                   <div>
-                    <p class="eyebrow">How JADE Describes Its Work</p>
-                    <h2>Publicly stated priorities reflected here</h2>
+                    <p class="eyebrow">How the product is structured</p>
+                    <h2>Why the workflow is arranged this way</h2>
                   </div>
                 </div>
                 <div class="about-timeline">
@@ -14068,8 +14070,8 @@
                   }</h2>
                   <p class="muted">${
                     capabilities.canJudgeAny
-                      ? "Your judging assignments, public boards, and private access stay close together in one simple overview."
-                      : "Use this overview to jump straight into tournaments, public boards, and your private access."
+                      ? "Your rooms, published boards, and private access stay close together in one practical overview."
+                      : "Open the tournaments, public boards, and private access points that matter to you most."
                   }</p>
                 </div>
                 ${renderOverviewLaunchDeck([
@@ -14291,7 +14293,7 @@
               <div class="summary-main">
                 <p class="eyebrow">Operations overview</p>
                 <h2>Run debate tournaments from one workspace</h2>
-                <p class="muted">See the live totals, open the right tournament, and handle the next task without wading through extra panels.</p>
+                <p class="muted">See the live totals, open the right tournament, and move straight into the next operational decision.</p>
               </div>
               ${renderOverviewLaunchDeck([
                 {
@@ -18947,7 +18949,7 @@
                 <p class="eyebrow">Active Tab Room</p>
                 <h2>${escapeHtml(tournament.name)}</h2>
                 <p class="hero-copy">
-                  A focused dashboard for registration, pairing, publishing, judging, and permissions without digging through the full tournament list.
+                  Registration, rounds, judging, publishing, and permissions for one event, kept in one clear operating view.
                 </p>
               </div>
               <div class="workspace-chip-row">
@@ -18983,7 +18985,7 @@
                 <div class="section-heading">
                   <div>
                     <p class="eyebrow">Quick Controls</p>
-                    <h3>Keep the essential actions close</h3>
+                    <h3>Keep the core actions one tap away</h3>
                   </div>
                   <span class="role-pill">${escapeHtml(active.label)}</span>
                 </div>
@@ -19073,14 +19075,14 @@
               <span class="role-pill">${escapeHtml(getFormatLabel({ format: defaults.format }))}</span>
             </div>
             <p class="muted launch-lead">
-              Start with the essentials here. You can refine rounds, staffing, motions, and publication details inside the tournament workspace after launch.
+              Set the essentials here, then refine rounds, staffing, motions, and publishing inside the tournament workspace.
             </p>
             <form class="stack" data-form="create-tournament">
               <div class="stack launch-form-section">
                 <div class="section-heading">
                   <div>
                     <h3>Basics</h3>
-                    <p class="fine-print">Name the tournament, choose the format, and set the round count.</p>
+                    <p class="fine-print">Name the event, set the format, and choose the round count.</p>
                   </div>
                 </div>
                 <div class="field-grid three">
@@ -19123,7 +19125,7 @@
                 <div class="section-heading">
                   <div>
                     <h3>Room structure</h3>
-                    <p class="fine-print">Use the preset as a starting point, then adjust the room shape if needed.</p>
+                    <p class="fine-print">Use the format preset as the base, then adjust the room shape if needed.</p>
                   </div>
                 </div>
                 <div class="field-grid three">
@@ -19153,7 +19155,7 @@
                 <div class="section-heading">
                   <div>
                     <h3>Scoring and visibility</h3>
-                    <p class="fine-print">Choose how results are tracked and what can be seen publicly.</p>
+                    <p class="fine-print">Decide how results are tracked and what gets released publicly.</p>
                   </div>
                 </div>
                 <div class="field-grid two">
@@ -19214,7 +19216,7 @@
               <details class="launcher-advanced">
                 <summary>
                   <strong>Advanced options</strong>
-                  <span>Custom labels, announcements, and special rules</span>
+                  <span>Announcements, custom labels, and special rules</span>
                 </summary>
                 <div class="stack launcher-advanced-body">
                   <div class="field-grid two">
@@ -19254,7 +19256,7 @@
                   <div>
                     <h3>Round-by-round structure planner</h3>
                     <p class="fine-print">
-                      This planner reacts to the round count and format above. Use it when a tournament needs round-level changes before launch.
+                      This planner follows the round count and format above. Use it only when a tournament needs round-level changes before launch.
                     </p>
                   </div>
                   <span class="round-plan-badge">Optional</span>
@@ -21014,7 +21016,7 @@
               </div>
             </div>
             <p class="fine-print">
-              Regional Operations uses the same shared backend as the rest of JADE Hummingbird, so coordinator accounts, reports, and stipend requests persist across devices and stay attached to the same audit trail.
+              Regional Operations uses the same shared backend as the rest of Hummingbird Tab System, so coordinator accounts, reports, and stipend requests persist across devices and stay attached to the same audit trail.
             </p>
           </section>
 
@@ -21767,14 +21769,14 @@
               : " • ready for quick return");
         const accessLabel = accessRecord ? "Private URL Ready" : "Session Access";
         const accessNote = accessRecord
-          ? "Your one-tap JADE Hummingbird access link is available from Access Links."
+          ? "Your one-tap Hummingbird access link is available from Access Links."
           : "Use the workspace directly or generate private access from the links area.";
 
         return `
           <div class="workspace-overview-band">
             <article class="workspace-overview-card is-primary">
               <span class="workspace-overview-label">Signed In</span>
-              <strong>${escapeHtml(user?.name || user?.email || "JADE Hummingbird User")}</strong>
+              <strong>${escapeHtml(user?.name || user?.email || "Hummingbird user")}</strong>
               <p class="muted">${escapeHtml(toTitleLabel(user?.globalRole || "member"))}</p>
             </article>
             <article class="workspace-overview-card">
@@ -21819,7 +21821,7 @@
         }
 
         const contactName = String(profile?.name || "Participant").trim() || "Participant";
-        const subject = encodeURIComponent("JADE Hummingbird Contact | " + contactName);
+        const subject = encodeURIComponent("Hummingbird Tab System Contact | " + contactName);
         return "mailto:" + email + "?subject=" + subject;
       }
 
@@ -23010,7 +23012,7 @@
                 <input type="checkbox" name="reduceMotion" ${checked(
                   settings.accessibility?.reduceMotion || REDUCED_MOTION,
                 )} />
-                <span>Reduce interface motion inside JADE Hummingbird</span>
+                <span>Reduce interface motion inside Hummingbird Tab System</span>
               </label>
               <label class="checkbox-row">
                 <input type="checkbox" name="showScreenReaderGuidance" ${checked(
@@ -23019,7 +23021,7 @@
                 <span>Show screen-reader and keyboard guidance near search/navigation</span>
               </label>
               <div class="alert info">
-                JADE Hummingbird now includes a skip link, landmark navigation, announced flash messages, strong keyboard focus states, and competitor/judge flows designed to be readable by assistive technology.
+                Hummingbird Tab System now includes a skip link, landmark navigation, announced flash messages, strong keyboard focus states, and competitor and judge flows designed to be readable by assistive technology.
               </div>
               <p class="fine-print">
                 For blind users, the most efficient path is: use the skip link, move by headings or landmarks, then use workspace search to jump between tournaments, people, and ballots.
@@ -23031,7 +23033,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Password and Device Access</p>
-                <h2>Save your password from inside JADE Hummingbird</h2>
+                <h2>Save your password from inside Hummingbird Tab System</h2>
               </div>
               <span class="role-pill">${escapeHtml(
                 devicePasswordSavingEnabled ? "Enabled" : "Not saved",
@@ -23058,11 +23060,11 @@
                 <span>Save Password Securely On This Device</span>
               </label>
               <div class="alert info">
-                This in-app control uses your browser or device password manager when supported, so JADE Hummingbird still does not store your raw password in local app data.
+                This in-app control uses your browser or device password manager when supported, so Hummingbird Tab System still does not store your raw password in local app data.
               </div>
               ${
                 devicePasswordSavingSupported
-                  ? `<p class="auth-footer">Enter your current password to save or refresh the secure device copy. If you switch this off, JADE Hummingbird stops remembering the preference for this account on this device.</p>`
+                  ? `<p class="auth-footer">Enter your current password to save or refresh the secure device copy. If you switch this off, Hummingbird Tab System stops remembering the preference for this account on this device.</p>`
                   : `<div class="alert warning">This browser does not support secure device password saving through the app.</div>`
               }
               <button type="submit" ${devicePasswordSavingSupported ? "" : "disabled"}>${
@@ -23197,7 +23199,7 @@
                 <h3>Data</h3>
               </div>
               <div class="stack">
-                <div class="alert info">JADE Hummingbird is currently running as a local app on this device.</div>
+                <div class="alert info">Hummingbird Tab System is currently running as a local app on this device.</div>
                 <p class="fine-print">
                   Export a JSON backup whenever you want a portable copy of your tournaments, users, and settings.
                 </p>
@@ -23237,6 +23239,117 @@
         `;
       }
 
+      function getWorkspaceTopbarShortcuts(currentView, capabilities, focusedParticipantProfile) {
+        if (focusedParticipantProfile) {
+          return [
+            {
+              label: "Back To Search",
+              action: "clear-participant-profile",
+              tone: "secondary",
+            },
+          ];
+        }
+
+        const shortcuts = [];
+        if (currentView !== "overview") {
+          shortcuts.push({
+            label: "Overview",
+            action: "set-view",
+            view: "overview",
+            tone: "secondary",
+          });
+        }
+        if (currentView !== "tournaments") {
+          shortcuts.push({
+            label: "Tournaments",
+            action: "set-view",
+            view: "tournaments",
+            tone: "secondary",
+          });
+        }
+        if (capabilities.canManageAny && currentView !== "launch") {
+          shortcuts.push({
+            label: "Create Tournament",
+            action: "set-view",
+            view: "launch",
+            tone: "primary",
+          });
+        } else if (capabilities.canViewJudging && currentView !== "judging") {
+          shortcuts.push({
+            label: "Judging",
+            action: "set-view",
+            view: "judging",
+            tone: "secondary",
+          });
+        }
+        if (canAccessGlobalSettings() && currentView !== "people") {
+          shortcuts.push({
+            label: "People",
+            action: "set-view",
+            view: "people",
+            tone: "secondary",
+          });
+        }
+        return shortcuts.slice(0, 4);
+      }
+
+      function renderWorkspaceTopbarShortcuts(currentView, capabilities, focusedParticipantProfile) {
+        const shortcuts = getWorkspaceTopbarShortcuts(
+          currentView,
+          capabilities,
+          focusedParticipantProfile,
+        );
+        if (!shortcuts.length) {
+          return "";
+        }
+
+        return `
+          <div class="workspace-topbar-shortcuts" aria-label="Common actions">
+            ${shortcuts
+              .map((shortcut) => {
+                const classes =
+                  shortcut.tone === "primary"
+                    ? "workspace-shortcut-button"
+                    : "secondary-button";
+                return `<button class="${classes}" type="button" data-action="${escapeHtml(
+                  shortcut.action,
+                )}" ${shortcut.view ? `data-view="${escapeHtml(shortcut.view)}"` : ""}>${escapeHtml(
+                  shortcut.label,
+                )}</button>`;
+              })
+              .join("")}
+          </div>
+        `;
+      }
+
+      function resetViewportToTop() {
+        const scrollingRoot =
+          document.scrollingElement || document.documentElement || document.body || null;
+        const htmlNode = document.documentElement || null;
+        const bodyNode = document.body || null;
+        const previousHtmlScrollBehavior = htmlNode?.style?.scrollBehavior || "";
+        const previousBodyScrollBehavior = bodyNode?.style?.scrollBehavior || "";
+        if (htmlNode) {
+          htmlNode.style.scrollBehavior = "auto";
+        }
+        if (bodyNode) {
+          bodyNode.style.scrollBehavior = "auto";
+        }
+        if (scrollingRoot) {
+          scrollingRoot.scrollTop = 0;
+        }
+        if (bodyNode) {
+          bodyNode.scrollTop = 0;
+        }
+        window.scrollTo(0, 0);
+        if (htmlNode) {
+          htmlNode.style.scrollBehavior = previousHtmlScrollBehavior;
+        }
+        if (bodyNode) {
+          bodyNode.style.scrollBehavior = previousBodyScrollBehavior;
+        }
+      }
+
       function renderWorkspace() {
         const capabilities = getWorkspaceCapabilities();
         if (capabilities.competitorOnly && !capabilities.regionalPortalMode) {
@@ -23253,6 +23366,7 @@
         }
 
         const navItems = getWorkspaceNavItems();
+        const currentUser = getCurrentUser();
         const currentNavItem = focusedParticipantProfile
           ? {
               key: "profile",
@@ -23290,36 +23404,61 @@
           <div class="page-shell">
             <div class="workspace-shell">
               ${renderMenu()}
-              <section id="workspace-main" class="content-panel" role="main">
+              <section id="workspace-main" class="content-panel" role="main" tabindex="-1">
                 <div class="workspace-topbar surface">
-                  ${renderBrandLockup({
-                    kicker: "JADE Hummingbird Workspace",
-                    size: "compact",
-                    subtitle: focusedParticipantProfile
-                      ? "A focused profile view for one person at a time."
-                      :
-                      capabilities.regionalPortalMode
-                        ? "A dedicated regional workspace for coordinator accounts, reporting, and stipend oversight."
-                        : capabilities.canManageAny
-                        ? "Manage tournaments, permissions, judging, registration, and publishing from one place."
-                        : capabilities.canJudgeAny
-                          ? "A focused workspace for judging assignments, tournament details, and private access."
-                          : "A streamlined workspace for tournament tracking and private access.",
-                  })}
-                  <div class="topbar">
-                    <div>
-                      <p class="eyebrow">${escapeHtml(currentNavItem.label)}</p>
-                      <h1>${escapeHtml(
-                        focusedParticipantProfile ? focusedParticipantProfile.name : currentNavItem.label,
-                      )}</h1>
+                  <div class="workspace-topbar-shell">
+                    <div class="workspace-topbar-main">
+                      ${renderBrandLockup({
+                        kicker: "Hummingbird Tab System",
+                        size: "compact",
+                        subtitle: focusedParticipantProfile
+                          ? "A focused profile view for one person at a time."
+                          : capabilities.regionalPortalMode
+                            ? "Regional reporting, school updates, and stipend review in one calm workspace."
+                            : capabilities.canManageAny
+                              ? "Tournament control, registration, judging, publishing, and permissions in one operating view."
+                              : capabilities.canJudgeAny
+                                ? "Judging assignments, tournament detail, and private access without the clutter."
+                                : "Tournament tracking and private access without the staff-only noise.",
+                      })}
+                      <div class="topbar">
+                        <div>
+                          <p class="eyebrow">${escapeHtml(currentNavItem.label)}</p>
+                          <h1>${escapeHtml(
+                            focusedParticipantProfile ? focusedParticipantProfile.name : currentNavItem.label,
+                          )}</h1>
+                        </div>
+                      </div>
+                    </div>
+                    <aside class="workspace-topbar-side">
+                      <div class="workspace-context-card">
+                        <span class="theme-section-label">Signed in</span>
+                        <strong>${escapeHtml(
+                          currentUser?.name || session.userEmail || "Workspace user",
+                        )}</strong>
+                        <p class="fine-print">${escapeHtml(
+                          focusedParticipantProfile
+                            ? "Review one person’s history, access, and records without losing the wider workspace."
+                            : capabilities.canManageAny
+                              ? "Keep the next operational action within easy reach while the event is live."
+                              : capabilities.canJudgeAny
+                                ? "Stay close to rooms, ballots, and private access."
+                                : "Keep the practical views within easy reach.",
+                        )}</p>
+                      </div>
+                      ${renderWorkspaceTopbarShortcuts(
+                        currentView,
+                        capabilities,
+                        focusedParticipantProfile,
+                      )}
                       ${
                         focusedParticipantProfile
-                          ? `<div class="button-row wrap-row">
+                          ? `<div class="button-row wrap-row workspace-profile-return">
                               <button class="secondary-button" type="button" data-action="clear-participant-profile">Back To Profile Directory</button>
                             </div>`
                           : ""
                       }
-                    </div>
+                    </aside>
                   </div>
                   ${showOverviewBand ? renderWorkspaceStatusBand(currentNavItem, session.userEmail) : ""}
                   ${showWorkspaceSearch ? renderWorkspaceSearchBar() : ""}
@@ -23379,7 +23518,7 @@
               <div class="private-shell">
                 <section class="surface portal-ribbon">
                   ${renderBrandLockup({
-                    kicker: "Private JADE Hummingbird Access",
+                    kicker: "Private Hummingbird Access",
                     size: "compact",
                     subtitle:
                       "This private portal is designed to stay focused on competitor essentials.",
@@ -23525,7 +23664,7 @@
               <section class="surface portal-ribbon">
                 <div class="portal-head">
                   ${renderBrandLockup({
-                    kicker: "Private JADE Hummingbird Access",
+                    kicker: "Private Hummingbird Access",
                     size: "compact",
                     subtitle:
                       "A compact competitor portal for rounds, standings, speaker scores, and feedback.",
@@ -23770,7 +23909,7 @@
       function renderApp() {
         if (!state) {
           document.querySelector("#app").innerHTML =
-            '<div class="page-shell"><section class="surface"><h2>Loading JADE Hummingbird...</h2></section></div>';
+            '<div class="page-shell"><section class="surface"><h2>Loading Hummingbird Tab System...</h2></section></div>';
           return;
         }
 
@@ -23809,10 +23948,18 @@
         }
         if (pendingViewportReset) {
           pendingViewportReset = false;
+          resetViewportToTop();
           window.requestAnimationFrame(() => {
-            window.scrollTo({
-              top: 0,
-            });
+            resetViewportToTop();
+            const workspaceMain = document.querySelector("#workspace-main");
+            if (workspaceMain && typeof workspaceMain.focus === "function") {
+              workspaceMain.focus({
+                preventScroll: true,
+              });
+            }
+            window.setTimeout(() => {
+              resetViewportToTop();
+            }, 40);
           });
         }
       }
@@ -23856,6 +24003,7 @@
             clearFlash();
             saveState();
             saveSession();
+            pendingViewportReset = true;
             const currentUser = getCurrentUser();
             if (savePasswordOnDevice) {
               await savePasswordToDeviceVault(email, password);
@@ -23933,6 +24081,7 @@
                 clearFlash();
                 saveState();
                 saveSession();
+                pendingViewportReset = true;
                 const currentUser = getCurrentUser();
                 if (savePasswordOnDevice) {
                   await savePasswordToDeviceVault(email, password);
@@ -23942,18 +24091,18 @@
                 }
                 setFlash(
                   "success",
-                  "Backend workspace initialized. JADE Hummingbird is now sharing this workspace across devices.",
+                  "Backend workspace initialized. Hummingbird Tab System is now sharing this workspace across devices.",
                 );
                 renderApp();
                 return;
               } catch (initError) {
-                setFlash("error", initError.message || "JADE Hummingbird could not initialize backend sync.");
+                setFlash("error", initError.message || "Hummingbird Tab System could not initialize backend sync.");
                 renderApp();
                 return;
               }
             }
 
-            setFlash("error", error.message || "JADE Hummingbird could not sign you in.");
+            setFlash("error", error.message || "Hummingbird Tab System could not sign you in.");
             renderApp();
             return;
           }
@@ -24013,6 +24162,7 @@
         clearFlash();
         saveState();
         saveSession();
+        pendingViewportReset = true;
         if (savePasswordOnDevice) {
           await savePasswordToDeviceVault(email, password);
           await saveBrowserCredential(user.name, email, password);
@@ -24088,6 +24238,7 @@
             clearFlash();
             saveState();
             saveSession();
+            pendingViewportReset = true;
             setFlash("success", "Account created and signed in. Your private access URL is now ready.");
             renderApp();
             return;
@@ -24103,7 +24254,7 @@
               }
               workspaceNeedsInitialization = true;
             } else {
-              setFlash("error", error.message || "JADE Hummingbird could not create your account.");
+              setFlash("error", error.message || "Hummingbird Tab System could not create your account.");
               renderApp();
               return;
             }
@@ -24180,6 +24331,7 @@
             return;
           }
         }
+        pendingViewportReset = true;
         persist(
           "success",
           shouldBootstrapManager
@@ -24505,6 +24657,7 @@
             clearFlash();
             saveState();
             saveSession();
+            pendingViewportReset = true;
             setFlash(
               "success",
               teammateEmail
@@ -24545,13 +24698,14 @@
             });
           }
         } catch (error) {
-          setFlash("error", error.message || "JADE Hummingbird could not sign you in for registration.");
+          setFlash("error", error.message || "Hummingbird Tab System could not sign you in for registration.");
           renderApp();
           return;
         }
 
         rememberTournamentHistoryForEmails([email, teammateEmail], tournamentId);
 
+        pendingViewportReset = true;
         updateTournament(
           tournamentId,
           (currentTournament) => {
@@ -24664,6 +24818,7 @@
             clearFlash();
             saveState();
             saveSession();
+            pendingViewportReset = true;
             setFlash("success", "Judge registration saved. Your access links are ready.");
             renderApp();
             return;
@@ -24691,13 +24846,14 @@
             createdSource: "self_signup",
           });
         } catch (error) {
-          setFlash("error", error.message || "JADE Hummingbird could not sign you in for registration.");
+          setFlash("error", error.message || "Hummingbird Tab System could not sign you in for registration.");
           renderApp();
           return;
         }
 
         rememberTournamentHistoryForEmails([email], tournamentId);
 
+        pendingViewportReset = true;
         updateTournament(
           tournamentId,
           (currentTournament) => {
@@ -24732,7 +24888,7 @@
 
       async function initializeCloudFromBackup(formData) {
         if (!(await probeCloudBackend())) {
-          setFlash("error", "JADE Hummingbird backend setup is not available right now.");
+          setFlash("error", "Hummingbird Tab System backend setup is not available right now.");
           renderApp();
           return;
         }
@@ -24754,7 +24910,7 @@
         }
 
         if (!(backupFile instanceof File) || !backupFile.size) {
-          setFlash("error", "Choose a JADE Hummingbird backup JSON file first.");
+          setFlash("error", "Choose a Hummingbird Tab System backup JSON file first.");
           renderApp();
           return;
         }
@@ -24779,15 +24935,16 @@
           clearFlash();
           saveState();
           saveSession();
+          pendingViewportReset = true;
           setFlash(
             "success",
-            "Backend workspace initialized from your backup. JADE Hummingbird is now ready to share data across devices.",
+            "Backend workspace initialized from your backup. Hummingbird Tab System is now ready to share data across devices.",
           );
           renderApp();
         } catch (error) {
           setFlash(
             "error",
-            error.message || "JADE Hummingbird could not initialize the backend workspace from that backup.",
+            error.message || "Hummingbird Tab System could not initialize the backend workspace from that backup.",
           );
           renderApp();
         }
@@ -24822,7 +24979,7 @@
           } catch (error) {
             setFlash(
               "error",
-              error.message || "JADE Hummingbird could not submit the password reset request right now.",
+              error.message || "Hummingbird Tab System could not submit the password reset request right now.",
             );
           }
           renderApp();
@@ -28470,7 +28627,7 @@
           await reduceDevicePasswordAutoSignIn();
           setFlash(
             "success",
-            "JADE Hummingbird will stop remembering your device password preference for this account. If you want to fully delete a saved password, remove it from your browser or device password manager too.",
+            "Hummingbird Tab System will stop remembering your device password preference for this account. If you want to fully delete a saved password, remove it from your browser or device password manager too.",
           );
           renderApp();
           return;
@@ -29024,6 +29181,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            pendingViewportReset = true;
             requestSessionHistoryPush();
             renderApp();
             return;
@@ -29039,6 +29197,7 @@
             url.searchParams.delete("token");
             clearWorkspaceRouteParams(url);
             window.history.replaceState({}, "", url.toString());
+            pendingViewportReset = true;
             renderApp();
             return;
           }
@@ -29062,6 +29221,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            pendingViewportReset = true;
             requestSessionHistoryPush();
             renderApp();
             return;
@@ -29081,6 +29241,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            pendingViewportReset = true;
             requestSessionHistoryPush();
             renderApp();
             return;
@@ -29093,6 +29254,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            pendingViewportReset = true;
             requestSessionHistoryPush();
             renderApp();
             return;
@@ -29119,6 +29281,7 @@
             recordRecentView(session.view);
             clearFlash();
             saveSession();
+            pendingViewportReset = true;
             requestSessionHistoryPush();
             renderApp();
             return;
@@ -29480,6 +29643,7 @@
             session.view = "search";
             clearFlash();
             saveSession();
+            pendingViewportReset = true;
             requestSessionHistoryPush();
             renderApp();
             return;
@@ -29488,7 +29652,7 @@
           if (action === "open-participant-profile") {
             session.view = "search";
             session.selectedParticipantKey = String(button.dataset.key || "").trim();
-            pendingViewportReset = false;
+            pendingViewportReset = true;
             recordRecentView(session.view);
             recordRecentParticipant(session.selectedParticipantKey);
             clearFlash();
@@ -30038,10 +30202,10 @@
           setStartupSplashProgress(
             100,
             "Load interrupted",
-            "JADE Hummingbird could not finish loading. Please refresh and try again.",
+            "Hummingbird Tab System could not finish loading. Please refresh and try again.",
           );
           document.querySelector("#app").innerHTML =
-            '<div class="page-shell"><section class="surface"><h2>JADE Hummingbird could not finish loading.</h2><p class="muted">Please refresh the page and try again.</p></section></div>';
+            '<div class="page-shell"><section class="surface"><h2>Hummingbird Tab System could not finish loading.</h2><p class="muted">Please refresh the page and try again.</p></section></div>';
         } finally {
           await finishStartupSplash();
         }
