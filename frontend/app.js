@@ -24210,46 +24210,68 @@
           return;
         }
 
-        captureVisibleFormDrafts();
-        applyBranding();
-        applyAccessibilityPreferences();
-        const token = new URL(window.location.href).searchParams.get("token");
-        const publicView = getPublicScreenView() || "auth";
-        if (!getCurrentUser() && session.view !== publicView) {
-          session.view = publicView;
-        }
-        const appMarkup = token
-          ? renderPrivatePortal(token)
-          : getCurrentUser()
-            ? renderWorkspace()
-            : publicView === "about"
-              ? renderAboutView(true)
-              : publicView === "register-debater"
-                ? renderPublicRegistrationView("debater")
-                : publicView === "register-judge"
-                  ? renderPublicRegistrationView("judge")
-                  : publicView === "regional-operations"
-                    ? renderRegionalOperationsPublicView()
-                  : renderAuthView();
-        document.querySelector("#app").innerHTML = appMarkup + renderConfirmationDialog();
-        restoreTrackedFormDrafts();
-        syncBrowserUrlWithSession();
-        if (pendingTournamentSectionJumpId) {
-          const targetId = pendingTournamentSectionJumpId;
-          pendingTournamentSectionJumpId = "";
-          window.requestAnimationFrame(() => {
+        try {
+          captureVisibleFormDrafts();
+          applyBranding();
+          applyAccessibilityPreferences();
+          const token = new URL(window.location.href).searchParams.get("token");
+          const publicView = getPublicScreenView() || "auth";
+          if (!getCurrentUser() && session.view !== publicView) {
+            session.view = publicView;
+          }
+          const appMarkup = token
+            ? renderPrivatePortal(token)
+            : getCurrentUser()
+              ? renderWorkspace()
+              : publicView === "about"
+                ? renderAboutView(true)
+                : publicView === "register-debater"
+                  ? renderPublicRegistrationView("debater")
+                  : publicView === "register-judge"
+                    ? renderPublicRegistrationView("judge")
+                    : publicView === "regional-operations"
+                      ? renderRegionalOperationsPublicView()
+                      : renderAuthView();
+          document.querySelector("#app").innerHTML = appMarkup + renderConfirmationDialog();
+          restoreTrackedFormDrafts();
+          syncBrowserUrlWithSession();
+          if (pendingTournamentSectionJumpId) {
+            const targetId = pendingTournamentSectionJumpId;
+            pendingTournamentSectionJumpId = "";
             window.requestAnimationFrame(() => {
-              jumpToTournamentSection(targetId);
+              window.requestAnimationFrame(() => {
+                jumpToTournamentSection(targetId);
+              });
             });
-          });
-        }
-        if (pendingViewportReset) {
-          pendingViewportReset = false;
-          window.requestAnimationFrame(() => {
-            window.scrollTo({
-              top: 0,
+          }
+          if (pendingViewportReset) {
+            pendingViewportReset = false;
+            window.requestAnimationFrame(() => {
+              window.scrollTo({
+                top: 0,
+              });
             });
-          });
+          }
+        } catch (error) {
+          console.error("JADE render failure", error);
+          try {
+            if (getCurrentUser()) {
+              resetWorkspaceHomeState();
+              setFlash(
+                "warning",
+                "A screen failed to load and was reset to Home. You can continue safely.",
+              );
+              const fallbackMarkup = renderWorkspace();
+              document.querySelector("#app").innerHTML = fallbackMarkup + renderConfirmationDialog();
+              restoreTrackedFormDrafts();
+              syncBrowserUrlWithSession();
+              return;
+            }
+          } catch (recoveryError) {
+            console.error("JADE recovery render failure", recoveryError);
+          }
+          document.querySelector("#app").innerHTML =
+            '<div class="page-shell"><section class="surface"><h2>JADE Hummingbird could not finish loading.</h2><p class="muted">Please refresh the page and try again.</p></section></div>';
         }
       }
 
