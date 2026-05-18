@@ -1946,7 +1946,7 @@
 
       .menu-welcome-card {
         display: grid;
-        gap: 16px;
+        gap: 12px;
       }
 
       .menu-welcome-card .section-heading {
@@ -1956,21 +1956,21 @@
       .menu-nav-list,
       .menu-shortcut-list {
         display: grid;
-        gap: 8px;
+        gap: 6px;
       }
 
       .menu-nav-link,
       .menu-room-button {
         width: 100%;
         min-width: 0;
-        min-height: 46px;
-        padding: 10px 12px;
+        min-height: 42px;
+        padding: 8px 11px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 12px;
         text-align: left;
-        border-radius: 18px;
+        border-radius: 14px;
       }
 
       .menu-nav-link {
@@ -2002,7 +2002,7 @@
       }
 
       .menu-nav-copy strong {
-        font-size: 0.92rem;
+        font-size: 0.88rem;
         letter-spacing: -0.02em;
       }
 
@@ -2019,8 +2019,8 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 34px;
-        padding: 7px 10px;
+        min-width: 30px;
+        padding: 6px 9px;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.12);
         color: inherit;
@@ -3520,14 +3520,14 @@
 
       .workspace-overview-band {
         display: grid;
-        gap: 12px;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       }
 
       .workspace-overview-card {
         display: grid;
         gap: 8px;
-        padding: 14px 15px;
+        padding: 12px 13px;
         min-width: 0;
         border-radius: 18px;
         border: 1px solid rgba(20, 49, 38, 0.08);
@@ -4484,7 +4484,7 @@
         max-width: 1160px;
         margin: 0 auto;
         display: grid;
-        gap: 18px;
+        gap: 12px;
       }
 
       .competitor-hero {
@@ -4503,8 +4503,8 @@
 
       .competitor-hero-grid {
         display: grid;
-        gap: 18px;
-        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+        gap: 12px;
+        grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
         align-items: start;
       }
 
@@ -4658,7 +4658,7 @@
       .competitor-metrics,
       .competitor-card-grid {
         display: grid;
-        gap: 10px;
+        gap: 8px;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       }
 
@@ -4824,10 +4824,18 @@
       }
 
       .competitor-note {
-        padding: 14px 16px;
-        border-radius: 18px;
+        padding: 10px 12px;
+        border-radius: 14px;
         border: 1px solid var(--line);
         background: rgba(232, 244, 236, 0.52);
+      }
+
+      .competitor-search-shell {
+        padding-top: 8px;
+      }
+
+      .competitor-action-row {
+        gap: 8px;
       }
 
       .competitor-nav {
@@ -4927,20 +4935,20 @@
 
       .workspace-hero-layout {
         display: grid;
-        gap: 18px;
-        grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.95fr);
+        gap: 14px;
+        grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.9fr);
         align-items: start;
       }
 
       .workspace-controls-shell {
         display: grid;
         gap: 14px;
-        padding: 18px;
-        border-radius: 22px;
+        padding: 14px;
+        border-radius: 18px;
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08));
         border: 1px solid rgba(255, 255, 255, 0.12);
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(6px);
       }
 
       .workspace-controls-shell .section-heading {
@@ -4959,40 +4967,11 @@
       }
 
       .workspace-hero::before {
-        content: "";
-        position: absolute;
-        inset: 0 auto auto -32%;
-        width: 46%;
-        height: 100%;
-        background: linear-gradient(
-          90deg,
-          rgba(255, 255, 255, 0),
-          rgba(255, 255, 255, 0.08),
-          rgba(255, 255, 255, 0)
-        );
-        pointer-events: none;
-        animation: sheen 10s linear infinite;
+        display: none;
       }
 
       .workspace-hero::after {
-        content: "";
-        position: absolute;
-        inset: auto -86px -120px auto;
-        width: 260px;
-        height: 260px;
-        border-radius: 50%;
-        background:
-          radial-gradient(circle, rgba(225, 191, 67, 0.22), transparent 62%),
-          conic-gradient(
-            from 180deg,
-            rgba(255, 255, 255, 0.15),
-            rgba(255, 255, 255, 0) 48%,
-            rgba(255, 255, 255, 0.08) 74%,
-            rgba(255, 255, 255, 0)
-          );
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        pointer-events: none;
-        animation: orbFloat 16s ease-in-out infinite;
+        display: none;
       }
 
       .workspace-hero > * {
@@ -5314,7 +5293,7 @@
 
       .focus-nav-shell {
         display: grid;
-        gap: 16px;
+        gap: 12px;
         position: relative;
       }
 
@@ -5322,9 +5301,9 @@
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        gap: 16px;
-        padding: 16px 18px;
-        border-radius: 22px;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 16px;
         background:
           radial-gradient(circle at top right, rgba(225, 191, 67, 0.09), transparent 28%),
           linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 249, 245, 0.92));
@@ -5333,21 +5312,21 @@
 
       .focus-nav-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(152px, 1fr));
+        gap: 10px;
       }
 
       .focus-nav-button {
         width: 100%;
         min-width: 0;
-        min-height: 78px;
-        padding: 14px 16px;
+        min-height: 66px;
+        padding: 11px 12px;
         display: grid;
         gap: 6px;
         align-content: start;
         justify-items: start;
         text-align: left;
-        border-radius: 20px;
+        border-radius: 14px;
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 247, 0.95));
         color: var(--accent-deep);
         border: 1px solid rgba(18, 63, 47, 0.12);
@@ -5422,14 +5401,14 @@
 
       .focus-stage-shell {
         display: grid;
-        gap: 18px;
+        gap: 12px;
       }
 
       .focus-stage-banner {
         display: grid;
-        gap: 14px;
-        padding: 18px 20px;
-        border-radius: 22px;
+        gap: 10px;
+        padding: 13px 14px;
+        border-radius: 16px;
         border: 1px solid var(--line);
         background:
           radial-gradient(circle at top right, rgba(225, 191, 67, 0.08), transparent 28%),

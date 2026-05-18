@@ -2917,7 +2917,7 @@
 
         const stats = getOverviewStats();
         const items = [
-          { key: "overview", label: "Home", count: stats.visibleTournaments, group: "Start" },
+          { key: "overview", label: "Home", count: stats.visibleTournaments, group: "Home" },
           { key: "tournaments", label: "Tournaments", count: stats.openTournaments, group: "Tournament" },
         ];
 
@@ -2935,9 +2935,9 @@
         if (capabilities.canViewJudging) {
           items.push({
             key: "judging",
-            label: "Judge assignments",
+            label: "Ballots",
             count: getJudgeAssignments(email).length,
-            group: "Judges",
+            group: "Tournament",
           });
         }
 
@@ -2946,7 +2946,7 @@
         }
 
         if (capabilities.canViewLinks) {
-          items.push({ key: "links", label: "Private links", count: stats.privateLinks, group: "Results" });
+          items.push({ key: "links", label: "Results & Links", count: stats.privateLinks, group: "Publication" });
         }
 
         if (capabilities.canViewSettings) {
@@ -12126,7 +12126,7 @@
             support:
               "Build the next room set so motions, ballots, and judging can move forward.",
             actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Draw Lab</button>`,
+              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Round Draw</button>`,
           });
         }
 
@@ -13854,22 +13854,15 @@
           String(currentUser?.name || "").trim() ||
           String(session.userEmail || "").trim().split("@")[0] ||
           "there";
+        const activeManagedTournament = capabilities.canManageAny
+          ? getManagedTournamentForSession() || (capabilities.managedTournaments || [])[0] || null
+          : null;
         const menuVisibleTournaments = getVisibleTournaments();
         const menuPinnedTournaments = getPinnedTournaments(menuVisibleTournaments).slice(0, 2);
         const menuRecentTournaments = getRecentTournaments(menuVisibleTournaments)
           .filter((tournament) => !menuPinnedTournaments.some((entry) => entry.id === tournament.id))
           .slice(0, 2);
-        const menuSubtitle = capabilities.regionalPortalMode
-          ? "Regional reports and transport requests."
-          : capabilities.judgeOnly
-          ? "See assignments, ballots, and tournament updates."
-          : capabilities.regionalOnly
-            ? "Regional reporting and shared operations history."
-          : capabilities.competitorOnly
-            ? "Check draws, results, and feedback."
-            : !capabilities.canManageAny
-              ? "Open tournaments and private links."
-            : "Run tournaments from one place.";
+        const groupOrder = ["Home", "Tournament", "People", "Publication", "Settings", "Regional", "Debater", "Judge", "Tools", "Account"];
         const groupedItems = items.reduce((groups, item) => {
           const groupLabel = String(item.group || "Workspace").trim() || "Workspace";
           if (!groups[groupLabel]) {
@@ -13878,6 +13871,23 @@
           groups[groupLabel].push(item);
           return groups;
         }, {});
+        const orderedGroups = Object.entries(groupedItems).sort((left, right) => {
+          const leftOrder = groupOrder.indexOf(left[0]);
+          const rightOrder = groupOrder.indexOf(right[0]);
+          const a = leftOrder === -1 ? Number.MAX_SAFE_INTEGER : leftOrder;
+          const b = rightOrder === -1 ? Number.MAX_SAFE_INTEGER : rightOrder;
+          return a - b || String(left[0]).localeCompare(String(right[0]));
+        });
+        const managerOpsButtons = capabilities.canManageAny
+          ? [
+              { section: "control", label: "Overview" },
+              { section: "draw", label: "Round Draw" },
+              { section: "results", label: "Standings" },
+              { section: "judges", label: "Judges" },
+              { section: "motions", label: "Motions" },
+              { section: "roster", label: "Teams" },
+            ]
+          : [];
 
         return `
           <a class="skip-link" href="#workspace-main">Skip to main content</a>
@@ -13886,7 +13896,6 @@
               ${renderBrandLockup({
                 kicker: "Workspace Menu",
                 size: "compact",
-                subtitle: menuSubtitle,
                 showSubtitle: false,
               })}
             </div>
@@ -13897,8 +13906,14 @@
                   toTitleLabel(getCurrentRole()),
                 )}</span>
               </div>
-              <p class="fine-print">Choose what you need to do.</p>
-              ${Object.entries(groupedItems)
+              ${
+                activeManagedTournament
+                  ? `<p class="fine-print">Current tournament: ${escapeHtml(
+                      activeManagedTournament.code || activeManagedTournament.name,
+                    )}</p>`
+                  : ""
+              }
+              ${orderedGroups
                 .map(
                   ([groupLabel, groupItems]) => `
                     <div class="menu-side-section">
@@ -13927,6 +13942,31 @@
                   `,
                 )
                 .join("")}
+              ${
+                managerOpsButtons.length
+                  ? `
+                    <div class="menu-side-section">
+                      <div class="menu-shortcut-head">
+                        <span class="theme-section-label">Tournament operations</span>
+                        <span class="mini-pill success">${escapeHtml(
+                          activeManagedTournament ? "Live" : "Select",
+                        )}</span>
+                      </div>
+                      <div class="menu-shortcut-list">
+                        ${managerOpsButtons
+                          .map(
+                            (entry) => `
+                              <button class="menu-room-button secondary-button" type="button" data-action="open-managed-section" data-section="${escapeHtml(
+                                entry.section,
+                              )}">${escapeHtml(entry.label)}</button>
+                            `,
+                          )
+                          .join("")}
+                      </div>
+                    </div>
+                  `
+                  : ""
+              }
               ${
                 capabilities.regionalPortalMode
                   ? ""
@@ -13957,8 +13997,10 @@
                   : ""
               )
               }
-              ${renderThemeQuickSwitch()}
-              <button class="ghost-button" type="button" data-action="logout"><span>Sign Out</span></button>
+              <div class="menu-shortcut-list">
+                <button class="secondary-button" type="button" data-action="set-view" data-view="settings"><span>Settings</span></button>
+                <button class="ghost-button" type="button" data-action="logout"><span>Sign Out</span></button>
+              </div>
             </div>
           </aside>
         `;
@@ -14891,6 +14933,9 @@
         const latestRound = getPrimaryParticipantDrawEntry(tournament, participant);
         const latestFeedback =
           getPortalFeedbackEntries(tournament, participant).slice(-1)[0] || null;
+        const latestRoundControl = latestRound
+          ? getRoundControlForRound(tournament, latestRound.round)
+          : null;
         const entryLabel =
           participant.teamName || participant.name || (tournament.participantModel === "teams"
             ? "Team entry"
@@ -14917,6 +14962,32 @@
                 <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
                   toTitleLabel(tournament.status),
                 )}</span>
+              </div>
+              <div class="workspace-chip-row">
+                <span class="mini-pill ${escapeHtml(
+                  canShowDraw && latestRound ? "success" : "warning",
+                )}">${escapeHtml(
+                  canShowDraw && latestRound ? "Round " + latestRound.round + " Published" : "Draw Hidden",
+                )}</span>
+                <span class="mini-pill ${escapeHtml(
+                  canShowStandings ? "success" : "warning",
+                )}">${escapeHtml(
+                  canShowStandings ? "Standings Visible" : "Standings Hidden",
+                )}</span>
+                <span class="mini-pill ${escapeHtml(
+                  canShowFeedback && latestFeedback ? "success" : "warning",
+                )}">${escapeHtml(
+                  canShowFeedback && latestFeedback ? "Feedback Updated" : "Feedback Pending",
+                )}</span>
+                ${
+                  latestRoundControl
+                    ? `<span class="mini-pill ${escapeHtml(
+                        latestRoundControl.motionReleased ? "success" : "warning",
+                      )}">${escapeHtml(
+                        latestRoundControl.motionReleased ? "Motion Released" : "Motion Hidden",
+                      )}</span>`
+                    : ""
+                }
               </div>
               <div class="competitor-card-grid">
                 <div class="competitor-stat">
@@ -15001,7 +15072,7 @@
                   `
                   : ""
               }
-              <div class="button-row">
+              <div class="button-row competitor-action-row">
                 <a class="cta-link floating-accent" href="${escapeHtml(
                   getPrivateLink(participant.token),
                 )}" target="_blank" rel="noreferrer">Open My Private Tab</a>
@@ -15053,28 +15124,6 @@
         }
 
         return `
-          ${
-            view === "overview"
-              ? `
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Debater view</p>
-                      <h2>Your tournament view stays focused</h2>
-                    </div>
-                    <span class="role-pill">${escapeHtml(tournaments.length)} event${
-                      tournaments.length === 1 ? "" : "s"
-                    }</span>
-                  </div>
-                  <div class="competitor-note">
-                    <p>
-                      Use the cards below for a quick check, then open your private link for the full round-by-round view.
-                    </p>
-                  </div>
-                </section>
-              `
-              : ""
-          }
           <section class="surface">
             <div class="section-heading">
               <div>
@@ -15082,7 +15131,7 @@
                   view === "overview" ? "My Events" : "Tournament Access",
                 )}</p>
                 <h2>${escapeHtml(
-                  view === "overview" ? "Your current tournaments" : "All assigned events",
+                  view === "overview" ? "Current tournaments" : "All assigned events",
                 )}</h2>
               </div>
               <span class="role-pill">${escapeHtml(tournaments.length)} visible</span>
@@ -15107,16 +15156,14 @@
                   <div class="competitor-hero-copy">
                     ${renderBrandLockup({
                       kicker: "Competitor Access",
-                      size: "featured",
+                      size: "compact",
                       subtitle:
-                        "A calmer view for draws, standings, speaker scores, and feedback.",
+                        "Quick access to your draw, standings, feedback, and notices.",
                     })}
                     <div>
                       <p class="eyebrow">Debater view</p>
-                      <h1>See your draw, results, and feedback.</h1>
-                      <p class="hero-copy">
-                        Open your event, check the latest round, and jump into your private link without the staff tools.
-                      </p>
+                      <h1>Your tournament portal</h1>
+                      <p class="hero-copy">Check round status fast, then open your private tab.</p>
                     </div>
                     <nav class="competitor-nav" aria-label="Competitor workspace navigation">
                       <button type="button" ${
@@ -15136,7 +15183,6 @@
                       } data-action="set-view" data-view="settings">Settings</button>
                       <button class="secondary-button" type="button" data-action="logout">Sign Out</button>
                     </nav>
-                    ${renderWorkspaceSearchBar()}
                   </div>
                   <div class="competitor-hero-side">
                     <div class="inline-card competitor-account-card">
@@ -15157,13 +15203,9 @@
                         )}</p>
                       </div>
                       <div class="button-row wrap-row competitor-account-actions">
-                        <button class="secondary-button" type="button" data-action="set-view" data-view="search">Search History</button>
+                        <button class="secondary-button" type="button" data-action="set-view" data-view="search">Search</button>
                         <button class="secondary-button" type="button" data-action="set-view" data-view="settings">Open Settings</button>
                       </div>
-                      ${renderThemeQuickSwitch(currentUser?.themePreset || "jade_classic", {
-                        compact: true,
-                        label: "Quick themes",
-                      })}
                     </div>
                     <div class="competitor-metrics">
                       <div class="competitor-metric">
@@ -15185,6 +15227,9 @@
                     </div>
                   </div>
                 </div>
+              </section>
+              <section class="surface competitor-search-shell">
+                ${renderWorkspaceSearchBar()}
               </section>
               ${renderFlash()}
               ${renderCompetitorHomeView(currentView)}
@@ -16488,7 +16533,7 @@
             canManage
               ? `
                 <div class="alert info">
-                  Team standings and speaker rankings update automatically when judges submit ballots for each room. Use the Draw Lab for room creation, publishing, priority, and ballot-return tracking.
+                  Team standings and speaker rankings update automatically when judges submit ballots for each room. Use Round Draw for room creation, publishing, priority, and ballot-return tracking.
                 </div>
               `
               : ""
@@ -18835,8 +18880,8 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Draw Lab</p>
-                <h2>Create, release, and refine pairings</h2>
+                <p class="eyebrow">Round Draw</p>
+                <h2>Create, validate, and publish pairings</h2>
               </div>
               <span class="role-pill">${escapeHtml(getRoundStructureSummary(tournament))}</span>
             </div>
@@ -18849,7 +18894,7 @@
                 )}">
                   <div class="section-heading">
                     <div>
-                      <h3>Generate Round Draw</h3>
+                      <h3>Generate draw</h3>
                     </div>
                     <span class="mini-pill ${escapeHtml(
                       isOutroundProfile(suggestedRoundProfile) ? "warning" : "success",
@@ -18891,7 +18936,7 @@
                     </label>
                     <label class="checkbox-row">
                       <input type="checkbox" name="releaseNow" checked />
-                      <span>Release Immediately</span>
+                      <span>Publish immediately</span>
                     </label>
                   </div>
                   <p class="fine-print">
@@ -18904,7 +18949,7 @@
                       "auto",
                     ),
                   )}</p>
-                  <button type="submit">Build Draw</button>
+                  <button type="submit">Generate draw</button>
                 </form>
 
                 <form class="stack flat-panel" data-form="release-draw-round" data-id="${escapeHtml(
@@ -18912,7 +18957,7 @@
                 )}">
                   <div class="section-heading">
                     <div>
-                      <h3>Round Publishing</h3>
+                      <h3>Publish draw</h3>
                     </div>
                   </div>
                   <div class="round-ops-grid">
@@ -18923,7 +18968,7 @@
                         latestRound || 1,
                       )}</select>
                     </label>
-                    <button type="submit">Release Selected Round</button>
+                    <button type="submit">Publish selected round</button>
                   </div>
                 </form>
 
@@ -18932,7 +18977,7 @@
                 )}">
                   <div class="section-heading">
                     <div>
-                      <h3>Clear A Round</h3>
+                      <h3>Reset draw round</h3>
                     </div>
                   </div>
                   <div class="round-ops-grid">
@@ -18943,7 +18988,7 @@
                         latestRound || 1,
                       )}</select>
                     </label>
-                    <button class="danger-button" type="submit">Clear Selected Round</button>
+                    <button class="danger-button" type="submit">Reset selected round</button>
                   </div>
                 </form>
               </div>
@@ -18953,7 +18998,7 @@
               )}">
                 <div class="section-heading">
                   <div>
-                    <h3>Craft A Manual Room</h3>
+                    <h3>Add manual room</h3>
                   </div>
                 </div>
                 <div class="field-grid three">
@@ -23145,7 +23190,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Settings</p>
-                <h2>Configure the app, your workspace, and default behaviour</h2>
+                <h2>Workspace and tournament defaults</h2>
               </div>
               <span class="role-pill">${escapeHtml(
                 settingsLocked ? "System Managers" : "System Manager Access",
@@ -23161,7 +23206,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Personal Workspace</p>
-                <h2>Make the platform feel like yours</h2>
+                <h2>Personal preferences</h2>
               </div>
               <span class="role-pill">${escapeHtml(
                 THEME_PRESETS[currentUser?.themePreset || "jade_classic"]?.label || "Customised",
@@ -23184,9 +23229,7 @@
               </div>
               ${renderThemeQuickSwitch(currentUser?.themePreset || "jade_classic")}
               ${renderThemePresetGallery(currentUser?.themePreset || "jade_classic")}
-              <div class="alert info">
-                Theme presets are personal to your account, so each user can keep a different look and starting workflow. You can either save the dropdown choice or tap any preview card above for an instant switch.
-              </div>
+              <p class="fine-print">Theme and start page apply only to your account.</p>
               <button type="submit">Save personal settings</button>
             </form>
           </section>
@@ -23194,7 +23237,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Accessibility</p>
-                <h2>Support screen readers, keyboard flow, and calmer motion</h2>
+                <h2>Accessibility</h2>
               </div>
               <span class="role-pill">Inclusive access</span>
             </div>
@@ -23211,12 +23254,7 @@
                 )} />
                 <span>Show screen-reader and keyboard guidance near search/navigation</span>
               </label>
-              <div class="alert info">
-                JADE Hummingbird now includes a skip link, landmark navigation, announced flash messages, strong keyboard focus states, and competitor/judge flows designed to be readable by assistive technology.
-              </div>
-              <p class="fine-print">
-                For blind users, the most efficient path is: use the skip link, move by headings or landmarks, then use workspace search to jump between tournaments, people, and ballots.
-              </p>
+              <p class="fine-print">Use skip link + headings for fastest keyboard and screen-reader navigation.</p>
               <button type="submit">Save accessibility settings</button>
             </form>
           </section>
@@ -23224,7 +23262,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Password and Device Access</p>
-                <h2>Save your password from inside JADE Hummingbird</h2>
+                <h2>Device password saving</h2>
               </div>
               <span class="role-pill">${escapeHtml(
                 devicePasswordSavingEnabled ? "Enabled" : "Not saved",
@@ -23250,9 +23288,7 @@
                 />
                 <span>Save Password Securely On This Device</span>
               </label>
-              <div class="alert info">
-                This in-app control uses your browser or device password manager when supported, so JADE Hummingbird still does not store your raw password in local app data.
-              </div>
+              <p class="fine-print">Uses your browser/device password manager. Raw passwords are not stored by JADE.</p>
               ${
                 devicePasswordSavingSupported
                   ? `<p class="auth-footer">Enter your current password to save or refresh the secure device copy. If you switch this off, JADE Hummingbird stops remembering the preference for this account on this device.</p>`
@@ -23390,10 +23426,7 @@
                 <h3>Data</h3>
               </div>
               <div class="stack">
-                <div class="alert info">JADE Hummingbird is currently running as a local app on this device.</div>
-                <p class="fine-print">
-                  Export a JSON backup whenever you want a portable copy of your tournaments, users, and settings.
-                </p>
+                <p class="fine-print">Download a backup of tournaments, users, and settings.</p>
                 <div class="button-row wrap-row">
                   <button class="secondary-button" type="button" data-action="export-data" ${
                     settingsLocked ? "disabled" : ""
@@ -23412,7 +23445,7 @@
         return `
           <form class="workspace-search-form compact-top-search" data-form="workspace-search" role="search" aria-label="Workspace search">
             <label class="workspace-search-field">
-              Search The Workspace
+              Search
               <input type="search" name="query" value="${escapeHtml(
                 session.searchQuery,
               )}" list="workspace-top-suggestions" autocomplete="off" placeholder="Search tournaments, participants, teams, institutions, or accounts" />
@@ -23771,43 +23804,38 @@
                       <span class="portal-summary-copy">${escapeHtml(drawSupport)}</span>
                     </div>
                   </div>
-                  <div class="portal-info-grid">
-                    <div class="portal-note-card">
-                      <p class="eyebrow">Your essentials</p>
-                      <h3>Everything here is tailored to your entry</h3>
-                      <p>${escapeHtml(welcomeNote)}</p>
-                      ${
-                        tournament.announcement
-                          ? `<p class="fine-print">${escapeHtml(tournament.announcement)}</p>`
-                          : ""
-                      }
-                    </div>
+                  <div class="workspace-chip-row">
+                    <span class="mini-pill ${escapeHtml(
+                      canShowDraw && primaryDrawEntry ? "success" : "warning",
+                    )}">${escapeHtml(
+                      canShowDraw && primaryDrawEntry
+                        ? "Round " + primaryDrawEntry.round + " Published"
+                        : "Draw Hidden",
+                    )}</span>
+                    <span class="mini-pill ${escapeHtml(
+                      canShowStandings ? "success" : "warning",
+                    )}">${escapeHtml(
+                      canShowStandings ? "Standings Visible" : "Standings Hidden",
+                    )}</span>
+                    <span class="mini-pill ${escapeHtml(
+                      canShowFeedback && latestFeedback ? "success" : "warning",
+                    )}">${escapeHtml(
+                      canShowFeedback && latestFeedback ? "Feedback Updated" : "Feedback Pending",
+                    )}</span>
                     ${
-                      canShowFeedback && latestFeedback
-                        ? `
-                          <div class="portal-note-card">
-                            <p class="eyebrow">Latest feedback</p>
-                            <h3>New notes have been posted</h3>
-                            <p>${escapeHtml(
-                              latestFeedback.note || "Open the feedback section below to read the latest notes.",
-                            )}</p>
-                            <p class="fine-print">${escapeHtml(feedbackSupport)}</p>
-                          </div>
-                        `
-                        : `
-                          <div class="portal-note-card">
-                            <p class="eyebrow">Portal status</p>
-                            <h3>Stay focused on the next update</h3>
-                            <p>${escapeHtml(
-                              canShowDraw && primaryDrawEntry
-                                ? "Your latest published round is ready below."
-                                : "As soon as a new round or update is posted, it will appear here first.",
-                            )}</p>
-                            <p class="fine-print">${escapeHtml(feedbackSupport)}</p>
-                          </div>
-                        `
+                      primaryDrawEntry && getRoundControlForRound(tournament, primaryDrawEntry.round)?.motionReleased
+                        ? `<span class="mini-pill success">Motion Released</span>`
+                        : `<span class="mini-pill warning">Motion Hidden</span>`
                     }
                   </div>
+                  ${
+                    tournament.announcement
+                      ? `<div class="portal-note-card">
+                          <p class="eyebrow">Tournament notice</p>
+                          <p>${escapeHtml(tournament.announcement)}</p>
+                        </div>`
+                      : `<p class="fine-print">${escapeHtml(welcomeNote)}</p>`
+                  }
                 </div>
               </section>
               ${
@@ -29214,6 +29242,33 @@
               session.managedTournamentId = "";
               session.selectedTournamentId = "";
             }
+            recordRecentView(session.view);
+            clearFlash();
+            saveSession();
+            requestSessionHistoryPush();
+            renderApp();
+            return;
+          }
+
+          if (action === "open-managed-section") {
+            const section = String(button.dataset.section || "control").trim().toLowerCase() || "control";
+            const capabilities = getWorkspaceCapabilities();
+            const managedTournament =
+              getManagedTournamentForSession() || (capabilities.managedTournaments || [])[0] || null;
+            if (!managedTournament) {
+              setFlash("error", "Open a tournament first to use operational shortcuts.");
+              renderApp();
+              return;
+            }
+            session.view = "tournaments";
+            session.managedTournamentId = managedTournament.id;
+            session.selectedTournamentId = "";
+            session.focusedTournamentSection = section === "spotlight" ? "control" : section;
+            queueFocusedTournamentSectionJump(
+              session.managedTournamentId,
+              session.focusedTournamentSection,
+            );
+            recordRecentTournament(session.managedTournamentId);
             recordRecentView(session.view);
             clearFlash();
             saveSession();
