@@ -3011,6 +3011,19 @@
         return normalizeStringList(session.recentTournamentIds, 8);
       }
 
+      function resetWorkspaceHomeState() {
+        session.view = "overview";
+        session.managedTournamentId = "";
+        session.selectedTournamentId = "";
+        session.selectedTournamentBoardTab = "overview";
+        session.focusedTournamentSection = "control";
+        session.selectedParticipantKey = "";
+        session.peopleSection = "hub";
+        session.selectedPeopleEmail = "";
+        session.peopleAppointeeTournamentId = "";
+        session.peopleAppointeeQuery = "";
+      }
+
       function getTournamentsByStoredOrder(tournaments, orderedIds) {
         const order = new Map(
           normalizeStringList(orderedIds, 20).map((id, index) => [String(id), index]),
@@ -29441,15 +29454,7 @@
           if (action === "set-view") {
             session.view = button.dataset.view || "overview";
             if (session.view === "overview") {
-              session.managedTournamentId = "";
-              session.selectedTournamentId = "";
-              session.selectedTournamentBoardTab = "overview";
-              session.focusedTournamentSection = "control";
-              session.selectedParticipantKey = "";
-              session.peopleSection = "hub";
-              session.selectedPeopleEmail = "";
-              session.peopleAppointeeTournamentId = "";
-              session.peopleAppointeeQuery = "";
+              resetWorkspaceHomeState();
             }
             if (session.view === "people") {
               session.peopleSection = "hub";
@@ -29555,13 +29560,12 @@
           }
 
           if (action === "clear-focused-tournament") {
-            session.view = "tournaments";
-            session.managedTournamentId = "";
-            session.focusedTournamentSection = "control";
+            resetWorkspaceHomeState();
             recordRecentView(session.view);
             clearFlash();
             saveSession();
             requestSessionHistoryPush();
+            pendingViewportReset = true;
             renderApp();
             return;
           }
