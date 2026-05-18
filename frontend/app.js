@@ -782,7 +782,7 @@
           managedTournamentId: "",
           selectedTournamentId: "",
           selectedTournamentBoardTab: "overview",
-          focusedTournamentSection: "spotlight",
+          focusedTournamentSection: "control",
           recentTournamentIds: [],
           recentViewKeys: [],
           recentParticipantKeys: [],
@@ -987,8 +987,8 @@
             String(record.selectedTournamentBoardTab || "overview").trim().toLowerCase() ||
             "overview",
           focusedTournamentSection:
-            String(record.focusedTournamentSection || "spotlight").trim().toLowerCase() ||
-            "spotlight",
+            String(record.focusedTournamentSection || "control").trim().toLowerCase() ||
+            "control",
           recentTournamentIds: normalizeStringList(record.recentTournamentIds, 8),
           recentViewKeys: normalizeStringList(record.recentViewKeys, 8),
           recentParticipantKeys: normalizeStringList(record.recentParticipantKeys, 8),
@@ -3201,6 +3201,108 @@
           conflictFlags,
           attention,
           attentionCount: attention.length,
+        };
+      }
+
+      function getRoundBallotSubmissionProgress(tournament, round) {
+        const targetRound = normalizeRoundCount(round, 1);
+        const publishedEntries = (tournament.draw || []).filter(
+          (entry) =>
+            Number(entry.round || 0) === Number(targetRound) &&
+            isPublishedDrawStatus(entry.status),
+        );
+        const submittedIds = getOfficialBallotDrawIdSet(tournament);
+        const submitted = publishedEntries.filter((entry) =>
+          submittedIds.has(String(entry.id || "").trim()),
+        ).length;
+        const total = publishedEntries.length;
+        return {
+          round: targetRound,
+          submitted,
+          total,
+          missing: Math.max(0, total - submitted),
+          label: total ? submitted + "/" + total : "0/0",
+        };
+      }
+
+      function getRoundLifecycleState(tournament, round) {
+        const targetRound = normalizeRoundCount(round, 1);
+        const control = getRoundControlForRound(tournament, targetRound);
+        const roundEntries = (tournament.draw || []).filter(
+          (entry) => Number(entry.round || 0) === Number(targetRound),
+        );
+        const publishedEntries = roundEntries.filter((entry) => isPublishedDrawStatus(entry.status));
+        const submittedIds = getOfficialBallotDrawIdSet(tournament);
+        const submittedCount = publishedEntries.filter((entry) =>
+          submittedIds.has(String(entry.id || "").trim()),
+        ).length;
+        const officialResultsCount = publishedEntries.filter(
+          (entry) => Object.keys(normalizeDrawOfficialResults(entry.officialResults)).length > 0,
+        ).length;
+
+        if (control.locked) {
+          return "Locked";
+        }
+        if (!roundEntries.length) {
+          return "Draft";
+        }
+        if (!publishedEntries.length) {
+          return "Draw Generated";
+        }
+        if (!submittedCount) {
+          return "Draw Published";
+        }
+        if (submittedCount < publishedEntries.length) {
+          return "Ballots Open";
+        }
+        if (officialResultsCount < publishedEntries.length) {
+          return "Ballots Closed";
+        }
+        if (tournament.publication.showPublicStandings) {
+          return "Results Published";
+        }
+        return "Results Calculated";
+      }
+
+      function getTournamentControlRoomState(tournament) {
+        const snapshot = getTournamentOpsSnapshot(tournament);
+        const activeRound =
+          snapshot.latestPublishedRound ||
+          snapshot.nextDraftRound ||
+          snapshot.nextUnbuiltRound ||
+          1;
+        const lifecycle = getRoundLifecycleState(tournament, activeRound);
+        const ballotProgress = getRoundBallotSubmissionProgress(tournament, activeRound);
+
+        let nextRequiredAction = "Monitor rounds and publish updates.";
+        let nextSection = "results";
+        if (snapshot.nextUnbuiltRound) {
+          nextRequiredAction = "Generate draw for Round " + snapshot.nextUnbuiltRound + ".";
+          nextSection = "draw";
+        } else if (snapshot.draftRooms && snapshot.nextDraftRound) {
+          nextRequiredAction = "Review and publish Round " + snapshot.nextDraftRound + ".";
+          nextSection = "draw";
+        } else if (snapshot.pendingBallotRooms) {
+          nextRequiredAction = "Collect " + snapshot.pendingBallotRooms + " missing ballots.";
+          nextSection = "results";
+        } else if (!snapshot.judges) {
+          nextRequiredAction = "Add judges before opening the next round.";
+          nextSection = "judges";
+        } else if (snapshot.chairlessRooms) {
+          nextRequiredAction = "Assign chairs for " + snapshot.chairlessRooms + " room(s).";
+          nextSection = "judges";
+        } else if (!tournament.publication.showPublicStandings) {
+          nextRequiredAction = "Publish standings when results are confirmed.";
+          nextSection = "results";
+        }
+
+        return {
+          snapshot,
+          activeRound,
+          lifecycle,
+          ballotProgress,
+          nextRequiredAction,
+          nextSection,
         };
       }
 
@@ -11192,7 +11294,7 @@
           if (session.focusedTournamentSection) {
             url.searchParams.set(
               "section",
-              String(session.focusedTournamentSection || "spotlight").trim().toLowerCase(),
+              String(session.focusedTournamentSection || "control").trim().toLowerCase(),
             );
           }
         } else if (normalizedView === "search" && session.selectedParticipantKey) {
@@ -11231,7 +11333,7 @@
             session.managedTournamentId = "";
             session.selectedTournamentId = "";
             session.selectedTournamentBoardTab = "overview";
-            session.focusedTournamentSection = "spotlight";
+            session.focusedTournamentSection = "control";
             session.selectedParticipantKey = "";
           }
           return false;
@@ -11264,13 +11366,13 @@
           session.selectedTournamentBoardTab =
             String(url.searchParams.get("tab") || "overview").trim().toLowerCase() || "overview";
           session.focusedTournamentSection =
-            String(url.searchParams.get("section") || "spotlight").trim().toLowerCase() ||
-            "spotlight";
+            String(url.searchParams.get("section") || "control").trim().toLowerCase() ||
+            "control";
         } else {
           session.managedTournamentId = "";
           session.selectedTournamentId = "";
           session.selectedTournamentBoardTab = "overview";
-          session.focusedTournamentSection = "spotlight";
+          session.focusedTournamentSection = "control";
         }
 
         if (session.view === "search") {
@@ -14254,6 +14356,151 @@
           `;
         }
 
+        const managedTournaments = capabilities.managedTournaments || [];
+        const activeManagedTournament = getManagedTournamentForSession() || managedTournaments[0] || null;
+        const managedQueue = [...managedTournaments].sort((left, right) => {
+          const leftState = getTournamentControlRoomState(left);
+          const rightState = getTournamentControlRoomState(right);
+          return (
+            Number(rightState.snapshot.attentionCount || 0) - Number(leftState.snapshot.attentionCount || 0) ||
+            String(left.name || "").localeCompare(String(right.name || ""))
+          );
+        });
+
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Tournament Control Room</p>
+                <h2>${
+                  activeManagedTournament
+                    ? escapeHtml(activeManagedTournament.name)
+                    : "Open a tournament to begin operations"
+                }</h2>
+              </div>
+              <div class="toolbar-row">
+                <button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournaments</button>
+                <button class="secondary-button" data-action="set-view" data-view="judging">Open Judging</button>
+                <button class="secondary-button" data-action="set-view" data-view="people">Open Teams & People</button>
+                <button class="secondary-button" data-action="set-view" data-view="settings">Open Settings</button>
+              </div>
+            </div>
+            ${
+              activeManagedTournament
+                ? `<div class="button-row wrap-row">
+                    <button type="button" data-action="focus-tournament" data-id="${escapeHtml(
+                      activeManagedTournament.id,
+                    )}">Open Tab Room</button>
+                    <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Round Draw</button>
+                    <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Open Standings</button>
+                  </div>`
+                : `<div class="empty-state">No manageable tournament is currently selected. Open one from Tournaments.</div>`
+            }
+          </section>
+          ${
+            activeManagedTournament
+              ? renderTournamentControlRoomPanel(activeManagedTournament)
+              : ""
+          }
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Next Required Actions</p>
+                <h3>Tournaments requiring tab room attention</h3>
+              </div>
+              <span class="role-pill">${escapeHtml(managedQueue.length)} tournaments</span>
+            </div>
+            ${
+              managedQueue.length
+                ? `<div class="leaderboard-list">
+                    ${managedQueue
+                      .slice(0, 8)
+                      .map((tournament) => {
+                        const control = getTournamentControlRoomState(tournament);
+                        return `
+                          <div class="leaderboard-row">
+                            <div class="stack">
+                              <strong>${escapeHtml(tournament.name)}</strong>
+                              <span class="muted">${escapeHtml(
+                                "Round " +
+                                  control.activeRound +
+                                  " • " +
+                                  control.lifecycle +
+                                  " • Ballots " +
+                                  control.ballotProgress.label,
+                              )}</span>
+                              <span class="muted">${escapeHtml(control.nextRequiredAction)}</span>
+                            </div>
+                            <div class="button-row wrap-row">
+                              <span class="mini-pill ${control.snapshot.attentionCount ? "warning" : "success"}">${escapeHtml(
+                                control.snapshot.attentionCount
+                                  ? control.snapshot.attentionCount + " warning" + (control.snapshot.attentionCount === 1 ? "" : "s")
+                                  : "Stable",
+                              )}</span>
+                              <button type="button" data-action="focus-tournament" data-id="${escapeHtml(
+                                tournament.id,
+                              )}">Open Tab Room</button>
+                            </div>
+                          </div>
+                        `;
+                      })
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state">No tournaments are available for this manager account yet.</div>`
+            }
+          </section>
+          <section class="surface-grid">
+            <section class="surface">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Operations Queue</p>
+                  <h3>Administrative items that block operations</h3>
+                </div>
+              </div>
+              <div class="manager-grid">
+                <div class="stat-card">
+                  <span class="muted">Pending sign-ups</span>
+                  <strong>${escapeHtml(managerMetrics.pendingAccounts)}</strong>
+                </div>
+                <div class="stat-card">
+                  <span class="muted">Password reset requests</span>
+                  <strong>${escapeHtml(managerMetrics.passwordResetRequests)}</strong>
+                </div>
+                <div class="stat-card">
+                  <span class="muted">Hidden standings boards</span>
+                  <strong>${escapeHtml(managerMetrics.hiddenStandings)}</strong>
+                </div>
+                <div class="stat-card">
+                  <span class="muted">Inactive accounts</span>
+                  <strong>${escapeHtml(managerMetrics.inactiveUsers)}</strong>
+                </div>
+              </div>
+            </section>
+            <section class="surface">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Audit Trail</p>
+                  <h3>Latest tournament actions</h3>
+                </div>
+              </div>
+              ${
+                recentLogs.length
+                  ? `<ul class="audit-list">
+                      ${recentLogs
+                        .map(
+                          (item) =>
+                            `<li><strong>${escapeHtml(item.tournament)}</strong>: ${escapeHtml(
+                              item.entry.message,
+                            )} <span class="muted">(${escapeHtml(item.entry.at)})</span></li>`,
+                        )
+                        .join("")}
+                    </ul>`
+                  : `<div class="empty-state">No recent audit events yet.</div>`
+              }
+            </section>
+          </section>
+        `;
+
         return `
           <section class="surface overview-panel">
             <div class="overview-quick-row">
@@ -17159,17 +17406,17 @@
 
         const sections = [
           {
-            key: "spotlight",
-            label: "Spotlight",
-            note: "Start with the tournament's next recommended actions and watchpoints.",
+            key: "control",
+            label: "Control Room",
+            note: "Live round state, ballot progress, publication state, and required actions.",
             badge: snapshot.attentionCount
-              ? snapshot.attentionCount + " watchpoint" + (snapshot.attentionCount === 1 ? "" : "s")
-              : "Ready",
-            render: () => renderTournamentSpotlight(tournament),
+              ? snapshot.attentionCount + " warning" + (snapshot.attentionCount === 1 ? "" : "s")
+              : "Stable",
+            render: () => renderTournamentControlRoomPanel(tournament),
           },
           {
             key: "roster",
-            label: "Roster",
+            label: "Team Registration",
             note: "Participants, institutions, teams, and linked entry records.",
             badge: tournament.participants.length
               ? tournament.participants.length + " entries"
@@ -17178,7 +17425,7 @@
           },
           {
             key: "registration",
-            label: "Registration",
+            label: "Public Registration",
             note: "Public debater and judge intake, quick links, and live registration status.",
             badge: (
               getTournamentRegistrationSettings(tournament).debaterOpen ||
@@ -17195,7 +17442,7 @@
           },
           {
             key: "draw",
-            label: "Draw Lab",
+            label: "Round Draw",
             note: "Pairings, round controls, conflict review, and release flow.",
             badge: snapshot.totalRooms ? snapshot.totalRooms + " rooms" : "No rooms",
             render: () => renderTournamentDrawStudio(tournament),
@@ -17212,7 +17459,7 @@
           },
           {
             key: "results",
-            label: "Leaderboards",
+            label: "Standings",
             note: "Standings, speaker rankings, breaks, and institution performance.",
             badge: snapshot.pendingBallotRooms
               ? snapshot.pendingBallotRooms + " pending"
@@ -17261,7 +17508,7 @@
           },
           {
             key: "access",
-            label: "Access",
+            label: "Permissions",
             note: "Permissions, visibility, appointees, and role-based access control.",
             badge: toTitleLabel(getTournamentAccess(tournament)),
             render: () =>
@@ -17297,7 +17544,7 @@
               ),
           },
         ];
-        const allowedKeys = new Set(["spotlight", "results", "notices"]);
+        const allowedKeys = new Set(["control", "results", "notices"]);
         if (peopleAccess || judgeAccess) {
           allowedKeys.add("roster");
           allowedKeys.add("directory");
@@ -17328,9 +17575,10 @@
           feedbackCategories,
           scoringProfile,
         );
-        const preferred = String(session.focusedTournamentSection || "spotlight")
+        const preferredRaw = String(session.focusedTournamentSection || "control")
           .trim()
           .toLowerCase();
+        const preferred = preferredRaw === "spotlight" ? "control" : preferredRaw;
         const active = sections.find((section) => section.key === preferred) || sections[0];
         if (session.focusedTournamentSection !== active.key) {
           session.focusedTournamentSection = active.key;
@@ -17356,14 +17604,14 @@
           <section class="surface focus-nav-shell">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Tournament Sections</p>
-                <h3>Work in one focused area at a time</h3>
+                <p class="eyebrow">Tournament Workflow</p>
+                <h3>Open the exact operation you need</h3>
               </div>
               <span class="role-pill">${escapeHtml(active.label)}</span>
             </div>
             <div class="focus-nav-overview">
               <div>
-                <p class="eyebrow">Currently Open</p>
+                <p class="eyebrow">Current Work Area</p>
                 <h3>${escapeHtml(active.label)}</h3>
                 <p class="muted">${escapeHtml(active.note)}</p>
               </div>
@@ -17389,16 +17637,7 @@
       }
 
       function getFocusedSectionShortcutKeys(activeKey = "") {
-        const ordered = [
-          "spotlight",
-          "roster",
-          "registration",
-          "draw",
-          "motions",
-          "results",
-          "judges",
-          "setup",
-        ];
+        const ordered = ["control", "roster", "draw", "motions", "results", "judges", "setup"];
         return ordered.filter((key) => key !== activeKey).slice(0, 3);
       }
 
@@ -17447,88 +17686,25 @@
         `;
       }
 
-      function renderTournamentSpotlight(tournament) {
-        const snapshot = getTournamentOpsSnapshot(tournament);
-        const topStanding = getComputedStandings(tournament)[0] || null;
-        const smartInsights = getTournamentSmartInsights(tournament);
-        const cards = [
+      function renderTournamentControlRoomPanel(tournament) {
+        const control = getTournamentControlRoomState(tournament);
+        const snapshot = control.snapshot;
+        const validationLines = [
           {
-            eyebrow: "Registration",
-            headline:
-              tournament.participantModel === "teams"
-                ? snapshot.teams
-                  ? snapshot.teams + " teams"
-                  : "No teams yet"
-                : snapshot.speakers
-                  ? snapshot.speakers + " entries"
-                  : "No entries yet",
-            support:
-              tournament.participantModel === "teams"
-                ? snapshot.teams
-                  ? "Manage rosters, institutions, and linked speakers from one place."
-                  : "Start by adding teams and linking speakers in the roster studio."
-                : snapshot.speakers
-                  ? "Participants are ready to be reviewed and paired."
-                  : "Start by adding your first participants to the roster.",
-            action: `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="roster">Open Roster</button>`,
+            label: "Institution clashes",
+            value: snapshot.conflictFlags,
           },
           {
-            eyebrow: "Pairings",
-            headline: !snapshot.totalRooms
-              ? "No rounds built"
-              : snapshot.draftRooms
-                ? snapshot.draftRooms + " draft rooms"
-                : snapshot.publishedRooms + " published rooms",
-            support: !snapshot.totalRooms
-              ? snapshot.nextUnbuiltRound
-                ? "Round " + snapshot.nextUnbuiltRound + " is ready to be paired."
-                : "Open the draw lab to build the first room set."
-              : snapshot.draftRooms
-                ? "Round " + snapshot.nextDraftRound + " is ready to review or release."
-                : snapshot.latestPublishedRound
-                  ? "Latest public release: Round " + snapshot.latestPublishedRound + "."
-                  : "Published rooms are live and visible to competitors.",
-            action: snapshot.draftRooms && snapshot.nextDraftRound
-              ? `<button type="button" data-action="release-round-now" data-id="${escapeHtml(
-                  tournament.id,
-                )}" data-round="${escapeHtml(snapshot.nextDraftRound)}">Release Round ${escapeHtml(
-                  snapshot.nextDraftRound,
-                )}</button>`
-              : `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Draw Lab</button>`,
+            label: "Rooms missing chairs",
+            value: snapshot.chairlessRooms,
           },
           {
-            eyebrow: "Judges",
-            headline: !snapshot.judges
-              ? "Judge roster empty"
-              : snapshot.chairlessRooms
-                ? snapshot.chairlessRooms + " rooms need chairs"
-                : snapshot.judges + " judges ready",
-            support: !snapshot.judges
-              ? "Add judges with institutions, tiers, and chair or wing quality."
-              : snapshot.chairlessRooms
-                ? "Some rooms still need official chair allocations before judging."
-                : "The current room roster has judge coverage in place.",
-            action: `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="judges">Open Judges</button>`,
+            label: "Published rooms missing ballots",
+            value: snapshot.pendingBallotRooms,
           },
           {
-            eyebrow: "Results",
-            headline: snapshot.pendingBallotRooms
-              ? snapshot.pendingBallotRooms + " ballots pending"
-              : topStanding
-                ? "#" + topStanding.rank + " " + getStandingDisplayName(tournament, topStanding)
-                : "Awaiting rankings",
-            support: snapshot.pendingBallotRooms
-              ? "Published rooms still need official chair ballots before standings settle."
-              : topStanding
-                ? "Leaderboards are updating automatically from submitted ballots."
-                : "Standings and speaker rankings will appear automatically once ballots land.",
-            action: snapshot.pendingBallotRooms
-              ? `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Review Rankings</button>`
-              : tournament.publication.showPublicStandings
-                ? `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Open Leaderboards</button>`
-                : `<button type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
-                    tournament.id,
-                  )}">Show Public Standings</button>`,
+            label: "Draft rooms",
+            value: snapshot.draftRooms,
           },
         ];
 
@@ -17536,55 +17712,108 @@
           <section class="surface spotlight-shell">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Ops Spotlight</p>
-                <h2>Tournament snapshot</h2>
+                <p class="eyebrow">Tournament Control Room</p>
+                <h2>${escapeHtml("Round " + control.activeRound + " • " + control.lifecycle)}</h2>
               </div>
-              <span class="role-pill">${escapeHtml(snapshot.attentionCount)} watchpoints</span>
+              <span class="role-pill">${escapeHtml(snapshot.attentionCount)} warning${
+                snapshot.attentionCount === 1 ? "" : "s"
+              }</span>
             </div>
             <div class="spotlight-grid">
-              ${cards
+              <article class="spotlight-card">
+                <p class="eyebrow">Ballot Submission Progress</p>
+                <h3>${escapeHtml(control.ballotProgress.label)}</h3>
+                <p class="muted">${escapeHtml(
+                  control.ballotProgress.missing
+                    ? control.ballotProgress.missing + " ballot(s) still missing."
+                    : "All published ballots are submitted for this round.",
+                )}</p>
+                <div class="button-row">
+                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">View Missing Ballots</button>
+                </div>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Draw Publication State</p>
+                <h3>${escapeHtml(
+                  snapshot.nextDraftRound
+                    ? "Round " + snapshot.nextDraftRound + " waiting to publish"
+                    : snapshot.latestPublishedRound
+                      ? "Round " + snapshot.latestPublishedRound + " published"
+                      : "No draw published yet",
+                )}</h3>
+                <p class="muted">${escapeHtml(
+                  snapshot.nextDraftRound
+                    ? "Review pairings, room assignments, and conflicts before release."
+                    : "Published draw visibility is tied to tournament publication settings.",
+                )}</p>
+                <div class="button-row">
+                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Round Draw</button>
+                </div>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Standings Publication State</p>
+                <h3>${escapeHtml(
+                  tournament.publication.showPublicStandings ? "Public results visible" : "Public results hidden",
+                )}</h3>
+                <p class="muted">${escapeHtml(
+                  tournament.publication.showPublicStandings
+                    ? "Public standings are currently visible to competitors and viewers."
+                    : "Standings are currently private until you publish them.",
+                )}</p>
+                <div class="button-row">
+                  <button type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
+                    tournament.id,
+                  )}">${escapeHtml(
+                    tournament.publication.showPublicStandings
+                      ? "Hide Public Standings"
+                      : "Publish Standings",
+                  )}</button>
+                </div>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Next Required Action</p>
+                <h3>${escapeHtml(control.nextRequiredAction)}</h3>
+                <p class="muted">${escapeHtml(
+                  snapshot.attention[0] ||
+                    "No immediate blocking issues. Continue with the next round workflow.",
+                )}</p>
+                <div class="button-row">
+                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="${escapeHtml(
+                    control.nextSection,
+                  )}">Open ${escapeHtml(toTitleLabel(control.nextSection))}</button>
+                </div>
+              </article>
+            </div>
+            <div class="spotlight-watchlist">
+              ${validationLines
                 .map(
-                  (card) => `
-                    <article class="spotlight-card">
-                      <p class="eyebrow">${escapeHtml(card.eyebrow)}</p>
-                      <h3>${escapeHtml(card.headline)}</h3>
-                      <p class="muted">${escapeHtml(card.support)}</p>
-                      <div class="button-row">
-                        ${card.action}
-                      </div>
-                    </article>
+                  (line) => `
+                    <div class="spotlight-note">
+                      <span class="mini-pill ${line.value ? "warning" : "success"}">${escapeHtml(
+                        line.value ? "Warning" : "Clear",
+                      )}</span>
+                      <span>${escapeHtml(line.label + ": " + line.value)}</span>
+                    </div>
                   `,
                 )
                 .join("")}
-            </div>
-            ${
-              snapshot.attention.length
-                ? `<div class="spotlight-watchlist">
-                    ${snapshot.attention
-                      .slice(0, 4)
+              ${
+                snapshot.attention.length
+                  ? snapshot.attention
+                      .slice(0, 3)
                       .map(
                         (item) => `
                           <div class="spotlight-note">
-                            <span class="mini-pill warning">Watch</span>
+                            <span class="mini-pill warning">Attention</span>
                             <span>${escapeHtml(item)}</span>
                           </div>
                         `,
                       )
-                      .join("")}
-                  </div>`
-                : `<div class="alert success">This tournament currently looks healthy across registration, judging, publishing, and results.</div>`
-            }
+                      .join("")
+                  : `<div class="spotlight-note"><span class="mini-pill success">Stable</span><span>No urgent operational blockers detected.</span></div>`
+              }
+            </div>
           </section>
-          ${renderSmartInsightSection({
-            eyebrow: "Flight Control",
-            title: "What the tournament needs next",
-            intro:
-              "This focused workspace is reading roster progress, judge readiness, release state, clashes, and result flow to keep the next move obvious.",
-            items: smartInsights,
-            badgeLabel: smartInsights.length + " smart cues",
-            emptyMessage:
-              "This tournament is currently flowing cleanly. Keep operating from the focused tabs as needed.",
-          })}
         `;
       }
 
@@ -18915,6 +19144,7 @@
         const feedbackCategories = tournament.settings.feedbackCategories || [];
         const scoringProfile = getScoringProfile(tournament);
         const pinned = isTournamentPinned(tournament.id);
+        const control = getTournamentControlRoomState(tournament);
         const sectionState = getFocusedTournamentSectionState(
           tournament,
           feedbackCategories,
@@ -18925,10 +19155,10 @@
           <section class="surface focus-workspace workspace-hero">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Active Tab Room</p>
+                <p class="eyebrow">Tournament Control Room</p>
                 <h2>${escapeHtml(tournament.name)}</h2>
                 <p class="hero-copy">
-                  A focused dashboard for registration, pairing, publishing, judging, and permissions without digging through the full tournament list.
+                  Live operations for rounds, draws, ballots, standings, judges, and publication.
                 </p>
               </div>
               <div class="workspace-chip-row">
@@ -18942,29 +19172,27 @@
             <div class="workspace-hero-layout">
               <div class="workspace-stat-grid">
                 <div class="workspace-stat">
-                  <span class="muted">Teams</span>
-                  <strong>${escapeHtml(getTournamentTeams(tournament).length)}</strong>
+                  <span class="muted">Current round</span>
+                  <strong>${escapeHtml("Round " + control.activeRound)}</strong>
                 </div>
                 <div class="workspace-stat">
-                  <span class="muted">Speakers</span>
-                  <strong>${escapeHtml(tournament.participants.length)}</strong>
+                  <span class="muted">Round state</span>
+                  <strong>${escapeHtml(control.lifecycle)}</strong>
                 </div>
                 <div class="workspace-stat">
-                  <span class="muted">Rounds</span>
-                  <strong>${escapeHtml(tournament.rounds)}</strong>
+                  <span class="muted">Ballot progress</span>
+                  <strong>${escapeHtml(control.ballotProgress.label)}</strong>
                 </div>
                 <div class="workspace-stat">
-                  <span class="muted">Scoring</span>
-                  <strong>${escapeHtml(
-                    scoringProfile.mode === "generic" ? "Custom" : "Standard",
-                  )}</strong>
+                  <span class="muted">Warnings</span>
+                  <strong>${escapeHtml(control.snapshot.attentionCount)}</strong>
                 </div>
               </div>
               <div class="workspace-controls-shell">
                 <div class="section-heading">
                   <div>
-                    <p class="eyebrow">Quick Controls</p>
-                    <h3>Keep the essential actions close</h3>
+                    <p class="eyebrow">Next Required Action</p>
+                    <h3>${escapeHtml(control.nextRequiredAction)}</h3>
                   </div>
                   <span class="role-pill">${escapeHtml(active.label)}</span>
                 </div>
@@ -21679,97 +21907,89 @@
       function renderWorkspaceStatusBand(currentNavItem, email = session.userEmail) {
         const user = getCurrentUser(email);
         const capabilities = getWorkspaceCapabilities(email);
-        const visibleTournaments = getVisibleTournaments(email);
-        const pinnedCount = getPinnedTournaments(visibleTournaments).length;
-        const assignments = getJudgeAssignments(email).length;
-        const regionalSummary = getRegionalOperationsSummary(email);
         const activeTournament = capabilities.canManageAny
           ? getManagedTournamentForSession()
           : getSelectedTournamentForSession(email);
-        const accessRecord = getUserAccessRecord(email);
-
-        const modeLabel = capabilities.regionalPortalMode
-          ? "Regional workspace"
-          : capabilities.canManageAny
-          ? "Tournament staff"
-          : capabilities.regionalOnly
-            ? "Regional workspace"
-          : capabilities.judgeOnly
-            ? "Judge view"
-            : capabilities.competitorOnly
-              ? "Debater view"
-              : capabilities.canJudgeAny
-                ? "Judge and member view"
-                : "Member view";
-        const modeNote = capabilities.regionalPortalMode
-          ? "Use this space for reports, stipends, and coordinator records."
-          : capabilities.canManageAny
-          ? "Open tournaments, update rounds, and handle access from one place."
-          : capabilities.regionalOnly
-            ? "Track reports, stipend requests, and coordinator follow-up."
-          : capabilities.judgeOnly
-            ? "Your assigned rooms and ballots stay front and centre."
-            : capabilities.competitorOnly
-              ? "See draws, standings, and feedback without staff controls."
-              : capabilities.canJudgeAny
-                ? "Search, judging, and tournament tracking stay connected."
-                : "Open tournaments, search, and private links from one place.";
-
-        const focusLabel = capabilities.regionalPortalMode
-          ? "Regional Operations"
-          : activeTournament ? activeTournament.code || activeTournament.name : currentNavItem.label;
-        const focusNote = capabilities.regionalPortalMode
-          ? "Coordinator accounts, biweekly reports, and transport support for Region 1 through Region 6."
-          : activeTournament
-          ? activeTournament.name
-          : getWorkspaceViewSupportText(currentNavItem.key || session.view, email);
-        const reachLabel = capabilities.regionalPortalMode
-          ? regionalSummary.reports + " reports"
-          : capabilities.canViewJudging
-          ? assignments + " assignments"
-          : visibleTournaments.length + " tournaments";
-        const reachNote = capabilities.regionalPortalMode
-          ? regionalSummary.pendingFundingRequests +
-            " pending stipend requests • " +
-            regionalSummary.fundingRequests +
-            " total requests"
-          : pinnedCount +
-            " pinned" +
-            (capabilities.canViewJudging
-              ? " • " + visibleTournaments.length + " visible"
-              : " • ready for quick return");
-        const accessLabel = accessRecord ? "Private URL Ready" : "Session Access";
-        const accessNote = accessRecord
-          ? "Your saved private link is available in Private Links."
-          : "Use this workspace directly or create a private link later.";
 
         return `
           <div class="workspace-overview-band">
             <article class="workspace-overview-card is-primary">
               <span class="workspace-overview-label">Signed In</span>
-              <strong>${escapeHtml(user?.name || user?.email || "JADE Hummingbird User")}</strong>
+              <strong>${escapeHtml(user?.name || user?.email || "JADE User")}</strong>
               <p class="muted">${escapeHtml(toTitleLabel(user?.globalRole || "member"))}</p>
             </article>
-            <article class="workspace-overview-card">
-              <span class="workspace-overview-label">Workspace</span>
-              <strong>${escapeHtml(modeLabel)}</strong>
-              <p class="muted">${escapeHtml(modeNote)}</p>
-            </article>
-            <article class="workspace-overview-card">
-              <span class="workspace-overview-label">Current Focus</span>
-              <strong>${escapeHtml(focusLabel)}</strong>
-              <p class="muted">${escapeHtml(focusNote)}</p>
-            </article>
-            <article class="workspace-overview-card">
-              <span class="workspace-overview-label">Live Reach</span>
-              <strong>${escapeHtml(reachLabel)}</strong>
-              <p class="muted">${escapeHtml(reachNote)}</p>
-            </article>
-            <article class="workspace-overview-card">
-              <span class="workspace-overview-label">Access</span>
-              <strong>${escapeHtml(accessLabel)}</strong>
-              <p class="muted">${escapeHtml(accessNote)}</p>
-            </article>
+            ${
+              capabilities.canManageAny
+                ? (() => {
+                    if (!activeTournament) {
+                      return `
+                        <article class="workspace-overview-card">
+                          <span class="workspace-overview-label">Current Tournament</span>
+                          <strong>No tab room open</strong>
+                          <p class="muted">Open a tournament to see live round state and ballot progress.</p>
+                        </article>
+                      `;
+                    }
+                    const controlRoom = getTournamentControlRoomState(activeTournament);
+                    return `
+                      <article class="workspace-overview-card">
+                        <span class="workspace-overview-label">Current Tournament</span>
+                        <strong>${escapeHtml(activeTournament.name)}</strong>
+                        <p class="muted">${escapeHtml(activeTournament.code + " • " + getFormatLabel(activeTournament))}</p>
+                      </article>
+                      <article class="workspace-overview-card">
+                        <span class="workspace-overview-label">Current Round</span>
+                        <strong>${escapeHtml("Round " + controlRoom.activeRound)}</strong>
+                        <p class="muted">${escapeHtml(controlRoom.lifecycle)}</p>
+                      </article>
+                      <article class="workspace-overview-card">
+                        <span class="workspace-overview-label">Ballot Progress</span>
+                        <strong>${escapeHtml(controlRoom.ballotProgress.label)}</strong>
+                        <p class="muted">${escapeHtml(
+                          controlRoom.ballotProgress.missing
+                            ? controlRoom.ballotProgress.missing + " ballot(s) missing"
+                            : "No ballots pending",
+                        )}</p>
+                      </article>
+                      <article class="workspace-overview-card">
+                        <span class="workspace-overview-label">Next Required Action</span>
+                        <strong>${escapeHtml(controlRoom.nextRequiredAction)}</strong>
+                        <p class="muted">${escapeHtml(
+                          controlRoom.snapshot.conflictFlags
+                            ? controlRoom.snapshot.conflictFlags + " conflict warning(s) to review"
+                            : "No conflict warnings currently flagged",
+                        )}</p>
+                      </article>
+                    `;
+                  })()
+                : `
+                    <article class="workspace-overview-card">
+                      <span class="workspace-overview-label">Current View</span>
+                      <strong>${escapeHtml(currentNavItem.label)}</strong>
+                      <p class="muted">${escapeHtml(
+                        getWorkspaceViewSupportText(currentNavItem.key || session.view, email),
+                      )}</p>
+                    </article>
+                    ${
+                      capabilities.canJudgeAny
+                        ? `<article class="workspace-overview-card">
+                            <span class="workspace-overview-label">Judge Ballots</span>
+                            <strong>${escapeHtml(getJudgeAssignments(email).length)}</strong>
+                            <p class="muted">Assigned rooms currently visible from the judging workspace.</p>
+                          </article>`
+                        : ""
+                    }
+                    ${
+                      getUserAccessRecord(email)
+                        ? `<article class="workspace-overview-card">
+                            <span class="workspace-overview-label">Public Link Status</span>
+                            <strong>Private URL Ready</strong>
+                            <p class="muted">Your private access URL is available in Access Links.</p>
+                          </article>`
+                        : ""
+                    }
+                  `
+            }
           </div>
         `;
       }
@@ -28611,7 +28831,7 @@
       function queueFocusedTournamentSectionJump(tournamentId, sectionKey) {
         const normalizedTournamentId = String(tournamentId || "").trim();
         const normalizedSectionKey =
-          String(sectionKey || "spotlight").trim().toLowerCase() || "spotlight";
+          String(sectionKey || "control").trim().toLowerCase() || "control";
         if (!normalizedTournamentId) {
           pendingTournamentSectionJumpId = "";
           return;
@@ -29030,7 +29250,7 @@
             session.focusedTournamentSection =
               sameTournament && session.focusedTournamentSection
                 ? session.focusedTournamentSection
-                : "spotlight";
+                : "control";
             recordRecentTournament(session.managedTournamentId);
             recordRecentView(session.view);
             clearFlash();
@@ -29062,7 +29282,7 @@
           if (action === "clear-focused-tournament") {
             session.view = "tournaments";
             session.managedTournamentId = "";
-            session.focusedTournamentSection = "spotlight";
+            session.focusedTournamentSection = "control";
             recordRecentView(session.view);
             clearFlash();
             saveSession();
@@ -29073,7 +29293,7 @@
 
           if (action === "set-focused-tournament-section") {
             session.focusedTournamentSection =
-              String(button.dataset.section || "spotlight").trim().toLowerCase() || "spotlight";
+              String(button.dataset.section || "control").trim().toLowerCase() || "control";
             queueFocusedTournamentSectionJump(
               session.managedTournamentId,
               session.focusedTournamentSection,
