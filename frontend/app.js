@@ -60,16 +60,16 @@
         if (queryBackendUrl) {
           endpoints.push(queryBackendUrl.replace(/\/$/, ""));
         }
-        if (/^https?:$/i.test(window.location.protocol || "")) {
-          endpoints.push(new URL("/api", window.location.href).toString());
-          endpoints.push(new URL("./backend/api", window.location.href).toString());
-        }
         const configuredBackendUrl = String(window.JADE_BACKEND_URL || "").trim();
         if (configuredBackendUrl) {
           endpoints.push(configuredBackendUrl.replace(/\/$/, ""));
         }
         if (savedBackendUrl) {
           endpoints.push(savedBackendUrl.replace(/\/$/, ""));
+        }
+        if (/^https?:$/i.test(window.location.protocol || "")) {
+          endpoints.push(new URL("/api", window.location.href).toString());
+          endpoints.push(new URL("./backend/api", window.location.href).toString());
         }
         endpoints.push("http://127.0.0.1:8787/api");
         endpoints.push("http://localhost:8787/api");
@@ -13089,24 +13089,6 @@
             body: "Control when draws, standings, ballots, and feedback become visible to the right people.",
           },
         ];
-        const onboardingSteps = [
-          {
-            step: "1",
-            title: "Create the tournament",
-            body: "Set the format, round count, registration access, and publishing rules in a few core fields.",
-          },
-          {
-            step: "2",
-            title: "Run rounds and staffing",
-            body: "Manage pairings, judge allocations, motions, ballots, and room-level issues from the tournament workspace.",
-          },
-          {
-            step: "3",
-            title: "Publish what matters",
-            body: "Release draws, standings, speaker rankings, and feedback when each round is ready.",
-          },
-        ];
-
         return `
           <div class="auth-page">
             <div class="page-shell">
@@ -13180,29 +13162,6 @@
                       .map(
                         (item) => `
                           <article class="public-feature-card">
-                            <h3>${escapeHtml(item.title)}</h3>
-                            <p>${escapeHtml(item.body)}</p>
-                          </article>
-                        `,
-                      )
-                      .join("")}
-                  </div>
-                </section>
-
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">How it works</p>
-                      <h2>Three steps from setup to published results</h2>
-                    </div>
-                    <span class="role-pill">Managers, judges, competitors</span>
-                  </div>
-                  <div class="public-steps-grid">
-                    ${onboardingSteps
-                      .map(
-                        (item) => `
-                          <article class="public-step-card">
-                            <span class="mini-pill success">Step ${escapeHtml(item.step)}</span>
                             <h3>${escapeHtml(item.title)}</h3>
                             <p>${escapeHtml(item.body)}</p>
                           </article>
@@ -14044,15 +14003,6 @@
           )
           .sort((left, right) => (left.entry.at < right.entry.at ? 1 : -1))
           .slice(0, 8);
-        const workspaceSmartInsights = getWorkspaceSmartInsights({
-          capabilities,
-          visibleTournaments,
-          judgeAssignments,
-          openRecoveryRequests,
-          stats,
-          managerMetrics,
-        });
-
         if (!capabilities.canManageAny) {
           return `
             <section class="surface overview-panel">
@@ -14152,16 +14102,6 @@
                 </article>
               </div>
             </section>
-            ${renderSmartInsightSection({
-              eyebrow: "Next actions",
-              title: "What needs attention next",
-              intro:
-                "This view highlights the most useful next action from your live tournaments, rooms, and private access.",
-              items: workspaceSmartInsights,
-              badgeLabel: workspaceSmartInsights.length + " live cues",
-              emptyMessage:
-                "No urgent signals are firing right now. Open the area you want and keep moving.",
-            })}
             ${renderUserAccessLinksSection({
               title: "Your Private Access URL",
               eyebrow: "Private Access",
@@ -14360,16 +14300,6 @@
               </article>
             </div>
           </section>
-          ${renderSmartInsightSection({
-            eyebrow: "Next actions",
-            title: "What deserves attention next",
-            intro:
-              "This overview surfaces the tournaments, staffing queues, and access issues that most likely need a manager first.",
-            items: workspaceSmartInsights,
-            badgeLabel: workspaceSmartInsights.length + " live priorities",
-            emptyMessage:
-              "Nothing urgent is pushing back right now. This is a good moment to clean up or prepare the next release.",
-          })}
           ${
             canAccessGlobalSettings()
               ? `
@@ -19271,25 +19201,7 @@
       }
 
       function renderLaunchView() {
-        const visible = getVisibleTournaments();
-        const openTournaments = visible.filter(
-          (tournament) => String(tournament.status || "").trim().toLowerCase() === "open",
-        );
-        return `
-          <section class="surface">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Tournament Launcher</p>
-                <h2>Create a tournament and open it when you are ready</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(openTournaments.length)} open now</span>
-            </div>
-            <p class="muted launch-lead">
-              Keep the setup lean here, then move into the tournament workspace for rounds, staffing, registration review, and publishing.
-            </p>
-          </section>
-          ${renderCreateTournamentForm()}
-        `;
+        return renderCreateTournamentForm();
       }
 
       function setTournamentFormFieldValue(form, name, value) {
@@ -20848,6 +20760,22 @@
         if (peopleSection === "directory" && selectedPeopleAccount) {
           return renderPeopleAccountProfileSection(selectedPeopleAccount);
         }
+        const peopleSectionContent =
+          peopleSection === "directory"
+            ? renderPeopleDirectorySection(peopleAccounts)
+            : peopleSection === "signups"
+              ? renderSignupDashboardSection(trackedSignups, signupStats).replace(
+                  '<section class="surface spotlight-shell">',
+                  '<section class="surface spotlight-shell"><div class="button-row wrap-row people-section-actions"><button class="secondary-button" type="button" data-action="open-people-section" data-section="hub">Back To People</button></div>',
+                )
+              : peopleSection === "appointees"
+                ? renderTournamentAppointeeDashboardSection(appointees, appointeeStats).replace(
+                    '<section class="surface spotlight-shell">',
+                    '<section class="surface spotlight-shell"><div class="button-row wrap-row people-section-actions"><button class="secondary-button" type="button" data-action="open-people-section" data-section="hub">Back To People</button></div>',
+                  )
+                : peopleSection === "access"
+                  ? renderPeopleAccessSection(pending)
+                  : "";
         return `
           <section class="surface">
             <div class="section-heading">
@@ -20892,33 +20820,21 @@
               }
             </div>
           </section>
-          ${renderSmartInsightSection({
-            eyebrow: "Directory Intelligence",
-            title: "What the People workspace thinks needs attention",
-            intro:
-              "Accounts, sign-ups, appointments, and pending invitations are being read together so you can move to the right queue immediately.",
-            items: peopleSmartInsights,
-            badgeLabel: peopleSmartInsights.length + " live queues",
-            emptyMessage:
-              "The people side of the system looks stable right now, so you can open exactly the dashboard you want.",
-          })}
           ${
-            peopleSection === "directory"
-              ? renderPeopleDirectorySection(peopleAccounts)
-              : peopleSection === "signups"
-                ? renderSignupDashboardSection(trackedSignups, signupStats).replace(
-                    '<section class="surface spotlight-shell">',
-                    '<section class="surface spotlight-shell"><div class="button-row wrap-row people-section-actions"><button class="secondary-button" type="button" data-action="open-people-section" data-section="hub">Back To People</button></div>',
-                  )
-                : peopleSection === "appointees"
-                  ? renderTournamentAppointeeDashboardSection(appointees, appointeeStats).replace(
-                      '<section class="surface spotlight-shell">',
-                      '<section class="surface spotlight-shell"><div class="button-row wrap-row people-section-actions"><button class="secondary-button" type="button" data-action="open-people-section" data-section="hub">Back To People</button></div>',
-                    )
-                  : peopleSection === "access"
-                    ? renderPeopleAccessSection(pending)
-                    : ""
+            peopleSection === "hub"
+              ? renderSmartInsightSection({
+                  eyebrow: "Directory cues",
+                  title: "What needs attention in People",
+                  intro:
+                    "Use this only as a quick triage layer, then move into the directory you actually need.",
+                  items: peopleSmartInsights.slice(0, 3),
+                  badgeLabel: Math.min(peopleSmartInsights.length, 3) + " live cues",
+                  emptyMessage:
+                    "People, sign-ups, and appointments look stable right now.",
+                })
+              : ""
           }
+          ${peopleSectionContent}
         `;
       }
 
