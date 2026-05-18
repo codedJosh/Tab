@@ -2358,7 +2358,7 @@
       }
 
       .private-shell {
-        max-width: 1140px;
+        max-width: 1200px;
         margin: 0 auto;
         display: grid;
         gap: 12px;
@@ -3354,6 +3354,18 @@
         padding: 14px;
       }
 
+      .competitor-hero .brand-lockup.featured .jade-logo-wrap {
+        width: 108px;
+        border-radius: 24px;
+        padding: 11px;
+      }
+
+      .portal-ribbon .brand-lockup.compact .jade-logo-wrap {
+        width: 88px;
+        border-radius: 20px;
+        padding: 10px;
+      }
+
       .menu-brand .jade-logo-wrap,
       .portal-ribbon .jade-logo-wrap,
       .competitor-hero .jade-logo-wrap {
@@ -3442,7 +3454,7 @@
       }
 
       .competitor-shell {
-        max-width: 1160px;
+        max-width: 1240px;
         margin: 0 auto;
         display: grid;
         gap: 14px;
@@ -3492,7 +3504,7 @@
       .competitor-hero-grid {
         display: grid;
         gap: 12px;
-        grid-template-columns: minmax(0, 1.22fr) minmax(320px, 0.78fr);
+        grid-template-columns: minmax(0, 1.34fr) minmax(290px, 0.66fr);
         align-items: end;
       }
 
@@ -3772,8 +3784,8 @@
       }
 
       .competitor-nav button {
-        min-height: 34px;
-        padding: 7px 11px;
+        min-height: 32px;
+        padding: 6px 10px;
       }
 
       .competitor-pill {
@@ -5127,7 +5139,7 @@
         }
 
         .competitor-hero-grid {
-          grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.88fr);
+          grid-template-columns: minmax(0, 1.18fr) minmax(250px, 0.82fr);
         }
 
         .menu-panel {
@@ -5141,7 +5153,7 @@
         }
       }
 
-      @media (max-width: 900px) {
+      @media (max-width: 820px) {
         .competitor-hero-grid,
         .portal-info-grid {
           grid-template-columns: 1fr;
@@ -6863,11 +6875,17 @@
           .slice(0, normalizedQuery ? 8 : 6);
       }
 
-      function renderSearchAssist(query = session.searchQuery, datalistId = "workspace-search-suggestions", email = session.userEmail) {
+      function renderSearchAssist(
+        query = session.searchQuery,
+        datalistId = "workspace-search-suggestions",
+        email = session.userEmail,
+        options = {},
+      ) {
         const suggestions = getWorkspaceSearchRecommendations(query, email);
         if (!suggestions.length) {
           return "";
         }
+        const showChips = options.showChips !== false;
 
         return `
           <div class="search-assist">
@@ -6881,21 +6899,27 @@
                 )
                 .join("")}
             </datalist>
-            <div class="search-suggestion-row">
-              <span class="theme-section-label">${escapeHtml(
-                String(query || "").trim() ? "Recommended Matches" : "Try Searching For",
-              )}</span>
-              ${suggestions
-                .slice(0, String(query || "").trim() ? 5 : 4)
-                .map(
-                  (suggestion) => `
-                    <button class="secondary-button search-suggestion-chip" type="button" data-action="apply-search-recommendation" data-query="${escapeHtml(
-                      suggestion.value,
-                    )}">${escapeHtml(suggestion.value)}</button>
-                  `,
-                )
-                .join("")}
-            </div>
+            ${
+              showChips
+                ? `
+                    <div class="search-suggestion-row">
+                      <span class="theme-section-label">${escapeHtml(
+                        String(query || "").trim() ? "Recommended Matches" : "Try Searching For",
+                      )}</span>
+                      ${suggestions
+                        .slice(0, String(query || "").trim() ? 5 : 4)
+                        .map(
+                          (suggestion) => `
+                            <button class="secondary-button search-suggestion-chip" type="button" data-action="apply-search-recommendation" data-query="${escapeHtml(
+                              suggestion.value,
+                            )}">${escapeHtml(suggestion.value)}</button>
+                          `,
+                        )
+                        .join("")}
+                    </div>
+                  `
+                : ""
+            }
           </div>
         `;
       }
@@ -15434,6 +15458,20 @@
           participant.teamName || participant.name || (tournament.participantModel === "teams"
             ? "Team entry"
             : "Individual entry");
+        const feedbackHeadline = canShowFeedback
+          ? latestFeedback
+            ? "Updated"
+            : "Pending"
+          : "Hidden";
+        const feedbackSummary = canShowFeedback
+          ? latestFeedback
+            ? latestFeedback.createdAt
+            : "No feedback posted yet."
+          : "Feedback hidden in this portal.";
+        const announcementText = String(tournament.announcement || "").trim();
+        const feedbackPreview = latestFeedback?.note
+          ? String(latestFeedback.note).trim().slice(0, 180)
+          : "";
 
         return `
           <article class="surface competitor-card">
@@ -15475,13 +15513,6 @@
               </div>
               <div class="competitor-card-grid">
                 <div class="competitor-stat">
-                  <span class="muted">Entry</span>
-                  <strong>${escapeHtml(entryLabel)}</strong>
-                  <span class="portal-summary-copy">${escapeHtml(
-                    tournament.participantModel === "teams" ? "Team registration" : "Individual registration",
-                  )}</span>
-                </div>
-                <div class="competitor-stat">
                   <span class="muted">Latest round</span>
                   <strong>${escapeHtml(
                     canShowDraw
@@ -15518,38 +15549,38 @@
                   )}</span>
                 </div>
                 <div class="competitor-stat">
-                  <span class="muted">Speaker ranking</span>
+                  <span class="muted">Feedback</span>
+                  <strong>${escapeHtml(feedbackHeadline)}</strong>
+                  <span class="portal-summary-copy">${escapeHtml(feedbackSummary)}</span>
+                </div>
+                <div class="competitor-stat">
+                  <span class="muted">Speaker points</span>
                   <strong>${escapeHtml(
-                    speakerStanding
-                      ? "#" + speakerStanding.speakerRank
-                      : "Awaiting scores",
+                    formatScoreValue(speakerScore),
                   )}</strong>
                   <span class="portal-summary-copy">${escapeHtml(
-                    formatScoreValue(speakerScore) + " speaker points",
+                    speakerStanding
+                      ? "Speaker rank #" + speakerStanding.speakerRank
+                      : "Speaker rank pending",
                   )}</span>
                 </div>
               </div>
               ${
-                tournament.announcement
-                  ? `
-                    <div class="competitor-note announcement-card">
-                      <p class="eyebrow">Tournament update</p>
-                      <p>${escapeHtml(tournament.announcement)}</p>
-                    </div>
-                  `
-                  : ""
-              }
-              ${
-                canShowFeedback && latestFeedback
+                announcementText || (canShowFeedback && latestFeedback)
                   ? `
                     <div class="competitor-note">
-                      <p class="eyebrow">Latest feedback</p>
-                      <p>${escapeHtml(
-                        latestFeedback.note || "A new feedback note has been posted.",
-                      )}</p>
-                      <p class="fine-print">${escapeHtml(
-                        latestFeedback.judgeEmail + " • " + latestFeedback.createdAt,
-                      )}</p>
+                      ${
+                        announcementText
+                          ? `<p><strong>Tournament update:</strong> ${escapeHtml(announcementText)}</p>`
+                          : ""
+                      }
+                      ${
+                        canShowFeedback && latestFeedback
+                          ? `<p><strong>Latest feedback:</strong> ${escapeHtml(
+                              feedbackPreview || "A new feedback note has been posted.",
+                            )}</p>`
+                          : ""
+                      }
                     </div>
                   `
                   : ""
@@ -15646,12 +15677,12 @@
                   <div class="competitor-hero-copy">
                     ${renderBrandLockup({
                       kicker: "Competitor Access",
-                      size: "featured",
+                      size: "compact",
                       subtitle: "Fast round, standings, and feedback checks.",
                     })}
                     <div>
                       <p class="eyebrow">Competitor Portal</p>
-                      <h1>Round updates, standings, and feedback.</h1>
+                      <h1>Round updates, standings, and feedback</h1>
                     </div>
                     <div class="portal-action-row">
                       ${
@@ -15704,9 +15735,8 @@
                           (THEME_PRESETS[currentUser?.themePreset || "jade_classic"]?.label ||
                             "Jade Classic"),
                       )}</p>
-                      <div class="button-row wrap-row">
+                      <div class="portal-action-row">
                         <button class="secondary-button" type="button" data-action="set-view" data-view="search">Open History</button>
-                        <button class="secondary-button" type="button" data-action="set-view" data-view="settings">Theme</button>
                       </div>
                       ${renderThemeQuickSwitch(currentUser?.themePreset || "jade_classic")}
                     </div>
@@ -21974,7 +22004,9 @@
               }
             </div>
           </form>
-          ${renderSearchAssist(session.searchQuery, "workspace-top-suggestions")}
+          ${renderSearchAssist(session.searchQuery, "workspace-top-suggestions", session.userEmail, {
+            showChips: false,
+          })}
         `;
       }
 
@@ -22113,7 +22145,6 @@
         }
 
         const { tournament, participant } = access;
-        const compactLayout = state.appSettings.portal.compactLayout;
         const canShowStandings =
           tournament.publication.showPublicStandings ||
           tournament.publication.showStandingsInPrivatePortal ||
@@ -22243,11 +22274,9 @@
                     <span class="portal-quick-status">${escapeHtml(motionStateLabel)}</span>
                   </div>
                   <div class="portal-action-row">
-                    <a class="cta-link" href="${escapeHtml(
-                      getDashboardLink(),
-                    )}">Open Dashboard</a>
-                    <a class="inline-link" href="#private-rounds">Open Latest Round</a>
+                    <a class="cta-link" href="#private-rounds">Open Latest Round</a>
                     <a class="inline-link" href="#private-standings">Open Standings</a>
+                    <a class="inline-link" href="#private-feedback">Open Feedback</a>
                   </div>
                   <div class="portal-focus-grid">
                     <div class="portal-focus-card">
@@ -22354,7 +22383,7 @@
                     }
                   </div>
                 </details>
-                <details class="portal-accordion" id="private-standings" ${compactLayout ? "" : "open"}>
+                <details class="portal-accordion" id="private-standings">
                   <summary>
                     <strong>Your standings snapshot</strong>
                     <span class="portal-summary-copy">${escapeHtml(
@@ -22373,7 +22402,7 @@
                     }
                   </div>
                 </details>
-                <details class="portal-accordion" ${compactLayout ? "" : "open"}>
+                <details class="portal-accordion">
                   <summary>
                     <strong>Your speaker ranking</strong>
                     <span class="portal-summary-copy">${escapeHtml(
@@ -22386,7 +22415,7 @@
                     ${renderPortalSpeakerWindow(tournament, participant)}
                   </div>
                 </details>
-                <details class="portal-accordion" ${compactLayout ? "" : "open"}>
+                <details class="portal-accordion" id="private-feedback">
                   <summary>
                     <strong>Judge feedback</strong>
                     <span class="portal-summary-copy">${escapeHtml(
