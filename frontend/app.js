@@ -10713,14 +10713,23 @@
 
         if (requiresSharedBackend()) {
           if (hasPendingCloudSyncForCurrentSession()) {
-            return await rehydrateState(pendingCloudSync.state);
+            try {
+              return await rehydrateState(pendingCloudSync.state);
+            } catch (error) {
+              pendingCloudSync = null;
+              clearPendingCloudSyncRecord();
+            }
           }
           return buildHostedBlankState();
         }
 
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          return await rehydrateState(JSON.parse(saved));
+          try {
+            return await rehydrateState(JSON.parse(saved));
+          } catch (error) {
+            localStorage.removeItem(STORAGE_KEY);
+          }
         }
 
         const starter = await getSeedState();
