@@ -2832,10 +2832,9 @@
           return [
             {
               key: "regional",
-              label: "Regional Ops",
-              count: getRegionalOperationsRoleForEmail(email)
-                ? toTitleLabel(getRegionalOperationsRoleForEmail(email))
-                : "Portal",
+              label: "Regional",
+              count: null,
+              group: "Regional",
             },
           ];
         }
@@ -2844,33 +2843,33 @@
           return [
             {
               key: "overview",
-              label: "My Tab",
+              label: "Home",
               count: capabilities.debaterTournaments.length,
+              group: "Debater",
             },
             {
               key: "tournaments",
-              label: "My Events",
+              label: "My tournaments",
               count: capabilities.debaterTournaments.length,
+              group: "Debater",
             },
             {
               key: "search",
               label: "Search",
-              count: "Find",
+              count: null,
+              group: "Tools",
             },
             {
               key: "links",
-              label: "Access Links",
-              count: 1,
-            },
-            {
-              key: "about",
-              label: "About",
-              count: "Info",
+              label: "Private link",
+              count: null,
+              group: "Tools",
             },
             {
               key: "settings",
               label: "Settings",
-              count: "You",
+              count: null,
+              group: "Account",
             },
           ];
         }
@@ -2879,79 +2878,79 @@
           return [
             {
               key: "overview",
-              label: "Overview",
+              label: "Home",
               count: getVisibleTournaments(email).length,
+              group: "Judge",
             },
             {
               key: "judging",
-              label: "Judging",
+              label: "Ballots",
               count: getJudgeAssignments(email).length,
+              group: "Judge",
             },
             {
               key: "search",
               label: "Search",
-              count: "Find",
+              count: null,
+              group: "Tools",
             },
             {
               key: "tournaments",
               label: "Tournaments",
               count: getVisibleTournaments(email).length,
+              group: "Judge",
             },
             {
               key: "links",
-              label: "Access Links",
-              count: 1,
-            },
-            {
-              key: "about",
-              label: "About",
-              count: "Info",
+              label: "Private link",
+              count: null,
+              group: "Tools",
             },
             {
               key: "settings",
               label: "Settings",
-              count: "You",
+              count: null,
+              group: "Account",
             },
           ];
         }
 
         const stats = getOverviewStats();
         const items = [
-          { key: "overview", label: "Overview", count: stats.visibleTournaments },
-          { key: "tournaments", label: "Tournaments", count: stats.openTournaments },
+          { key: "overview", label: "Home", count: stats.visibleTournaments, group: "Start" },
+          { key: "tournaments", label: "Tournaments", count: stats.openTournaments, group: "Tournament" },
         ];
 
         if (capabilities.canLaunchTournaments) {
-          items.push({ key: "launch", label: "Launcher", count: "New" });
+          items.push({ key: "launch", label: "Create tournament", count: "New", group: "Tournament" });
         }
 
         if (capabilities.canViewSearch) {
-          items.push({ key: "search", label: "Search", count: "Find" });
+          items.push({ key: "search", label: "Search", count: null, group: "People" });
         }
         if (capabilities.canViewRegionalOperations) {
-          items.push({ key: "regional", label: "Regional Ops", count: "Portal" });
+          items.push({ key: "regional", label: "Regional", count: null, group: "Settings" });
         }
 
         if (capabilities.canViewJudging) {
           items.push({
             key: "judging",
-            label: "Judging",
+            label: "Judge assignments",
             count: getJudgeAssignments(email).length,
+            group: "Judges",
           });
         }
 
         if (capabilities.canViewPeople) {
-          items.push({ key: "people", label: "People", count: state.users.length });
+          items.push({ key: "people", label: "Teams & People", count: state.users.length, group: "People" });
         }
 
         if (capabilities.canViewLinks) {
-          items.push({ key: "links", label: "Private Links", count: stats.privateLinks });
+          items.push({ key: "links", label: "Private links", count: stats.privateLinks, group: "Results" });
         }
 
-        items.push({ key: "about", label: "About", count: "Info" });
-
         if (capabilities.canViewSettings) {
-          items.push({ key: "settings", label: "Settings", count: "All" });
+          items.push({ key: "settings", label: "Settings", count: null, group: "Settings" });
         }
 
         return items;
@@ -11585,17 +11584,17 @@
                             <div class="button-row">
                               <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
                                 user.email,
-                              )}">Copy Access URL</button>
+                              )}">Copy Link</button>
                               <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
                                 user.email,
-                              )}">Rotate URL</button>
+                              )}">Reset Link</button>
                             </div>
                           </div>
                         `,
                       )
                       .join("")}
                   </div>`
-                : `<div class="empty-state">No private access URLs are visible for this account yet.</div>`
+                : `<div class="empty-state">No private links are available yet. They will appear here after accounts are created.</div>`
             }
             ${footerMarkup}
           </section>
@@ -11711,6 +11710,7 @@
                           : ""
                       }
                     </div>
+                    ${item.body ? `<p class="muted">${escapeHtml(item.body)}</p>` : ""}
                     ${
                       item.actionMarkup
                         ? `<div class="button-row wrap-row">${item.actionMarkup}</div>`
@@ -13065,28 +13065,52 @@
         ).size;
         const publicFeatureCards = [
           {
-            title: "Tabbing",
-            body: "Create formats, build rounds, manage rooms, and keep standings moving from one workspace.",
+            title: "Create rounds",
+            body: "Set the format, build the draw, and keep each round moving.",
           },
           {
-            title: "Judge allocation",
-            body: "Assign panels, track clashes, and keep ballot flow attached to the correct rooms.",
+            title: "Assign judges",
+            body: "Match judges to rooms, track clashes, and keep staffing clear.",
           },
           {
-            title: "Motion release",
-            body: "Publish motions, prep windows, and round notes without burying judges or debaters in extra steps.",
+            title: "Release motions",
+            body: "Post motions, prep time, and round notes when each room is ready.",
           },
           {
-            title: "Registration",
-            body: "Let debaters and judges register directly for open tournaments with private links created automatically.",
+            title: "Register teams",
+            body: "Let debaters and judges register directly for open tournaments.",
           },
           {
-            title: "Rankings",
-            body: "Keep team points, speaker scores, averages, and ties visible in the right format for each event.",
+            title: "Check standings",
+            body: "Track wins, speaker points, averages, and ties in the right format.",
           },
           {
-            title: "Results publishing",
-            body: "Control when draws, standings, ballots, and feedback become visible to the right people.",
+            title: "Publish results",
+            body: "Choose when draws, standings, ballots, and feedback become public.",
+          },
+        ];
+        const publicRoleCards = [
+          {
+            title: "I am a tabber",
+            body: "Open a tournament and manage rounds, rooms, and results.",
+            actionMarkup: '<a href="#auth-sign-in">Open Tournament</a>',
+          },
+          {
+            title: "I am a judge",
+            body: "Go to your judging workspace and submit ballots.",
+            actionMarkup: '<a href="#auth-sign-in">Submit Ballot</a>',
+          },
+          {
+            title: "I am a debater",
+            body: "Check the draw, motions, and standings for public events.",
+            actionMarkup:
+              '<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View Draw</button>',
+          },
+          {
+            title: "I am a viewer",
+            body: "Open public standings and published tournament results.",
+            actionMarkup:
+              '<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View Results</button>',
           },
         ];
         return `
@@ -13097,54 +13121,41 @@
                   <div class="public-hero-grid">
                     <div class="stack public-hero-copy">
                       ${renderBrandLockup({
-                        kicker: "Hummingbird Tab System",
+                        kicker: "Hummingbird Debate Tab",
                         size: "hero featured",
-                        subtitle: "Professional debate tournament management.",
+                        subtitle: "Run tournaments, manage draws, collect ballots, and publish results.",
                       })}
                       <div>
-                        <h1>Run debate tournaments without the clutter.</h1>
+                        <h1>Hummingbird Debate Tab</h1>
                         <p class="hero-copy">
-                          Manage tabbing, judge allocation, team registration, motions, rankings, and results from one calmer workspace that stays readable under pressure.
+                          Run tournaments, manage draws, collect ballots, and publish results.
                         </p>
                       </div>
                       <div class="button-row wrap-row public-cta-row">
-                        <a href="${signupDisabled ? "#auth-sign-in" : "#auth-sign-up"}">Create Tournament</a>
-                        <a class="secondary-button" href="#auth-sign-in">Sign In</a>
-                        ${
-                          signupDisabled
-                            ? `<button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Register For A Tournament</button>`
-                            : `<button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Register For A Tournament</button>`
-                        }
-                        <a class="secondary-button" href="#platform-overview">Learn More</a>
+                        <a href="#auth-sign-in">Open Tournament</a>
+                        <button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View Public Results</button>
                       </div>
                       <div class="kpi-line public-hero-tags">
-                        <span>Tabbing</span>
-                        <span>Judge allocation</span>
+                        <span>Draws</span>
+                        <span>Ballots</span>
                         <span>Registration</span>
-                        <span>Results publishing</span>
+                        <span>Standings</span>
                       </div>
                     </div>
-                    <div class="public-trust-grid">
-                      <article class="public-trust-card">
-                        <span class="muted">Tournaments</span>
-                        <strong>${escapeHtml(overviewStats.visibleTournaments)}</strong>
-                        <p class="fine-print">Events already configured in the shared workspace.</p>
-                      </article>
-                      <article class="public-trust-card">
-                        <span class="muted">Open registration</span>
-                        <strong>${escapeHtml(registrationTournamentCount)}</strong>
-                        <p class="fine-print">Tournaments currently accepting debater or judge sign-ups.</p>
-                      </article>
-                      <article class="public-trust-card">
-                        <span class="muted">Accounts</span>
-                        <strong>${escapeHtml(overviewStats.registeredUsers)}</strong>
-                        <p class="fine-print">Stored user accounts across managers, judges, debaters, and members.</p>
-                      </article>
-                      <article class="public-trust-card">
-                        <span class="muted">Institutions</span>
-                        <strong>${escapeHtml(institutionCount)}</strong>
-                        <p class="fine-print">Institution records already represented across tournaments and judging.</p>
-                      </article>
+                    <div class="public-role-grid">
+                      ${publicRoleCards
+                        .map(
+                          (item) => `
+                            <article class="public-role-card">
+                              <h3>${escapeHtml(item.title)}</h3>
+                              <p>${escapeHtml(item.body)}</p>
+                              <div class="button-row wrap-row">
+                                ${item.actionMarkup}
+                              </div>
+                            </article>
+                          `,
+                        )
+                        .join("")}
                     </div>
                   </div>
                 </section>
@@ -13152,10 +13163,10 @@
                 <section id="platform-overview" class="surface">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Platform overview</p>
-                      <h2>Everything the system handles</h2>
+                      <p class="eyebrow">Start here</p>
+                      <h2>What you can do here</h2>
                     </div>
-                    <span class="role-pill">Clearer first view</span>
+                    <span class="role-pill">${escapeHtml(overviewStats.visibleTournaments)} tournaments</span>
                   </div>
                   <div class="public-feature-grid">
                     ${publicFeatureCards
@@ -13201,13 +13212,13 @@
                           <button type="submit">Sign In</button>
                         </form>
                         <p class="auth-footer">
-                          Use the email address attached to your tournament access. Competitors can also skip staff screens entirely by using their private link.
+                          Sign in with the email linked to your tournament access. If you already have a private link, you can use that instead.
                         </p>
                       </div>
                       <div class="auth-security-note">
                         <h3>Using a private link?</h3>
                         <p>
-                          Private links open the compact competitor portal with rounds, standings, speaker scores, and feedback already focused for that account.
+                          Private links open a focused debater view with draws, standings, speaker scores, and feedback.
                         </p>
                       </div>
                     </div>
@@ -13233,9 +13244,9 @@
                                 </label>
                                 <button type="submit">Send Reset Request</button>
                               </form>
-                              <p class="auth-footer">Managers can review and resolve reset requests from the dashboard.</p>
+                              <p class="auth-footer">A manager will review your request and reset your access.</p>
                             `
-                            : `<div class="alert info">Password reset requests are currently disabled. Please contact a manager directly.</div>`
+                            : `<div class="alert info">Password reset is currently turned off. Please contact a tournament manager.</div>`
                         }
                       </section>
                       <section class="auth-support-card" id="auth-sign-up">
@@ -13253,12 +13264,12 @@
                         </div>
                         ${
                           needsBootstrapManager
-                            ? `<div class="alert info">This workspace does not have a system manager yet. The first account created here will become the first system manager.</div>`
+                            ? `<div class="alert info">No system manager exists yet. The first account created here becomes the first system manager.</div>`
                             : ""
                         }
                         ${
                           signupDisabled
-                            ? `<div class="alert warning">Self sign-up is currently disabled by a manager.</div>`
+                            ? `<div class="alert warning">Self sign-up is turned off right now.</div>`
                             : `
                               <form class="stack" data-form="sign-up" autocomplete="on">
                                 <label>
@@ -13297,16 +13308,16 @@
                       <section class="auth-support-card">
                         <div class="section-heading">
                           <div>
-                            <p class="eyebrow">Tournament Registration</p>
-                            <h3>Register directly for an event</h3>
+                            <p class="eyebrow">Tournament registration</p>
+                            <h3>Register for a tournament</h3>
                           </div>
                         </div>
                         <p>
-                          Debaters can register teams, and judges can declare institutional affiliation or independence before entering the main workspace.
+                          Debaters can register teams. Judges can register with an institution or as independent.
                         </p>
                         <div class="button-row wrap-row">
-                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Debater Registration</button>
-                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-judge">Judge Registration</button>
+                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Register A Team</button>
+                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-judge">Register As A Judge</button>
                         </div>
                         <p class="auth-footer">${escapeHtml(
                           openDebaterRegistrations.length +
@@ -13318,22 +13329,21 @@
                       <section class="auth-support-card">
                         <div class="section-heading">
                           <div>
-                            <p class="eyebrow">More Access</p>
-                            <h3>Other public entry points</h3>
+                            <p class="eyebrow">Regional operations</p>
+                            <h3>Open the regional workspace</h3>
                           </div>
                         </div>
                         <p>
-                          Use the About page for the platform mission, or open the Regional Operations portal if you are filing coordinator reports and stipend requests.
+                          Regional coordinators can file reports and transport requests from a separate workspace.
                         </p>
                         <div class="button-row wrap-row">
-                          <button class="secondary-button" type="button" data-action="set-view" data-view="about">About The Platform</button>
                           <a class="secondary-button" href="${escapeHtml(
                             getRegionalOperationsLandingLink(),
-                          )}">Regional Operations</a>
+                          )}">Open Regional Workspace</a>
                         </div>
                         <p class="auth-footer">Passwords must be at least ${escapeHtml(
                           state.appSettings.auth.minimumPasswordLength,
-                        )} characters long.</p>
+                        )} characters.</p>
                       </section>
                     </div>
                   </div>
@@ -13347,7 +13357,7 @@
         if (!tournaments.length) {
           return `<div class="empty-state">No tournaments are currently live for ${escapeHtml(
             role === "judge" ? "judge" : "debater",
-          )} registration. Staff need to keep the tournament open and turn on the matching registration toggle in Setup.</div>`;
+          )} registration. Registration will appear here when staff open a tournament and turn it on.</div>`;
         }
 
         return `
@@ -13748,16 +13758,24 @@
           .filter((tournament) => !menuPinnedTournaments.some((entry) => entry.id === tournament.id))
           .slice(0, 2);
         const menuSubtitle = capabilities.regionalPortalMode
-          ? "Regional coordination, reporting, and stipend requests."
+          ? "Regional reports and transport requests."
           : capabilities.judgeOnly
-          ? "Judging access with your assigned rooms and private links."
+          ? "See assignments, ballots, and tournament updates."
           : capabilities.regionalOnly
             ? "Regional reporting and shared operations history."
           : capabilities.competitorOnly
-            ? "Private access for rounds, results, and feedback."
+            ? "Check draws, results, and feedback."
             : !capabilities.canManageAny
-              ? "Tournament tracking and private access."
-            : "Staff workspace for tournament operations.";
+              ? "Open tournaments and private links."
+            : "Run tournaments from one place.";
+        const groupedItems = items.reduce((groups, item) => {
+          const groupLabel = String(item.group || "Workspace").trim() || "Workspace";
+          if (!groups[groupLabel]) {
+            groups[groupLabel] = [];
+          }
+          groups[groupLabel].push(item);
+          return groups;
+        }, {});
 
         return `
           <a class="skip-link" href="#workspace-main">Skip to main content</a>
@@ -13772,30 +13790,41 @@
             </div>
             <div class="inline-card menu-welcome-card">
               <div class="section-heading">
-                <strong>Welcome, ${escapeHtml(displayName)}!</strong>
+                <strong>${escapeHtml(displayName)}</strong>
                 <span class="role-pill">${escapeHtml(
                   toTitleLabel(getCurrentRole()),
                 )}</span>
               </div>
-              <div class="menu-side-section">
-                <span class="theme-section-label">Workspace</span>
-                <div class="menu-nav-list" role="list">
-                  ${items
-                  .map(
-                    (item) => `
-                      <button class="menu-nav-link ${currentView === item.key ? "is-active" : ""}" type="button" data-action="set-view" data-view="${escapeHtml(
-                        item.key,
-                      )}" aria-current="${currentView === item.key ? "page" : "false"}">
-                        <span class="menu-nav-copy">
-                          <strong>${escapeHtml(item.label)}</strong>
-                        </span>
-                        <span class="menu-nav-count">${escapeHtml(item.count)}</span>
-                      </button>
-                    `,
-                  )
-                  .join("")}
-                </div>
-              </div>
+              <p class="fine-print">Choose what you need to do.</p>
+              ${Object.entries(groupedItems)
+                .map(
+                  ([groupLabel, groupItems]) => `
+                    <div class="menu-side-section">
+                      <span class="theme-section-label">${escapeHtml(groupLabel)}</span>
+                      <div class="menu-nav-list" role="list">
+                        ${groupItems
+                          .map(
+                            (item) => `
+                              <button class="menu-nav-link ${currentView === item.key ? "is-active" : ""}" type="button" data-action="set-view" data-view="${escapeHtml(
+                                item.key,
+                              )}" aria-current="${currentView === item.key ? "page" : "false"}">
+                                <span class="menu-nav-copy">
+                                  <strong>${escapeHtml(item.label)}</strong>
+                                </span>
+                                ${
+                                  item.count === null || item.count === undefined || item.count === ""
+                                    ? ""
+                                    : `<span class="menu-nav-count">${escapeHtml(item.count)}</span>`
+                                }
+                              </button>
+                            `,
+                          )
+                          .join("")}
+                      </div>
+                    </div>
+                  `,
+                )
+                .join("")}
               ${
                 capabilities.regionalPortalMode
                   ? ""
@@ -13804,7 +13833,7 @@
                   ? `
                     <div class="menu-side-section">
                       <div class="menu-shortcut-head">
-                        <span class="theme-section-label">Tournament Shortcuts</span>
+                        <span class="theme-section-label">Recent tournaments</span>
                         <span class="mini-pill success">${escapeHtml(
                           menuRecentTournaments.length + menuPinnedTournaments.length,
                         )}</span>
@@ -14009,95 +14038,95 @@
               <div class="overview-quick-row">
                 <div class="summary-main">
                   <p class="eyebrow">${
-                    capabilities.canJudgeAny ? "Judging Overview" : "Tournament Tracking"
+                    capabilities.canJudgeAny ? "Judge home" : "Choose your next step"
                   }</p>
                   <h2>${
                     capabilities.canJudgeAny
-                      ? "See your judging rooms and live events quickly"
-                      : "See the tournaments that matter to you"
+                      ? "See your rooms, ballots, and public results"
+                      : "Open the tournament or result you need"
                   }</h2>
                   <p class="muted">${
                     capabilities.canJudgeAny
-                      ? "Your judging assignments, public boards, and private access stay close together in one simple overview."
-                      : "Use this overview to jump straight into tournaments, public boards, and your private access."
+                      ? "Use this page to jump into a ballot, open a tournament, or use your private link."
+                      : "Use this page to open a tournament, search names, or go straight to public results."
                   }</p>
                 </div>
                 ${renderOverviewLaunchDeck([
                   {
-                    eyebrow: "Directory",
-                    title: "Search profiles",
-                    body: "Jump straight into people, institutions, and history without trawling the full workspace.",
+                    eyebrow: "Search",
+                    title: "Search people",
+                    body: "Find a person, institution, or tournament without opening every page.",
                     badge: stats.registeredUsers + " accounts",
                     tone: "success",
                     actionMarkup:
-                      '<button class="secondary-button" data-action="set-view" data-view="search">Open Search</button>',
+                      '<button class="secondary-button" data-action="set-view" data-view="search">Search</button>',
                   },
                   {
-                    eyebrow: "Tournament desk",
-                    title: "Open tournaments",
-                    body: "Move directly into the currently visible events and public tournament surfaces.",
+                    eyebrow: "Tournaments",
+                    title: "Open a tournament",
+                    body: "View the draw, standings, notices, and published round information.",
                     badge: stats.openTournaments + " open",
                     tone: stats.openTournaments ? "success" : "warning",
                     actionMarkup:
-                      '<button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournaments</button>',
+                      '<button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournament</button>',
                   },
                   capabilities.canViewJudging
                     ? {
-                        eyebrow: "Judging",
-                        title: "Judge queue",
-                        body: "See assigned rooms, ballots, and live adjudication instructions in one place.",
+                        eyebrow: "Ballots",
+                        title: "Submit a ballot",
+                        body: "Open your assigned room, enter scores, and submit the result.",
                         badge: judgeAssignments.length + " rooms",
                         tone: judgeAssignments.length ? "warning" : "success",
                         actionMarkup:
-                          '<button class="secondary-button" data-action="set-view" data-view="judging">Open Judging</button>',
+                          '<button class="secondary-button" data-action="set-view" data-view="judging">Open Ballots</button>',
                       }
                     : {
-                        eyebrow: "Boards",
-                        title: "Public boards",
-                        body: "Open the standings and draw views already visible to your account.",
+                        eyebrow: "Results",
+                        title: "View results",
+                        body: "See the published standings and draws already visible to you.",
                         badge: publicDraws + " draws",
                         tone: publicDraws ? "success" : "warning",
                         actionMarkup:
-                          '<button class="secondary-button" data-action="set-view" data-view="tournaments">View Boards</button>',
+                          '<button class="secondary-button" data-action="set-view" data-view="tournaments">View Results</button>',
                       },
                   {
-                    eyebrow: "Access",
-                    title: "Private links",
-                    body: "Open the private access area and move without signing in again.",
+                    eyebrow: "Private access",
+                    title: "Open your private link",
+                    body: "Use a saved private link when you need the focused debater view.",
                     badge: getUserAccessLinkRecords().length + " links",
                     tone: "success",
                     actionMarkup:
-                      '<button class="secondary-button" data-action="set-view" data-view="links">Open Access Links</button>',
+                      '<button class="secondary-button" data-action="set-view" data-view="links">Open Private Link</button>',
                   },
                 ])}
               </div>
               <div class="spotlight-grid overview-spotlight-grid">
                 <article class="spotlight-card">
-                  <p class="eyebrow">Visible tournaments</p>
+                  <p class="eyebrow">Tournaments</p>
                   <h3>${escapeHtml(stats.visibleTournaments)}</h3>
-                  <p class="muted">Tournaments currently available to this account.</p>
+                  <p class="muted">Tournaments currently visible to this account.</p>
                 </article>
                 <article class="spotlight-card">
-                  <p class="eyebrow">Open tournaments</p>
+                  <p class="eyebrow">Open now</p>
                   <h3>${escapeHtml(stats.openTournaments)}</h3>
-                  <p class="muted">Events that are actively open right now.</p>
+                  <p class="muted">Events that are currently open.</p>
                 </article>
                 <article class="spotlight-card">
-                  <p class="eyebrow">Public standings</p>
+                  <p class="eyebrow">Results</p>
                   <h3>${escapeHtml(stats.publicStandings)}</h3>
-                  <p class="muted">Visible leaderboards already published.</p>
+                  <p class="muted">Published standings now visible to you.</p>
                 </article>
                 <article class="spotlight-card">
                   <p class="eyebrow">${
-                    capabilities.canJudgeAny ? "Assigned rooms" : "Public draws"
+                    capabilities.canJudgeAny ? "Ballots" : "Draws"
                   }</p>
                   <h3>${escapeHtml(
                     capabilities.canJudgeAny ? judgeAssignments.length : publicDraws,
                   )}</h3>
                   <p class="muted">${
                     capabilities.canJudgeAny
-                      ? "Current judging allocations tied to your account."
-                      : "Public draw boards currently visible to you."
+                      ? "Rooms currently assigned to you."
+                      : "Published draws currently visible to you."
                   }</p>
                 </article>
               </div>
@@ -14112,8 +14141,8 @@
               <section class="surface">
                 <div class="section-heading">
                   <div>
-                    <p class="eyebrow">Live tournaments</p>
-                    <h3>What is currently visible</h3>
+                    <p class="eyebrow">Tournaments</p>
+                    <h3>Available tournaments</h3>
                   </div>
                   <span class="role-pill">${escapeHtml(visibleTournaments.length)} visible</span>
                 </div>
@@ -14142,7 +14171,7 @@
                           `)
                           .join("")}
                       </div>`
-                    : `<div class="empty-state">No tournaments are visible to this account yet.</div>`
+                    : `<div class="empty-state">No tournaments are visible yet. Published tournaments will appear here.</div>`
                 }
               </section>
               ${
@@ -14151,8 +14180,8 @@
                     <section class="surface">
                       <div class="section-heading">
                         <div>
-                          <p class="eyebrow">Assigned rooms</p>
-                          <h3>Your current judging allocations</h3>
+                          <p class="eyebrow">Judge assignments</p>
+                          <h3>Your current rooms</h3>
                         </div>
                         <span class="role-pill">${escapeHtml(judgeAssignments.length)} rooms</span>
                       </div>
@@ -14192,7 +14221,7 @@
                                 )
                                 .join("")}
                             </div>`
-                          : `<div class="empty-state">No judging rooms are currently assigned to this account.</div>`
+                          : `<div class="empty-state">No rooms are assigned to you yet. Your ballots will appear here once judges are allocated.</div>`
                       }
                     </section>
                   `
@@ -14200,8 +14229,8 @@
                     <section class="surface">
                       <div class="section-heading">
                         <div>
-                          <p class="eyebrow">Recent actions</p>
-                          <h3>Latest visible updates</h3>
+                          <p class="eyebrow">Recent changes</p>
+                          <h3>Latest updates</h3>
                         </div>
                       </div>
                       ${
@@ -14216,7 +14245,7 @@
                                 )
                                 .join("")}
                             </ul>`
-                          : `<div class="empty-state">No recent audit events yet.</div>`
+                          : `<div class="empty-state">No recent updates yet.</div>`
                       }
                     </section>
                   `
@@ -14230,45 +14259,70 @@
             <div class="overview-quick-row">
               <div class="summary-main">
                 <p class="eyebrow">Operations overview</p>
-                <h2>Run debate tournaments from one workspace</h2>
-                <p class="muted">See the live totals, open the right tournament, and handle the next task without wading through extra panels.</p>
+                <h2>Run your tournament from one place.</h2>
+                <p class="muted">Choose the next task, open the right tournament, and keep rounds moving.</p>
               </div>
               ${renderOverviewLaunchDeck([
                 {
-                  eyebrow: "Directory",
-                  title: "Search profiles",
-                  body: "Move into people, appointees, and account history without opening the full directory first.",
+                  eyebrow: "Search",
+                  title: "Search people",
+                  body: "Find a person, institution, or tournament record quickly.",
                   badge: stats.registeredUsers + " accounts",
                   tone: "success",
                   actionMarkup:
-                    '<button class="secondary-button" data-action="set-view" data-view="search">Search Profiles</button>',
+                    '<button class="secondary-button" data-action="set-view" data-view="search">Search</button>',
                 },
                 {
-                  eyebrow: "Tournaments",
-                  title: "Open tournaments",
-                  body: "Jump into live tab rooms, structure, results, and publication controls from one launch point.",
+                  eyebrow: "Tournament",
+                  title: "Open a tournament",
+                  body: "Go straight to rounds, teams, judges, and results.",
                   badge: stats.openTournaments + " open",
                   tone: stats.openTournaments ? "success" : "warning",
                   actionMarkup:
-                    '<button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournaments</button>',
+                    '<button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournament</button>',
                 },
+                capabilities.canLaunchTournaments
+                  ? {
+                      eyebrow: "Tournament",
+                      title: "Create a tournament",
+                      body: "Start a new event with format, rounds, and public settings.",
+                      badge: "New",
+                      tone: "success",
+                      actionMarkup:
+                        '<button class="secondary-button" data-action="set-view" data-view="launch">Create Tournament</button>',
+                    }
+                  : null,
+                capabilities.canViewPeople
+                  ? {
+                      eyebrow: "Teams",
+                      title: "Review teams and people",
+                      body: "Edit accounts, registrations, and tournament appointments.",
+                      badge: state.users.length + " accounts",
+                      tone: "success",
+                      actionMarkup:
+                        '<button class="secondary-button" data-action="set-view" data-view="people">Open Teams & People</button>',
+                    }
+                  : null,
                 capabilities.canViewLinks
                   ? {
-                      eyebrow: "Access",
-                      title: "Review private links",
-                      body: "Check private URLs, rotate them, and confirm access is aligned before the next rush.",
-                      badge: stats.privateLinks + " issued",
+                      eyebrow: "Results",
+                      title: "Open private links",
+                      body: "Copy or reset private links for judges, debaters, and staff.",
+                      badge: stats.privateLinks + " links",
                       tone: stats.privateLinks ? "success" : "warning",
                       actionMarkup:
-                        '<button class="secondary-button" data-action="set-view" data-view="links">Review Private Links</button>',
+                        '<button class="secondary-button" data-action="set-view" data-view="links">Open Private Links</button>',
                     }
                   : null,
                 capabilities.canViewSettings
                   ? {
-                      eyebrow: "Controls",
-                      title: "Workspace settings",
-                      body: "Manage roles, defaults, regional operations, recovery, and global system behavior.",
-                      badge: managerMetrics.pendingAccounts + " pending",
+                      eyebrow: "Settings",
+                      title: "Open settings",
+                      body: "Change workspace defaults, passwords, and tournament admin tools.",
+                      badge:
+                        managerMetrics.pendingAccounts || openRecoveryRequests.length
+                          ? managerMetrics.pendingAccounts + openRecoveryRequests.length + " to review"
+                          : "",
                       tone:
                         managerMetrics.pendingAccounts || openRecoveryRequests.length ? "warning" : "success",
                       actionMarkup:
@@ -14279,24 +14333,24 @@
             </div>
             <div class="spotlight-grid overview-spotlight-grid">
               <article class="spotlight-card">
-                <p class="eyebrow">Visible tournaments</p>
+                <p class="eyebrow">Tournaments</p>
                 <h3>${escapeHtml(stats.visibleTournaments)}</h3>
-                <p class="muted">All tournaments currently visible in this workspace.</p>
+                <p class="muted">Tournaments currently visible in this workspace.</p>
               </article>
               <article class="spotlight-card">
-                <p class="eyebrow">Open tournaments</p>
+                <p class="eyebrow">Open now</p>
                 <h3>${escapeHtml(stats.openTournaments)}</h3>
-                <p class="muted">Events that are actively open right now.</p>
+                <p class="muted">Events that are currently open.</p>
               </article>
               <article class="spotlight-card">
-                <p class="eyebrow">Registered users</p>
+                <p class="eyebrow">Accounts</p>
                 <h3>${escapeHtml(stats.registeredUsers)}</h3>
-                <p class="muted">Accounts currently stored in the shared workspace.</p>
+                <p class="muted">Accounts stored in the shared workspace.</p>
               </article>
               <article class="spotlight-card">
                 <p class="eyebrow">Private links</p>
                 <h3>${escapeHtml(stats.privateLinks)}</h3>
-                <p class="muted">Private debater access links currently issued.</p>
+                <p class="muted">Private links currently available.</p>
               </article>
             </div>
           </section>
@@ -14307,8 +14361,8 @@
                   <section class="surface">
                     <div class="section-heading">
                       <div>
-                        <p class="eyebrow">Live tournaments</p>
-                        <h3>What is currently visible</h3>
+                        <p class="eyebrow">Tournaments</p>
+                        <h3>Open a tournament</h3>
                       </div>
                       <span class="role-pill">${escapeHtml(visibleTournaments.length)} visible</span>
                     </div>
@@ -14338,16 +14392,16 @@
                               )
                               .join("")}
                           </div>`
-                        : `<div class="empty-state">No tournaments are visible in this workspace yet.</div>`
+                        : `<div class="empty-state">No tournaments are visible yet. Create one or wait for a public event to open.</div>`
                     }
                   </section>
                   <section class="surface">
                     <div class="section-heading">
                       <div>
-                        <p class="eyebrow">Manager queue</p>
-                        <h3>What needs attention</h3>
+                        <p class="eyebrow">Needs review</p>
+                        <h3>Items to check next</h3>
                       </div>
-                      <span class="role-pill">Manager tools</span>
+                      <span class="role-pill">Staff</span>
                     </div>
                       ${
                         managerMetrics.pendingAccounts ||
@@ -14385,16 +14439,16 @@
                         : `<div class="alert success">Nothing urgent is waiting right now.</div>`
                     }
                     <div class="button-row wrap-row">
-                      <button class="secondary-button" data-action="set-view" data-view="people">Open People</button>
+                      <button class="secondary-button" data-action="set-view" data-view="people">Open Teams & People</button>
                       <button class="secondary-button" data-action="set-view" data-view="settings">Open Settings</button>
-                      <button class="secondary-button" data-action="set-view" data-view="links">Open Access Links</button>
+                      <button class="secondary-button" data-action="set-view" data-view="links">Open Private Links</button>
                     </div>
                   </section>
                 </section>
                 <section class="surface">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Recent actions</p>
+                      <p class="eyebrow">Recent changes</p>
                       <h3>Latest tournament activity</h3>
                     </div>
                   </div>
@@ -14410,15 +14464,15 @@
                             )
                             .join("")}
                         </ul>`
-                      : `<div class="empty-state">No recent audit events yet.</div>`
+                      : `<div class="empty-state">No recent changes yet.</div>`
                   }
                 </section>
                 <details class="surface overview-admin-details">
                   <summary>
                     <div class="summary-main">
-                      <p class="eyebrow">Manager controls</p>
+                      <p class="eyebrow">Tournament admin tools</p>
                       <h3>Open account and recovery tools</h3>
-                      <p class="muted">Create accounts, issue resets, and resolve recovery requests only when you need them.</p>
+                      <p class="muted">Use these tools when you need to create accounts or fix access.</p>
                     </div>
                   </summary>
                   <div class="details-content">
@@ -14740,12 +14794,12 @@
             <section class="surface">
               <div class="section-heading">
                 <div>
-                  <p class="eyebrow">My Access</p>
+                  <p class="eyebrow">My access</p>
                   <h2>No tournament access yet</h2>
                 </div>
               </div>
               <div class="empty-state">
-                Your account is active, but no tournament has been assigned to this email address yet.
+                Your account is active, but no tournament has been linked to this email yet. Ask a manager for access or a private link.
               </div>
             </section>
           `;
@@ -14758,8 +14812,8 @@
                 <section class="surface">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Competitor View</p>
-                      <h2>Your access stays focused</h2>
+                      <p class="eyebrow">Debater view</p>
+                      <h2>Your tournament view stays focused</h2>
                     </div>
                     <span class="role-pill">${escapeHtml(tournaments.length)} event${
                       tournaments.length === 1 ? "" : "s"
@@ -14767,7 +14821,7 @@
                   </div>
                   <div class="competitor-note">
                     <p>
-                      Use the cards below when you want a quick overview, then open your private tab for the full round-by-round view.
+                      Use the cards below for a quick check, then open your private link for the full round-by-round view.
                     </p>
                   </div>
                 </section>
@@ -14808,31 +14862,28 @@
                       kicker: "Competitor Access",
                       size: "featured",
                       subtitle:
-                        "A compact experience built around rounds, standings, speaker scores, and feedback.",
+                        "A calmer view for draws, standings, speaker scores, and feedback.",
                     })}
                     <div>
-                      <p class="eyebrow">Focused competitor view</p>
-                      <h1>Everything you need, nothing you do not.</h1>
+                      <p class="eyebrow">Debater view</p>
+                      <h1>See your draw, results, and feedback.</h1>
                       <p class="hero-copy">
-                        Open your event, check your latest round, and jump into your private tab without wading through staff settings or management controls.
+                        Open your event, check the latest round, and jump into your private link without the staff tools.
                       </p>
                     </div>
                     <nav class="competitor-nav" aria-label="Competitor workspace navigation">
                       <button type="button" ${
                         currentView === "overview" ? "" : 'class="secondary-button"'
-                      } data-action="set-view" data-view="overview">My Tab</button>
+                      } data-action="set-view" data-view="overview">Home</button>
                       <button type="button" ${
                         currentView === "tournaments" ? "" : 'class="secondary-button"'
-                      } data-action="set-view" data-view="tournaments">My Events</button>
+                      } data-action="set-view" data-view="tournaments">My Tournaments</button>
                       <button type="button" ${
                         currentView === "search" ? "" : 'class="secondary-button"'
                       } data-action="set-view" data-view="search">Search</button>
                       <button type="button" ${
                         currentView === "links" ? "" : 'class="secondary-button"'
-                      } data-action="set-view" data-view="links">Access Links</button>
-                      <button type="button" ${
-                        currentView === "about" ? "" : 'class="secondary-button"'
-                      } data-action="set-view" data-view="about">About</button>
+                      } data-action="set-view" data-view="links">Private Link</button>
                       <button type="button" ${
                         currentView === "settings" ? "" : 'class="secondary-button"'
                       } data-action="set-view" data-view="settings">Settings</button>
@@ -14860,7 +14911,7 @@
                       </div>
                       <div class="button-row wrap-row competitor-account-actions">
                         <button class="secondary-button" type="button" data-action="set-view" data-view="search">Search History</button>
-                        <button class="secondary-button" type="button" data-action="set-view" data-view="settings">Theme And Layout</button>
+                        <button class="secondary-button" type="button" data-action="set-view" data-view="settings">Open Settings</button>
                       </div>
                       ${renderThemeQuickSwitch(currentUser?.themePreset || "jade_classic", {
                         compact: true,
@@ -18981,11 +19032,11 @@
               <div class="section-heading">
                 <div>
                   <p class="eyebrow">Create Tournament</p>
-                  <h2>Restricted to manager or system administrators</h2>
+                  <h2>Only tournament staff can create tournaments</h2>
                 </div>
               </div>
               <div class="alert info">
-                You can still manage tournaments where your email has been granted tab or manager permission.
+                You can still open any tournament where your email has staff access.
               </div>
             </section>
           `;
@@ -18997,20 +19048,20 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Tournament launcher</p>
-                <h2>Create a new tournament</h2>
+                <p class="eyebrow">Create tournament</p>
+                <h2>Set up a new tournament</h2>
               </div>
               <span class="role-pill">${escapeHtml(getFormatLabel({ format: defaults.format }))}</span>
             </div>
             <p class="muted launch-lead">
-              Start with the essentials here. You can refine rounds, staffing, motions, and publication details inside the tournament workspace after launch.
+              Start with the basics. You can adjust rounds, judges, motions, and publishing after the tournament is created.
             </p>
             <form class="stack" data-form="create-tournament">
               <div class="stack launch-form-section">
                 <div class="section-heading">
                   <div>
                     <h3>Basics</h3>
-                    <p class="fine-print">Name the tournament, choose the format, and set the round count.</p>
+                    <p class="fine-print">Name the tournament, choose the format, and set the number of rounds.</p>
                   </div>
                 </div>
                 <div class="field-grid three">
@@ -19052,8 +19103,8 @@
               <div class="stack launch-form-section">
                 <div class="section-heading">
                   <div>
-                    <h3>Room structure</h3>
-                    <p class="fine-print">Use the preset as a starting point, then adjust the room shape if needed.</p>
+                    <h3>Room setup</h3>
+                    <p class="fine-print">Start with the format defaults. Change these only if the tournament needs something different.</p>
                   </div>
                 </div>
                 <div class="field-grid three">
@@ -19082,8 +19133,8 @@
               <div class="stack launch-form-section">
                 <div class="section-heading">
                   <div>
-                    <h3>Scoring and visibility</h3>
-                    <p class="fine-print">Choose how results are tracked and what can be seen publicly.</p>
+                    <h3>Scoring and public view</h3>
+                    <p class="fine-print">Choose how results are scored and what the public can see.</p>
                   </div>
                 </div>
                 <div class="field-grid two">
@@ -19116,19 +19167,19 @@
                     <input type="checkbox" name="dashboardListed" ${checked(
                       defaults.dashboardListed,
                     )} />
-                    <span>List tournament publicly</span>
+                    <span>Show tournament in the public list</span>
                   </label>
                   <label class="checkbox-row">
                     <input type="checkbox" name="publicStandings" ${checked(
                       defaults.publicStandings,
                     )} />
-                    <span>Publish standings publicly</span>
+                    <span>Show public standings</span>
                   </label>
                   <label class="checkbox-row">
                     <input type="checkbox" name="publicDraw" ${checked(
                       defaults.publicDraw,
                     )} />
-                    <span>Publish the draw publicly</span>
+                    <span>Show the public draw</span>
                   </label>
                   <label class="checkbox-row">
                     <input type="checkbox" name="registrationDebaterOpen" checked />
@@ -19143,8 +19194,8 @@
 
               <details class="launcher-advanced">
                 <summary>
-                  <strong>Advanced options</strong>
-                  <span>Custom labels, announcements, and special rules</span>
+                  <strong>Show advanced options</strong>
+                  <span>Custom labels, notices, and special rules</span>
                 </summary>
                 <div class="stack launcher-advanced-body">
                   <div class="field-grid two">
@@ -19179,22 +19230,28 @@
                   </div>
                 </div>
               </details>
-              <div class="stack">
-                <div class="section-heading">
-                  <div>
-                    <h3>Round-by-round structure planner</h3>
-                    <p class="fine-print">
-                      This planner reacts to the round count and format above. Use it when a tournament needs round-level changes before launch.
-                    </p>
+              <details class="launcher-advanced">
+                <summary>
+                  <strong>Plan rounds before launch</strong>
+                  <span>Use this only if rounds need different formats or stages</span>
+                </summary>
+                <div class="stack launcher-advanced-body">
+                  <div class="section-heading">
+                    <div>
+                      <h3>Round planner</h3>
+                      <p class="fine-print">
+                        This planner updates when you change the round count or format above.
+                      </p>
+                    </div>
+                    <span class="round-plan-badge">Optional</span>
                   </div>
-                  <span class="round-plan-badge">Optional</span>
+                  ${renderRoundPlannerEditorContainer(defaults.rounds, [], defaults, {
+                    plannerGuidance: getRoundPlannerGuidance(defaults.format),
+                    tournamentFormat: defaults.format,
+                  })}
                 </div>
-                ${renderRoundPlannerEditorContainer(defaults.rounds, [], defaults, {
-                  plannerGuidance: getRoundPlannerGuidance(defaults.format),
-                  tournamentFormat: defaults.format,
-                })}
-              </div>
-              <button type="submit">Launch Tournament</button>
+              </details>
+              <button type="submit">Create Tournament</button>
             </form>
           </section>
         `;
@@ -19581,7 +19638,7 @@
         const featured = (Array.isArray(tournaments) ? tournaments : []).slice(0, initialCount);
         const overflow = (Array.isArray(tournaments) ? tournaments : []).slice(initialCount);
         if (!featured.length) {
-          return options.emptyMarkup || `<div class="empty-state">No tournaments are visible right now.</div>`;
+          return options.emptyMarkup || `<div class="empty-state">No tournaments are visible yet.</div>`;
         }
         return `
           <div class="tournament-switch-grid">
@@ -19625,12 +19682,12 @@
                   <section class="surface">
                     <div class="section-heading">
                       <div>
-                        <p class="eyebrow">Tournament Focus</p>
+                        <p class="eyebrow">Tournament</p>
                         <h2>${escapeHtml(selectedTournament.name)}</h2>
                       </div>
                       <div class="button-row wrap-row">
-                        <button type="button" data-action="clear-selected-tournament">Back To Tournament Boxes</button>
-                        <button class="secondary-button" type="button" data-action="set-view" data-view="search">Search Profiles</button>
+                        <button type="button" data-action="clear-selected-tournament">Back To Tournaments</button>
+                        <button class="secondary-button" type="button" data-action="set-view" data-view="search">Search People</button>
                       </div>
                     </div>
                   </section>
@@ -19640,15 +19697,15 @@
                   <section class="surface">
                     <div class="section-heading">
                       <div>
-                        <p class="eyebrow">Tournament Tracking</p>
-                        <h2>Open the exact tournament you want</h2>
+                        <p class="eyebrow">Tournaments</p>
+                        <h2>Choose a tournament</h2>
                       </div>
                     <span class="role-pill">${escapeHtml(activeVisible.length)} visible</span>
                   </div>
                   ${
                     renderTournamentSwitchCollection(activeVisible, {
                       emptyMarkup:
-                        '<div class="empty-state">No tournaments are visible to this account yet.</div>',
+                        '<div class="empty-state">No tournaments are visible yet. Public tournaments will appear here.</div>',
                     })
                   }
                 </section>
@@ -19671,8 +19728,8 @@
                 <section class="surface">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Tournament Boxes</p>
-                      <h2>Open exactly the tournament you want</h2>
+                      <p class="eyebrow">Tournaments</p>
+                      <h2>Choose a tournament</h2>
                     </div>
                     <span class="role-pill">${escapeHtml(activeVisible.length)} visible</span>
                   </div>
@@ -19680,7 +19737,7 @@
                     renderTournamentSwitchCollection(activeVisible, {
                       activeId: focusedTournament?.id || "",
                       emptyMarkup:
-                        '<div class="empty-state">No tournaments are visible right now.</div>',
+                        '<div class="empty-state">No tournaments are visible yet. Create one to get started.</div>',
                     })
                   }
                 </section>
@@ -21589,31 +21646,31 @@
         const capabilities = getWorkspaceCapabilities(email);
         const messages = {
           overview:
-            "Overview keeps your tournaments, judging workload, and saved access points in one place.",
+            "Start here when you need a quick view of tournaments, ballots, or private links.",
           tournaments:
-            "Open a tournament workspace to manage rosters, boards, judging, and results.",
+            "Open a tournament to work on rounds, teams, judges, and results.",
           launch:
-            "Create a new tournament, choose the structure, and open registration and publishing settings.",
+            "Create a tournament, choose the format, and open registration when you are ready.",
           search:
-            "Search people, teams, institutions, and tournament history from one place.",
+            "Search people, teams, institutions, and tournament history.",
           counsel:
-            "Counsel gives you a separate space for strategy, troubleshooting, and next-step help.",
+            "Use Counsel for troubleshooting and next-step guidance.",
           regional:
-            "Regional Operations keeps coordinator accounts, reports, and stipend requests together.",
+            "Regional keeps reports, stipends, and coordinator accounts together.",
           judging:
-            "Judging keeps assigned rooms, chair ballots, and round context close together.",
+            "Open assigned rooms, submit ballots, and review round notes.",
           people:
-            "People keeps user accounts and tournament appointments easy to review and edit.",
+            "Review accounts, registrations, and tournament appointments.",
           links:
-            "Access Links keeps private URLs organized for managers, judges, debaters, and members.",
+            "Copy or reset private links for judges, debaters, and staff.",
           about:
-            "About explains the platform mission and the role it plays in debate operations.",
+            "Read the platform background and public mission.",
           settings:
-            "Settings manages personal preferences and system-wide controls.",
+            "Change your preferences and open tournament admin tools.",
         };
 
         if (capabilities.regionalPortalMode) {
-          return "Regional Operations is isolated here so coordinators and managers only see regional reporting, stipend requests, and account management.";
+          return "Regional keeps reporting, stipend requests, and account management in one focused place.";
         }
 
         return messages[normalizedView] || messages.overview;
@@ -21632,31 +21689,31 @@
         const accessRecord = getUserAccessRecord(email);
 
         const modeLabel = capabilities.regionalPortalMode
-          ? "Regional Operations Workspace"
+          ? "Regional workspace"
           : capabilities.canManageAny
-          ? "System Manager Workspace"
+          ? "Tournament staff"
           : capabilities.regionalOnly
-            ? "Regional Operations Workspace"
+            ? "Regional workspace"
           : capabilities.judgeOnly
-            ? "Judge Workspace"
+            ? "Judge view"
             : capabilities.competitorOnly
-              ? "Competitor Workspace"
+              ? "Debater view"
               : capabilities.canJudgeAny
-                ? "Member And Judge Workspace"
-                : "Member Workspace";
+                ? "Judge and member view"
+                : "Member view";
         const modeNote = capabilities.regionalPortalMode
-          ? "Dedicated to regional coordination, account management, reporting, and stipend approvals without tournament navigation."
+          ? "Use this space for reports, stipends, and coordinator records."
           : capabilities.canManageAny
-          ? "Full control over tournament structure, publishing, staffing, and access."
+          ? "Open tournaments, update rounds, and handle access from one place."
           : capabilities.regionalOnly
-            ? "Focused on regional reporting, stipend requests, and coordinator follow-up."
+            ? "Track reports, stipend requests, and coordinator follow-up."
           : capabilities.judgeOnly
-            ? "Judging stays front and centre while public tournament tracking remains available."
+            ? "Your assigned rooms and ballots stay front and centre."
             : capabilities.competitorOnly
-              ? "Private access and public boards stay streamlined for competitors."
+              ? "See draws, standings, and feedback without staff controls."
               : capabilities.canJudgeAny
-                ? "Search, tournament tracking, judging, and private access all stay connected."
-                : "Public tournament boards, search, and private access stay available from one place.";
+                ? "Search, judging, and tournament tracking stay connected."
+                : "Open tournaments, search, and private links from one place.";
 
         const focusLabel = capabilities.regionalPortalMode
           ? "Regional Operations"
@@ -21683,8 +21740,8 @@
               : " • ready for quick return");
         const accessLabel = accessRecord ? "Private URL Ready" : "Session Access";
         const accessNote = accessRecord
-          ? "Your one-tap JADE Hummingbird access link is available from Access Links."
-          : "Use the workspace directly or generate private access from the links area.";
+          ? "Your saved private link is available in Private Links."
+          : "Use this workspace directly or create a private link later.";
 
         return `
           <div class="workspace-overview-band">
@@ -21777,12 +21834,12 @@
 
       function getLandingViewOptionsMarkup(currentView = getCurrentUser()?.preferredLandingView || "overview") {
         const labels = {
-          overview: "Overview",
+          overview: "Home",
           tournaments: "Tournaments",
           search: "Search",
-          judging: "Judging",
-          links: "Access Links",
-          regional: "Regional Ops",
+          judging: "Ballots",
+          links: "Private Links",
+          regional: "Regional",
         };
 
         return getAllowedLandingViews()
@@ -22043,21 +22100,21 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Search and Profiles</p>
-                <h2>One profile per person</h2>
+                <p class="eyebrow">Search</p>
+                <h2>Find people, teams, and tournaments</h2>
               </div>
-              <span class="role-pill">${escapeHtml(query ? "Live results" : "Directory mode")}</span>
+              <span class="role-pill">${escapeHtml(query ? "Results" : "Directory")}</span>
             </div>
             <form class="workspace-search-form" data-form="workspace-search" role="search" aria-label="Advanced workspace search">
               <label class="workspace-search-field">
                 Search
                 <input type="search" name="query" value="${escapeHtml(
                   query,
-                )}" list="search-view-suggestions" autocomplete="off" placeholder="Find tournaments or people by name, team, or institution" />
+                )}" list="search-view-suggestions" autocomplete="off" placeholder="Search by name, team, institution, or tournament" />
               </label>
               <div class="button-row wrap-row">
                 <button type="submit">Search</button>
-                <button class="secondary-button" type="button" data-action="clear-workspace-search">Clear</button>
+                <button class="secondary-button" type="button" data-action="clear-workspace-search">Clear Search</button>
               </div>
             </form>
             ${renderSearchAssist(query, "search-view-suggestions")}
@@ -22067,11 +22124,11 @@
             query
               ? `
                 <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Search Results</p>
-                      <h2>Matches for "${escapeHtml(query)}"</h2>
-                    </div>
+                      <div class="section-heading">
+                        <div>
+                          <p class="eyebrow">Results</p>
+                          <h2>Matches for "${escapeHtml(query)}"</h2>
+                        </div>
                     <span class="role-pill">${escapeHtml(
                       (results.tournaments.length || 0) + (results.participants.length || 0),
                     )} matches</span>
@@ -22102,12 +22159,12 @@
                                 )
                                 .join("")}
                             </div>`
-                          : `<div class="empty-state">No tournaments matched this search.</div>`
+                          : `<div class="empty-state">No tournaments match this search.</div>`
                       }
                     </div>
                     <div class="search-results-section">
                       <div class="section-heading">
-                        <h3>Profiles</h3>
+                        <h3>People</h3>
                         <span class="mini-pill success">${escapeHtml(results.participants.length)}</span>
                       </div>
                       ${renderParticipantSearchCards(results.participants.slice(0, 8), {
@@ -22121,8 +22178,8 @@
                 <section class="surface">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Profile Directory</p>
-                      <h2>Recurring speakers and debaters</h2>
+                      <p class="eyebrow">Directory</p>
+                      <h2>People with tournament history</h2>
                     </div>
                     <span class="role-pill">${escapeHtml(featuredProfiles.length)} featured</span>
                   </div>
@@ -22374,14 +22431,14 @@
         );
         return `
           ${renderUserAccessLinksSection({
-            title: "Account Access URLs",
-            eyebrow: "Magic Links",
+            title: "Private links",
+            eyebrow: "Access",
             records: accountRecords.items,
             compact: true,
             toolbarMarkup: renderCollectionToolbar({
               formName: "links-account-search",
               query: session.linksAccountQuery || "",
-              placeholder: "Search account URLs by name, email, or role",
+              placeholder: "Search private links by name, email, or role",
               clearAction: "clear-links-account-query",
               pageData: accountRecords,
             }),
@@ -22390,15 +22447,15 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Tournament Portals</p>
-                <h2>Debater Private Links</h2>
+                <p class="eyebrow">Debater access</p>
+                <h2>Debater private links</h2>
               </div>
               <span class="role-pill">${escapeHtml(records.totalRecords)} visible links</span>
             </div>
             ${renderCollectionToolbar({
               formName: "links-portal-search",
               query: session.linksPortalQuery || "",
-              placeholder: "Search portals by participant, team, or tournament",
+              placeholder: "Search by participant, team, or tournament",
               clearAction: "clear-links-portal-query",
               pageData: records,
             })}
@@ -22423,7 +22480,7 @@
                           getPrivateLink(participant.token),
                         )}</a>
                         <div class="flat-panel">
-                          <strong>Invitation preview</strong>
+                          <strong>Message preview</strong>
                           <p class="muted">${escapeHtml(preview)}</p>
                         </div>
                         ${
@@ -22438,7 +22495,7 @@
                                 )}" data-participant-id="${escapeHtml(participant.id)}">Copy invitation</button>
                                 <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
                                   tournament.id,
-                                )}" data-participant-id="${escapeHtml(participant.id)}">Rotate link</button>
+                                )}" data-participant-id="${escapeHtml(participant.id)}">Reset link</button>
                               </div>
                             `
                             : ""
@@ -22447,7 +22504,7 @@
                     `;
                   })
                   .join("")
-              : `<div class="empty-state">No private links are visible for this account yet.</div>`}
+              : `<div class="empty-state">No private links are available yet. They will appear here after participants are added.</div>`}
           </section>
           ${renderCollectionPagination("set-links-portal-page", records)}
         `;
@@ -23209,18 +23266,18 @@
               <section id="workspace-main" class="content-panel" role="main">
                 <div class="workspace-topbar surface">
                   ${renderBrandLockup({
-                    kicker: "JADE Hummingbird Workspace",
+                    kicker: "Hummingbird Debate Tab",
                     size: "compact",
                     subtitle: focusedParticipantProfile
-                      ? "A focused profile view for one person at a time."
+                      ? "View one person at a time."
                       :
                       capabilities.regionalPortalMode
-                        ? "A dedicated regional workspace for coordinator accounts, reporting, and stipend oversight."
+                        ? "Regional reports, accounts, and transport requests."
                         : capabilities.canManageAny
-                        ? "Manage tournaments, permissions, judging, registration, and publishing from one place."
+                        ? "Run tournaments, manage rounds, and publish results."
                         : capabilities.canJudgeAny
-                          ? "A focused workspace for judging assignments, tournament details, and private access."
-                          : "A streamlined workspace for tournament tracking and private access.",
+                          ? "Open ballots, view assignments, and track tournaments."
+                          : "Open tournaments, public results, and private links.",
                   })}
                   <div class="topbar">
                     <div>
