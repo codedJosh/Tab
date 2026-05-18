@@ -22713,7 +22713,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Debater access</p>
-                <h2>Debater private links</h2>
+                <h2>Tournament private links</h2>
               </div>
               <span class="role-pill">${escapeHtml(records.totalRecords)} visible links</span>
             </div>
@@ -22724,54 +22724,70 @@
               clearAction: "clear-links-portal-query",
               pageData: records,
             })}
-          </section>
-          <section class="links-grid">
-            ${records.items.length
-              ? records.items
-                  .map(({ tournament, participant }) => {
-                    const preview = buildInvitationMessage(tournament, participant);
+            ${
+              records.items.length
+                ? `<div class="portal-link-list">
+                    ${records.items
+                      .map(({ tournament, participant }) => {
+                        const preview = buildInvitationMessage(tournament, participant);
+                        const privateLink = getPrivateLink(participant.token);
 
-                    return `
-                      <div class="link-card">
-                        <div class="section-heading">
-                          <strong>${escapeHtml(participant.name)}</strong>
-                          <span class="mini-pill success">${escapeHtml(tournament.code)}</span>
-                        </div>
-                        <p class="muted">${escapeHtml(participant.email)}</p>
-                        <p class="muted">${escapeHtml(tournament.name)}</p>
-                        <a class="token-link" href="${escapeHtml(
-                          getPrivateLink(participant.token),
-                        )}" target="_blank" rel="noreferrer">${escapeHtml(
-                          getPrivateLink(participant.token),
-                        )}</a>
-                        <div class="flat-panel">
-                          <strong>Message preview</strong>
-                          <p class="muted">${escapeHtml(preview)}</p>
-                        </div>
-                        ${
-                          canManageTournament(tournament)
-                            ? `
-                              <div class="button-row">
-                                <button class="secondary-button" type="button" data-action="copy-link" data-id="${escapeHtml(
-                                  tournament.id,
-                                )}" data-participant-id="${escapeHtml(participant.id)}">Copy link</button>
-                                <button class="secondary-button" type="button" data-action="copy-invite" data-id="${escapeHtml(
-                                  tournament.id,
-                                )}" data-participant-id="${escapeHtml(participant.id)}">Copy invitation</button>
-                                <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
-                                  tournament.id,
-                                )}" data-participant-id="${escapeHtml(participant.id)}">Reset link</button>
+                        return `
+                          <article class="portal-link-item">
+                            <div class="portal-link-row">
+                              <div class="portal-link-main">
+                                <div class="section-heading portal-link-head">
+                                  <div>
+                                    <strong>${escapeHtml(participant.name)}</strong>
+                                    <p class="muted">${escapeHtml(
+                                      participant.email,
+                                    )}</p>
+                                  </div>
+                                  <span class="mini-pill success">${escapeHtml(
+                                    tournament.code,
+                                  )}</span>
+                                </div>
+                                <div class="workspace-chip-row">
+                                  <span class="role-pill">${escapeHtml(tournament.name)}</span>
+                                  <span class="mini-pill success">${escapeHtml(
+                                    participant.teamName || "Independent",
+                                  )}</span>
+                                </div>
                               </div>
-                            `
-                            : ""
-                        }
-                      </div>
-                    `;
-                  })
-                  .join("")
-              : `<div class="empty-state">No private links are available yet. They will appear here after participants are added.</div>`}
+                              ${
+                                canManageTournament(tournament)
+                                  ? `
+                                    <div class="button-row portal-link-actions">
+                                      <button class="secondary-button" type="button" data-action="copy-link" data-id="${escapeHtml(
+                                        tournament.id,
+                                      )}" data-participant-id="${escapeHtml(participant.id)}">Copy</button>
+                                      <button class="secondary-button" type="button" data-action="copy-invite" data-id="${escapeHtml(
+                                        tournament.id,
+                                      )}" data-participant-id="${escapeHtml(participant.id)}">Invite</button>
+                                      <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
+                                        tournament.id,
+                                      )}" data-participant-id="${escapeHtml(participant.id)}">Reset</button>
+                                    </div>
+                                  `
+                                  : ""
+                              }
+                            </div>
+                            <details class="compact-card-disclosure portal-link-details">
+                              <summary class="compact-card-summary">View link and message preview</summary>
+                              <a class="token-link" href="${escapeHtml(
+                                privateLink,
+                              )}" target="_blank" rel="noreferrer">${escapeHtml(privateLink)}</a>
+                              <p class="fine-print">${escapeHtml(preview)}</p>
+                            </details>
+                          </article>
+                        `;
+                      })
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state">No private links are available yet. They will appear here after participants are added.</div>`
+            }
+            ${renderCollectionPagination("set-links-portal-page", records)}
           </section>
-          ${renderCollectionPagination("set-links-portal-page", records)}
         `;
       }
 
@@ -29232,6 +29248,17 @@
 
           if (action === "set-view") {
             session.view = button.dataset.view || "overview";
+            if (session.view === "overview") {
+              session.managedTournamentId = "";
+              session.selectedTournamentId = "";
+              session.selectedTournamentBoardTab = "overview";
+              session.focusedTournamentSection = "control";
+              session.selectedParticipantKey = "";
+              session.peopleSection = "hub";
+              session.selectedPeopleEmail = "";
+              session.peopleAppointeeTournamentId = "";
+              session.peopleAppointeeQuery = "";
+            }
             if (session.view === "people") {
               session.peopleSection = "hub";
               session.peopleAppointeeTournamentId = "";
@@ -29246,6 +29273,7 @@
             clearFlash();
             saveSession();
             requestSessionHistoryPush();
+            pendingViewportReset = true;
             renderApp();
             return;
           }

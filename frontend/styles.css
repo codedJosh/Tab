@@ -6457,6 +6457,63 @@
         font-weight: 800;
       }
 
+      .portal-link-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      .portal-link-item {
+        display: grid;
+        gap: 8px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 248, 0.9));
+      }
+
+      .portal-link-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: start;
+      }
+
+      .portal-link-main {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .portal-link-head {
+        margin: 0;
+      }
+
+      .portal-link-head .section-heading {
+        margin: 0;
+      }
+
+      .portal-link-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+
+      .portal-link-actions .secondary-button {
+        min-height: 34px;
+        padding: 7px 10px;
+        font-size: var(--text-caption);
+      }
+
+      .portal-link-details {
+        margin-top: 2px;
+      }
+
+      .portal-link-details .token-link {
+        font-size: var(--text-body-sm);
+      }
+
       .round-ops-grid {
         display: grid;
         gap: 12px;
@@ -6911,6 +6968,14 @@
 
         .people-directory-toolbar-meta,
         .collection-toolbar-meta {
+          justify-content: flex-start;
+        }
+
+        .portal-link-row {
+          grid-template-columns: 1fr;
+        }
+
+        .portal-link-actions {
           justify-content: flex-start;
         }
 
