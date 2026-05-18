@@ -17649,8 +17649,8 @@
           <section class="surface focus-nav-shell">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Tournament Workflow</p>
-                <h3>Open the exact operation you need</h3>
+                <p class="eyebrow">Tournament Operations</p>
+                <h3>Manage registration, draw, motions, standings, and access.</h3>
               </div>
               <span class="role-pill">${escapeHtml(active.label)}</span>
             </div>
@@ -17665,20 +17665,42 @@
             <div class="focus-nav-grid">
               ${sections
                 .map(
-                  (section) => `
+                  (section) => {
+                    const actionLabel = getFocusedSectionActionLabel(section.key, section.label);
+                    return `
                     <button class="focus-nav-button ${section.key === active.key ? "is-active" : ""}" type="button" data-action="set-focused-tournament-section" data-section="${escapeHtml(
                       section.key,
                     )}">
                       <strong>${escapeHtml(section.label)}</strong>
                       <span class="muted">${escapeHtml(section.note)}</span>
-                      <span class="focus-nav-badge">${escapeHtml(section.badge)}</span>
+                      <span class="focus-nav-badge">Status: ${escapeHtml(section.badge)}</span>
+                      <span class="focus-nav-cta">${escapeHtml(actionLabel)}</span>
                     </button>
-                  `,
+                  `;
+                  },
                 )
                 .join("")}
             </div>
           </section>
         `;
+      }
+
+      function getFocusedSectionActionLabel(sectionKey = "", fallbackLabel = "Open Section") {
+        const map = {
+          control: "Open Control Room",
+          roster: "Open Team Registration",
+          registration: "Open Public Registration",
+          draw: "Open Draw Lab",
+          motions: "Open Motions",
+          results: "Open Standings",
+          directory: "Open Teams",
+          judges: "Open Judges",
+          setup: "Open Setup",
+          access: "Open Permissions",
+          notices: "Open Notices",
+          history: "Open History",
+        };
+        return map[String(sectionKey || "").trim().toLowerCase()] || ("Open " + fallbackLabel);
       }
 
       function getFocusedSectionShortcutKeys(activeKey = "") {
@@ -18535,79 +18557,230 @@
       }
 
       function renderConflictReviewPanel(tournament) {
-        const summaries = getRoundProfiles(tournament)
-          .map((profile) => getRoundConflictSummary(tournament, profile.round))
-          .filter((summary) => summary.total);
+        const checkItems = [];
+        const drawEntries = tournament.draw || [];
+        const entriesByRound = new Map();
+        drawEntries.forEach((entry) => {
+          const round = normalizeRoundCount(entry.round, 1);
+          if (!entriesByRound.has(round)) {
+            entriesByRound.set(round, []);
+          }
+          entriesByRound.get(round).push(entry);
+        });
+
+        getRoundProfiles(tournament).forEach((profile) => {
+          const round = normalizeRoundCount(profile.round, 1);
+          const entries = entriesByRound.get(round) || [];
+          const statusSummary = getRoundStatusSummary(tournament, round);
+          const conflictSummary = getRoundConflictSummary(tournament, round);
+
+          if (!entries.length) {
+            checkItems.push({
+              tone: "warning",
+              label: "Missing rooms",
+              detail: "Round " + round + " has no rooms yet.",
+              actionSection: "draw",
+            });
+          }
+
+          const roomNames = new Set();
+          const duplicateRoomNames = new Set();
+          const seenTeamKeys = new Set();
+          const duplicateTeams = new Set();
+          let roomsMissingTeams = 0;
+          let roomsMissingJudges = 0;
+
+          entries.forEach((entry) => {
+            const roomName = String(entry.room || "").trim().toLowerCase();
+            if (roomName) {
+              if (roomNames.has(roomName)) {
+                duplicateRoomNames.add(String(entry.room || "").trim() || "Unnamed room");
+              }
+              roomNames.add(roomName);
+            }
+
+            const roomKeys = getDrawEntryIdentityKeys(entry);
+            if (!roomKeys.length) {
+              roomsMissingTeams += 1;
+            }
+            roomKeys.forEach((key) => {
+              if (seenTeamKeys.has(key)) {
+                duplicateTeams.add(key);
+              }
+              seenTeamKeys.add(key);
+            });
+
+            if (!getChairAllocationForDrawEntry(tournament, entry.id)) {
+              roomsMissingJudges += 1;
+            }
+          });
+
+          if (duplicateRoomNames.size) {
+            checkItems.push({
+              tone: "warning",
+              label: "Room conflicts",
+              detail:
+                "Round " +
+                round +
+                " has duplicate room names: " +
+                Array.from(duplicateRoomNames).slice(0, 2).join(", ") +
+                ".",
+              actionSection: "draw",
+            });
+          }
+
+          if (roomsMissingTeams) {
+            checkItems.push({
+              tone: "warning",
+              label: "Missing teams",
+              detail:
+                "Round " +
+                round +
+                " has " +
+                roomsMissingTeams +
+                " room" +
+                (roomsMissingTeams === 1 ? "" : "s") +
+                " missing assigned teams.",
+              actionSection: "draw",
+            });
+          }
+
+          if (duplicateTeams.size) {
+            checkItems.push({
+              tone: "warning",
+              label: "Duplicate teams",
+              detail:
+                "Round " +
+                round +
+                " includes repeated teams across rooms. Review pairings before publishing.",
+              actionSection: "draw",
+            });
+          }
+
+          if (entries.length && roomsMissingJudges) {
+            checkItems.push({
+              tone: "warning",
+              label: "Missing judges",
+              detail:
+                "Round " +
+                round +
+                " has " +
+                roomsMissingJudges +
+                " room" +
+                (roomsMissingJudges === 1 ? "" : "s") +
+                " without a chair judge.",
+              actionSection: "judges",
+            });
+          }
+
+          if (conflictSummary.total) {
+            const institutionConflicts = conflictSummary.flaggedRooms.reduce(
+              (sum, record) =>
+                sum +
+                record.issues.filter((issue) =>
+                  String(issue.label || "").toLowerCase().includes("institution"),
+                ).length,
+              0,
+            );
+            const judgeConflicts = conflictSummary.flaggedRooms.reduce(
+              (sum, record) =>
+                sum +
+                record.issues.filter((issue) =>
+                  String(issue.label || "").toLowerCase().includes("judge"),
+                ).length,
+              0,
+            );
+            if (institutionConflicts) {
+              checkItems.push({
+                tone: "warning",
+                label: "Institution conflicts",
+                detail:
+                  "Round " +
+                  round +
+                  " has " +
+                  institutionConflicts +
+                  " institutional clash flag" +
+                  (institutionConflicts === 1 ? "" : "s") +
+                  ".",
+                actionSection: "draw",
+              });
+            }
+            if (judgeConflicts) {
+              checkItems.push({
+                tone: "warning",
+                label: "Judge conflicts",
+                detail:
+                  "Round " +
+                  round +
+                  " has " +
+                  judgeConflicts +
+                  " judge conflict flag" +
+                  (judgeConflicts === 1 ? "" : "s") +
+                  ".",
+                actionSection: "judges",
+              });
+            }
+          }
+
+          if (entries.length && statusSummary.allocations.length < entries.length) {
+            checkItems.push({
+              tone: "warning",
+              label: "Missing judges",
+              detail:
+                "Round " +
+                round +
+                " needs additional judge allocations before publication.",
+              actionSection: "judges",
+            });
+          }
+        });
+
+        const dedupedItems = Array.from(
+          new Map(
+            checkItems.map((item) => [item.label + "::" + item.detail, item]),
+          ).values(),
+        );
 
         return `
-          <section class="surface">
+          <section class="surface draw-conflict-panel">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Conflict Checker</p>
-                <h2>Flagged draw, institution, and judge issues</h2>
+                <h2>Draw Conflict Check</h2>
               </div>
-              <span class="role-pill">${escapeHtml(
-                summaries.reduce((sum, summary) => sum + summary.total, 0),
-              )} flags</span>
+              <span class="role-pill">${escapeHtml(dedupedItems.length)} issues</span>
             </div>
             ${
-              summaries.length
-                ? `<div class="notice-list">
-                    ${summaries
+              dedupedItems.length
+                ? `<div class="notice-list compact">
+                    ${dedupedItems
                       .map(
-                        (summary) => `
+                        (item) => `
                           <article class="notice-item">
                             <div class="section-heading">
                               <div>
-                                <strong>${escapeHtml("Round " + summary.round)}</strong>
-                                <p class="muted">${escapeHtml(
-                                  summary.flaggedRooms.length +
-                                    " room" +
-                                    (summary.flaggedRooms.length === 1 ? "" : "s") +
-                                    " need review",
-                                )}</p>
+                                <strong>${escapeHtml(item.label)}</strong>
+                                <p class="muted">${escapeHtml(item.detail)}</p>
                               </div>
                               <span class="mini-pill ${escapeHtml(
-                                summary.severe ? "warning" : "success",
-                              )}">${escapeHtml(
-                                summary.severe
-                                  ? summary.severe + " high priority"
-                                  : "Review before release",
-                              )}</span>
+                                item.tone === "danger" ? "danger" : "warning",
+                              )}">${escapeHtml(item.tone === "danger" ? "High priority" : "Review")}</span>
                             </div>
-                            <div class="leaderboard-list">
-                              ${summary.flaggedRooms
-                                .map(
-                                  (record) => `
-                                    <div class="leaderboard-row">
-                                      <div class="stack">
-                                        <strong>${escapeHtml(record.entry.room)}</strong>
-                                        <span class="muted">${escapeHtml(
-                                          getDrawMatchupForDisplay(tournament, record.entry),
-                                        )}</span>
-                                        <span class="fine-print">${escapeHtml(
-                                          record.issues
-                                            .slice(0, 2)
-                                            .map((issue) => issue.label + ": " + issue.detail)
-                                            .join(" • "),
-                                        )}</span>
-                                      </div>
-                                      <span class="mini-pill ${escapeHtml(
-                                        record.issues.some((issue) => issue.tone === "danger")
-                                          ? "warning"
-                                          : "success",
-                                      )}">${escapeHtml(record.issues.length + " flags")}</span>
-                                    </div>
-                                  `,
-                                )
-                                .join("")}
-                            </div>
+                            ${
+                              item.actionSection
+                                ? `<div class="button-row">
+                                    <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="${escapeHtml(
+                                      item.actionSection,
+                                    )}">Open ${escapeHtml(toTitleLabel(item.actionSection))}</button>
+                                  </div>`
+                                : ""
+                            }
                           </article>
                         `,
                       )
                       .join("")}
                   </div>`
-                : `<div class="empty-state">No current conflict flags are showing in the saved draw.</div>`
+                : `<div class="empty-state">No conflicts found.</div>`
             }
           </section>
         `;
@@ -18709,15 +18882,36 @@
       ) {
         const profiles = getRoundProfiles(tournament);
         return `
-          <div class="round-board-shell">
+          <section class="surface round-board-shell">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">${escapeHtml(canManage ? "Round Control" : "Round Progress")}</p>
-                <h2>${escapeHtml(canManage ? "Live round board" : "Published round progress")}</h2>
+                <h2>${escapeHtml(canManage ? "Round Board" : "Published round progress")}</h2>
               </div>
               <span class="role-pill">${escapeHtml(profiles.length)} rounds</span>
             </div>
-            <div class="round-board-grid">
+            ${
+              canManage
+                ? `<p class="muted">Track every round state before releasing the next operational step.</p>`
+                : ""
+            }
+            <div class="table-wrap round-board-table-wrap">
+              <table class="round-board-table">
+                <thead>
+                  <tr>
+                    <th>Round</th>
+                    <th>Format</th>
+                    <th>Draw</th>
+                    <th>Motion</th>
+                    <th>Check-In</th>
+                    <th>Ballots</th>
+                    <th>Rooms</th>
+                    <th>Conflicts</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
               ${profiles
                 .map((profile) => {
                   const summary = getRoundStatusSummary(tournament, profile.round);
@@ -18725,146 +18919,67 @@
                   const conflictSummary = getRoundConflictSummary(tournament, profile.round);
                   const totalRooms = summary.rooms.length;
                   const publicRoomCount = canSeeDraw ? Number(summary.published || 0) : 0;
-                  const statusLabel = canManage
-                    ? totalRooms && summary.officialBallots === totalRooms
-                      ? "Results In"
-                      : totalRooms && summary.published === totalRooms
-                        ? "Released"
-                        : totalRooms
-                          ? "Drafting"
-                          : "Awaiting Draw"
-                    : !canSeeDraw
-                      ? "Draw Private"
-                    : publicRoomCount
-                      ? summary.officialBallots >= publicRoomCount
-                        ? "Results In"
-                        : "Released"
-                      : "Awaiting Release";
+                  const lifecycle = getRoundLifecycleState(tournament, profile.round);
+                  const visibleRooms = canManage ? totalRooms : publicRoomCount;
+                  const drawSummary = totalRooms
+                    ? summary.published + "/" + totalRooms + " published"
+                    : "Awaiting Draw";
+                  const motionSummary = getRoundMotionStatus(control).label;
+                  const checkInSummary =
+                    totalRooms ? summary.checkedInEntries + "/" + totalRooms : "0/0";
+                  const ballotTarget = canManage ? totalRooms : publicRoomCount;
+                  const ballotSummary = ballotTarget
+                    ? Math.min(summary.officialBallots, ballotTarget) + "/" + ballotTarget
+                    : "0/0";
+                  const conflictsLabel = conflictSummary.total
+                    ? String(conflictSummary.total)
+                    : "None";
                   const statusTone =
-                    statusLabel === "Results In"
+                    lifecycle === "Results Published" || lifecycle === "Results Calculated"
                       ? "success"
-                      : statusLabel === "Released"
-                        ? "success"
+                      : lifecycle === "Ballots Open" || lifecycle === "Draw Published"
+                        ? "warning"
                         : "warning";
+                  const rowAction =
+                    !canManage
+                      ? `<button class="secondary-button" type="button" data-action="open-tournament-record" data-id="${escapeHtml(
+                          tournament.id,
+                        )}">View</button>`
+                      : !totalRooms
+                        ? `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Generate Draw</button>`
+                        : summary.published < totalRooms
+                          ? `<button class="secondary-button" type="button" data-action="release-round-now" data-id="${escapeHtml(
+                              tournament.id,
+                            )}" data-round="${escapeHtml(profile.round)}">Publish Draw</button>`
+                          : summary.officialBallots < totalRooms
+                            ? `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Review Ballots</button>`
+                            : `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Draw Lab</button>`;
                   return `
-                    <article class="feature-panel round-board-card">
-                      <div class="section-heading">
-                        <div>
-                          <p class="eyebrow">${escapeHtml("Round " + profile.round)}</p>
-                          <h3>${escapeHtml(profile.label || "Round " + profile.round)}</h3>
-                        </div>
-                        <span class="mini-pill ${escapeHtml(statusTone)}">${escapeHtml(
-                          statusLabel,
+                    <tr>
+                      <td><strong>${escapeHtml(profile.label || ("Round " + profile.round))}</strong></td>
+                      <td>${escapeHtml(getRoundFormatDisplayLabel(tournament, profile, { includeInheritance: false }))}</td>
+                      <td>${escapeHtml(drawSummary)}</td>
+                      <td>${escapeHtml(motionSummary)}</td>
+                      <td>${escapeHtml(checkInSummary)}</td>
+                      <td>${escapeHtml(ballotSummary)}</td>
+                      <td>${escapeHtml(visibleRooms)}</td>
+                      <td>
+                        <span class="mini-pill ${escapeHtml(conflictSummary.total ? "warning" : "success")}">${escapeHtml(
+                          conflictsLabel,
                         )}</span>
-                      </div>
-                      <p class="muted">${escapeHtml(
-                        profile.notes ||
-                          getRoundStageLabel(profile.stage) +
-                            (isOutroundProfile(profile)
-                              ? " • " +
-                                getDrawMethodDisplayLabel(tournament, profile, "auto")
-                              : "") +
-                            " • " +
-                          getRoundFormatDisplayLabel(tournament, profile, {
-                            includeInheritance: false,
-                          }) +
-                            " • " +
-                          getConfiguredStructureValue(profile.teamsPerRoom, "Flexible") +
-                            " teams per room • " +
-                          getConfiguredStructureValue(profile.teamSize, "Flexible") +
-                            " per team",
-                      )}</p>
-                      ${renderRoundTimeline(tournament, profile.round, {
-                        canManage,
-                        canSeeStandings,
-                        canSeeDraw,
-                      })}
-                      <div class="round-board-metrics">
-                        <div class="round-board-metric">
-                          <span class="muted">${escapeHtml(canManage ? "Rooms" : "Published Rooms")}</span>
-                          <strong>${escapeHtml(canManage ? totalRooms : publicRoomCount)}</strong>
-                        </div>
-                        <div class="round-board-metric">
-                          <span class="muted">Ballots</span>
-                          <strong>${escapeHtml(
-                            canManage
-                              ? summary.officialBallots + "/" + totalRooms
-                              : Math.min(summary.officialBallots, publicRoomCount) + "/" + publicRoomCount,
-                          )}</strong>
-                        </div>
-                        ${
-                          canManage
-                            ? `
-                                <div class="round-board-metric">
-                                  <span class="muted">Released</span>
-                                  <strong>${escapeHtml(summary.published + "/" + totalRooms)}</strong>
-                                </div>
-                                <div class="round-board-metric">
-                                  <span class="muted">Ready</span>
-                                  <strong>${escapeHtml(summary.fullyReady + "/" + totalRooms)}</strong>
-                                </div>
-                                <div class="round-board-metric">
-                                  <span class="muted">Judge Check-Ins</span>
-                                  <strong>${escapeHtml(
-                                    summary.checkedInJudges + "/" + summary.allocations.length,
-                                  )}</strong>
-                                </div>
-                                <div class="round-board-metric">
-                                  <span class="muted">Priority</span>
-                                  <strong>${escapeHtml(
-                                    totalRooms
-                                      ? summary.averagePriority +
-                                          " • " +
-                                          getRoomPriorityLabel(summary.averagePriority)
-                                      : "Not set",
-                                  )}</strong>
-                                </div>
-                              `
-                            : ""
-                        }
-                      </div>
-                      <div class="workspace-chip-row">
-                        <span class="mini-pill ${escapeHtml(
-                          getRoundMotionStatus(control).tone,
-                        )}">${escapeHtml(getRoundMotionStatus(control).label)}</span>
-                        <span class="mini-pill success">${escapeHtml(
-                          getRoundPrepSummary(control),
-                        )}</span>
-                        ${
-                          canManage
-                            ? `<span class="mini-pill ${escapeHtml(
-                                conflictSummary.total ? "warning" : "success",
-                              )}">${escapeHtml(
-                                conflictSummary.total
-                                  ? conflictSummary.total + " conflict flag" + (conflictSummary.total === 1 ? "" : "s")
-                                  : "No conflict flags",
-                              )}</span>`
-                            : ""
-                        }
-                      </div>
-                      ${
-                        canManage
-                          ? `
-                              <div class="button-row round-board-actions">
-                                <button class="secondary-button" type="button" data-action="auto-prioritize-round" data-id="${escapeHtml(
-                                  tournament.id,
-                                )}" data-round="${escapeHtml(profile.round)}">Auto-Prioritise</button>
-                                <button class="secondary-button" type="button" data-action="release-round-now" data-id="${escapeHtml(
-                                  tournament.id,
-                                )}" data-round="${escapeHtml(profile.round)}">Release Round</button>
-                                <button class="danger-button" type="button" data-action="clear-draw-round" data-id="${escapeHtml(
-                                  tournament.id,
-                                )}" data-round="${escapeHtml(profile.round)}">Clear Round</button>
-                              </div>
-                            `
-                          : ""
-                      }
-                    </article>
+                      </td>
+                      <td>
+                        <span class="mini-pill ${escapeHtml(statusTone)}">${escapeHtml(lifecycle)}</span>
+                      </td>
+                      <td class="round-board-action-cell">${rowAction}</td>
+                    </tr>
                   `;
                 })
                 .join("")}
+                </tbody>
+              </table>
             </div>
-          </div>
+          </section>
         `;
       }
 
@@ -18877,160 +18992,169 @@
         const suggestedRoundProfile = getRoundProfileForRound(tournament, suggestedRound);
         const suggestedMethod = normalizeDrawMethodChoice("auto", "auto");
         return `
-          <section class="surface">
+          <section class="surface draw-studio-shell">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Round Draw</p>
-                <h2>Create, validate, and publish pairings</h2>
+                <h2>Create, review, and publish pairings</h2>
               </div>
               <span class="role-pill">${escapeHtml(getRoundStructureSummary(tournament))}</span>
             </div>
-            ${renderRoundControlBoard(tournament, true, true, true)}
-            <div class="stack">
-              ${renderConflictReviewPanel(tournament)}
-              <div class="flat-grid">
-                <form class="stack flat-panel" data-form="generate-draw" data-id="${escapeHtml(
-                  tournament.id,
-                )}">
+            <div class="draw-studio-layout">
+              <div class="draw-studio-left">
+                <section class="surface">
                   <div class="section-heading">
                     <div>
-                      <h3>Generate draw</h3>
+                      <p class="eyebrow">Draw Builder</p>
+                      <h3>Build pairings for the selected round</h3>
                     </div>
                     <span class="mini-pill ${escapeHtml(
                       isOutroundProfile(suggestedRoundProfile) ? "warning" : "success",
-                    )}">${escapeHtml(
-                      getRoundStageLabel(suggestedRoundProfile.stage),
-                    )}</span>
+                    )}">${escapeHtml(getRoundStageLabel(suggestedRoundProfile.stage))}</span>
                   </div>
-                  <div class="field-grid three">
-                    <label>
-                      Round
-                      <select name="round">${getRoundOptionMarkup(
+                  <form class="stack" data-form="generate-draw" data-id="${escapeHtml(
+                    tournament.id,
+                  )}">
+                    <div class="field-grid three">
+                      <label>
+                        Selected Round
+                        <select name="round">${getRoundOptionMarkup(
                           tournament,
-                        suggestedRound,
-                      )}</select>
-                    </label>
-                    <label>
-                      Method
-                      <select name="method">${getDrawMethodOptionMarkup(suggestedMethod, {
-                        autoMethod: getResolvedDrawMethod(
-                          tournament,
-                          suggestedRoundProfile,
-                          "auto",
-                        ),
-                      })}</select>
-                    </label>
-                    <label>
-                      Teams Per Room
-                      <input type="number" min="1" max="8" name="teamsPerRoom" placeholder="Use round default" />
-                    </label>
-                  </div>
-                  <div class="field-grid three">
-                    <label>
-                      Room Prefix
-                      <input type="text" name="roomPrefix" value="Room" />
-                    </label>
-                    <label>
-                      Starting Room Number
-                      <input type="number" min="1" name="roomStart" value="1" />
-                    </label>
-                    <label class="checkbox-row">
-                      <input type="checkbox" name="releaseNow" checked />
-                      <span>Publish immediately</span>
-                    </label>
-                  </div>
-                  <p class="fine-print">
-                    Priority is assigned automatically when the draw is generated, so stronger debates can receive stronger panels first.
-                  </p>
-                  <p class="fine-print" data-draw-round-stage-note>${escapeHtml(
-                    getDrawGenerationFormStageNote(
-                      tournament,
-                      suggestedRoundProfile,
-                      "auto",
-                    ),
-                  )}</p>
-                  <button type="submit">Generate draw</button>
-                </form>
+                          suggestedRound,
+                        )}</select>
+                      </label>
+                      <label>
+                        Draw Method
+                        <select name="method">${getDrawMethodOptionMarkup(suggestedMethod, {
+                          autoMethod: getResolvedDrawMethod(
+                            tournament,
+                            suggestedRoundProfile,
+                            "auto",
+                          ),
+                        })}</select>
+                      </label>
+                      <label>
+                        Teams Per Room
+                        <input type="number" min="1" max="8" name="teamsPerRoom" placeholder="Use round default" />
+                      </label>
+                    </div>
+                    <div class="field-grid three">
+                      <label>
+                        Room Prefix
+                        <input type="text" name="roomPrefix" value="Room" />
+                      </label>
+                      <label>
+                        Starting Room Number
+                        <input type="number" min="1" name="roomStart" value="1" />
+                      </label>
+                      <label class="checkbox-row">
+                        <input type="checkbox" name="releaseNow" checked />
+                        <span>Publish immediately</span>
+                      </label>
+                    </div>
+                    <p class="fine-print" data-draw-round-stage-note>${escapeHtml(
+                      getDrawGenerationFormStageNote(
+                        tournament,
+                        suggestedRoundProfile,
+                        "auto",
+                      ),
+                    )}</p>
+                    <div class="button-row wrap-row">
+                      <button type="submit">Generate Draw</button>
+                      <button class="secondary-button" type="submit" name="intent" value="preview">Preview Draw</button>
+                    </div>
+                  </form>
+                </section>
 
-                <form class="stack flat-panel" data-form="release-draw-round" data-id="${escapeHtml(
-                  tournament.id,
-                )}">
+                <section class="surface">
                   <div class="section-heading">
                     <div>
-                      <h3>Publish draw</h3>
+                      <p class="eyebrow">Manual Room Editor</p>
+                      <h3>Add or adjust a single room</h3>
                     </div>
                   </div>
-                  <div class="round-ops-grid">
-                    <label>
-                      Round
-                      <select name="round">${getRoundOptionMarkup(
-                        tournament,
-                        latestRound || 1,
-                      )}</select>
-                    </label>
-                    <button type="submit">Publish selected round</button>
-                  </div>
-                </form>
-
-                <form class="stack flat-panel" data-form="clear-draw-round" data-id="${escapeHtml(
-                  tournament.id,
-                )}">
-                  <div class="section-heading">
-                    <div>
-                      <h3>Reset draw round</h3>
+                  <form class="stack" data-form="add-draw" data-id="${escapeHtml(
+                    tournament.id,
+                  )}">
+                    <div class="field-grid three">
+                      <label>
+                        Round
+                        <select name="round">${getRoundOptionMarkup(
+                          tournament,
+                          latestRound || 1,
+                        )}</select>
+                      </label>
+                      <label>
+                        Room
+                        <input type="text" name="room" placeholder="Room or venue" required />
+                      </label>
+                      <label>
+                        Status
+                        <input type="text" name="status" value="Draft" required />
+                      </label>
+                      <label>
+                        Priority
+                        <select name="priority">${getRoomPriorityOptionsMarkup(3)}</select>
+                      </label>
                     </div>
-                  </div>
-                  <div class="round-ops-grid">
                     <label>
-                      Round
-                      <select name="round">${getRoundOptionMarkup(
-                        tournament,
-                        latestRound || 1,
-                      )}</select>
+                      Matchup
+                      <input type="text" name="matchup" placeholder="Team A vs Team B" required />
                     </label>
-                    <button class="danger-button" type="submit">Reset selected round</button>
-                  </div>
-                </form>
+                    <button type="submit">Add Manual Room</button>
+                  </form>
+                </section>
               </div>
 
-              <form class="stack flat-panel" data-form="add-draw" data-id="${escapeHtml(
-                tournament.id,
-              )}">
-                <div class="section-heading">
-                  <div>
-                    <h3>Add manual room</h3>
+              <div class="draw-studio-right">
+                ${renderRoundControlBoard(tournament, true, true, true)}
+                ${renderConflictReviewPanel(tournament)}
+                <section class="surface">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Publish Controls</p>
+                      <h3>Release or reset selected rounds</h3>
+                    </div>
                   </div>
-                </div>
-                <div class="field-grid three">
-                  <label>
-                    Round
-                    <select name="round">${getRoundOptionMarkup(
-                      tournament,
-                      latestRound || 1,
-                    )}</select>
-                  </label>
-                  <label>
-                    Room
-                    <input type="text" name="room" placeholder="Room or venue" required />
-                  </label>
-                  <label>
-                    Status
-                    <input type="text" name="status" value="Draft" required />
-                  </label>
-                  <label>
-                    Priority
-                    <select name="priority">${getRoomPriorityOptionsMarkup(3)}</select>
-                  </label>
-                </div>
-                <label>
-                  Matchup
-                  <input type="text" name="matchup" placeholder="Team A vs Team B" required />
-                </label>
-                <button type="submit">Add Manual Room</button>
-              </form>
+                  <div class="draw-publish-grid">
+                    <form class="stack" data-form="release-draw-round" data-id="${escapeHtml(
+                      tournament.id,
+                    )}">
+                      <label>
+                        Round
+                        <select name="round">${getRoundOptionMarkup(
+                          tournament,
+                          latestRound || 1,
+                        )}</select>
+                      </label>
+                      <button type="submit">Publish Selected Round</button>
+                    </form>
 
-              ${renderDrawTable(tournament, true, true)}
+                    <form class="stack draw-danger-form" data-form="clear-draw-round" data-id="${escapeHtml(
+                      tournament.id,
+                    )}">
+                      <label>
+                        Round
+                        <select name="round">${getRoundOptionMarkup(
+                          tournament,
+                          latestRound || 1,
+                        )}</select>
+                      </label>
+                      <button class="danger-button" type="submit">Reset Selected Round</button>
+                    </form>
+                  </div>
+                </section>
+              </div>
             </div>
+            <section class="surface">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Draw Preview</p>
+                  <h3>Room list and publication state</h3>
+                </div>
+              </div>
+              ${renderDrawTable(tournament, true, true)}
+            </section>
           </section>
         `;
       }
@@ -19190,6 +19314,27 @@
         const scoringProfile = getScoringProfile(tournament);
         const pinned = isTournamentPinned(tournament.id);
         const control = getTournamentControlRoomState(tournament);
+        const registration = getTournamentRegistrationSettings(tournament);
+        const registrationLive =
+          tournament.status === "open" && (registration.debaterOpen || registration.judgeOpen);
+        const registrationStatusLabel = registrationLive
+          ? [registration.debaterOpen ? "Debaters" : "", registration.judgeOpen ? "Judges" : ""]
+              .filter(Boolean)
+              .join(" + ") + " open"
+          : "Closed";
+        const drawStatusLabel = control.snapshot.nextDraftRound
+          ? "Round " + control.snapshot.nextDraftRound + " draft"
+          : control.snapshot.latestPublishedRound
+            ? "Round " + control.snapshot.latestPublishedRound + " published"
+            : "No draw yet";
+        const primaryRound =
+          control.snapshot.nextUnbuiltRound ||
+          control.snapshot.nextDraftRound ||
+          control.activeRound ||
+          1;
+        const primaryActionLabel = control.snapshot.nextUnbuiltRound
+          ? "Generate Draw for Round " + primaryRound
+          : "Open Round Draw";
         const sectionState = getFocusedTournamentSectionState(
           tournament,
           feedbackCategories,
@@ -19202,9 +19347,7 @@
               <div>
                 <p class="eyebrow">Tournament Control Room</p>
                 <h2>${escapeHtml(tournament.name)}</h2>
-                <p class="hero-copy">
-                  Live operations for rounds, draws, ballots, standings, judges, and publication.
-                </p>
+                <p class="hero-copy">Live operations for rounds, draws, ballots, standings, judges, and publication.</p>
               </div>
               <div class="workspace-chip-row">
                 <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
@@ -19214,69 +19357,112 @@
                 <span class="role-pill">${escapeHtml(getFormatLabel(tournament))}</span>
               </div>
             </div>
-            <div class="workspace-hero-layout">
-              <div class="workspace-stat-grid">
-                <div class="workspace-stat">
-                  <span class="muted">Current round</span>
-                  <strong>${escapeHtml("Round " + control.activeRound)}</strong>
+            <div class="workspace-control-room-grid">
+              <div class="workspace-control-room-main">
+                <div class="workspace-control-room-next">
+                  <p class="eyebrow">Next Required Action</p>
+                  <h3>${escapeHtml(control.nextRequiredAction)}</h3>
+                  <div class="button-row wrap-row">
+                    <button type="button" data-action="set-focused-tournament-section" data-section="draw">${escapeHtml(
+                      primaryActionLabel,
+                    )}</button>
+                    <button class="secondary-button" type="button" data-action="clear-focused-tournament">Back to Tournament Overview</button>
+                  </div>
                 </div>
-                <div class="workspace-stat">
-                  <span class="muted">Round state</span>
-                  <strong>${escapeHtml(control.lifecycle)}</strong>
-                </div>
-                <div class="workspace-stat">
-                  <span class="muted">Ballot progress</span>
-                  <strong>${escapeHtml(control.ballotProgress.label)}</strong>
-                </div>
-                <div class="workspace-stat">
-                  <span class="muted">Warnings</span>
-                  <strong>${escapeHtml(control.snapshot.attentionCount)}</strong>
+                <div class="workspace-stat-grid workspace-control-room-metrics">
+                  <div class="workspace-stat">
+                    <span class="muted">Current round</span>
+                    <strong>${escapeHtml("Round " + control.activeRound)}</strong>
+                  </div>
+                  <div class="workspace-stat">
+                    <span class="muted">Round state</span>
+                    <strong>${escapeHtml(control.lifecycle)}</strong>
+                  </div>
+                  <div class="workspace-stat">
+                    <span class="muted">Ballot progress</span>
+                    <strong>${escapeHtml(control.ballotProgress.label)}</strong>
+                  </div>
+                  <div class="workspace-stat">
+                    <span class="muted">Draw status</span>
+                    <strong>${escapeHtml(drawStatusLabel)}</strong>
+                  </div>
+                  <div class="workspace-stat">
+                    <span class="muted">Public registration</span>
+                    <strong>${escapeHtml(registrationStatusLabel)}</strong>
+                  </div>
+                  <div class="workspace-stat">
+                    <span class="muted">Warnings</span>
+                    <strong>${escapeHtml(control.snapshot.attentionCount)}</strong>
+                  </div>
                 </div>
               </div>
-              <div class="workspace-controls-shell">
-                <div class="section-heading">
-                  <div>
-                    <p class="eyebrow">Next Required Action</p>
-                    <h3>${escapeHtml(control.nextRequiredAction)}</h3>
-                  </div>
-                  <span class="role-pill">${escapeHtml(active.label)}</span>
-                </div>
-                <div class="quick-access-strip">
-                  <button class="quick-access-button" type="button" data-action="clear-focused-tournament"><span>Back To Tournament Boxes</span></button>
-                  <button class="quick-access-button" type="button" data-action="toggle-status" data-id="${escapeHtml(
+              <div class="workspace-control-room-actions">
+                <p class="eyebrow">Quick Actions</p>
+                <div class="workspace-action-row">
+                  <button class="secondary-button" type="button" data-action="toggle-status" data-id="${escapeHtml(
                     tournament.id,
-                  )}"><span>${escapeHtml(
+                  )}">${escapeHtml(
                     tournament.status === "open" ? "Close Tournament" : "Open Tournament",
-                  )}</span></button>
-                  <button class="quick-access-button" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
+                  )}</button>
+                  <button class="secondary-button" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>${escapeHtml(
                     tournament.publication.showPublicStandings
                       ? "Hide Public Standings"
                       : "Show Public Standings",
                   )}</span></button>
-                  <button class="quick-access-button" type="button" data-action="toggle-public-draw" data-id="${escapeHtml(
+                  <button class="secondary-button" type="button" data-action="toggle-public-draw" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>${escapeHtml(
                     tournament.publication.showPublicDraw ? "Hide Public Draw" : "Show Public Draw",
                   )}</span></button>
-                  <button class="quick-access-button" type="button" data-action="toggle-pin-tournament" data-id="${escapeHtml(
+                </div>
+                <div class="workspace-action-row">
+                  <button class="secondary-button" type="button" data-action="toggle-pin-tournament" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>${escapeHtml(pinned ? "Unpin Tournament" : "Pin Tournament")}</span></button>
-                  <button class="quick-access-button" type="button" data-action="duplicate-tournament" data-id="${escapeHtml(
+                  <button class="secondary-button" type="button" data-action="duplicate-tournament" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>Duplicate Template</span></button>
+                </div>
+                <div class="workspace-danger-row">
                   ${
                     tournament.status === "archived"
-                      ? `<button class="quick-access-button" type="button" data-action="restore-tournament" data-id="${escapeHtml(
+                      ? `<button class="secondary-button" type="button" data-action="restore-tournament" data-id="${escapeHtml(
                           tournament.id,
                         )}"><span>Restore Tournament</span></button>`
-                      : `<button class="danger-button quick-access-button" type="button" data-action="archive-tournament" data-id="${escapeHtml(
+                      : `<button class="danger-button" type="button" data-action="archive-tournament" data-id="${escapeHtml(
                           tournament.id,
                         )}"><span>Archive Tournament</span></button>`
                   }
                 </div>
               </div>
+            </div>
+          </section>
+
+          <section class="surface spotlight-shell">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Operational Summary</p>
+                <h3>Current watchpoints and validation checks</h3>
+              </div>
+            </div>
+            <div class="spotlight-watchlist">
+              ${
+                control.snapshot.attention.length
+                  ? control.snapshot.attention
+                      .slice(0, 4)
+                      .map(
+                        (item) => `
+                          <div class="spotlight-note">
+                            <span class="mini-pill warning">Attention</span>
+                            <span>${escapeHtml(item)}</span>
+                          </div>
+                        `,
+                      )
+                      .join("")
+                  : `<div class="spotlight-note"><span class="mini-pill success">Stable</span><span>No urgent operational blockers detected.</span></div>`
+              }
             </div>
           </section>
 
@@ -20490,7 +20676,7 @@
                 <span class="role-pill">${escapeHtml(appointees.length)} tournaments</span>
                 ${
                   selectedAppointeeDashboard
-                    ? `<button class="secondary-button" type="button" data-action="clear-people-appointee-focus">Back To Tournament Boxes</button>`
+                    ? `<button class="secondary-button" type="button" data-action="clear-people-appointee-focus">Back to Tournament Overview</button>`
                     : ""
                 }
               </div>
@@ -27660,6 +27846,8 @@
       function generateTournamentDraw(tournamentId, formData) {
         const tournament = ensureTournamentManagerById(tournamentId);
         if (!tournament) return;
+        const drawIntent = String(formData.get("intent") || "").trim().toLowerCase();
+        const previewOnly = drawIntent === "preview";
         const round = normalizeRoundCount(formData.get("round"), 1);
         const roundProfile = getRoundProfileForRound(tournament, round);
         const rawMethod = normalizeDrawMethodChoice(formData.get("method"), "auto");
@@ -27725,7 +27913,7 @@
             );
             const roomPrefix = String(formData.get("roomPrefix") || "Room").trim() || "Room";
             const roomStart = Math.max(1, numberFromForm(formData, "roomStart", 1));
-            const releaseNow = boolFromForm(formData, "releaseNow");
+            const releaseNow = previewOnly ? false : boolFromForm(formData, "releaseNow");
             let entries = generationPlan.entries;
 
             if (method === "random") {
@@ -27807,9 +27995,13 @@
                 (hasOverflow ? " Overflow entries were left in a separate draft room." : ""),
             );
           },
-          previewHasOverflow
-            ? "Round draw generated. Overflow entries were left in a separate draft room."
-            : "Round draw generated.",
+          previewOnly
+            ? previewHasOverflow
+              ? "Draw preview saved as draft. Overflow entries were left in a separate draft room."
+              : "Draw preview saved as draft."
+            : previewHasOverflow
+              ? "Round draw generated. Overflow entries were left in a separate draft room."
+              : "Round draw generated.",
           {
             forceCloud: true,
             errorMessage: "The generated draw could not be synced to the shared backend.",

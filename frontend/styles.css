@@ -4940,6 +4940,64 @@
         align-items: start;
       }
 
+      .workspace-control-room-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.9fr);
+        align-items: start;
+      }
+
+      .workspace-control-room-main {
+        display: grid;
+        gap: 10px;
+      }
+
+      .workspace-control-room-next {
+        display: grid;
+        gap: 8px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .workspace-control-room-next h3 {
+        font-size: 1.15rem;
+      }
+
+      .workspace-control-room-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .workspace-control-room-actions {
+        display: grid;
+        gap: 8px;
+        align-content: start;
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .workspace-action-row {
+        display: grid;
+        gap: 6px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .workspace-action-row .secondary-button,
+      .workspace-danger-row .danger-button,
+      .workspace-danger-row .secondary-button {
+        min-height: 36px;
+        padding: 8px 10px;
+        font-size: var(--text-caption);
+      }
+
+      .workspace-danger-row {
+        padding-top: 6px;
+        border-top: 1px solid rgba(255, 255, 255, 0.14);
+      }
+
       .workspace-controls-shell {
         display: grid;
         gap: 14px;
@@ -5314,9 +5372,12 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(152px, 1fr));
         gap: 10px;
+        align-items: stretch;
       }
 
       .focus-nav-button {
+        position: relative;
+        z-index: 0;
         width: 100%;
         min-width: 0;
         min-height: 66px;
@@ -5390,11 +5451,24 @@
         font-weight: var(--weight-heavy);
       }
 
+      .focus-nav-cta {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(18, 63, 47, 0.12);
+        background: rgba(20, 49, 38, 0.04);
+        font-size: var(--text-overline);
+        font-weight: var(--weight-heavy);
+        line-height: 1.2;
+      }
+
       .focus-nav-button.is-active .muted {
         color: rgba(244, 249, 247, 0.82) !important;
       }
 
-      .focus-nav-button.is-active .focus-nav-badge {
+      .focus-nav-button.is-active .focus-nav-badge,
+      .focus-nav-button.is-active .focus-nav-cta {
         background: rgba(255, 255, 255, 0.14);
         color: #ffffff;
       }
@@ -5722,6 +5796,35 @@
         border-radius: 16px;
         background: rgba(255, 255, 255, 0.72);
         border: 1px solid var(--line);
+      }
+
+      .draw-studio-shell {
+        display: grid;
+        gap: 12px;
+      }
+
+      .draw-studio-layout {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
+        align-items: start;
+      }
+
+      .draw-studio-left,
+      .draw-studio-right {
+        display: grid;
+        gap: 12px;
+      }
+
+      .draw-publish-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .draw-danger-form {
+        padding-top: 8px;
+        border-top: 1px solid rgba(20, 49, 38, 0.08);
       }
 
       .smart-insight-shell {
@@ -6554,6 +6657,26 @@
         gap: 14px;
       }
 
+      .round-board-table-wrap {
+        margin-top: 2px;
+      }
+
+      .round-board-table th,
+      .round-board-table td {
+        padding: 10px 10px;
+        font-size: var(--text-body-sm);
+      }
+
+      .round-board-table td strong {
+        font-size: 0.92rem;
+      }
+
+      .round-board-action-cell .secondary-button {
+        min-height: 32px;
+        padding: 6px 9px;
+        font-size: var(--text-caption);
+      }
+
       .round-board-grid {
         display: grid;
         gap: 14px;
@@ -6771,6 +6894,8 @@
         .roster-entry-grid,
         .focus-split,
         .workspace-hero-layout,
+        .workspace-control-room-grid,
+        .draw-studio-layout,
         .manager-tools,
         .two-column,
         .three-column,
@@ -6794,6 +6919,10 @@
 
         .tournament-switch-stats {
           grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .workspace-control-room-metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         .tournament-viewer-hero {
@@ -6910,6 +7039,8 @@
         .workspace-overview-band,
         .focus-nav-grid,
         .quick-access-strip,
+        .draw-publish-grid,
+        .workspace-action-row,
         .overview-launch-grid,
         .overview-queue-grid {
           grid-template-columns: 1fr;
