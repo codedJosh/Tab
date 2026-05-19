@@ -5,6 +5,51 @@
       const DEVICE_PASSWORD_VAULT_STORAGE_KEY = STORAGE_KEY + "-device-password-vault";
       const BACKEND_ENDPOINT_STORAGE_KEY = STORAGE_KEY + "-backend-endpoint";
       const PENDING_CLOUD_SYNC_STORAGE_KEY = STORAGE_KEY + "-pending-cloud-sync";
+      function safeStorageGet(storage, key) {
+        try {
+          return storage.getItem(key);
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function safeStorageSet(storage, key, value) {
+        try {
+          storage.setItem(key, value);
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }
+
+      function safeStorageRemove(storage, key) {
+        try {
+          storage.removeItem(key);
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }
+
+      function localStorageGet(key) {
+        return safeStorageGet(window.localStorage, key);
+      }
+
+      function localStorageSet(key, value) {
+        return safeStorageSet(window.localStorage, key, value);
+      }
+
+      function localStorageRemove(key) {
+        return safeStorageRemove(window.localStorage, key);
+      }
+
+      function sessionStorageGet(key) {
+        return safeStorageGet(window.sessionStorage, key);
+      }
+
+      function sessionStorageSet(key, value) {
+        return safeStorageSet(window.sessionStorage, key, value);
+      }
       const WORKSPACE_ROUTE_QUERY_KEYS = [
         "view",
         "people",
@@ -48,11 +93,9 @@
           const currentUrl = new URL(window.location.href);
           queryBackendUrl = String(currentUrl.searchParams.get("backend") || "").trim();
           if (queryBackendUrl) {
-            window.localStorage.setItem(BACKEND_ENDPOINT_STORAGE_KEY, queryBackendUrl);
+            localStorageSet(BACKEND_ENDPOINT_STORAGE_KEY, queryBackendUrl);
           }
-          savedBackendUrl = String(
-            window.localStorage.getItem(BACKEND_ENDPOINT_STORAGE_KEY) || "",
-          ).trim();
+          savedBackendUrl = String(localStorageGet(BACKEND_ENDPOINT_STORAGE_KEY) || "").trim();
         } catch (_error) {
           queryBackendUrl = "";
           savedBackendUrl = "";
@@ -125,7 +168,7 @@
           return false;
         }
         try {
-          return window.sessionStorage.getItem(STARTUP_SPLASH_STORAGE_KEY) !== "1";
+          return sessionStorageGet(STARTUP_SPLASH_STORAGE_KEY) !== "1";
         } catch (error) {
           return true;
         }
@@ -648,6 +691,8 @@
       let lastUserInteractionAt = 0;
       let formDraftCache = new Map();
       let dirtyFormDraftKeys = new Set();
+      let eventHandlersInstalled = false;
+      let bootRecoveryAttempted = false;
 
       function clone(value) {
         return JSON.parse(JSON.stringify(value));
@@ -718,7 +763,7 @@
         startupSplashDismissed = true;
         clearStartupSplashTimers();
         try {
-          window.sessionStorage.setItem(STARTUP_SPLASH_STORAGE_KEY, "1");
+          sessionStorageSet(STARTUP_SPLASH_STORAGE_KEY, "1");
         } catch (error) {
           // Ignore storage errors and continue dismissing the splash.
         }
@@ -1720,7 +1765,7 @@
       }
 
       function loadDevicePasswordVault() {
-        const saved = localStorage.getItem(DEVICE_PASSWORD_VAULT_STORAGE_KEY);
+        const saved = localStorageGet(DEVICE_PASSWORD_VAULT_STORAGE_KEY);
         if (!saved) {
           return {};
         }
@@ -1728,20 +1773,20 @@
         try {
           return normalizeDevicePasswordVault(JSON.parse(saved));
         } catch (error) {
-          localStorage.removeItem(DEVICE_PASSWORD_VAULT_STORAGE_KEY);
+          localStorageRemove(DEVICE_PASSWORD_VAULT_STORAGE_KEY);
           return {};
         }
       }
 
       function saveDevicePasswordVault(vault) {
-        localStorage.setItem(
+        localStorageSet(
           DEVICE_PASSWORD_VAULT_STORAGE_KEY,
           JSON.stringify(normalizeDevicePasswordVault(vault)),
         );
       }
 
       async function getDevicePasswordCryptoKey() {
-        const savedKey = localStorage.getItem(DEVICE_PASSWORD_KEY_STORAGE_KEY);
+        const savedKey = localStorageGet(DEVICE_PASSWORD_KEY_STORAGE_KEY);
         if (savedKey) {
           try {
             return await crypto.subtle.importKey(
@@ -1752,7 +1797,7 @@
               ["encrypt", "decrypt"],
             );
           } catch (error) {
-            localStorage.removeItem(DEVICE_PASSWORD_KEY_STORAGE_KEY);
+            localStorageRemove(DEVICE_PASSWORD_KEY_STORAGE_KEY);
           }
         }
 
@@ -1765,7 +1810,7 @@
           ["encrypt", "decrypt"],
         );
         const exportedKey = await crypto.subtle.exportKey("jwk", generatedKey);
-        localStorage.setItem(
+        localStorageSet(
           DEVICE_PASSWORD_KEY_STORAGE_KEY,
           JSON.stringify(exportedKey),
         );
@@ -7339,7 +7384,7 @@
       }
 
       function saveSession() {
-        localStorage.setItem(
+        localStorageSet(
           SESSION_STORAGE_KEY,
           JSON.stringify(normalizeSessionRecord(session)),
         );
@@ -7353,14 +7398,14 @@
       }
 
       function saveAuthPrefs() {
-        localStorage.setItem(
+        localStorageSet(
           AUTH_PREFS_STORAGE_KEY,
           JSON.stringify(normalizeAuthPrefs(authPrefs)),
         );
       }
 
       function loadAuthPrefs() {
-        const saved = localStorage.getItem(AUTH_PREFS_STORAGE_KEY);
+        const saved = localStorageGet(AUTH_PREFS_STORAGE_KEY);
         if (!saved) {
           return normalizeAuthPrefs({});
         }
@@ -7368,7 +7413,7 @@
         try {
           return normalizeAuthPrefs(JSON.parse(saved));
         } catch (error) {
-          localStorage.removeItem(AUTH_PREFS_STORAGE_KEY);
+          localStorageRemove(AUTH_PREFS_STORAGE_KEY);
           return normalizeAuthPrefs({});
         }
       }
@@ -7382,11 +7427,11 @@
       }
 
       function clearStoredSession() {
-        localStorage.removeItem(SESSION_STORAGE_KEY);
+        localStorageRemove(SESSION_STORAGE_KEY);
       }
 
       function loadStoredSession() {
-        const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+        const saved = localStorageGet(SESSION_STORAGE_KEY);
         if (!saved) {
           return getEmptySession();
         }
@@ -7420,7 +7465,7 @@
       }
 
       function loadPendingCloudSyncRecord() {
-        const saved = localStorage.getItem(PENDING_CLOUD_SYNC_STORAGE_KEY);
+        const saved = localStorageGet(PENDING_CLOUD_SYNC_STORAGE_KEY);
         if (!saved) {
           return null;
         }
@@ -7429,12 +7474,12 @@
           const parsed = JSON.parse(saved);
           const normalized = normalizePendingCloudSyncRecord(parsed);
           if (!normalized) {
-            localStorage.removeItem(PENDING_CLOUD_SYNC_STORAGE_KEY);
+            localStorageRemove(PENDING_CLOUD_SYNC_STORAGE_KEY);
             return null;
           }
           return normalized;
         } catch (error) {
-          localStorage.removeItem(PENDING_CLOUD_SYNC_STORAGE_KEY);
+          localStorageRemove(PENDING_CLOUD_SYNC_STORAGE_KEY);
           return null;
         }
       }
@@ -7454,7 +7499,7 @@
           createdAt: new Date().toISOString(),
           state: normalizedSnapshot,
         };
-        localStorage.setItem(
+        localStorageSet(
           PENDING_CLOUD_SYNC_STORAGE_KEY,
           JSON.stringify(pendingCloudSync),
         );
@@ -7467,7 +7512,7 @@
         }
 
         pendingCloudSync = null;
-        localStorage.removeItem(PENDING_CLOUD_SYNC_STORAGE_KEY);
+        localStorageRemove(PENDING_CLOUD_SYNC_STORAGE_KEY);
       }
 
       function hasPendingCloudSyncForCurrentSession() {
@@ -7936,12 +7981,12 @@
 
       function saveState() {
         if (!state) {
-          localStorage.removeItem(STORAGE_KEY);
+          localStorageRemove(STORAGE_KEY);
           return;
         }
         state.workspaceContractVersion = WORKSPACE_CONTRACT_VERSION;
         assertWorkspaceContract(state, "local save");
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        localStorageSet(STORAGE_KEY, JSON.stringify(state));
       }
 
       function setFlash(type, text) {
@@ -10723,17 +10768,17 @@
           return buildHostedBlankState();
         }
 
-        const saved = localStorage.getItem(STORAGE_KEY);
+        const saved = localStorageGet(STORAGE_KEY);
         if (saved) {
           try {
             return await rehydrateState(JSON.parse(saved));
           } catch (error) {
-            localStorage.removeItem(STORAGE_KEY);
+            localStorageRemove(STORAGE_KEY);
           }
         }
 
         const starter = await getSeedState();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(starter));
+        localStorageSet(STORAGE_KEY, JSON.stringify(starter));
         return starter;
       }
 
@@ -29123,6 +29168,11 @@
       }
 
       function installEventHandlers() {
+        if (eventHandlersInstalled) {
+          return;
+        }
+        eventHandlersInstalled = true;
+
         window.addEventListener("focus", () => {
           void refreshSharedStateIfIdle();
         });
@@ -30537,6 +30587,34 @@
           }
         } catch (error) {
           console.error(error);
+          if (!bootRecoveryAttempted) {
+            bootRecoveryAttempted = true;
+            try {
+              clearStoredSession();
+              clearPendingCloudSyncRecord();
+              localStorageRemove(STORAGE_KEY);
+              session = getEmptySession();
+              pendingCloudSync = null;
+              state = await loadState();
+              await hydrateAuthAutofill();
+              updateCurrentUserRecord();
+              applySessionRouteFromUrl({
+                fallbackToPreferred: false,
+              });
+              applyBranding();
+              saveSession();
+              installEventHandlers();
+              ensureLiveSyncLoop();
+              setFlash(
+                "warning",
+                "We repaired a startup issue and reopened Home. You can continue safely.",
+              );
+              renderApp();
+              return;
+            } catch (recoveryError) {
+              console.error("JADE startup recovery failure", recoveryError);
+            }
+          }
           startupSplashFailed = true;
           setStartupSplashProgress(
             100,
