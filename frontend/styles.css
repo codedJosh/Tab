@@ -4973,8 +4973,8 @@
         display: grid;
         gap: 8px;
         align-content: start;
-        padding: 12px;
-        border-radius: 14px;
+        padding: 12px 14px;
+        border-radius: 16px;
         border: 1px solid rgba(255, 255, 255, 0.14);
         background: rgba(255, 255, 255, 0.08);
       }
@@ -4986,14 +4986,20 @@
       }
 
       .workspace-action-row .secondary-button,
+      .workspace-action-row .danger-button,
       .workspace-danger-row .danger-button,
       .workspace-danger-row .secondary-button {
-        min-height: 36px;
-        padding: 8px 10px;
-        font-size: var(--text-caption);
+        min-height: 42px;
+        padding: 9px 14px;
+        font-size: var(--text-body-sm);
       }
 
       .workspace-danger-row {
+        padding-top: 6px;
+        border-top: 1px solid rgba(255, 255, 255, 0.14);
+      }
+
+      .workspace-action-row-danger {
         padding-top: 6px;
         border-top: 1px solid rgba(255, 255, 255, 0.14);
       }

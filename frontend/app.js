@@ -19486,21 +19486,21 @@
                       ? "Hide Public Standings"
                       : "Show Public Standings",
                   )}</span></button>
+                </div>
+                <div class="workspace-action-row">
                   <button class="secondary-button" type="button" data-action="toggle-public-draw" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>${escapeHtml(
                     tournament.publication.showPublicDraw ? "Hide Public Draw" : "Show Public Draw",
                   )}</span></button>
-                </div>
-                <div class="workspace-action-row">
-                  <button class="secondary-button" type="button" data-action="toggle-pin-tournament" data-id="${escapeHtml(
-                    tournament.id,
-                  )}"><span>${escapeHtml(pinned ? "Unpin Tournament" : "Pin Tournament")}</span></button>
                   <button class="secondary-button" type="button" data-action="duplicate-tournament" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>Duplicate Template</span></button>
                 </div>
-                <div class="workspace-danger-row">
+                <div class="workspace-action-row workspace-action-row-danger">
+                  <button class="secondary-button" type="button" data-action="toggle-pin-tournament" data-id="${escapeHtml(
+                    tournament.id,
+                  )}"><span>${escapeHtml(pinned ? "Unpin Tournament" : "Pin Tournament")}</span></button>
                   ${
                     tournament.status === "archived"
                       ? `<button class="secondary-button" type="button" data-action="restore-tournament" data-id="${escapeHtml(
