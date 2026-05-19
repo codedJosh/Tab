@@ -990,6 +990,33 @@
         color: #ffffff;
       }
 
+      /* Enforce readable button text color sitewide by tying text directly to variant tokens. */
+      :is(button, a).secondary-button,
+      :is(button, a).ghost-button,
+      :is(button, a).danger-button,
+      :is(button, a).button-primary,
+      :is(button, a).button-secondary,
+      :is(button, a).button-outline,
+      :is(button, a).button-danger,
+      .inline-link.secondary-button,
+      .inline-link.ghost-button,
+      .inline-link.danger-button {
+        color: var(--btn-color) !important;
+      }
+
+      :is(button, a).secondary-button:hover,
+      :is(button, a).ghost-button:hover,
+      :is(button, a).danger-button:hover,
+      :is(button, a).button-primary:hover,
+      :is(button, a).button-secondary:hover,
+      :is(button, a).button-outline:hover,
+      :is(button, a).button-danger:hover,
+      .inline-link.secondary-button:hover,
+      .inline-link.ghost-button:hover,
+      .inline-link.danger-button:hover {
+        color: var(--btn-color-hover) !important;
+      }
+
       .button-size-small,
       [data-button-size="small"] {
         --btn-height: var(--btn-height-sm);
@@ -1997,15 +2024,16 @@
       }
 
       .menu-panel .secondary-button.is-active {
+        --btn-color: #ffffff;
+        --btn-color-hover: #ffffff;
         background: rgba(33, 112, 79, 0.18);
-        color: #ffffff;
         border-color: rgba(255, 255, 255, 0.12);
         box-shadow: none;
       }
 
       .menu-panel .secondary-button.is-active,
       .menu-panel .secondary-button.is-active * {
-        color: #ffffff;
+        color: inherit;
       }
 
       .menu-welcome-card {
