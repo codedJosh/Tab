@@ -19438,10 +19438,9 @@
                   <p class="eyebrow">Next Required Action</p>
                   <h3>${escapeHtml(control.nextRequiredAction)}</h3>
                   <div class="button-row wrap-row">
-                    <button type="button" data-action="set-focused-tournament-section" data-section="draw">${escapeHtml(
+                    <button class="workspace-control-room-primary button-size-large" type="button" data-action="set-focused-tournament-section" data-section="draw">${escapeHtml(
                       primaryActionLabel,
                     )}</button>
-                    <button class="secondary-button" type="button" data-action="clear-focused-tournament">Back to tournament overview</button>
                   </div>
                 </div>
                 <div class="workspace-stat-grid workspace-control-room-metrics">
@@ -19473,40 +19472,39 @@
               </div>
               <div class="workspace-control-room-actions">
                 <p class="eyebrow">Quick Actions</p>
-                <div class="workspace-action-row">
-                  <button class="secondary-button" type="button" data-action="toggle-status" data-id="${escapeHtml(
+                <div class="workspace-action-row workspace-action-row-secondary">
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="clear-focused-tournament">Back to tournament overview</button>
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="toggle-status" data-id="${escapeHtml(
                     tournament.id,
                   )}">${escapeHtml(
                     tournament.status === "open" ? "Close tournament" : "Open tournament",
                   )}</button>
-                  <button class="secondary-button" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>${escapeHtml(
                     tournament.publication.showPublicStandings
                       ? "Hide public standings"
                       : "Show public standings",
                   )}</span></button>
-                </div>
-                <div class="workspace-action-row">
-                  <button class="secondary-button" type="button" data-action="toggle-public-draw" data-id="${escapeHtml(
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="toggle-public-draw" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>${escapeHtml(
                     tournament.publication.showPublicDraw ? "Hide public draw" : "Show public draw",
                   )}</span></button>
-                  <button class="secondary-button" type="button" data-action="duplicate-tournament" data-id="${escapeHtml(
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="toggle-pin-tournament" data-id="${escapeHtml(
+                    tournament.id,
+                  )}"><span>${escapeHtml(pinned ? "Unpin tournament" : "Pin tournament")}</span></button>
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="duplicate-tournament" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>Duplicate template</span></button>
                 </div>
-                <div class="workspace-action-row workspace-action-row-danger">
-                  <button class="secondary-button" type="button" data-action="toggle-pin-tournament" data-id="${escapeHtml(
-                    tournament.id,
-                  )}"><span>${escapeHtml(pinned ? "Unpin tournament" : "Pin tournament")}</span></button>
+                <div class="workspace-action-row-danger">
                   ${
                     tournament.status === "archived"
-                      ? `<button class="secondary-button" type="button" data-action="restore-tournament" data-id="${escapeHtml(
+                      ? `<button class="secondary-button workspace-secondary-action" type="button" data-action="restore-tournament" data-id="${escapeHtml(
                           tournament.id,
                         )}"><span>Restore tournament</span></button>`
-                      : `<button class="danger-button" type="button" data-action="archive-tournament" data-id="${escapeHtml(
+                      : `<button class="danger-button button-size-small" type="button" data-action="archive-tournament" data-id="${escapeHtml(
                           tournament.id,
                         )}"><span>Archive tournament</span></button>`
                   }

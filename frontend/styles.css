@@ -5026,7 +5026,7 @@
       .workspace-control-room-grid {
         display: grid;
         gap: 12px;
-        grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.9fr);
+        grid-template-columns: minmax(0, 1.55fr) minmax(270px, 0.8fr);
         align-items: start;
       }
 
@@ -5054,23 +5054,59 @@
 
       .workspace-control-room-actions {
         display: grid;
-        gap: 8px;
+        gap: 10px;
         align-content: start;
         padding: 12px 14px;
         border-radius: 16px;
         border: 1px solid rgba(255, 255, 255, 0.14);
         background: rgba(255, 255, 255, 0.08);
+        --btn-radius: 12px;
+        --btn-height: 38px;
+        --btn-pad-x: 12px;
+        --btn-pad-y: 7px;
+        --btn-font-size: var(--btn-font-size-sm);
       }
 
       .workspace-action-row {
         display: grid;
-        gap: 6px;
+        gap: 8px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: stretch;
       }
 
       .workspace-action-row > * {
         min-width: 0;
+      }
+
+      .workspace-action-row-secondary > :is(button, a) {
+        justify-self: start;
+        width: auto;
+        max-width: 100%;
+        align-self: center;
+        overflow: visible;
+        white-space: normal;
+        line-height: 1.25;
+      }
+
+      .workspace-control-room-primary {
+        --btn-height: var(--btn-height-lg);
+        --btn-pad-x: var(--btn-pad-x-lg);
+        --btn-pad-y: var(--btn-pad-y-lg);
+        --btn-font-size: var(--btn-font-size-lg);
+      }
+
+      .workspace-secondary-action {
+        --btn-bg: rgba(255, 255, 255, 0.16);
+        --btn-color: #f6fbf8;
+        --btn-border: rgba(255, 255, 255, 0.26);
+        --btn-bg-hover: rgba(255, 255, 255, 0.24);
+        --btn-color-hover: #ffffff;
+        --btn-border-hover: rgba(255, 255, 255, 0.36);
+      }
+
+      .workspace-secondary-action,
+      .workspace-secondary-action * {
+        color: inherit !important;
       }
 
       .workspace-action-row .secondary-button,
@@ -5091,6 +5127,10 @@
       .workspace-action-row-danger {
         padding-top: 6px;
         border-top: 1px solid rgba(255, 255, 255, 0.14);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
       }
 
       .workspace-controls-shell {
@@ -7146,6 +7186,11 @@
 
         .overview-quick-row {
           grid-template-columns: 1fr;
+        }
+
+        .workspace-action-row-secondary > :is(button, a) {
+          width: 100%;
+          justify-self: stretch;
         }
 
         .focus-stage-banner-top,
