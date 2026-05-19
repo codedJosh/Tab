@@ -19473,7 +19473,7 @@
               <div class="workspace-control-room-actions">
                 <p class="eyebrow">Quick Actions</p>
                 <div class="workspace-action-row workspace-action-row-secondary">
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="clear-focused-tournament">Tournament overview</button>
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="clear-focused-tournament">Overview</button>
                   <button class="secondary-button workspace-secondary-action" type="button" data-action="close-tournament" data-id="${escapeHtml(
                     tournament.id,
                   )}" ${tournament.status === "closed" || tournament.status === "archived" ? "disabled" : ""}>Close tournament</button>
