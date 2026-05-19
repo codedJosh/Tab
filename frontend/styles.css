@@ -5065,10 +5065,10 @@
       }
 
       .workspace-action-row-secondary > :is(button, a) {
-        justify-self: start;
-        width: auto;
-        max-width: 100%;
-        align-self: center;
+        justify-self: stretch;
+        width: 100%;
+        max-width: none;
+        align-self: stretch;
         overflow: visible;
         white-space: normal;
         line-height: 1.25;
