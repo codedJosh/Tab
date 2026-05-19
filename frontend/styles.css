@@ -871,19 +871,12 @@
         max-width: 100%;
       }
 
-      button,
       button *,
-      a.secondary-button,
       a.secondary-button *,
-      a.ghost-button,
       a.ghost-button *,
-      a.danger-button,
       a.danger-button *,
-      .inline-link.secondary-button,
       .inline-link.secondary-button *,
-      .inline-link.ghost-button,
       .inline-link.ghost-button *,
-      .inline-link.danger-button,
       .inline-link.danger-button * {
         color: inherit;
       }
