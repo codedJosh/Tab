@@ -19473,41 +19473,22 @@
               <div class="workspace-control-room-actions">
                 <p class="eyebrow">Quick Actions</p>
                 <div class="workspace-action-row workspace-action-row-secondary">
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="clear-focused-tournament">Back to tournament overview</button>
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="toggle-status" data-id="${escapeHtml(
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="clear-focused-tournament">Tournament overview</button>
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="close-tournament" data-id="${escapeHtml(
                     tournament.id,
-                  )}">${escapeHtml(
-                    tournament.status === "open" ? "Close tournament" : "Open tournament",
-                  )}</button>
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
+                  )}" ${tournament.status === "closed" || tournament.status === "archived" ? "disabled" : ""}>Close tournament</button>
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="hide-public-standings" data-id="${escapeHtml(
                     tournament.id,
-                  )}"><span>${escapeHtml(
-                    tournament.publication.showPublicStandings
-                      ? "Hide public standings"
-                      : "Show public standings",
-                  )}</span></button>
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="toggle-public-draw" data-id="${escapeHtml(
+                  )}" ${!tournament.publication.showPublicStandings ? "disabled" : ""}>Hide standings</button>
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="publish-public-standings" data-id="${escapeHtml(
                     tournament.id,
-                  )}"><span>${escapeHtml(
-                    tournament.publication.showPublicDraw ? "Hide public draw" : "Show public draw",
-                  )}</span></button>
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="toggle-pin-tournament" data-id="${escapeHtml(
+                  )}" ${tournament.publication.showPublicStandings ? "disabled" : ""}>Publish standings</button>
+                  <button class="secondary-button workspace-secondary-action" type="button" data-action="pin-tournament" data-id="${escapeHtml(
                     tournament.id,
-                  )}"><span>${escapeHtml(pinned ? "Unpin tournament" : "Pin tournament")}</span></button>
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="duplicate-tournament" data-id="${escapeHtml(
+                  )}" ${pinned ? "disabled" : ""}>Pin tournament</button>
+                  <button class="danger-button button-size-small" type="button" data-action="archive-tournament" data-id="${escapeHtml(
                     tournament.id,
-                  )}"><span>Duplicate template</span></button>
-                </div>
-                <div class="workspace-action-row-danger">
-                  ${
-                    tournament.status === "archived"
-                      ? `<button class="secondary-button workspace-secondary-action" type="button" data-action="restore-tournament" data-id="${escapeHtml(
-                          tournament.id,
-                        )}"><span>Restore tournament</span></button>`
-                      : `<button class="danger-button button-size-small" type="button" data-action="archive-tournament" data-id="${escapeHtml(
-                          tournament.id,
-                        )}"><span>Archive tournament</span></button>`
-                  }
+                  )}" ${tournament.status === "archived" ? "disabled" : ""}>Archive tournament</button>
                 </div>
               </div>
             </div>
@@ -28361,6 +28342,42 @@
         );
       }
 
+      function setTournamentPublicationField(tournamentId, field, targetValue, successMessage) {
+        if (!ensureTournamentManagerById(tournamentId)) return;
+
+        updateTournament(
+          tournamentId,
+          (tournament) => {
+            const desiredValue = Boolean(targetValue);
+            if (Boolean(tournament.publication[field]) === desiredValue) {
+              return tournament;
+            }
+            tournament.publication[field] = desiredValue;
+            return addAudit(
+              tournament,
+              "Set " + field + " to " + tournament.publication[field] + ".",
+            );
+          },
+          successMessage || "Tournament publishing updated.",
+        );
+      }
+
+      function closeTournament(tournamentId) {
+        if (!ensureTournamentManagerById(tournamentId)) return;
+
+        updateTournament(
+          tournamentId,
+          (tournament) => {
+            if (tournament.status === "archived") {
+              return tournament;
+            }
+            tournament.status = "closed";
+            return addAudit(tournament, "Tournament status changed to closed.");
+          },
+          "Tournament closed.",
+        );
+      }
+
       function archiveTournament(tournamentId) {
         if (!ensureTournamentManagerById(tournamentId)) return;
 
@@ -29565,8 +29582,25 @@
           if (action === "open-managed-section") {
             const section = String(button.dataset.section || "control").trim().toLowerCase() || "control";
             const capabilities = getWorkspaceCapabilities();
-            const managedTournament =
-              getManagedTournamentForSession() || (capabilities.managedTournaments || [])[0] || null;
+            const managedTournaments = capabilities.managedTournaments || [];
+            let managedTournament = getManagedTournamentForSession();
+            if (!managedTournament && managedTournaments.length === 1) {
+              managedTournament = managedTournaments[0];
+            }
+            if (!managedTournament && managedTournaments.length > 1) {
+              session.view = "tournaments";
+              session.selectedTournamentId = "";
+              session.managedTournamentId = "";
+              setFlash(
+                "error",
+                "Choose a tournament first. Multiple tournaments are available for tournament operations.",
+              );
+              recordRecentView(session.view);
+              saveSession();
+              requestSessionHistoryPush();
+              renderApp();
+              return;
+            }
             if (!managedTournament) {
               setFlash("error", "Open a tournament first to use operational shortcuts.");
               renderApp();
@@ -29698,6 +29732,26 @@
             return;
           }
 
+          if (action === "hide-public-standings") {
+            setTournamentPublicationField(
+              button.dataset.id,
+              "showPublicStandings",
+              false,
+              "Public standings hidden.",
+            );
+            return;
+          }
+
+          if (action === "publish-public-standings") {
+            setTournamentPublicationField(
+              button.dataset.id,
+              "showPublicStandings",
+              true,
+              "Public standings published.",
+            );
+            return;
+          }
+
           if (action === "toggle-public-draw") {
             toggleTournamentField(button.dataset.id, "showPublicDraw");
             return;
@@ -29720,6 +29774,26 @@
 
           if (action === "toggle-pin-tournament") {
             togglePinnedTournament(button.dataset.id);
+            return;
+          }
+
+          if (action === "pin-tournament") {
+            const tournamentId = String(button.dataset.id || "");
+            if (tournamentId) {
+              const pinnedSet = getPinnedTournamentSet();
+              if (!pinnedSet.has(tournamentId)) {
+                pinnedSet.add(tournamentId);
+                savePinnedTournaments(pinnedSet);
+                setFlash("Tournament pinned for quick access.");
+                saveSession();
+                renderApp();
+              }
+            }
+            return;
+          }
+
+          if (action === "close-tournament") {
+            closeTournament(button.dataset.id);
             return;
           }
 
