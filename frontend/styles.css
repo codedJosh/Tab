@@ -5046,11 +5046,11 @@
         border-radius: 16px;
         border: 1px solid rgba(255, 255, 255, 0.14);
         background: rgba(255, 255, 255, 0.08);
-        --btn-radius: 12px;
-        --btn-height: 38px;
-        --btn-pad-x: 12px;
-        --btn-pad-y: 7px;
-        --btn-font-size: var(--btn-font-size-sm);
+        --btn-radius: 11px;
+        --btn-height: 34px;
+        --btn-pad-x: 10px;
+        --btn-pad-y: 6px;
+        --btn-font-size: 0.8rem;
       }
 
       .workspace-action-row {
@@ -5069,9 +5069,10 @@
         width: 100%;
         max-width: none;
         align-self: stretch;
-        overflow: visible;
-        white-space: normal;
-        line-height: 1.25;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        line-height: 1.15;
       }
 
       .workspace-control-room-primary {
