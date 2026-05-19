@@ -4605,19 +4605,21 @@
               ${roundProfiles
                 .map(
                   (profile) => `
-                    <article class="round-planner-card" data-round-planner-row data-round="${escapeHtml(
+                    <details class="round-planner-card round-planner-fold" data-round-planner-row data-round="${escapeHtml(
                       profile.round,
-                    )}">
-                      <div class="round-planner-card-header">
-                        <div class="round-planner-card-title">
-                          <p class="eyebrow">Round ${escapeHtml(profile.round)}</p>
-                          <strong>${escapeHtml(profile.label || "Round " + profile.round)}</strong>
+                    )}" ${profile.round === 1 ? "open" : ""}>
+                      <summary class="round-planner-fold-summary">
+                        <div class="round-planner-card-header">
+                          <div class="round-planner-card-title">
+                            <p class="eyebrow">Round ${escapeHtml(profile.round)}</p>
+                            <strong>${escapeHtml(profile.label || "Round " + profile.round)}</strong>
+                          </div>
+                          <span class="mini-pill ${escapeHtml(
+                            isOutroundProfile(profile) ? "warning" : "success",
+                          )}">${escapeHtml(getRoundStageLabel(profile.stage))}</span>
                         </div>
-                        <span class="mini-pill ${escapeHtml(
-                          isOutroundProfile(profile) ? "warning" : "success",
-                        )}">${escapeHtml(getRoundStageLabel(profile.stage))}</span>
-                      </div>
-                      <div class="field-grid two round-planner-card-grid">
+                      </summary>
+                      <div class="field-grid two round-planner-card-grid round-planner-fold-body">
                         <label>
                           Label
                           <input type="text" name="roundLabel-${escapeHtml(
@@ -4674,7 +4676,7 @@
                           )}" value="${escapeHtml(profile.notes)}" placeholder="Optional note" />
                         </label>
                       </div>
-                    </article>
+                    </details>
                   `,
                 )
                 .join("")}
