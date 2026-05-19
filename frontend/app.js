@@ -3140,15 +3140,23 @@
 
       function getPublishedDrawEntries(tournament) {
         return (tournament.draw || []).filter(
-          (entry) => String(entry.status || "").trim().toLowerCase() === "published",
+          (entry) => isPublishedDrawStatus(entry.status),
         );
       }
 
       function getDraftDrawEntries(tournament) {
         return (tournament.draw || []).filter((entry) => {
+          if (isPublishedDrawStatus(entry.status)) {
+            return false;
+          }
           const status = String(entry.status || "").trim().toLowerCase();
-          return status !== "published" && status !== "archived";
+          return status !== "archived";
         });
+      }
+
+      function isPublishedDrawStatus(status) {
+        const normalized = String(status || "").trim().toLowerCase();
+        return normalized === "published";
       }
 
       function getOfficialBallotDrawIdSet(tournament) {
