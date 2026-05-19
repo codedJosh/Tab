@@ -813,10 +813,10 @@
         border-radius: 12px;
       }
 
-      button,
-      :is(a, .inline-link).secondary-button,
-      :is(a, .inline-link).ghost-button,
-      :is(a, .inline-link).danger-button,
+      button:not([class]),
+      :is(button, a, .inline-link).secondary-button,
+      :is(button, a, .inline-link).ghost-button,
+      :is(button, a, .inline-link).danger-button,
       .button-primary,
       .button-secondary,
       .button-outline,
@@ -843,10 +843,10 @@
         text-transform: none;
       }
 
-      button,
-      a.secondary-button,
-      a.ghost-button,
-      a.danger-button,
+      button:not([class]),
+      :is(button, a).secondary-button,
+      :is(button, a).ghost-button,
+      :is(button, a).danger-button,
       .inline-link.secondary-button,
       .inline-link.ghost-button,
       .inline-link.danger-button,
@@ -871,20 +871,33 @@
         max-width: 100%;
       }
 
-      button *,
-      a.secondary-button *,
-      a.ghost-button *,
-      a.danger-button *,
-      .inline-link.secondary-button *,
-      .inline-link.ghost-button *,
-      .inline-link.danger-button * {
-        color: inherit;
+      :is(
+          button:not([class]),
+          :is(button, a).secondary-button,
+          :is(button, a).ghost-button,
+          :is(button, a).danger-button,
+          a.secondary-button,
+          a.ghost-button,
+          a.danger-button,
+          .inline-link.secondary-button,
+          .inline-link.ghost-button,
+          .inline-link.danger-button,
+          .button-primary,
+          .button-secondary,
+          .button-outline,
+          .button-danger
+        ) * {
+        color: inherit !important;
       }
 
-      button:hover,
-      a.secondary-button:hover,
-      a.ghost-button:hover,
-      a.danger-button:hover,
+      button:not([class]):hover,
+      .button-primary:hover,
+      .button-secondary:hover,
+      .button-outline:hover,
+      .button-danger:hover,
+      :is(button, a).secondary-button:hover,
+      :is(button, a).ghost-button:hover,
+      :is(button, a).danger-button:hover,
       .inline-link.secondary-button:hover,
       .inline-link.ghost-button:hover,
       .inline-link.danger-button:hover {
@@ -895,10 +908,14 @@
         box-shadow: var(--btn-shadow-hover);
       }
 
-      button:active,
-      a.secondary-button:active,
-      a.ghost-button:active,
-      a.danger-button:active,
+      button:not([class]):active,
+      .button-primary:active,
+      .button-secondary:active,
+      .button-outline:active,
+      .button-danger:active,
+      :is(button, a).secondary-button:active,
+      :is(button, a).ghost-button:active,
+      :is(button, a).danger-button:active,
       .inline-link.secondary-button:active,
       .inline-link.ghost-button:active,
       .inline-link.danger-button:active {
@@ -918,10 +935,14 @@
         filter: grayscale(0.12);
       }
 
-      button:focus-visible,
-      :is(a, .inline-link).secondary-button:focus-visible,
-      :is(a, .inline-link).ghost-button:focus-visible,
-      :is(a, .inline-link).danger-button:focus-visible,
+      button:not([class]):focus-visible,
+      .button-primary:focus-visible,
+      .button-secondary:focus-visible,
+      .button-outline:focus-visible,
+      .button-danger:focus-visible,
+      :is(button, a, .inline-link).secondary-button:focus-visible,
+      :is(button, a, .inline-link).ghost-button:focus-visible,
+      :is(button, a, .inline-link).danger-button:focus-visible,
       input:focus-visible,
       select:focus-visible,
       textarea:focus-visible {
@@ -932,7 +953,7 @@
       }
 
       .button-primary,
-      button:not(.secondary-button):not(.ghost-button):not(.danger-button):not(.button-secondary):not(.button-outline):not(.button-danger) {
+      button:not([class]) {
         --btn-bg: var(--accent);
         --btn-color: #ffffff;
         --btn-border: var(--accent);
@@ -1015,6 +1036,22 @@
       .inline-link.ghost-button:hover,
       .inline-link.danger-button:hover {
         color: var(--btn-color-hover) !important;
+      }
+
+      :is(
+          button:not([class]):hover,
+          :is(button, a).secondary-button:hover,
+          :is(button, a).ghost-button:hover,
+          :is(button, a).danger-button:hover,
+          .inline-link.secondary-button:hover,
+          .inline-link.ghost-button:hover,
+          .inline-link.danger-button:hover,
+          .button-primary:hover,
+          .button-secondary:hover,
+          .button-outline:hover,
+          .button-danger:hover
+        ) * {
+        color: inherit !important;
       }
 
       .button-size-small,
@@ -2004,25 +2041,6 @@
         color: rgba(225, 242, 231, 0.74);
       }
 
-      .menu-panel .theme-switch-pill {
-        background: rgba(255, 255, 255, 0.94);
-        color: var(--accent-deep);
-        border-color: rgba(255, 255, 255, 0.22);
-        box-shadow: none;
-      }
-
-      .menu-panel .theme-switch-pill,
-      .menu-panel .theme-switch-pill * {
-        color: inherit;
-      }
-
-      .menu-panel .theme-switch-pill:hover {
-        background: #ffffff;
-        color: var(--accent-deep);
-        border-color: rgba(255, 255, 255, 0.28);
-        box-shadow: none;
-      }
-
       .menu-panel .secondary-button.is-active {
         --btn-color: #ffffff;
         --btn-color-hover: #ffffff;
@@ -2118,53 +2136,6 @@
         color: inherit;
         font-size: 0.8rem;
         font-weight: 800;
-      }
-
-      .quick-access-strip {
-        display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        align-items: stretch;
-      }
-
-      .quick-access-strip > button {
-        width: 100%;
-        min-width: 0;
-        --btn-height: var(--btn-height-lg);
-        --btn-pad-x: var(--btn-pad-x-lg);
-        --btn-pad-y: var(--btn-pad-y-lg);
-      }
-
-      .quick-access-button {
-        --btn-bg: var(--accent);
-        --btn-color: #ffffff;
-        --btn-border: var(--accent);
-        --btn-bg-hover: var(--accent-deep);
-        --btn-color-hover: #ffffff;
-        --btn-border-hover: var(--accent-deep);
-        --btn-shadow: none;
-        --btn-shadow-hover: none;
-      }
-
-      .quick-access-button,
-      .quick-access-button * {
-        color: #ffffff;
-      }
-
-      .quick-access-button:hover {
-        box-shadow: none;
-      }
-
-      .danger-button.quick-access-button {
-        --btn-bg: #9f2f2f;
-        --btn-color: #ffffff;
-        --btn-border: #9f2f2f;
-        --btn-bg-hover: #862626;
-        --btn-border-hover: #862626;
-      }
-
-      .danger-button.quick-access-button:hover {
-        box-shadow: none;
       }
 
       .overview-panel {
@@ -3554,9 +3525,7 @@
         color: inherit;
         opacity: 0.72;
       }
-      .context-rail,
-      .theme-gallery-shell,
-      .theme-quick-switch {
+      .context-rail {
         display: grid;
         gap: 12px;
       }
@@ -3573,9 +3542,7 @@
 
       .context-crumbs,
       .context-shortcuts,
-      .context-saved,
-      .theme-switch-row,
-      .theme-card-swatches {
+      .context-saved {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
@@ -3672,142 +3639,6 @@
         margin: 0;
         font-size: var(--text-body-sm);
         line-height: 1.5;
-      }
-
-      .theme-switch-pill,
-      .theme-card {
-        border-radius: 18px;
-        border: 1px solid var(--line);
-        transition:
-          transform 180ms ease,
-          box-shadow 180ms ease,
-          border-color 180ms ease,
-          background 180ms ease,
-          color 180ms ease;
-      }
-
-      .theme-switch-pill {
-        min-height: 42px;
-        padding: 9px 12px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 247, 0.95));
-        color: var(--accent-deep) !important;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
-      }
-
-      .theme-switch-pill *,
-      .theme-card strong,
-      .theme-card .muted,
-      .theme-card span,
-      .theme-card-meta,
-      .theme-card-meta * {
-        color: inherit !important;
-      }
-
-      .theme-switch-pill:hover {
-        transform: translateY(-1px);
-      }
-
-      .theme-switch-pill.is-active {
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0))
-            padding-box,
-          linear-gradient(180deg, var(--accent-bright), var(--accent-deep)) border-box;
-        color: #ffffff;
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.16),
-          0 10px 24px rgba(15, 55, 39, 0.16);
-      }
-
-      .theme-switch-pill.is-active,
-      .theme-switch-pill.is-active * {
-        color: #ffffff !important;
-      }
-
-      .theme-gallery-grid {
-        display: grid;
-        gap: 12px;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      }
-
-      .theme-card {
-        width: 100%;
-        min-height: 0;
-        padding: 16px;
-        display: grid;
-        gap: 12px;
-        justify-items: stretch;
-        align-items: start;
-        text-align: left;
-        background:
-          radial-gradient(circle at top right, rgba(255, 255, 255, 0.42), transparent 30%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 247, 0.92));
-        color: var(--ink) !important;
-        box-shadow: var(--surface-shadow);
-      }
-
-      .theme-card * {
-        color: inherit !important;
-      }
-
-      .theme-card:hover {
-        transform: translateY(-3px);
-        border-color: rgba(18, 63, 47, 0.22);
-        box-shadow: var(--surface-shadow-hover);
-      }
-
-      .theme-card.is-active {
-        border-color: rgba(18, 63, 47, 0.26);
-        box-shadow:
-          0 24px 54px rgba(16, 56, 38, 0.12),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.6);
-      }
-
-      .theme-card-preview {
-        position: relative;
-        overflow: hidden;
-        min-height: 78px;
-        border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.28);
-        background: linear-gradient(135deg, var(--theme-dark), var(--theme-accent));
-      }
-
-      .theme-card-preview::before {
-        content: "";
-        position: absolute;
-        top: 14px;
-        left: 14px;
-        width: 44%;
-        height: 12px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.28);
-      }
-
-      .theme-card-preview::after {
-        content: "";
-        position: absolute;
-        left: 14px;
-        right: 14px;
-        bottom: 14px;
-        height: 16px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08));
-      }
-
-      .theme-card-swatches span {
-        width: 16px;
-        height: 16px;
-        border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
-      }
-
-      .theme-card-meta {
-        display: grid;
-        gap: 6px;
-      }
-
-      .theme-card-meta .muted {
-        color: var(--muted) !important;
       }
 
       .search-results-shell,
@@ -4648,36 +4479,6 @@
         color: var(--muted) !important;
       }
 
-      .competitor-hero .theme-switch-pill {
-        background: rgba(255, 255, 255, 0.96);
-        color: var(--accent-deep) !important;
-        border-color: var(--line);
-        box-shadow: none;
-      }
-
-      .competitor-hero .theme-switch-pill:hover {
-        background: #ffffff;
-        color: var(--accent-deep) !important;
-        border-color: var(--line-strong);
-        box-shadow: none;
-      }
-
-      .competitor-hero .theme-switch-pill.is-active {
-        background: linear-gradient(180deg, var(--accent-bright), var(--accent-deep));
-        color: #ffffff !important;
-        border-color: rgba(255, 255, 255, 0.16);
-        box-shadow: none;
-      }
-
-      .competitor-hero .theme-switch-pill.is-active * {
-        color: #ffffff !important;
-      }
-
-      .competitor-hero .theme-switch-pill:not(.is-active),
-      .competitor-hero .theme-switch-pill:not(.is-active) * {
-        color: var(--accent-deep) !important;
-      }
-
       .competitor-account-card {
         display: grid;
         gap: 10px;
@@ -4712,11 +4513,6 @@
         word-break: break-word;
       }
 
-      .competitor-account-theme {
-        margin: 0;
-        font-size: 0.86rem;
-      }
-
       .competitor-account-actions {
         gap: 8px;
       }
@@ -4725,31 +4521,6 @@
       .competitor-account-actions > a {
         min-height: 40px;
         padding: 8px 13px;
-      }
-
-      .competitor-account-card .theme-quick-switch {
-        gap: 8px;
-      }
-
-      .competitor-account-card .theme-section-label {
-        font-size: 0.72rem;
-        letter-spacing: 0.1em;
-      }
-
-      .competitor-account-card .theme-switch-row {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-      }
-
-      .competitor-account-card .theme-switch-pill {
-        width: 100%;
-        min-height: 40px;
-        padding: 8px 10px;
-        justify-content: center;
-        text-align: center;
-        font-size: 0.92rem;
-        line-height: 1.14;
       }
 
       .competitor-metrics,
@@ -5127,10 +4898,10 @@
       .workspace-action-row .danger-button,
       .workspace-danger-row .danger-button,
       .workspace-danger-row .secondary-button {
-        --btn-height: var(--btn-height-md);
-        --btn-pad-x: var(--btn-pad-x-md);
-        --btn-pad-y: var(--btn-pad-y-md);
-        --btn-font-size: var(--btn-font-size-md);
+        --btn-height: var(--btn-height-sm);
+        --btn-pad-x: var(--btn-pad-x-sm);
+        --btn-pad-y: var(--btn-pad-y-sm);
+        --btn-font-size: var(--btn-font-size-sm);
       }
 
       .workspace-danger-row {
@@ -7108,9 +6879,6 @@
           position: static;
         }
 
-        .competitor-account-card .theme-switch-row {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
       }
 
       @media (max-width: 720px) {
@@ -7190,7 +6958,6 @@
 
         .workspace-overview-band,
         .focus-nav-grid,
-        .quick-access-strip,
         .draw-publish-grid,
         .workspace-action-row,
         .overview-launch-grid,
@@ -7370,10 +7137,6 @@
 
         .auth-support-grid > :last-child {
           grid-column: auto;
-        }
-
-        .competitor-account-card .theme-switch-row {
-          grid-template-columns: 1fr;
         }
 
         h1 {

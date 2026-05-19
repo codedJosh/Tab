@@ -345,206 +345,6 @@
             "--body-orb-bottom": "rgba(82, 134, 102, 0.22)",
           },
         },
-        forum_gold: {
-          label: "Forum Gold",
-          description: "Warm parchment panels with brass accents and a classic chamber feel.",
-          vars: {
-            "--bg": "#f7f3e7",
-            "--bg-deep": "#eadfc3",
-            "--panel": "rgba(255, 251, 244, 0.95)",
-            "--panel-strong": "rgba(255, 253, 248, 0.98)",
-            "--panel-dark": "#52411d",
-            "--panel-dark-soft": "rgba(82, 65, 29, 0.92)",
-            "--ink": "#342713",
-            "--muted": "#76674f",
-            "--accent": "#8b6a22",
-            "--accent-deep": "#5b4312",
-            "--accent-bright": "#b1841f",
-            "--gold": "#d8a83a",
-            "--gold-deep": "#8d6112",
-            "--body-glow-one": "rgba(234, 214, 166, 0.34)",
-            "--body-glow-two": "rgba(173, 120, 29, 0.14)",
-            "--body-glow-three": "rgba(121, 167, 138, 0.16)",
-            "--body-glow-four": "rgba(208, 177, 96, 0.16)",
-            "--body-orb-top": "rgba(225, 205, 152, 0.32)",
-            "--body-orb-bottom": "rgba(168, 139, 79, 0.2)",
-          },
-        },
-        midnight_forum: {
-          label: "Midnight Forum",
-          description: "Cool slate blues with late-night control-room contrast.",
-          vars: {
-            "--bg": "#e8eef1",
-            "--bg-deep": "#cfdbe1",
-            "--panel": "rgba(247, 251, 252, 0.94)",
-            "--panel-strong": "rgba(255, 255, 255, 0.97)",
-            "--panel-dark": "#16343d",
-            "--panel-dark-soft": "rgba(22, 52, 61, 0.92)",
-            "--ink": "#132931",
-            "--muted": "#607984",
-            "--accent": "#2b6f80",
-            "--accent-deep": "#193f49",
-            "--accent-bright": "#3990a6",
-            "--gold": "#d7b55a",
-            "--gold-deep": "#987625",
-            "--body-glow-one": "rgba(159, 202, 214, 0.26)",
-            "--body-glow-two": "rgba(43, 111, 128, 0.14)",
-            "--body-glow-three": "rgba(215, 181, 90, 0.16)",
-            "--body-glow-four": "rgba(111, 149, 160, 0.12)",
-            "--body-orb-top": "rgba(150, 198, 210, 0.26)",
-            "--body-orb-bottom": "rgba(75, 112, 123, 0.18)",
-          },
-        },
-        ivory_canopy: {
-          label: "Ivory Canopy",
-          description: "Soft ivory and sage for a lighter, calmer workspace.",
-          vars: {
-            "--bg": "#f6f8f0",
-            "--bg-deep": "#e3ead8",
-            "--panel": "rgba(252, 253, 249, 0.95)",
-            "--panel-strong": "rgba(255, 255, 252, 0.98)",
-            "--panel-dark": "#274438",
-            "--panel-dark-soft": "rgba(39, 68, 56, 0.9)",
-            "--ink": "#203127",
-            "--muted": "#6a7d71",
-            "--accent": "#567d4d",
-            "--accent-deep": "#31492c",
-            "--accent-bright": "#719d66",
-            "--gold": "#d4c06a",
-            "--gold-deep": "#948038",
-            "--body-glow-one": "rgba(211, 228, 191, 0.28)",
-            "--body-glow-two": "rgba(86, 125, 77, 0.12)",
-            "--body-glow-three": "rgba(212, 192, 106, 0.16)",
-            "--body-glow-four": "rgba(172, 195, 160, 0.14)",
-            "--body-orb-top": "rgba(216, 229, 196, 0.28)",
-            "--body-orb-bottom": "rgba(119, 151, 103, 0.18)",
-          },
-        },
-        ember_court: {
-          label: "Ember Court",
-          description: "Terracotta warmth, parchment surfaces, and a more ceremonial tone.",
-          vars: {
-            "--bg": "#f7eee8",
-            "--bg-deep": "#ead7cb",
-            "--panel": "rgba(255, 249, 246, 0.95)",
-            "--panel-strong": "rgba(255, 252, 249, 0.98)",
-            "--panel-dark": "#4a2a21",
-            "--panel-dark-soft": "rgba(74, 42, 33, 0.92)",
-            "--ink": "#341f19",
-            "--muted": "#7f635a",
-            "--accent": "#b66039",
-            "--accent-deep": "#76381f",
-            "--accent-bright": "#d87a4f",
-            "--gold": "#d8a550",
-            "--gold-deep": "#95651e",
-            "--body-glow-one": "rgba(233, 181, 154, 0.28)",
-            "--body-glow-two": "rgba(182, 96, 57, 0.12)",
-            "--body-glow-three": "rgba(216, 165, 80, 0.17)",
-            "--body-glow-four": "rgba(210, 126, 76, 0.14)",
-            "--body-orb-top": "rgba(230, 186, 165, 0.3)",
-            "--body-orb-bottom": "rgba(178, 117, 88, 0.18)",
-          },
-        },
-        lagoon_signal: {
-          label: "Lagoon Signal",
-          description: "Sea-glass blues and bright tropical energy without losing clarity.",
-          vars: {
-            "--bg": "#eaf7f7",
-            "--bg-deep": "#d2eceb",
-            "--panel": "rgba(247, 253, 253, 0.95)",
-            "--panel-strong": "rgba(252, 255, 255, 0.98)",
-            "--panel-dark": "#123a40",
-            "--panel-dark-soft": "rgba(18, 58, 64, 0.92)",
-            "--ink": "#123036",
-            "--muted": "#5f7d81",
-            "--accent": "#1c8c93",
-            "--accent-deep": "#115158",
-            "--accent-bright": "#2fb0ba",
-            "--gold": "#e2a65f",
-            "--gold-deep": "#9f6926",
-            "--body-glow-one": "rgba(164, 223, 225, 0.28)",
-            "--body-glow-two": "rgba(28, 140, 147, 0.12)",
-            "--body-glow-three": "rgba(226, 166, 95, 0.17)",
-            "--body-glow-four": "rgba(95, 184, 188, 0.13)",
-            "--body-orb-top": "rgba(173, 227, 228, 0.28)",
-            "--body-orb-bottom": "rgba(76, 148, 154, 0.18)",
-          },
-        },
-        rosewood_brass: {
-          label: "Rosewood Brass",
-          description: "Burgundy depth, brass highlights, and a dressier editorial look.",
-          vars: {
-            "--bg": "#f8eff1",
-            "--bg-deep": "#ecd9dd",
-            "--panel": "rgba(255, 248, 250, 0.95)",
-            "--panel-strong": "rgba(255, 252, 253, 0.98)",
-            "--panel-dark": "#47262e",
-            "--panel-dark-soft": "rgba(71, 38, 46, 0.92)",
-            "--ink": "#311d24",
-            "--muted": "#7d6168",
-            "--accent": "#9e445e",
-            "--accent-deep": "#5e2437",
-            "--accent-bright": "#c35d7c",
-            "--gold": "#d0a356",
-            "--gold-deep": "#8d6521",
-            "--body-glow-one": "rgba(222, 176, 191, 0.28)",
-            "--body-glow-two": "rgba(158, 68, 94, 0.12)",
-            "--body-glow-three": "rgba(208, 163, 86, 0.17)",
-            "--body-glow-four": "rgba(198, 106, 133, 0.12)",
-            "--body-orb-top": "rgba(229, 190, 202, 0.28)",
-            "--body-orb-bottom": "rgba(142, 86, 105, 0.18)",
-          },
-        },
-        slate_voltage: {
-          label: "Slate Voltage",
-          description: "Graphite, steel, and electric cyan for a sharper operations vibe.",
-          vars: {
-            "--bg": "#eef2f4",
-            "--bg-deep": "#dbe3e7",
-            "--panel": "rgba(248, 251, 252, 0.95)",
-            "--panel-strong": "rgba(255, 255, 255, 0.98)",
-            "--panel-dark": "#1e3038",
-            "--panel-dark-soft": "rgba(30, 48, 56, 0.92)",
-            "--ink": "#1a2b33",
-            "--muted": "#667a83",
-            "--accent": "#347f96",
-            "--accent-deep": "#1e4c59",
-            "--accent-bright": "#4ba7c3",
-            "--gold": "#d7bb58",
-            "--gold-deep": "#8f7424",
-            "--body-glow-one": "rgba(172, 203, 214, 0.26)",
-            "--body-glow-two": "rgba(52, 127, 150, 0.12)",
-            "--body-glow-three": "rgba(215, 187, 88, 0.16)",
-            "--body-glow-four": "rgba(120, 162, 176, 0.12)",
-            "--body-orb-top": "rgba(182, 210, 220, 0.27)",
-            "--body-orb-bottom": "rgba(90, 127, 140, 0.18)",
-          },
-        },
-        sunrise_studio: {
-          label: "Sunrise Studio",
-          description: "Apricot, saffron, and paper-toned surfaces for a brighter creative feel.",
-          vars: {
-            "--bg": "#fbf1e8",
-            "--bg-deep": "#f0ddd0",
-            "--panel": "rgba(255, 250, 246, 0.95)",
-            "--panel-strong": "rgba(255, 253, 250, 0.98)",
-            "--panel-dark": "#4a3123",
-            "--panel-dark-soft": "rgba(74, 49, 35, 0.9)",
-            "--ink": "#342418",
-            "--muted": "#80685a",
-            "--accent": "#c66d43",
-            "--accent-deep": "#7b4428",
-            "--accent-bright": "#e58a5d",
-            "--gold": "#e2b347",
-            "--gold-deep": "#9b6e19",
-            "--body-glow-one": "rgba(242, 194, 157, 0.28)",
-            "--body-glow-two": "rgba(198, 109, 67, 0.12)",
-            "--body-glow-three": "rgba(226, 179, 71, 0.17)",
-            "--body-glow-four": "rgba(231, 141, 86, 0.12)",
-            "--body-orb-top": "rgba(246, 204, 173, 0.3)",
-            "--body-orb-bottom": "rgba(198, 133, 95, 0.18)",
-          },
-        },
       };
 
       const DEFAULT_SETTINGS = {
@@ -2139,7 +1939,6 @@
           regionalRole: normalizeRegionalOperationsRole(user.regionalRole),
           regionalRegion: normalizeRegionalRegion(user.regionalRegion),
           regionalBanking: normalizeRegionalBankingInfo(user.regionalBanking || user.regionalBank || {}),
-          themePreset: String(user.themePreset || "jade_classic").trim() || "jade_classic",
           preferredLandingView:
             String(user.preferredLandingView || "overview").trim() || "overview",
         };
@@ -2378,6 +2177,10 @@
 
       function canSeeTournament(tournament, email = session.userEmail) {
         const access = getTournamentAccess(tournament, email);
+        const archived = isTournamentArchived(tournament);
+        if (archived && !isSystemAdmin(email)) {
+          return false;
+        }
         return (
           hasTournamentBackstageAccess(access) ||
           access === "judge" ||
@@ -2415,7 +2218,9 @@
       function getDebaterTournaments(email = session.userEmail) {
         const target = normalizeEmail(email);
         return state.tournaments.filter(
-          (tournament) => getTournamentAccess(tournament, target) === "debater",
+          (tournament) =>
+            canSeeTournament(tournament, target) &&
+            getTournamentAccess(tournament, target) === "debater",
         );
       }
 
@@ -2605,24 +2410,116 @@
 
       function getWorkspaceSearchResults(query, email = session.userEmail) {
         const normalizedQuery = normalizeTextKey(query);
+        const queryTokens = normalizedQuery.split(" ").filter(Boolean);
         const visibleTournaments = getVisibleTournaments(email);
         const participantDirectory = getParticipantDirectoryRecords(email);
 
-        const tournaments = visibleTournaments.filter((tournament) =>
-          tournamentMatchesQuery(tournament, normalizedQuery),
-        );
+        function getSearchScore(fields = []) {
+          if (!queryTokens.length) {
+            return 0;
+          }
+          const normalizedFields = (Array.isArray(fields) ? fields : [])
+            .map((field) =>
+              typeof field === "object"
+                ? {
+                    value: normalizeTextKey(field.value),
+                    weight: Number(field.weight) || 1,
+                  }
+                : {
+                    value: normalizeTextKey(field),
+                    weight: 1,
+                  },
+            )
+            .filter((field) => field.value);
+          if (!normalizedFields.length) {
+            return 0;
+          }
 
-        const participants = participantDirectory.filter((profile) => {
-          const values = [
-            profile.name,
-            profile.email,
-            ...(profile.institutions || []),
-            ...(profile.teams || []),
-          ]
-            .map((value) => String(value || "").trim().toLowerCase())
-            .filter(Boolean);
-          return values.some((value) => value.includes(normalizedQuery));
-        });
+          const fullHaystack = normalizedFields.map((field) => field.value).join(" ");
+          const matchedTokenCount = queryTokens.reduce(
+            (count, token) => (fullHaystack.includes(token) ? count + 1 : count),
+            0,
+          );
+          const minimumMatches =
+            queryTokens.length === 1
+              ? 1
+              : Math.max(1, Math.ceil(queryTokens.length * 0.6));
+          const hasFullPhraseMatch = normalizedQuery && fullHaystack.includes(normalizedQuery);
+          if (!hasFullPhraseMatch && matchedTokenCount < minimumMatches) {
+            return 0;
+          }
+
+          let score = 0;
+          normalizedFields.forEach(({ value, weight }) => {
+            queryTokens.forEach((token) => {
+              if (!value.includes(token)) {
+                return;
+              }
+              if (value === token) {
+                score += 72 * weight;
+              } else if (value.startsWith(token)) {
+                score += 42 * weight;
+              } else if (value.includes(" " + token)) {
+                score += 28 * weight;
+              } else {
+                score += 18 * weight;
+              }
+            });
+            if (normalizedQuery && value.startsWith(normalizedQuery)) {
+              score += 30 * weight;
+            } else if (normalizedQuery && value.includes(normalizedQuery)) {
+              score += 22 * weight;
+            }
+          });
+
+          if (fullHaystack.startsWith(normalizedQuery)) {
+            score += 48;
+          } else if (fullHaystack.includes(normalizedQuery)) {
+            score += 28;
+          }
+          score += matchedTokenCount * 8;
+          score -= Math.max(0, queryTokens.length - matchedTokenCount) * 6;
+          score += Math.min(14, queryTokens.length * 3);
+          return Math.max(0, score);
+        }
+
+        const tournaments = visibleTournaments
+          .map((tournament) => ({
+            tournament,
+            score: getSearchScore([
+              { value: tournament.name, weight: 5 },
+              { value: tournament.code, weight: 4 },
+              { value: getFormatLabel(tournament), weight: 3 },
+              { value: tournament.customFormatName, weight: 2 },
+              { value: tournament.notes, weight: 1 },
+              { value: tournament.announcement, weight: 1 },
+            ]),
+          }))
+          .filter((entry) => entry.score > 0)
+          .sort(
+            (left, right) =>
+              Number(right.score || 0) - Number(left.score || 0) ||
+              String(left.tournament.name || "").localeCompare(String(right.tournament.name || "")),
+          )
+          .map((entry) => entry.tournament);
+
+        const participants = participantDirectory
+          .map((profile) => ({
+            profile,
+            score: getSearchScore([
+              { value: profile.name, weight: 5 },
+              { value: profile.email, weight: 5 },
+              ...(profile.institutions || []).map((value) => ({ value, weight: 2 })),
+              ...(profile.teams || []).map((value) => ({ value, weight: 2 })),
+            ]),
+          }))
+          .filter((entry) => entry.score > 0)
+          .sort(
+            (left, right) =>
+              Number(right.score || 0) - Number(left.score || 0) ||
+              String(left.profile.name || "").localeCompare(String(right.profile.name || "")),
+          )
+          .map((entry) => entry.profile);
 
         const teams = visibleTournaments
           .flatMap((tournament) =>
@@ -2632,20 +2529,43 @@
               label: getTeamDisplayLabel(team),
             })),
           )
-          .filter(({ team, label }) =>
-            [label, team.publicAlias, team.notes, team.institution]
-              .map((value) => String(value || "").trim().toLowerCase())
-              .filter(Boolean)
-              .some((value) => value.includes(normalizedQuery)),
+          .map((entry) => ({
+            ...entry,
+            score: getSearchScore([
+              { value: entry.label, weight: 4 },
+              { value: entry.team.publicAlias, weight: 3 },
+              { value: entry.team.institution, weight: 2 },
+              { value: entry.team.notes, weight: 1 },
+              { value: entry.tournament.name, weight: 2 },
+              { value: entry.tournament.code, weight: 2 },
+            ]),
+          }))
+          .filter((entry) => entry.score > 0)
+          .sort(
+            (left, right) =>
+              Number(right.score || 0) - Number(left.score || 0) ||
+              String(left.label || "").localeCompare(String(right.label || "")),
           );
 
         const accounts = canAccessGlobalSettings()
-          ? state.users.filter((user) =>
-              [user.name, user.email, toTitleLabel(user.globalRole)]
-                .map((value) => String(value || "").trim().toLowerCase())
-                .filter(Boolean)
-                .some((value) => value.includes(normalizedQuery)),
-            )
+          ? state.users
+              .map((user) => ({
+                user,
+                score: getSearchScore([
+                  { value: user.name, weight: 4 },
+                  { value: user.email, weight: 5 },
+                  { value: user.globalRole, weight: 2 },
+                  { value: toTitleLabel(user.globalRole), weight: 2 },
+                  { value: user.regionalRole, weight: 1 },
+                ]),
+              }))
+              .filter((entry) => entry.score > 0)
+              .sort(
+                (left, right) =>
+                  Number(right.score || 0) - Number(left.score || 0) ||
+                  String(left.user.name || "").localeCompare(String(right.user.name || "")),
+              )
+              .map((entry) => entry.user)
           : [];
 
         return {
@@ -2780,10 +2700,12 @@
       }
       function getWorkspaceCapabilities(email = session.userEmail) {
         const target = normalizeEmail(email);
-        const accessRecords = state.tournaments.map((tournament) => ({
-          tournament,
-          access: getTournamentAccess(tournament, target),
-        }));
+        const accessRecords = state.tournaments
+          .filter((tournament) => canSeeTournament(tournament, target))
+          .map((tournament) => ({
+            tournament,
+            access: getTournamentAccess(tournament, target),
+          }));
         const managedTournaments = accessRecords
           .filter((record) => hasTournamentBackstageAccess(record.access))
           .map((record) => record.tournament);
@@ -7344,14 +7266,13 @@
       }
 
       function getCurrentThemePreset() {
-        const presetKey = String(getCurrentUser()?.themePreset || "jade_classic").trim();
-        return THEME_PRESETS[presetKey] ? presetKey : "jade_classic";
+        return "jade_classic";
       }
 
       function applyBranding() {
         if (!state) return;
-        const themeKey = getCurrentThemePreset();
-        const theme = THEME_PRESETS[themeKey] || THEME_PRESETS.jade_classic;
+        const themeKey = "jade_classic";
+        const theme = THEME_PRESETS.jade_classic;
         const root = document.documentElement;
         Object.entries(theme.vars || {}).forEach(([key, value]) => {
           root.style.setProperty(key, value);
@@ -7361,14 +7282,8 @@
           state.appSettings.branding.accent || DEFAULT_SETTINGS.branding.accent;
         const brandingAccentDeep =
           state.appSettings.branding.accentDeep || DEFAULT_SETTINGS.branding.accentDeep;
-        const effectiveAccent =
-          themeKey === "jade_classic"
-            ? brandingAccent
-            : theme.vars?.["--accent"] || brandingAccent;
-        const effectiveAccentDeep =
-          themeKey === "jade_classic"
-            ? brandingAccentDeep
-            : theme.vars?.["--accent-deep"] || brandingAccentDeep;
+        const effectiveAccent = brandingAccent;
+        const effectiveAccentDeep = brandingAccentDeep;
         const effectiveGold = theme.vars?.["--gold"] || "#e1bf43";
 
         root.style.setProperty("--accent", effectiveAccent);
@@ -12146,8 +12061,7 @@
             support:
               "Use this breathing room to check tournaments, review people, or clean up publication settings before the next rush.",
             actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">Open Tournaments</button>` +
-              `<button class="secondary-button" type="button" data-action="set-view" data-view="search">Search Profiles</button>`,
+              `<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">Open Tournaments</button>`,
           });
         }
 
@@ -14272,15 +14186,6 @@
                 </div>
                 ${renderOverviewLaunchDeck([
                   {
-                    eyebrow: "Search",
-                    title: "Search people",
-                    body: "Find a person, institution, or tournament without opening every page.",
-                    badge: stats.registeredUsers + " accounts",
-                    tone: "success",
-                    actionMarkup:
-                      '<button class="secondary-button" data-action="set-view" data-view="search">Search</button>',
-                  },
-                  {
                     eyebrow: "Tournaments",
                     title: "Open a tournament",
                     body: "View the draw, standings, notices, and published round information.",
@@ -14627,15 +14532,6 @@
                 <p class="muted">Choose the next task, open the right tournament, and keep rounds moving.</p>
               </div>
               ${renderOverviewLaunchDeck([
-                {
-                  eyebrow: "Search",
-                  title: "Search people",
-                  body: "Find a person, institution, or tournament record quickly.",
-                  badge: stats.registeredUsers + " accounts",
-                  tone: "success",
-                  actionMarkup:
-                    '<button class="secondary-button" data-action="set-view" data-view="search">Search</button>',
-                },
                 {
                   eyebrow: "Tournament",
                   title: "Open a tournament",
@@ -15248,9 +15144,6 @@
                         currentView === "tournaments" ? "" : 'class="secondary-button"'
                       } data-action="set-view" data-view="tournaments">My Tournaments</button>
                       <button type="button" ${
-                        currentView === "search" ? "" : 'class="secondary-button"'
-                      } data-action="set-view" data-view="search">Search</button>
-                      <button type="button" ${
                         currentView === "links" ? "" : 'class="secondary-button"'
                       } data-action="set-view" data-view="links">Private Link</button>
                       <button type="button" ${
@@ -15271,14 +15164,8 @@
                         <p class="muted competitor-account-email">${escapeHtml(
                           session.userEmail,
                         )}</p>
-                        <p class="fine-print competitor-account-theme">${escapeHtml(
-                          "Theme: " +
-                            (THEME_PRESETS[currentUser?.themePreset || "jade_classic"]?.label ||
-                              "Jade Classic"),
-                        )}</p>
                       </div>
                       <div class="button-row wrap-row competitor-account-actions">
-                        <button class="secondary-button" type="button" data-action="set-view" data-view="search">Search</button>
                         <button class="secondary-button" type="button" data-action="set-view" data-view="settings">Open Settings</button>
                       </div>
                     </div>
@@ -15302,9 +15189,6 @@
                     </div>
                   </div>
                 </div>
-              </section>
-              <section class="surface competitor-search-shell">
-                ${renderWorkspaceSearchBar()}
               </section>
               ${renderFlash()}
               ${renderCompetitorHomeView(currentView)}
@@ -19438,7 +19322,7 @@
                   <p class="eyebrow">Next Required Action</p>
                   <h3>${escapeHtml(control.nextRequiredAction)}</h3>
                   <div class="button-row wrap-row">
-                    <button class="workspace-control-room-primary button-size-large" type="button" data-action="set-focused-tournament-section" data-section="draw">${escapeHtml(
+                    <button class="button-primary workspace-control-room-primary button-size-large" type="button" data-action="set-focused-tournament-section" data-section="draw">${escapeHtml(
                       primaryActionLabel,
                     )}</button>
                   </div>
@@ -20200,7 +20084,6 @@
                       </div>
                       <div class="button-row wrap-row">
                         <button type="button" data-action="clear-selected-tournament">Back To Tournaments</button>
-                        <button class="secondary-button" type="button" data-action="set-view" data-view="search">Search People</button>
                       </div>
                     </div>
                   </section>
@@ -22044,100 +21927,6 @@
         `;
       }
 
-      function getThemeOptionsMarkup(currentPreset = getCurrentUser()?.themePreset || "jade_classic") {
-        return Object.entries(THEME_PRESETS)
-          .map(
-            ([key, preset]) =>
-              `<option value="${escapeHtml(key)}" ${selected(key, currentPreset)}>${escapeHtml(
-                preset.label,
-              )}</option>`,
-          )
-          .join("");
-      }
-
-      function getThemeQuickAccessKeys(currentPreset = getCurrentThemePreset()) {
-        return Array.from(
-          new Set([
-            currentPreset,
-            "jade_classic",
-            "midnight_forum",
-            "ember_court",
-            "rosewood_brass",
-            "lagoon_signal",
-          ]),
-        )
-          .filter((key) => THEME_PRESETS[key])
-          .slice(0, 5);
-      }
-
-      function renderThemeQuickSwitch(currentPreset = getCurrentThemePreset(), options = {}) {
-        const keys = getThemeQuickAccessKeys(currentPreset);
-        const compact = options.compact === true;
-        const label =
-          String(options.label || "Quick Theme Switch").trim() || "Quick Theme Switch";
-        return `
-          <div class="theme-quick-switch ${compact ? "is-compact" : ""}">
-            <span class="theme-section-label">${escapeHtml(label)}</span>
-            <div class="theme-switch-row">
-              ${keys
-                .map(
-                  (key) => `
-                    <button class="theme-switch-pill ${key === currentPreset ? "is-active" : ""}" type="button" data-action="apply-theme-preset" data-theme="${escapeHtml(
-                      key,
-                    )}">
-                      <span>${escapeHtml(THEME_PRESETS[key].label)}</span>
-                    </button>
-                  `,
-                )
-                .join("")}
-            </div>
-          </div>
-        `;
-      }
-
-      function renderThemePresetGallery(currentPreset = getCurrentThemePreset()) {
-        return `
-          <div class="theme-gallery-shell">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Theme Gallery</p>
-                <h3>Tap a theme to apply it instantly</h3>
-              </div>
-              <span class="role-pill">${escapeHtml(
-                Object.keys(THEME_PRESETS).length,
-              )} presets</span>
-            </div>
-            <div class="theme-gallery-grid">
-              ${Object.entries(THEME_PRESETS)
-                .map(
-                  ([key, preset]) => `
-                    <button class="theme-card ${key === currentPreset ? "is-active" : ""}" type="button" data-action="apply-theme-preset" data-theme="${escapeHtml(
-                      key,
-                    )}" style="--theme-dark:${escapeHtml(
-                      preset.vars["--panel-dark"],
-                    )}; --theme-accent:${escapeHtml(
-                      preset.vars["--accent"],
-                    )};">
-                      <div class="theme-card-preview"></div>
-                      <div class="theme-card-swatches">
-                        <span style="background:${escapeHtml(preset.vars["--accent"])}"></span>
-                        <span style="background:${escapeHtml(preset.vars["--panel-dark"])}"></span>
-                        <span style="background:${escapeHtml(preset.vars["--gold"])}"></span>
-                        <span style="background:${escapeHtml(preset.vars["--bg"])}"></span>
-                      </div>
-                      <div class="theme-card-meta">
-                        <strong>${escapeHtml(preset.label)}</strong>
-                        <span class="muted">${escapeHtml(preset.description || "")}</span>
-                      </div>
-                    </button>
-                  `,
-                )
-                .join("")}
-            </div>
-          </div>
-        `;
-      }
-
       function getTournamentOpenAction(tournament) {
         return canManageTournament(tournament) ? "focus-tournament" : "open-tournament-record";
       }
@@ -23408,8 +23197,38 @@
         `;
       }
 
+      function getJudgeAssignmentRoundGroups(assignments = []) {
+        const groups = new Map();
+        (Array.isArray(assignments) ? assignments : []).forEach((assignment) => {
+          const tournamentId = String(assignment?.tournament?.id || "").trim();
+          const round = normalizeRoundCount(assignment?.allocation?.round, 1);
+          const key = tournamentId + "::" + round;
+          if (!groups.has(key)) {
+            groups.set(key, {
+              key,
+              tournament: assignment.tournament,
+              round,
+              assignments: [],
+              submitted: 0,
+            });
+          }
+          const group = groups.get(key);
+          group.assignments.push(assignment);
+          if (assignment?.allocation?.submittedAt) {
+            group.submitted += 1;
+          }
+        });
+
+        return Array.from(groups.values()).sort(
+          (left, right) =>
+            String(left.tournament?.name || "").localeCompare(String(right.tournament?.name || "")) ||
+            Number(left.round || 0) - Number(right.round || 0),
+        );
+      }
+
       function renderJudgingView() {
         const assignments = getJudgeAssignments();
+        const groupedAssignments = getJudgeAssignmentRoundGroups(assignments);
 
         return `
           <section class="surface">
@@ -23424,13 +23243,41 @@
               You only see rooms explicitly assigned to your email. Check in from your room card when you arrive. Chair ballots remain official for room results, and formats like World Schools can also let wings file panel ballots. Once a ballot is submitted, only tournament managers can reopen it.
             </div>
           </section>
-          <section class="judge-grid">
-            ${
-              assignments.length
-                ? assignments.map((assignment) => renderJudgeAssignmentCard(assignment)).join("")
-                : `<section class="surface"><div class="empty-state">No judging assignments have been allocated to this account yet.</div></section>`
-            }
-          </section>
+          ${
+            assignments.length
+              ? groupedAssignments
+                  .map(
+                    (group, index) => `
+                      <details class="surface judge-round-group" ${index === 0 ? "open" : ""}>
+                        <summary>
+                          <div class="summary-main">
+                            <p class="eyebrow">Round ${escapeHtml(group.round)}</p>
+                            <h3>${escapeHtml(group.tournament?.name || "Tournament")}</h3>
+                            <p class="muted">${escapeHtml(
+                              group.assignments.length +
+                                " room" +
+                                (group.assignments.length === 1 ? "" : "s") +
+                                " • " +
+                                group.submitted +
+                                "/" +
+                                group.assignments.length +
+                                " submitted",
+                            )}</p>
+                          </div>
+                        </summary>
+                        <div class="details-content">
+                          <section class="judge-grid">
+                            ${group.assignments
+                              .map((assignment) => renderJudgeAssignmentCard(assignment))
+                              .join("")}
+                          </section>
+                        </div>
+                      </details>
+                    `,
+                  )
+                  .join("")
+              : `<section class="surface"><div class="empty-state">No judging assignments have been allocated to this account yet.</div></section>`
+          }
         `;
       }
       function renderSettingsView() {
@@ -23464,28 +23311,16 @@
                 <p class="eyebrow">Personal Workspace</p>
                 <h2>Personal preferences</h2>
               </div>
-              <span class="role-pill">${escapeHtml(
-                THEME_PRESETS[currentUser?.themePreset || "jade_classic"]?.label || "Customised",
-              )}</span>
+              <span class="role-pill">Account</span>
             </div>
             <form class="stack" data-form="update-user-preferences">
-              <div class="field-grid two">
-                <label>
-                  Theme preset
-                  <select name="themePreset">${getThemeOptionsMarkup(
-                    currentUser?.themePreset || "jade_classic",
-                  )}</select>
-                </label>
-                <label>
-                  Start page after login
-                  <select name="preferredLandingView">${getLandingViewOptionsMarkup(
-                    currentUser?.preferredLandingView || "overview",
-                  )}</select>
-                </label>
-              </div>
-              ${renderThemeQuickSwitch(currentUser?.themePreset || "jade_classic")}
-              ${renderThemePresetGallery(currentUser?.themePreset || "jade_classic")}
-              <p class="fine-print">Theme and start page apply only to your account.</p>
+              <label>
+                Start page after login
+                <select name="preferredLandingView">${getLandingViewOptionsMarkup(
+                  currentUser?.preferredLandingView || "overview",
+                )}</select>
+              </label>
+              <p class="fine-print">Start page applies only to your account.</p>
               <button type="submit">Save personal settings</button>
             </form>
           </section>
@@ -23557,165 +23392,144 @@
               }</button>
             </form>
           </section>
-          <section class="tournament-grid">
-            <section class="surface">
-              <div class="section-heading">
-                <h3>Branding and menu</h3>
-              </div>
-              <form class="stack" data-form="update-branding">
-                <label>
-                  App name
-                  <input type="text" name="appName" value="${escapeHtml(
-                    settings.branding.appName,
-                  )}" ${settingsLocked ? "disabled" : ""} required />
-                </label>
-                <label>
-                  Subtitle
-                  <textarea name="subtitle" rows="3" ${settingsLocked ? "disabled" : ""}>${escapeHtml(
-                    settings.branding.subtitle,
-                  )}</textarea>
-                </label>
-                <div class="field-grid two">
-                  <label>
-                    Accent colour
-                    <input type="text" name="accent" value="${escapeHtml(
-                      settings.branding.accent,
-                    )}" ${settingsLocked ? "disabled" : ""} required />
-                  </label>
-                  <label>
-                    Accent deep colour
-                    <input type="text" name="accentDeep" value="${escapeHtml(
-                      settings.branding.accentDeep,
-                    )}" ${settingsLocked ? "disabled" : ""} required />
-                  </label>
-                </div>
-                <button type="submit" ${settingsLocked ? "disabled" : ""}>Save branding</button>
-              </form>
-            </section>
+          ${
+            settingsLocked
+              ? `<section class="surface"><div class="alert info">Admin settings are hidden for this account.</div></section>`
+              : `
+                <section class="tournament-grid">
+                  <section class="surface">
+                    <div class="section-heading">
+                      <h3>Branding and menu</h3>
+                    </div>
+                    <form class="stack" data-form="update-branding">
+                      <label>
+                        App name
+                        <input type="text" name="appName" value="${escapeHtml(
+                          settings.branding.appName,
+                        )}" required />
+                      </label>
+                      <label>
+                        Subtitle
+                        <textarea name="subtitle" rows="3">${escapeHtml(
+                          settings.branding.subtitle,
+                        )}</textarea>
+                      </label>
+                      <div class="field-grid two">
+                        <label>
+                          Accent colour
+                          <input type="text" name="accent" value="${escapeHtml(
+                            settings.branding.accent,
+                          )}" required />
+                        </label>
+                        <label>
+                          Accent deep colour
+                          <input type="text" name="accentDeep" value="${escapeHtml(
+                            settings.branding.accentDeep,
+                          )}" required />
+                        </label>
+                      </div>
+                      <button type="submit">Save branding</button>
+                    </form>
+                  </section>
 
-            <section class="surface">
-              <div class="section-heading">
-                <h3>Authentication and access</h3>
-              </div>
-              <form class="stack" data-form="update-security">
-                <label>
-                  Minimum password length
-                  <input type="number" min="10" max="64" name="minimumPasswordLength" value="${escapeHtml(
-                    settings.auth.minimumPasswordLength,
-                  )}" ${settingsLocked ? "disabled" : ""} required />
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="allowSelfSignup" ${checked(
-                    settings.auth.allowSelfSignup,
-                  )} ${settingsLocked ? "disabled" : ""} />
-                  <span>Allow self sign-up</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="allowPasswordResetRequests" ${checked(
-                    settings.auth.allowPasswordResetRequests,
-                  )} ${settingsLocked ? "disabled" : ""} />
-                  <span>Allow forgot-password requests</span>
-                </label>
-                <button type="submit" ${settingsLocked ? "disabled" : ""}>Save security settings</button>
-              </form>
-            </section>
+                  <section class="surface">
+                    <div class="section-heading">
+                      <h3>Authentication and access</h3>
+                    </div>
+                    <form class="stack" data-form="update-security">
+                      <label>
+                        Minimum password length
+                        <input type="number" min="10" max="64" name="minimumPasswordLength" value="${escapeHtml(
+                          settings.auth.minimumPasswordLength,
+                        )}" required />
+                      </label>
+                      <label class="checkbox-row">
+                        <input type="checkbox" name="allowSelfSignup" ${checked(
+                          settings.auth.allowSelfSignup,
+                        )} />
+                        <span>Allow self sign-up</span>
+                      </label>
+                      <label class="checkbox-row">
+                        <input type="checkbox" name="allowPasswordResetRequests" ${checked(
+                          settings.auth.allowPasswordResetRequests,
+                        )} />
+                        <span>Allow forgot-password requests</span>
+                      </label>
+                      <button type="submit">Save security settings</button>
+                    </form>
+                  </section>
 
-            <section class="surface">
-              <div class="section-heading">
-                <h3>Portal defaults</h3>
-              </div>
-              <form class="stack" data-form="update-portal">
-                <label class="checkbox-row">
-                  <input type="checkbox" name="showStandingsInPrivatePortal" ${checked(
-                    settings.portal.showStandingsInPrivatePortal,
-                  )} ${settingsLocked ? "disabled" : ""} />
-                  <span>Show standings in private portal when public standings are hidden</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="showDrawInPrivatePortal" ${checked(
-                    settings.portal.showDrawInPrivatePortal,
-                  )} ${settingsLocked ? "disabled" : ""} />
-                  <span>Show draw in private portal</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="showFeedbackInPrivatePortal" ${checked(
-                    settings.portal.showFeedbackInPrivatePortal,
-                  )} ${settingsLocked ? "disabled" : ""} />
-                  <span>Show judge feedback in private portal</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="compactLayout" ${checked(
-                    settings.portal.compactLayout,
-                  )} ${settingsLocked ? "disabled" : ""} />
-                  <span>Use the compact private portal layout</span>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="showOnlyLatestFeedback" ${checked(
-                    settings.portal.showOnlyLatestFeedback,
-                  )} ${settingsLocked ? "disabled" : ""} />
-                  <span>Show only the most recent feedback entry in the private portal</span>
-                </label>
-                <label>
-                  Private portal welcome note
-                  <textarea name="welcomeNote" rows="3" ${settingsLocked ? "disabled" : ""}>${escapeHtml(
-                    settings.portal.welcomeNote,
-                  )}</textarea>
-                </label>
-                <label>
-                  Private link email template
-                  <textarea name="emailTemplate" rows="4" ${settingsLocked ? "disabled" : ""}>${escapeHtml(
-                    settings.portal.emailTemplate,
-                  )}</textarea>
-                </label>
-                <label class="checkbox-row">
-                  <input type="checkbox" name="commentRequired" ${checked(
-                    settings.feedback.commentRequired,
-                  )} ${settingsLocked ? "disabled" : ""} />
-                  <span>Require written comment with feedback</span>
-                </label>
-                <button type="submit" ${settingsLocked ? "disabled" : ""}>Save portal defaults</button>
-              </form>
-            </section>
+                  <section class="surface">
+                    <div class="section-heading">
+                      <h3>Portal defaults</h3>
+                    </div>
+                    <form class="stack" data-form="update-portal">
+                      <label class="checkbox-row">
+                        <input type="checkbox" name="showStandingsInPrivatePortal" ${checked(
+                          settings.portal.showStandingsInPrivatePortal,
+                        )} />
+                        <span>Show standings in private portal when public standings are hidden</span>
+                      </label>
+                      <label class="checkbox-row">
+                        <input type="checkbox" name="showDrawInPrivatePortal" ${checked(
+                          settings.portal.showDrawInPrivatePortal,
+                        )} />
+                        <span>Show draw in private portal</span>
+                      </label>
+                      <label class="checkbox-row">
+                        <input type="checkbox" name="showFeedbackInPrivatePortal" ${checked(
+                          settings.portal.showFeedbackInPrivatePortal,
+                        )} />
+                        <span>Show judge feedback in private portal</span>
+                      </label>
+                      <label class="checkbox-row">
+                        <input type="checkbox" name="compactLayout" ${checked(
+                          settings.portal.compactLayout,
+                        )} />
+                        <span>Use the compact private portal layout</span>
+                      </label>
+                      <label class="checkbox-row">
+                        <input type="checkbox" name="showOnlyLatestFeedback" ${checked(
+                          settings.portal.showOnlyLatestFeedback,
+                        )} />
+                        <span>Show only the most recent feedback entry in the private portal</span>
+                      </label>
+                      <label>
+                        Private portal welcome note
+                        <textarea name="welcomeNote" rows="3">${escapeHtml(
+                          settings.portal.welcomeNote,
+                        )}</textarea>
+                      </label>
+                      <label>
+                        Private link email template
+                        <textarea name="emailTemplate" rows="4">${escapeHtml(
+                          settings.portal.emailTemplate,
+                        )}</textarea>
+                      </label>
+                      <label class="checkbox-row">
+                        <input type="checkbox" name="commentRequired" ${checked(
+                          settings.feedback.commentRequired,
+                        )} />
+                        <span>Require written comment with feedback</span>
+                      </label>
+                      <button type="submit">Save portal defaults</button>
+                    </form>
+                  </section>
 
-            <section class="surface">
-              <div class="section-heading">
-                <h3>Data</h3>
-              </div>
-              <div class="stack">
-                <p class="fine-print">Download a backup of tournaments, users, and settings.</p>
-                <div class="button-row wrap-row">
-                  <button class="secondary-button" type="button" data-action="export-data" ${
-                    settingsLocked ? "disabled" : ""
-                  }>Download Full Backup</button>
-                </div>
-              </div>
-            </section>
-          </section>
-        `;
-      }
-
-      function renderWorkspaceSearchBar() {
-        if (getWorkspaceCapabilities().regionalPortalMode) {
-          return "";
-        }
-        return `
-          <form class="workspace-search-form compact-top-search" data-form="workspace-search" role="search" aria-label="Workspace search">
-            <label class="workspace-search-field">
-              Search
-              <input type="search" name="query" value="${escapeHtml(
-                session.searchQuery,
-              )}" list="workspace-top-suggestions" autocomplete="off" placeholder="Search tournaments, participants, teams, institutions, or accounts" />
-            </label>
-            <div class="button-row wrap-row">
-              <button type="submit">Search</button>
-              ${
-                session.searchQuery
-                  ? `<button class="secondary-button" type="button" data-action="clear-workspace-search">Clear</button>`
-                  : ""
-              }
-            </div>
-          </form>
-          ${renderSearchAssist(session.searchQuery, "workspace-top-suggestions")}
+                  <section class="surface">
+                    <div class="section-heading">
+                      <h3>Data</h3>
+                    </div>
+                    <div class="stack">
+                      <p class="fine-print">Download a backup of tournaments, users, and settings.</p>
+                      <div class="button-row wrap-row">
+                        <button class="secondary-button" type="button" data-action="export-data">Download Full Backup</button>
+                      </div>
+                    </div>
+                  </section>
+                </section>
+              `
+          }
         `;
       }
 
@@ -23745,7 +23559,6 @@
               label: "Workspace",
             };
         const showOverviewBand = currentView !== "overview" && !focusedParticipantProfile;
-        const showWorkspaceSearch = currentView !== "overview" && !focusedParticipantProfile;
 
         const viewMarkup =
           currentView === "overview"
@@ -23804,7 +23617,6 @@
                     </div>
                   </div>
                   ${showOverviewBand ? renderWorkspaceStatusBand(currentNavItem, session.userEmail) : ""}
-                  ${showWorkspaceSearch ? renderWorkspaceSearchBar() : ""}
                 </div>
                 ${renderFlash()}
                 ${viewMarkup}
@@ -28938,33 +28750,6 @@
         persist("success", "Branding settings saved.");
       }
 
-      function applyThemePreset(themeKey) {
-        const currentUser = getCurrentUser();
-        const targetTheme = String(themeKey || "").trim();
-        if (!currentUser) {
-          setFlash("error", "Sign in again before changing themes.");
-          renderApp();
-          return;
-        }
-
-        if (!THEME_PRESETS[targetTheme]) {
-          setFlash("error", "That theme preset could not be found.");
-          renderApp();
-          return;
-        }
-
-        state.users = state.users.map((user) =>
-          normalizeEmail(user.email) === normalizeEmail(currentUser.email)
-            ? {
-                ...user,
-                themePreset: targetTheme,
-              }
-            : user,
-        );
-
-        persist("success", THEME_PRESETS[targetTheme].label + " applied to your workspace.");
-      }
-
       function updateUserPreferences(formData) {
         const currentUser = getCurrentUser();
         if (!currentUser) {
@@ -28973,7 +28758,6 @@
           return;
         }
 
-        const selectedTheme = String(formData.get("themePreset") || "jade_classic").trim();
         const preferredLandingView = String(
           formData.get("preferredLandingView") || "overview",
         ).trim();
@@ -28983,7 +28767,6 @@
           normalizeEmail(user.email) === normalizeEmail(currentUser.email)
             ? {
                 ...user,
-                themePreset: THEME_PRESETS[selectedTheme] ? selectedTheme : "jade_classic",
                 preferredLandingView: allowedLandingViews.includes(preferredLandingView)
                   ? preferredLandingView
                   : "overview",
@@ -29794,11 +29577,6 @@
 
           if (action === "close-tournament") {
             closeTournament(button.dataset.id);
-            return;
-          }
-
-          if (action === "apply-theme-preset") {
-            applyThemePreset(button.dataset.theme);
             return;
           }
 
