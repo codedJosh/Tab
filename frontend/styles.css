@@ -41,6 +41,28 @@
         --button-bottom: var(--accent-deep);
         --button-hover-top: var(--accent);
         --button-hover-bottom: var(--accent-deep);
+        --btn-radius: 999px;
+        --btn-font-size-sm: 0.82rem;
+        --btn-font-size-md: var(--text-body-sm);
+        --btn-font-size-lg: 0.96rem;
+        --btn-font-weight: var(--weight-strong);
+        --btn-height-sm: 34px;
+        --btn-height-md: 42px;
+        --btn-height-lg: 48px;
+        --btn-pad-x-sm: 10px;
+        --btn-pad-y-sm: 6px;
+        --btn-pad-x-md: 14px;
+        --btn-pad-y-md: 9px;
+        --btn-pad-x-lg: 18px;
+        --btn-pad-y-lg: 11px;
+        --btn-transition:
+          transform 160ms ease,
+          opacity 160ms ease,
+          background 160ms ease,
+          border-color 160ms ease,
+          color 160ms ease,
+          box-shadow 160ms ease,
+          filter 160ms ease;
         --text-display: clamp(2.25rem, 4.2vw, 3.45rem);
         --text-title-1: clamp(1.5rem, 2.4vw, 1.92rem);
         --text-title-2: 1.18rem;
@@ -785,48 +807,68 @@
         font: inherit;
       }
 
-      button,
       input,
       select,
       textarea {
         border-radius: 12px;
       }
 
-      .secondary-button,
-      .ghost-button,
-      .inline-link.secondary-button,
-      .inline-link.ghost-button {
-        border-radius: 999px;
+      button,
+      :is(a, .inline-link).secondary-button,
+      :is(a, .inline-link).ghost-button,
+      :is(a, .inline-link).danger-button,
+      .button-primary,
+      .button-secondary,
+      .button-outline,
+      .button-danger {
+        --btn-height: var(--btn-height-md);
+        --btn-pad-x: var(--btn-pad-x-md);
+        --btn-pad-y: var(--btn-pad-y-md);
+        --btn-font-size: var(--btn-font-size-md);
+        --btn-bg: var(--accent);
+        --btn-color: #ffffff;
+        --btn-border: var(--accent);
+        --btn-bg-hover: var(--accent-deep);
+        --btn-color-hover: #ffffff;
+        --btn-border-hover: var(--accent-deep);
+        --btn-shadow: none;
+        --btn-shadow-hover: none;
+        border-radius: var(--btn-radius);
+        min-height: var(--btn-height);
+        padding: var(--btn-pad-y) var(--btn-pad-x);
+        font-size: var(--btn-font-size);
+        font-weight: var(--btn-font-weight);
+        letter-spacing: 0.005em;
+        line-height: 1.2;
+        text-transform: none;
       }
 
       button,
       a.secondary-button,
-      a.ghost-button {
+      a.ghost-button,
+      a.danger-button,
+      .inline-link.secondary-button,
+      .inline-link.ghost-button,
+      .inline-link.danger-button,
+      .button-primary,
+      .button-secondary,
+      .button-outline,
+      .button-danger {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
         text-align: center;
         white-space: normal;
-        line-height: 1.2;
-        border: 1px solid var(--accent);
-        background: var(--accent);
-        color: white;
-        padding: 9px 14px;
-        font-size: var(--text-body-sm);
-        font-weight: var(--weight-strong);
-        letter-spacing: 0.005em;
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        color: var(--btn-color);
         cursor: pointer;
-        transition:
-          transform 180ms ease,
-          opacity 180ms ease,
-          box-shadow 180ms ease,
-          background 180ms ease,
-          border-color 180ms ease,
-          color 180ms ease,
-          filter 180ms ease;
-        box-shadow: none;
+        transition: var(--btn-transition);
+        box-shadow: var(--btn-shadow);
         text-decoration: none;
+        width: auto;
+        max-width: 100%;
       }
 
       button,
@@ -834,39 +876,59 @@
       a.secondary-button,
       a.secondary-button *,
       a.ghost-button,
-      a.ghost-button * {
+      a.ghost-button *,
+      a.danger-button,
+      a.danger-button *,
+      .inline-link.secondary-button,
+      .inline-link.secondary-button *,
+      .inline-link.ghost-button,
+      .inline-link.ghost-button *,
+      .inline-link.danger-button,
+      .inline-link.danger-button * {
         color: inherit;
-      }
-
-      button:not([class]),
-      button:not([class]) * {
-        color: #ffffff !important;
       }
 
       button:hover,
       a.secondary-button:hover,
-      a.ghost-button:hover {
+      a.ghost-button:hover,
+      a.danger-button:hover,
+      .inline-link.secondary-button:hover,
+      .inline-link.ghost-button:hover,
+      .inline-link.danger-button:hover {
         transform: translateY(-1px);
-        background: var(--accent-deep);
-        border-color: var(--accent-deep);
-        box-shadow: none;
+        background: var(--btn-bg-hover);
+        color: var(--btn-color-hover);
+        border-color: var(--btn-border-hover);
+        box-shadow: var(--btn-shadow-hover);
       }
 
       button:active,
       a.secondary-button:active,
-      a.ghost-button:active {
+      a.ghost-button:active,
+      a.danger-button:active,
+      .inline-link.secondary-button:active,
+      .inline-link.ghost-button:active,
+      .inline-link.danger-button:active {
         transform: translateY(0);
       }
 
-      button:disabled {
+      button:disabled,
+      :is(a, .inline-link)[aria-disabled="true"] {
         cursor: not-allowed;
-        opacity: 0.56;
+        opacity: 1;
         transform: none;
         box-shadow: none;
+        pointer-events: none;
+        background: #e6ece8 !important;
+        color: #7b8880 !important;
+        border-color: rgba(24, 35, 29, 0.12) !important;
+        filter: grayscale(0.12);
       }
 
       button:focus-visible,
-      a:focus-visible,
+      :is(a, .inline-link).secondary-button:focus-visible,
+      :is(a, .inline-link).ghost-button:focus-visible,
+      :is(a, .inline-link).danger-button:focus-visible,
       input:focus-visible,
       select:focus-visible,
       textarea:focus-visible {
@@ -876,26 +938,40 @@
           0 0 0 6px rgba(31, 106, 78, 0.18);
       }
 
+      .button-primary,
+      button:not(.secondary-button):not(.ghost-button):not(.danger-button):not(.button-secondary):not(.button-outline):not(.button-danger) {
+        --btn-bg: var(--accent);
+        --btn-color: #ffffff;
+        --btn-border: var(--accent);
+        --btn-bg-hover: var(--accent-deep);
+        --btn-color-hover: #ffffff;
+        --btn-border-hover: var(--accent-deep);
+      }
+
       :is(button, a).secondary-button,
+      .button-secondary,
       :is(button, a).ghost-button,
       .inline-link.secondary-button,
       .inline-link.ghost-button {
-        background: rgba(255, 255, 255, 0.96);
-        color: var(--ink);
-        border: 1px solid var(--line);
-        box-shadow: none;
-        font-size: var(--text-body-sm);
-        font-weight: var(--weight-strong);
+        --btn-bg: rgba(255, 255, 255, 0.96);
+        --btn-color: var(--ink);
+        --btn-border: var(--line);
+        --btn-bg-hover: #ffffff;
+        --btn-color-hover: var(--ink);
+        --btn-border-hover: var(--line-strong);
+        --btn-shadow: none;
+        --btn-shadow-hover: none;
       }
 
-      :is(button, a).secondary-button:hover,
-      :is(button, a).ghost-button:hover,
-      .inline-link.secondary-button:hover,
-      .inline-link.ghost-button:hover {
-        background: #ffffff;
-        color: var(--ink);
-        border-color: var(--line-strong);
-        box-shadow: none;
+      :is(button, a).ghost-button,
+      .inline-link.ghost-button,
+      .button-outline {
+        --btn-bg: rgba(255, 255, 255, 0.12);
+        --btn-color: var(--ink);
+        --btn-border: rgba(24, 35, 29, 0.22);
+        --btn-bg-hover: rgba(255, 255, 255, 0.24);
+        --btn-color-hover: var(--ink);
+        --btn-border-hover: rgba(24, 35, 29, 0.28);
       }
 
       a.secondary-button:visited,
@@ -905,21 +981,37 @@
         color: var(--ink);
       }
 
-      .danger-button {
-        background: #9f2f2f;
-        border-color: #9f2f2f;
-        box-shadow: none;
+      :is(button, a).danger-button,
+      .inline-link.danger-button,
+      .button-danger {
+        --btn-bg: #9f2f2f;
+        --btn-color: #ffffff;
+        --btn-border: #9f2f2f;
+        --btn-bg-hover: #862626;
+        --btn-color-hover: #ffffff;
+        --btn-border-hover: #862626;
       }
 
       .danger-button,
+      .inline-link.danger-button,
       .danger-button * {
         color: #ffffff !important;
       }
 
-      .danger-button:hover {
-        background: #862626;
-        border-color: #862626;
-        box-shadow: none;
+      .button-size-small,
+      [data-button-size="small"] {
+        --btn-height: var(--btn-height-sm);
+        --btn-pad-x: var(--btn-pad-x-sm);
+        --btn-pad-y: var(--btn-pad-y-sm);
+        --btn-font-size: var(--btn-font-size-sm);
+      }
+
+      .button-size-large,
+      [data-button-size="large"] {
+        --btn-height: var(--btn-height-lg);
+        --btn-pad-x: var(--btn-pad-x-lg);
+        --btn-pad-y: var(--btn-pad-y-lg);
+        --btn-font-size: var(--btn-font-size-lg);
       }
 
       .inline-link {
@@ -1436,10 +1528,6 @@
 
       .auth-support-card :is(.secondary-button, .ghost-button, .inline-link),
       .auth-card :is(.secondary-button, .ghost-button, .inline-link) {
-        background: rgba(255, 255, 255, 0.98);
-        color: var(--ink);
-        border: 1px solid rgba(18, 63, 47, 0.12);
-        box-shadow: none;
         font-weight: 800;
       }
 
@@ -1452,10 +1540,7 @@
 
       .auth-support-card :is(.secondary-button, .ghost-button, .inline-link):hover,
       .auth-card :is(.secondary-button, .ghost-button, .inline-link):hover {
-        background: rgba(248, 250, 248, 1);
-        color: var(--ink);
-        border-color: rgba(18, 63, 47, 0.18);
-        box-shadow: 0 6px 12px rgba(15, 55, 39, 0.06);
+        box-shadow: none;
       }
 
       .auth-support-card a:is(.secondary-button, .ghost-button):visited,
@@ -1469,15 +1554,11 @@
       .auth-support-card .button-row > a,
       .participant-profile-shell .button-row > button:not(.danger-button),
       .participant-profile-shell .button-row > a {
-        min-height: 46px;
+        --btn-height: var(--btn-height-lg);
+        --btn-pad-x: var(--btn-pad-x-lg);
+        --btn-pad-y: var(--btn-pad-y-lg);
         width: auto;
         max-width: 100%;
-        padding: 10px 18px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.98);
-        color: var(--ink);
-        border: 1px solid rgba(18, 63, 47, 0.12);
-        box-shadow: none;
         font-weight: var(--weight-strong);
         align-self: flex-start;
       }
@@ -1497,10 +1578,7 @@
       .auth-support-card .button-row > a:hover,
       .participant-profile-shell .button-row > button:not(.danger-button):hover,
       .participant-profile-shell .button-row > a:hover {
-        background: rgba(248, 250, 248, 1);
-        color: var(--ink);
-        border-color: rgba(18, 63, 47, 0.18);
-        box-shadow: 0 6px 12px rgba(15, 55, 39, 0.06);
+        box-shadow: none;
       }
 
       .auth-about-card {
@@ -1785,7 +1863,7 @@
       .wrap-row > a,
       .toolbar-row > button,
       .toolbar-row > a {
-        min-height: 42px;
+        min-height: var(--btn-height-md);
       }
 
       .checkbox-row {
@@ -2038,15 +2116,20 @@
       .quick-access-strip > button {
         width: 100%;
         min-width: 0;
-        min-height: 52px;
-        padding-inline: 14px;
+        --btn-height: var(--btn-height-lg);
+        --btn-pad-x: var(--btn-pad-x-lg);
+        --btn-pad-y: var(--btn-pad-y-lg);
       }
 
       .quick-access-button {
-        background: linear-gradient(180deg, var(--accent-bright), var(--accent-deep));
-        color: #ffffff;
-        border-color: rgba(255, 255, 255, 0.08);
-        box-shadow: 0 10px 24px rgba(6, 20, 13, 0.18);
+        --btn-bg: var(--accent);
+        --btn-color: #ffffff;
+        --btn-border: var(--accent);
+        --btn-bg-hover: var(--accent-deep);
+        --btn-color-hover: #ffffff;
+        --btn-border-hover: var(--accent-deep);
+        --btn-shadow: none;
+        --btn-shadow-hover: none;
       }
 
       .quick-access-button,
@@ -2055,19 +2138,19 @@
       }
 
       .quick-access-button:hover {
-        background: linear-gradient(180deg, var(--accent), var(--accent-deep));
-        box-shadow: 0 12px 24px rgba(6, 20, 13, 0.2);
+        box-shadow: none;
       }
 
       .danger-button.quick-access-button {
-        background: linear-gradient(180deg, #b64040, #8b2e2e);
-        border-color: rgba(133, 39, 39, 0.2);
-        box-shadow: 0 8px 20px rgba(133, 39, 39, 0.14);
+        --btn-bg: #9f2f2f;
+        --btn-color: #ffffff;
+        --btn-border: #9f2f2f;
+        --btn-bg-hover: #862626;
+        --btn-border-hover: #862626;
       }
 
       .danger-button.quick-access-button:hover {
-        background: linear-gradient(180deg, #c24c4c, #7d2424);
-        box-shadow: 0 12px 24px rgba(133, 39, 39, 0.18);
+        box-shadow: none;
       }
 
       .overview-panel {
@@ -4983,15 +5066,21 @@
         display: grid;
         gap: 6px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+      }
+
+      .workspace-action-row > * {
+        min-width: 0;
       }
 
       .workspace-action-row .secondary-button,
       .workspace-action-row .danger-button,
       .workspace-danger-row .danger-button,
       .workspace-danger-row .secondary-button {
-        min-height: 42px;
-        padding: 9px 14px;
-        font-size: var(--text-body-sm);
+        --btn-height: var(--btn-height-md);
+        --btn-pad-x: var(--btn-pad-x-md);
+        --btn-pad-y: var(--btn-pad-y-md);
+        --btn-font-size: var(--btn-font-size-md);
       }
 
       .workspace-danger-row {
@@ -6490,7 +6579,10 @@
       .people-directory-card .danger-button,
       .people-directory-card .ghost-button,
       .people-directory-card button {
-        padding: 8px 11px;
+        --btn-height: var(--btn-height-sm);
+        --btn-pad-x: var(--btn-pad-x-sm);
+        --btn-pad-y: var(--btn-pad-y-sm);
+        --btn-font-size: var(--btn-font-size-sm);
       }
 
       .tournament-switch-card,

@@ -19408,8 +19408,8 @@
           control.activeRound ||
           1;
         const primaryActionLabel = control.snapshot.nextUnbuiltRound
-          ? "Generate Draw for Round " + primaryRound
-          : "Open Round Draw";
+          ? "Generate draw for Round " + primaryRound
+          : "Open round draw";
         const sectionState = getFocusedTournamentSectionState(
           tournament,
           feedbackCategories,
@@ -19441,7 +19441,7 @@
                     <button type="button" data-action="set-focused-tournament-section" data-section="draw">${escapeHtml(
                       primaryActionLabel,
                     )}</button>
-                    <button class="secondary-button" type="button" data-action="clear-focused-tournament">Back to Tournament Overview</button>
+                    <button class="secondary-button" type="button" data-action="clear-focused-tournament">Back to tournament overview</button>
                   </div>
                 </div>
                 <div class="workspace-stat-grid workspace-control-room-metrics">
@@ -19477,38 +19477,38 @@
                   <button class="secondary-button" type="button" data-action="toggle-status" data-id="${escapeHtml(
                     tournament.id,
                   )}">${escapeHtml(
-                    tournament.status === "open" ? "Close Tournament" : "Open Tournament",
+                    tournament.status === "open" ? "Close tournament" : "Open tournament",
                   )}</button>
                   <button class="secondary-button" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>${escapeHtml(
                     tournament.publication.showPublicStandings
-                      ? "Hide Public Standings"
-                      : "Show Public Standings",
+                      ? "Hide public standings"
+                      : "Show public standings",
                   )}</span></button>
                 </div>
                 <div class="workspace-action-row">
                   <button class="secondary-button" type="button" data-action="toggle-public-draw" data-id="${escapeHtml(
                     tournament.id,
                   )}"><span>${escapeHtml(
-                    tournament.publication.showPublicDraw ? "Hide Public Draw" : "Show Public Draw",
+                    tournament.publication.showPublicDraw ? "Hide public draw" : "Show public draw",
                   )}</span></button>
                   <button class="secondary-button" type="button" data-action="duplicate-tournament" data-id="${escapeHtml(
                     tournament.id,
-                  )}"><span>Duplicate Template</span></button>
+                  )}"><span>Duplicate template</span></button>
                 </div>
                 <div class="workspace-action-row workspace-action-row-danger">
                   <button class="secondary-button" type="button" data-action="toggle-pin-tournament" data-id="${escapeHtml(
                     tournament.id,
-                  )}"><span>${escapeHtml(pinned ? "Unpin Tournament" : "Pin Tournament")}</span></button>
+                  )}"><span>${escapeHtml(pinned ? "Unpin tournament" : "Pin tournament")}</span></button>
                   ${
                     tournament.status === "archived"
                       ? `<button class="secondary-button" type="button" data-action="restore-tournament" data-id="${escapeHtml(
                           tournament.id,
-                        )}"><span>Restore Tournament</span></button>`
+                        )}"><span>Restore tournament</span></button>`
                       : `<button class="danger-button" type="button" data-action="archive-tournament" data-id="${escapeHtml(
                           tournament.id,
-                        )}"><span>Archive Tournament</span></button>`
+                        )}"><span>Archive tournament</span></button>`
                   }
                 </div>
               </div>
