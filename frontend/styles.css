@@ -966,19 +966,19 @@
       :is(button, a).ghost-button,
       .inline-link.ghost-button,
       .button-outline {
-        --btn-bg: rgba(255, 255, 255, 0.12);
+        --btn-bg: rgba(255, 255, 255, 0.88);
         --btn-color: var(--ink);
-        --btn-border: rgba(24, 35, 29, 0.22);
-        --btn-bg-hover: rgba(255, 255, 255, 0.24);
+        --btn-border: rgba(24, 35, 29, 0.16);
+        --btn-bg-hover: rgba(255, 255, 255, 0.96);
         --btn-color-hover: var(--ink);
-        --btn-border-hover: rgba(24, 35, 29, 0.28);
+        --btn-border-hover: rgba(24, 35, 29, 0.24);
       }
 
       a.secondary-button:visited,
       a.ghost-button:visited,
       a.inline-link.secondary-button:visited,
       a.inline-link.ghost-button:visited {
-        color: var(--ink);
+        color: inherit;
       }
 
       :is(button, a).danger-button,
@@ -993,9 +993,8 @@
       }
 
       .danger-button,
-      .inline-link.danger-button,
-      .danger-button * {
-        color: #ffffff !important;
+      .inline-link.danger-button {
+        color: #ffffff;
       }
 
       .button-size-small,
@@ -1531,13 +1530,6 @@
         font-weight: 800;
       }
 
-      .auth-support-card :is(.secondary-button, .ghost-button, .inline-link),
-      .auth-support-card :is(.secondary-button, .ghost-button, .inline-link) *,
-      .auth-card :is(.secondary-button, .ghost-button, .inline-link),
-      .auth-card :is(.secondary-button, .ghost-button, .inline-link) * {
-        color: var(--ink) !important;
-      }
-
       .auth-support-card :is(.secondary-button, .ghost-button, .inline-link):hover,
       .auth-card :is(.secondary-button, .ghost-button, .inline-link):hover {
         box-shadow: none;
@@ -1569,7 +1561,7 @@
       .auth-support-card .button-row > a *,
       .participant-profile-shell .button-row > button:not(.danger-button) *,
       .participant-profile-shell .button-row > a * {
-        color: var(--ink) !important;
+        color: inherit;
       }
 
       .auth-page .hero-panel .button-row > button:not(.danger-button):hover,
@@ -1966,24 +1958,25 @@
 
       .menu-panel .secondary-button,
       .menu-panel .ghost-button {
-        background: rgba(255, 255, 255, 0.94);
-        color: var(--accent-deep);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        box-shadow: none;
+        --btn-bg: rgba(255, 255, 255, 0.94);
+        --btn-color: var(--accent-deep);
+        --btn-border: rgba(255, 255, 255, 0.18);
+        --btn-bg-hover: #ffffff;
+        --btn-color-hover: var(--accent-deep);
+        --btn-border-hover: rgba(255, 255, 255, 0.28);
+        --btn-shadow: none;
+        --btn-shadow-hover: none;
       }
 
       .menu-panel .secondary-button,
       .menu-panel .ghost-button,
       .menu-panel .secondary-button *,
       .menu-panel .ghost-button * {
-        color: var(--accent-deep) !important;
+        color: inherit;
       }
 
       .menu-panel .secondary-button:hover,
       .menu-panel .ghost-button:hover {
-        background: #ffffff;
-        color: var(--accent-deep);
-        border-color: rgba(255, 255, 255, 0.28);
         box-shadow: none;
       }
 
@@ -2000,7 +1993,7 @@
 
       .menu-panel .theme-switch-pill,
       .menu-panel .theme-switch-pill * {
-        color: var(--accent-deep) !important;
+        color: inherit;
       }
 
       .menu-panel .theme-switch-pill:hover {
@@ -2019,7 +2012,7 @@
 
       .menu-panel .secondary-button.is-active,
       .menu-panel .secondary-button.is-active * {
-        color: #ffffff !important;
+        color: #ffffff;
       }
 
       .menu-welcome-card {
@@ -2134,7 +2127,7 @@
 
       .quick-access-button,
       .quick-access-button * {
-        color: #ffffff !important;
+        color: #ffffff;
       }
 
       .quick-access-button:hover {
@@ -4649,14 +4642,14 @@
       }
 
       .competitor-hero .theme-switch-pill.is-active {
-        background: rgba(33, 112, 79, 0.12);
-        color: var(--accent-deep) !important;
-        border-color: rgba(33, 112, 79, 0.22);
+        background: linear-gradient(180deg, var(--accent-bright), var(--accent-deep));
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.16);
         box-shadow: none;
       }
 
       .competitor-hero .theme-switch-pill.is-active * {
-        color: var(--accent-deep) !important;
+        color: #ffffff !important;
       }
 
       .competitor-hero .theme-switch-pill:not(.is-active),
@@ -5096,17 +5089,17 @@
       }
 
       .workspace-secondary-action {
-        --btn-bg: rgba(255, 255, 255, 0.16);
-        --btn-color: #f6fbf8;
-        --btn-border: rgba(255, 255, 255, 0.26);
-        --btn-bg-hover: rgba(255, 255, 255, 0.24);
-        --btn-color-hover: #ffffff;
-        --btn-border-hover: rgba(255, 255, 255, 0.36);
+        --btn-bg: rgba(255, 255, 255, 0.96);
+        --btn-color: var(--ink);
+        --btn-border: rgba(18, 63, 47, 0.16);
+        --btn-bg-hover: #ffffff;
+        --btn-color-hover: var(--ink);
+        --btn-border-hover: rgba(18, 63, 47, 0.24);
       }
 
       .workspace-secondary-action,
       .workspace-secondary-action * {
-        color: inherit !important;
+        color: inherit;
       }
 
       .workspace-action-row .secondary-button,
