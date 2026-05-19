@@ -5090,7 +5090,6 @@
         --btn-border-hover: rgba(18, 63, 47, 0.24);
       }
 
-      .workspace-secondary-action,
       .workspace-secondary-action * {
         color: inherit;
       }
