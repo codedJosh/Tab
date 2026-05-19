@@ -6997,39 +6997,6 @@
         align-items: start;
       }
 
-      .round-planner-fold {
-        overflow: hidden;
-      }
-
-      .round-planner-fold-summary {
-        cursor: pointer;
-        list-style: none;
-      }
-
-      .round-planner-fold-summary::-webkit-details-marker {
-        display: none;
-      }
-
-      .round-planner-fold-summary .round-planner-card-header {
-        margin: 0;
-      }
-
-      .round-planner-fold-summary .round-planner-card-header::after {
-        content: "▾";
-        margin-left: auto;
-        color: rgba(20, 49, 38, 0.7);
-        font-size: 0.9rem;
-        line-height: 1;
-      }
-
-      .round-planner-fold[open] .round-planner-fold-summary .round-planner-card-header::after {
-        content: "▴";
-      }
-
-      .round-planner-fold-body {
-        margin-top: 6px;
-      }
-
       .round-planner-card-grid label,
       .round-planner-card-notes {
         min-width: 0;

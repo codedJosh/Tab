@@ -315,7 +315,7 @@
         }
         return (
           getFormatStructureGuidance(format) +
-          " Override only the rounds that depart from that default structure, and use the pairing field to mark random versus power-paired in-rounds or folded outrounds."
+          " Override only the rounds that depart from that default structure, and use the pairing field to set each round to Power Paired, Randomised, or Folding."
         );
       }
 
@@ -3988,7 +3988,7 @@
       function getOutroundPairingMethodLabel(value = "") {
         const normalized = normalizeOutroundPairingMethod(value);
         if (normalized === "fold") {
-          return "Folded";
+          return "Folding";
         }
         if (normalized === "random") {
           return "Randomised";
@@ -4092,7 +4092,7 @@
       function getDrawMethodDisplayLabel(tournament, roundProfile = null, value = "auto") {
         const normalized = getResolvedDrawMethod(tournament, roundProfile, value);
         if (normalized === "fold") {
-          return "Folded";
+          return "Folding";
         }
         if (normalized === "random") {
           return "Randomised";
@@ -4605,21 +4605,19 @@
               ${roundProfiles
                 .map(
                   (profile) => `
-                    <details class="round-planner-card round-planner-fold" data-round-planner-row data-round="${escapeHtml(
+                    <article class="round-planner-card" data-round-planner-row data-round="${escapeHtml(
                       profile.round,
-                    )}" ${profile.round === 1 ? "open" : ""}>
-                      <summary class="round-planner-fold-summary">
-                        <div class="round-planner-card-header">
-                          <div class="round-planner-card-title">
-                            <p class="eyebrow">Round ${escapeHtml(profile.round)}</p>
-                            <strong>${escapeHtml(profile.label || "Round " + profile.round)}</strong>
-                          </div>
-                          <span class="mini-pill ${escapeHtml(
-                            isOutroundProfile(profile) ? "warning" : "success",
-                          )}">${escapeHtml(getRoundStageLabel(profile.stage))}</span>
+                    )}">
+                      <div class="round-planner-card-header">
+                        <div class="round-planner-card-title">
+                          <p class="eyebrow">Round ${escapeHtml(profile.round)}</p>
+                          <strong>${escapeHtml(profile.label || "Round " + profile.round)}</strong>
                         </div>
-                      </summary>
-                      <div class="field-grid two round-planner-card-grid round-planner-fold-body">
+                        <span class="mini-pill ${escapeHtml(
+                          isOutroundProfile(profile) ? "warning" : "success",
+                        )}">${escapeHtml(getRoundStageLabel(profile.stage))}</span>
+                      </div>
+                      <div class="field-grid two round-planner-card-grid">
                         <label>
                           Label
                           <input type="text" name="roundLabel-${escapeHtml(
@@ -4676,7 +4674,7 @@
                           )}" value="${escapeHtml(profile.notes)}" placeholder="Optional note" />
                         </label>
                       </div>
-                    </details>
+                    </article>
                   `,
                 )
                 .join("")}
@@ -5998,14 +5996,14 @@
 
       function getRoundPairingMethodOptionMarkup(current = "", autoMethod = "power", stage = "inround") {
         const normalized = normalizeOutroundPairingMethod(current);
-        const isOutround = normalizeRoundStage(stage) === "outround";
         const options = [
           {
             value: "",
             label: "Automatic (" + getOutroundPairingMethodLabel(autoMethod) + ")",
           },
           { value: "power", label: "Power Paired" },
-          ...(isOutround ? [{ value: "fold", label: "Folded" }] : [{ value: "random", label: "Randomised" }]),
+          { value: "random", label: "Randomised" },
+          { value: "fold", label: "Folding" },
         ];
 
         return options
@@ -6029,7 +6027,7 @@
           },
           { value: "random", label: "Randomise" },
           { value: "power", label: "Power Pair" },
-          { value: "fold", label: "Folded" },
+          { value: "fold", label: "Folding" },
         ]
           .map(
             (item) =>
@@ -16066,7 +16064,7 @@
                 <div>
                     <h4>Round-by-round structure planner</h4>
                     <p class="fine-print">
-                      This planner stays tied to the rounds and base structure above, so only the rounds you customise will depart from the tournament default. Use it to mark which rounds are in-rounds, which are outrounds, and whether each round should run random, power-paired, or folded pairings.
+                      This planner stays tied to the rounds and base structure above, so only the rounds you customise will depart from the tournament default. Use it to mark which rounds are in-rounds, which are outrounds, and whether each round should run Power Paired, Randomised, or Folding allocations.
                     </p>
                   </div>
                 <span class="round-plan-badge">${escapeHtml(
