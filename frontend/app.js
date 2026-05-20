@@ -14060,6 +14060,17 @@
                             `,
                           )
                           .join("")}
+                        ${
+                          String(groupLabel || "").trim().toLowerCase() === "settings"
+                            ? `
+                                <button class="menu-nav-link" type="button" data-action="logout">
+                                  <span class="menu-nav-copy">
+                                    <strong>Sign Out</strong>
+                                  </span>
+                                </button>
+                              `
+                            : ""
+                        }
                       </div>
                     </div>
                   `,
@@ -14120,10 +14131,6 @@
                   : ""
               )
               }
-              <div class="menu-shortcut-list">
-                <button class="secondary-button" type="button" data-action="set-view" data-view="settings"><span>Settings</span></button>
-                <button class="ghost-button" type="button" data-action="logout"><span>Sign Out</span></button>
-              </div>
             </div>
           </aside>
         `;
