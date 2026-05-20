@@ -11816,6 +11816,142 @@
         `;
       }
 
+      function getHomeNoticeFeedRecords({
+        email = session.userEmail,
+        capabilities = getWorkspaceCapabilities(email),
+        visibleTournaments = getVisibleTournaments(email),
+        judgeAssignments = capabilities.canJudgeAny ? getJudgeAssignments(email) : [],
+        limit = 8,
+      } = {}) {
+        const normalizedScope = capabilities.canJudgeAny
+          ? "judge"
+          : capabilities.debaterTournaments?.length
+            ? "debater"
+            : "public";
+        const tournamentMap = new Map();
+
+        if (normalizedScope === "judge") {
+          (Array.isArray(judgeAssignments) ? judgeAssignments : []).forEach((assignment) => {
+            const tournament = assignment?.tournament;
+            if (!tournament?.id) return;
+            if (!tournamentMap.has(tournament.id)) {
+              tournamentMap.set(tournament.id, tournament);
+            }
+          });
+        } else if (normalizedScope === "debater") {
+          (Array.isArray(capabilities.debaterTournaments)
+            ? capabilities.debaterTournaments
+            : []
+          ).forEach((tournament) => {
+            if (!tournament?.id) return;
+            if (!tournamentMap.has(tournament.id)) {
+              tournamentMap.set(tournament.id, tournament);
+            }
+          });
+        } else {
+          (Array.isArray(visibleTournaments) ? visibleTournaments : []).forEach((tournament) => {
+            if (!tournament?.id) return;
+            if (!tournamentMap.has(tournament.id)) {
+              tournamentMap.set(tournament.id, tournament);
+            }
+          });
+        }
+
+        const notices = Array.from(tournamentMap.values())
+          .flatMap((tournament) =>
+            getVisibleTournamentNotices(tournament, { scope: normalizedScope }).map((notice) => ({
+              notice,
+              tournament,
+            })),
+          )
+          .sort(
+            (left, right) =>
+              Number(right.notice?.pinned) - Number(left.notice?.pinned) ||
+              Number(right.notice?.createdAtKey || 0) - Number(left.notice?.createdAtKey || 0),
+          );
+
+        const deduped = [];
+        const seen = new Set();
+        notices.forEach((entry) => {
+          const key = String(entry.tournament?.id || "") + ":" + String(entry.notice?.id || "");
+          if (seen.has(key)) return;
+          seen.add(key);
+          deduped.push(entry);
+        });
+        return deduped.slice(0, Math.max(1, Number(limit) || 8));
+      }
+
+      function renderRoleHomeNoticePanel({
+        capabilities = getWorkspaceCapabilities(),
+        visibleTournaments = getVisibleTournaments(),
+        judgeAssignments = capabilities.canJudgeAny ? getJudgeAssignments() : [],
+      } = {}) {
+        const scopeLabel = capabilities.canJudgeAny
+          ? "Judge Notices"
+          : capabilities.debaterTournaments?.length
+            ? "Debater Notices"
+            : "Tournament Notices";
+        const feed = getHomeNoticeFeedRecords({
+          capabilities,
+          visibleTournaments,
+          judgeAssignments,
+          limit: 8,
+        });
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">${escapeHtml(scopeLabel)}</p>
+                <h3>Latest notices for your role</h3>
+              </div>
+              <span class="role-pill">${escapeHtml(feed.length)} live</span>
+            </div>
+            ${
+              feed.length
+                ? `<div class="notice-list">
+                    ${feed
+                      .map(({ notice, tournament }) => {
+                        const openAction = renderTournamentNavigationButton(
+                          tournament,
+                          "Open Tournament",
+                          !canManageTournament(tournament),
+                        );
+                        return `
+                          <article class="notice-item ${escapeHtml(
+                            notice?.pinned ? "pinned" : "",
+                          )}">
+                            <div class="section-heading">
+                              <div>
+                                <strong>${escapeHtml(notice?.title || "Tournament notice")}</strong>
+                                <p class="muted">${escapeHtml(notice?.message || "")}</p>
+                              </div>
+                              <div class="workspace-chip-row">
+                                <span class="mini-pill success">${escapeHtml(
+                                  tournament?.name || "Tournament",
+                                )}</span>
+                                ${
+                                  notice?.round
+                                    ? `<span class="mini-pill warning">${escapeHtml(
+                                        "Round " + notice.round,
+                                      )}</span>`
+                                    : ""
+                                }
+                              </div>
+                            </div>
+                            <div class="button-row wrap-row">
+                              ${openAction}
+                            </div>
+                          </article>
+                        `;
+                      })
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state">No role-specific notices are live right now.</div>`
+            }
+          </section>
+        `;
+      }
+
       function getManagedTournamentSnapshotList(visibleTournaments = getVisibleTournaments()) {
         return (Array.isArray(visibleTournaments) ? visibleTournaments : [])
           .filter((tournament) => canManageTournament(tournament))
@@ -14262,6 +14398,11 @@
                 </article>
               </div>
             </section>
+            ${renderRoleHomeNoticePanel({
+              capabilities,
+              visibleTournaments,
+              judgeAssignments,
+            })}
             ${renderUserAccessLinksSection({
               title: "Your Private Access URL",
               eyebrow: "Private Access",
