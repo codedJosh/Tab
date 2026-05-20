@@ -6033,6 +6033,43 @@
         return Number.isFinite(number) ? number : null;
       }
 
+      function parseFeedbackRating(value, fallback = null, min = 1, max = 10) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) {
+          return fallback;
+        }
+        const rounded = Math.round(number);
+        if (rounded < min || rounded > max) {
+          return fallback;
+        }
+        return rounded;
+      }
+
+      function getFeedbackRatingOptionsMarkup(currentValue = "") {
+        const selectedRating = parseFeedbackRating(currentValue, null, 1, 10);
+        const labels = {
+          10: "Outstanding",
+          9: "Excellent",
+          8: "Very Strong",
+          7: "Strong",
+          6: "Good",
+          5: "Average",
+          4: "Needs Work",
+          3: "Weak",
+          2: "Poor",
+          1: "Unacceptable",
+        };
+        return Array.from({ length: 10 }, (_, index) => 10 - index)
+          .map(
+            (rating) =>
+              `<option value="${rating}" ${selected(
+                rating,
+                selectedRating === null ? 8 : selectedRating,
+              )}>${escapeHtml(rating + " • " + labels[rating])}</option>`,
+          )
+          .join("");
+      }
+
       function formatOrdinal(value) {
         const number = Number(value || 0);
         if (!Number.isFinite(number) || number <= 0) {
@@ -9412,7 +9449,7 @@
           const judgeFeedbackEntries = managerFeedbackEntries.filter(
             (entry) =>
               normalizeEmail(entry.targetEmail) === normalizeEmail(judge.email) &&
-              entry.type === "team_to_judge",
+              ["team_to_chair", "team_to_judge"].includes(String(entry.type || "").trim()),
           );
           const peerFeedbackEntries = managerFeedbackEntries.filter(
             (entry) =>
@@ -9530,7 +9567,7 @@
               judgeFeedbackEntries.length && judgeFeedbackEntries.length >= 2
                 ? judgeFeedbackEntries.reduce((sum, entry) => sum + Number(entry.rating || 0), 0) /
                     judgeFeedbackEntries.length >=
-                  4
+                  8
                   ? "Strong"
                   : "Needs review"
                 : "Building",
@@ -9605,7 +9642,7 @@
         const visibility = String(entry.visibility || "manager_only").trim() || "manager_only";
         return {
           id: String(entry.id || createId("ledger")).trim(),
-          type: String(entry.type || "team_to_judge").trim(),
+          type: String(entry.type || "team_to_chair").trim(),
           tournamentId: String(entry.tournamentId || "").trim(),
           drawId: String(entry.drawId || "").trim(),
           allocationId: String(entry.allocationId || "").trim(),
@@ -9619,7 +9656,7 @@
           participantName: String(entry.participantName || "").trim(),
           teamName: String(entry.teamName || "").trim(),
           institution: String(entry.institution || "").trim(),
-          rating: normalizeOptionalCount(entry.rating, null, 5),
+          rating: normalizeOptionalCount(entry.rating, null, 10),
           note: String(entry.note || "").trim(),
           visibility,
           createdAt: String(entry.createdAt || timestamp()).trim(),
@@ -9752,18 +9789,20 @@
       }
 
       function renderInternalJudgeFeedbackForms(tournament, allocation) {
-        if (!canJudgeAllocationSubmitBallot(tournament, allocation)) {
-          return "";
-        }
         const role = normalizeJudgeAllocationRole(allocation.panelRole, "panelist");
+        const sourceDrawEntry = getDrawEntryById(tournament, allocation.drawId);
+        const callSummary =
+          getDrawOfficialResultSummary(tournament, sourceDrawEntry) ||
+          "No official call has been posted for this room yet.";
         const feedbackTargets =
           role === "chair"
             ? getPeerJudgeAllocationsForRoom(tournament, allocation, "panelist").map((entry) => ({
                 allocation: entry,
                 judge: getJudgeByEmail(tournament, entry.judgeEmail),
                 type: "chair_to_wing",
-                title: "Manager-only wing feedback",
-                prompt: "Share how the wing handled collaboration, reliability, and adjudication quality.",
+                title: "Wing feedback from chair",
+                prompt:
+                  "Score how the wing supported the room call, quality of analysis, and collaboration during deliberation.",
               }))
             : (() => {
                 const chair = getChairAllocationForDrawEntry(tournament, allocation.drawId);
@@ -9775,8 +9814,9 @@
                     allocation: chair,
                     judge: getJudgeByEmail(tournament, chair.judgeEmail),
                     type: "wing_to_chair",
-                    title: "Manager-only chair feedback",
-                    prompt: "Share how the chair handled deliberation, leadership, and ballot quality.",
+                    title: "Chair feedback from wing",
+                    prompt:
+                      "Score the chair call, leadership, and clarity of reasons given during deliberation.",
                   },
                 ];
               })();
@@ -9805,27 +9845,24 @@
                       <span class="mini-pill success">Managers only</span>
                     </div>
                     <p class="fine-print">${escapeHtml(prompt)}</p>
+                    <p class="fine-print">${escapeHtml("Call shown: " + callSummary)}</p>
                     <div class="field-grid two">
                       <label>
-                        Rating
-                        <select name="rating">
-                          <option value="5">5 • Excellent</option>
-                          <option value="4">4 • Strong</option>
-                          <option value="3">3 • Solid</option>
-                          <option value="2">2 • Weak</option>
-                          <option value="1">1 • Poor</option>
+                        Call score (1-10)
+                        <select name="rating" required>
+                          ${getFeedbackRatingOptionsMarkup(8)}
                         </select>
                       </label>
                       <label>
                         Subject
                         <input type="text" name="targetName" value="${escapeHtml(
                           judge?.name || targetAllocation.judgeEmail,
-                        )}" />
+                        )}" readonly />
                       </label>
                     </div>
                     <label>
-                      Feedback
-                      <textarea name="note" rows="3" placeholder="Add concise manager-only feedback."></textarea>
+                      Written feedback on the call (required)
+                      <textarea name="note" rows="3" required placeholder="Explain the quality of the call, reasoning, and adjudication process."></textarea>
                     </label>
                     <button type="submit">Send to managers</button>
                   </form>
@@ -12732,18 +12769,25 @@
         }
 
         return getParticipantDrawEntries(tournament, participant)
-          .flatMap((drawEntry) =>
-            getJudgeAllocationsForTournament(tournament)
-              .filter((allocation) => String(allocation.drawId || "").trim() === String(drawEntry.id || "").trim())
-              .map((allocation) => ({
-                allocation,
-                drawEntry,
-                judge: getJudgeByEmail(tournament, allocation.judgeEmail),
-              })),
-          )
-          .filter(({ allocation }) =>
-            Array.isArray(allocation.participantIds) && allocation.participantIds.includes(participantId),
-          );
+          .map((drawEntry) => {
+            const chairAllocation = getChairAllocationForDrawEntry(tournament, drawEntry.id);
+            if (!chairAllocation) {
+              return null;
+            }
+            if (
+              Array.isArray(chairAllocation.participantIds) &&
+              chairAllocation.participantIds.length &&
+              !chairAllocation.participantIds.includes(participantId)
+            ) {
+              return null;
+            }
+            return {
+              allocation: chairAllocation,
+              drawEntry,
+              judge: getJudgeByEmail(tournament, chairAllocation.judgeEmail),
+            };
+          })
+          .filter(Boolean);
       }
 
       function renderParticipantJudgeFeedbackForms(tournament, participant) {
@@ -12760,7 +12804,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Judge Feedback</p>
-                <h3>Share how the adjudication felt from your team’s side</h3>
+                <h3>Score the chair call for each round</h3>
               </div>
               <span class="role-pill">Manager-only review</span>
             </div>
@@ -12781,27 +12825,28 @@
                       </div>
                       <span class="mini-pill success">Managers only</span>
                     </div>
+                    <p class="fine-print">${escapeHtml(
+                      "Call shown: " +
+                        (getDrawOfficialResultSummary(tournament, drawEntry) ||
+                          "No official call has been posted for this room yet."),
+                    )}</p>
                     <div class="field-grid two">
                       <label>
-                        Rating
-                        <select name="rating">
-                          <option value="5">5 • Excellent</option>
-                          <option value="4">4 • Strong</option>
-                          <option value="3">3 • Solid</option>
-                          <option value="2">2 • Weak</option>
-                          <option value="1">1 • Poor</option>
+                        Call score (1-10)
+                        <select name="rating" required>
+                          ${getFeedbackRatingOptionsMarkup(8)}
                         </select>
                       </label>
                       <label>
                         Team label
                         <input type="text" name="teamName" value="${escapeHtml(
                           participant.teamName || participant.name || "",
-                        )}" />
+                        )}" readonly />
                       </label>
                     </div>
                     <label>
-                      Feedback
-                      <textarea name="note" rows="3" placeholder="What did the adjudication help or hinder?"></textarea>
+                      Written feedback on the call (required)
+                      <textarea name="note" rows="3" required placeholder="Explain why you agreed or disagreed with the chair call and how clear the reasoning felt."></textarea>
                     </label>
                     <button type="submit">Send feedback to managers</button>
                   </form>
@@ -18687,12 +18732,12 @@
                                 ? `<div class="stack">
                                     <span class="fine-print">${escapeHtml(
                                       record.teamFeedbackCount
-                                        ? "Team feedback " + formatScoreValue(record.avgTeamFeedback) + " / 5 across " + record.teamFeedbackCount + " notes"
+                                        ? "Team feedback " + formatScoreValue(record.avgTeamFeedback) + " / 10 across " + record.teamFeedbackCount + " notes"
                                         : "No team feedback yet",
                                     )}</span>
                                     <span class="fine-print">${escapeHtml(
                                       record.peerFeedbackCount
-                                        ? "Peer feedback " + formatScoreValue(record.avgPeerFeedback) + " / 5 across " + record.peerFeedbackCount + " notes"
+                                        ? "Peer feedback " + formatScoreValue(record.avgPeerFeedback) + " / 10 across " + record.peerFeedbackCount + " notes"
                                         : "No chair/wing feedback yet",
                                     )}</span>
                                     <span class="fine-print">${escapeHtml(
@@ -28929,6 +28974,23 @@
           renderApp();
           return;
         }
+        if (normalizeJudgeAllocationRole(allocation.panelRole, "panelist") !== "chair") {
+          setFlash("error", "Debater feedback is only available for the assigned chair.");
+          renderApp();
+          return;
+        }
+        const rating = parseFeedbackRating(formData.get("rating"), null, 1, 10);
+        const note = String(formData.get("note") || "").trim();
+        if (rating === null) {
+          setFlash("error", "Please enter a call score from 1 to 10.");
+          renderApp();
+          return;
+        }
+        if (!note) {
+          setFlash("error", "Please include written feedback about the chair call.");
+          renderApp();
+          return;
+        }
 
         updateTournament(
           tournamentId,
@@ -28936,7 +28998,7 @@
             const judge = getJudgeByEmail(currentTournament, allocation.judgeEmail);
             currentTournament.feedbackLedger = [
               normalizeTournamentFeedbackLedgerEntry({
-                type: "team_to_judge",
+                type: "team_to_chair",
                 tournamentId,
                 drawId: allocation.drawId,
                 allocationId: allocation.id,
@@ -28950,8 +29012,8 @@
                 participantName: participant.name,
                 teamName: String(formData.get("teamName") || participant.teamName || participant.name).trim(),
                 institution: participant.institution,
-                rating: formData.get("rating"),
-                note: formData.get("note"),
+                rating,
+                note,
                 visibility: "manager_only",
               }),
               ...(currentTournament.feedbackLedger || []),
@@ -28994,6 +29056,30 @@
           renderApp();
           return;
         }
+        const rating = parseFeedbackRating(formData.get("rating"), null, 1, 10);
+        const note = String(formData.get("note") || "").trim();
+        if (rating === null) {
+          setFlash("error", "Please enter a call score from 1 to 10.");
+          renderApp();
+          return;
+        }
+        if (!note) {
+          setFlash("error", "Please include written feedback about the call.");
+          renderApp();
+          return;
+        }
+        const sourceRole = normalizeJudgeAllocationRole(allocation.panelRole, "panelist");
+        const targetRole = normalizeJudgeAllocationRole(targetAllocation.panelRole, "panelist");
+        if (
+          (String(feedbackType || "").trim() === "chair_to_wing" &&
+            !(sourceRole === "chair" && targetRole !== "chair")) ||
+          (String(feedbackType || "").trim() === "wing_to_chair" &&
+            !(sourceRole !== "chair" && targetRole === "chair"))
+        ) {
+          setFlash("error", "This feedback flow only supports chair-to-wing or wing-to-chair call reviews.");
+          renderApp();
+          return;
+        }
 
         updateTournament(
           tournamentId,
@@ -29012,8 +29098,8 @@
                 sourceName: sourceJudge?.name || allocation.judgeEmail,
                 targetEmail: targetAllocation.judgeEmail,
                 targetName: String(formData.get("targetName") || targetJudge?.name || targetAllocation.judgeEmail).trim(),
-                rating: formData.get("rating"),
-                note: formData.get("note"),
+                rating,
+                note,
                 visibility: "manager_only",
               }),
               ...(currentTournament.feedbackLedger || []),
