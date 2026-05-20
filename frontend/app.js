@@ -19486,7 +19486,7 @@
         );
         const { sections, active } = sectionState;
         return `
-          <section class="surface focus-workspace workspace-hero">
+          <section class="surface focus-workspace workspace-control-room-shell">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Tournament Control Room</p>
@@ -19542,17 +19542,17 @@
               <div class="workspace-control-room-actions">
                 <p class="eyebrow">Quick Actions</p>
                 <div class="workspace-action-row workspace-action-row-secondary">
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="clear-focused-tournament">Overview</button>
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="close-tournament" data-id="${escapeHtml(
+                  <button class="button-primary workspace-secondary-action" type="button" data-action="clear-focused-tournament">Overview</button>
+                  <button class="button-primary workspace-secondary-action" type="button" data-action="close-tournament" data-id="${escapeHtml(
                     tournament.id,
                   )}" ${tournament.status === "closed" || tournament.status === "archived" ? "disabled" : ""}>Close tournament</button>
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="hide-public-standings" data-id="${escapeHtml(
+                  <button class="button-primary workspace-secondary-action" type="button" data-action="hide-public-standings" data-id="${escapeHtml(
                     tournament.id,
                   )}" ${!tournament.publication.showPublicStandings ? "disabled" : ""}>Hide standings</button>
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="publish-public-standings" data-id="${escapeHtml(
+                  <button class="button-primary workspace-secondary-action" type="button" data-action="publish-public-standings" data-id="${escapeHtml(
                     tournament.id,
                   )}" ${tournament.publication.showPublicStandings ? "disabled" : ""}>Publish standings</button>
-                  <button class="secondary-button workspace-secondary-action" type="button" data-action="pin-tournament" data-id="${escapeHtml(
+                  <button class="button-primary workspace-secondary-action" type="button" data-action="pin-tournament" data-id="${escapeHtml(
                     tournament.id,
                   )}" ${pinned ? "disabled" : ""}>Pin tournament</button>
                   <button class="danger-button button-size-small" type="button" data-action="archive-tournament" data-id="${escapeHtml(
@@ -20247,6 +20247,35 @@
         `;
       }
 
+      function renderTournamentChooserDropdown(
+        tournaments,
+        options = {},
+      ) {
+        const safeTournaments = Array.isArray(tournaments) ? tournaments : [];
+        if (!safeTournaments.length) {
+          return options.emptyMarkup || `<div class="empty-state">No tournaments are visible yet.</div>`;
+        }
+        return `
+          <details class="surface compact-list-drawer tournament-picker-drawer">
+            <summary>
+              <div class="summary-main">
+                <strong>${escapeHtml(options.summaryLabel || "Open tournament list")}</strong>
+                <p class="muted">${escapeHtml(
+                  options.summaryNote || "Choose a tournament to open its workspace.",
+                )}</p>
+              </div>
+              <span class="role-pill">${escapeHtml(safeTournaments.length + " visible")}</span>
+            </summary>
+            <div class="details-content">
+              ${renderTournamentSwitchCollection(safeTournaments, {
+                activeId: options.activeId || "",
+                initialCount: safeTournaments.length,
+              })}
+            </div>
+          </details>
+        `;
+      }
+
       function renderTournamentsView() {
         const capabilities = getWorkspaceCapabilities();
         const activeVisible = getActiveVisibleTournaments();
@@ -20276,15 +20305,17 @@
                 `
                 : `
                   <section class="surface">
-                    <div class="section-heading">
-                      <div>
-                        <p class="eyebrow">Tournaments</p>
-                        <h2>Choose a tournament</h2>
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Tournaments</p>
+                      <h2>Choose a tournament</h2>
                       </div>
                     <span class="role-pill">${escapeHtml(activeVisible.length)} visible</span>
                   </div>
                   ${
-                    renderTournamentSwitchCollection(activeVisible, {
+                    renderTournamentChooserDropdown(activeVisible, {
+                      summaryLabel: "Choose from visible tournaments",
+                      summaryNote: "Tournament cards are grouped in this dropdown for a cleaner list.",
                       emptyMarkup:
                         '<div class="empty-state">No tournaments are visible yet. Public tournaments will appear here.</div>',
                     })
@@ -20315,7 +20346,9 @@
                     <span class="role-pill">${escapeHtml(activeVisible.length)} visible</span>
                   </div>
                   ${
-                    renderTournamentSwitchCollection(activeVisible, {
+                    renderTournamentChooserDropdown(activeVisible, {
+                      summaryLabel: "Choose from visible tournaments",
+                      summaryNote: "Tournament cards are grouped in this dropdown for a cleaner list.",
                       activeId: focusedTournament?.id || "",
                       emptyMarkup:
                         '<div class="empty-state">No tournaments are visible yet. Create one to get started.</div>',

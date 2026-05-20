@@ -1560,7 +1560,7 @@
       }
 
       .auth-support-grid > :last-child {
-        grid-column: 1 / -1;
+        grid-column: auto;
       }
 
       .auth-support-card {
@@ -4882,12 +4882,12 @@
       }
 
       .workspace-secondary-action {
-        --btn-bg: rgba(255, 255, 255, 0.96);
-        --btn-color: var(--ink);
-        --btn-border: rgba(18, 63, 47, 0.16);
-        --btn-bg-hover: #ffffff;
-        --btn-color-hover: var(--ink);
-        --btn-border-hover: rgba(18, 63, 47, 0.24);
+        --btn-bg: var(--accent);
+        --btn-color: #ffffff;
+        --btn-border: var(--accent);
+        --btn-bg-hover: var(--accent-deep);
+        --btn-color-hover: #ffffff;
+        --btn-border-hover: var(--accent-deep);
       }
 
       .workspace-secondary-action * {
@@ -4895,6 +4895,7 @@
       }
 
       .workspace-action-row .secondary-button,
+      .workspace-action-row .button-primary,
       .workspace-action-row .danger-button,
       .workspace-danger-row .danger-button,
       .workspace-danger-row .secondary-button {
@@ -4931,6 +4932,48 @@
 
       .workspace-controls-shell .section-heading {
         margin-bottom: 0;
+      }
+
+      .workspace-control-room-shell {
+        position: relative;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at top right, rgba(225, 191, 67, 0.08), transparent 32%),
+          radial-gradient(circle at 14% 20%, rgba(109, 177, 120, 0.12), transparent 24%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(244, 250, 246, 0.95));
+        color: var(--ink);
+        border: 1px solid rgba(18, 63, 47, 0.1);
+        box-shadow:
+          0 18px 38px rgba(15, 55, 39, 0.08),
+          inset 0 1px 0 rgba(255, 255, 255, 0.76);
+      }
+
+      .workspace-control-room-shell .muted,
+      .workspace-control-room-shell .fine-print,
+      .workspace-control-room-shell .brand-subtitle,
+      .workspace-control-room-shell .eyebrow,
+      .workspace-control-room-shell .hero-copy {
+        color: rgba(20, 49, 38, 0.78);
+        font-weight: 650;
+      }
+
+      .workspace-control-room-shell .role-pill,
+      .workspace-control-room-shell .mini-pill {
+        background: rgba(20, 49, 38, 0.08);
+        color: var(--ink);
+        border-color: rgba(20, 49, 38, 0.14);
+      }
+
+      .workspace-control-room-shell .workspace-control-room-next,
+      .workspace-control-room-shell .workspace-control-room-actions {
+        border-color: rgba(18, 63, 47, 0.12);
+        background: linear-gradient(180deg, rgba(242, 249, 245, 0.94), rgba(235, 246, 240, 0.88));
+      }
+
+      .workspace-control-room-shell .workspace-stat {
+        background: linear-gradient(180deg, rgba(241, 248, 244, 0.95), rgba(235, 246, 240, 0.9));
+        border-color: rgba(18, 63, 47, 0.12);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
       }
 
       .workspace-hero {
@@ -5061,6 +5104,19 @@
 
       .compact-list-drawer .details-content {
         margin-top: 10px;
+      }
+
+      .tournament-picker-drawer {
+        margin-top: 12px;
+        width: 100%;
+      }
+
+      .tournament-picker-drawer > summary {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
       }
 
       .tournament-switch-card {
