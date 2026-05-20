@@ -41,7 +41,11 @@ window.JADE_BACKEND_URL = "https://your-backend-host/api";
 ## Local use
 
 1. Create PostgreSQL and run `schema.sql`
-2. Add `DATABASE_URL`, `JADE_SESSION_SECRET`, and optional `JADE_WORKSPACE_ID`
+2. Add:
+   - required: `DATABASE_URL`, `JADE_SESSION_SECRET`
+   - optional: `JADE_WORKSPACE_ID`
+   - optional email delivery (Resend): `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
+   - optional email behavior: `RESEND_REPLY_TO` (defaults to `jadehummingbird@gmail.com`), `PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES` (defaults to `10`), `PUBLIC_APP_URL`
 3. Run `npm install`
 4. Run `npm run dev` or double-click `start-jade.command`
 5. Open `http://127.0.0.1:8787/`
@@ -54,6 +58,17 @@ Run this before deploys when you want a quick sanity pass:
 ```bash
 npm run check
 ```
+
+## Private URL Email Delivery
+
+When Resend environment variables are configured, JADE now sends account private URL emails on:
+
+- self sign-up
+- debater registration
+- judge registration
+- manager/admin roster updates persisted to the backend
+
+It also supports manual resend from Private Links / People via the `send_private_link_email` backend action.
 
 ## Netlify
 

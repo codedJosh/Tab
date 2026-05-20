@@ -14,6 +14,16 @@ const PORT = Number(process.env.PORT || 8787);
 const DATABASE_URL = String(process.env.DATABASE_URL || "").trim();
 const DATABASE_SSL = String(process.env.DATABASE_SSL || "").trim().toLowerCase();
 const JADE_SESSION_SECRET = String(process.env.JADE_SESSION_SECRET || "").trim();
+const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
+const RESEND_FROM_EMAIL = String(process.env.RESEND_FROM_EMAIL || "").trim();
+const RESEND_REPLY_TO =
+  String(process.env.RESEND_REPLY_TO || "").trim() || "jadehummingbird@gmail.com";
+const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || "").trim();
+const PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES = Math.max(
+  0,
+  Number(process.env.PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES || 10) || 10,
+);
+const PRIVATE_LINK_EMAIL_COOLDOWN_MS = PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES * 60 * 1000;
 const WORKSPACE_ID = String(process.env.JADE_WORKSPACE_ID || "primary").trim() || "primary";
 const WORKSPACE_CONTRACT_VERSION = "2026-04-05-ironclad";
 const REQUIRED_WORKSPACE_ROOT_KEYS = [
@@ -360,6 +370,15 @@ function normalizeTimestampKey(value, fallbackText = "") {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : Date.now();
 }
 
+function normalizeOptionalTimestampKey(value, fallbackText = "") {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return Math.round(numeric);
+  }
+  const parsed = Date.parse(String(fallbackText || "").trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 function normalizeStringList(value, max = 200) {
   if (!Array.isArray(value)) {
     return [];
@@ -372,6 +391,31 @@ function normalizeStringList(value, max = 200) {
         .filter(Boolean),
     ),
   ).slice(0, max);
+}
+
+function normalizePrivateAccessEmailEvents(value = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.entries(value).reduce((events, [rawKey, rawTimestamp]) => {
+    const key = String(rawKey || "").trim().toLowerCase();
+    if (!key) {
+      return events;
+    }
+
+    const numeric = Number(rawTimestamp);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      events[key] = Math.round(numeric);
+      return events;
+    }
+
+    const parsed = Date.parse(String(rawTimestamp || "").trim());
+    if (Number.isFinite(parsed) && parsed > 0) {
+      events[key] = Math.round(parsed);
+    }
+    return events;
+  }, {});
 }
 
 function normalizePermissionEmailList(value = [], max = 400) {
@@ -607,6 +651,12 @@ function normalizeUserRecord(user = {}) {
     ).trim(),
     privateAccessIssuedAt: String(user.privateAccessIssuedAt || createdAt).trim(),
     lastPrivateAccessAt: String(user.lastPrivateAccessAt || "").trim(),
+    privateAccessEmailLastSentAt: String(user.privateAccessEmailLastSentAt || "").trim(),
+    privateAccessEmailLastSentAtKey: normalizeOptionalTimestampKey(
+      user.privateAccessEmailLastSentAtKey,
+      user.privateAccessEmailLastSentAt,
+    ),
+    privateAccessEmailEvents: normalizePrivateAccessEmailEvents(user.privateAccessEmailEvents),
     pinnedTournamentIds: Array.isArray(user.pinnedTournamentIds)
       ? Array.from(new Set(user.pinnedTournamentIds.map((value) => String(value || "").trim()).filter(Boolean))).slice(0, 12)
       : [],
@@ -1240,6 +1290,11 @@ function sendError(response, statusCode, code, message) {
 }
 
 function sendStatePayload(response, statusCode, payload = {}) {
+  const extras = { ...(payload || {}) };
+  delete extras.state;
+  delete extras.revision;
+  delete extras.sessionToken;
+  delete extras.userEmail;
   sendJson(response, statusCode, {
     ok: true,
     initialized: true,
@@ -1247,6 +1302,7 @@ function sendStatePayload(response, statusCode, payload = {}) {
     revision: normalizeWorkspaceRevision(payload.revision),
     ...(payload.sessionToken ? { sessionToken: payload.sessionToken } : {}),
     ...(payload.userEmail ? { userEmail: payload.userEmail } : {}),
+    ...extras,
   });
 }
 
@@ -1397,6 +1453,506 @@ function getUserByAccessToken(state, token) {
     return null;
   }
   return (state?.users || []).find((user) => user.privateAccessToken === target) || null;
+}
+
+function escapeEmailHtml(value = "") {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function resolveRequestOrigin(request) {
+  const originHeader = String(request?.headers?.origin || "").trim();
+  if (originHeader) {
+    try {
+      const parsed = new URL(originHeader);
+      return parsed.origin;
+    } catch (error) {
+      // Ignore invalid origin headers.
+    }
+  }
+
+  const forwardedProto = String(request?.headers?.["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim();
+  const forwardedHost = String(request?.headers?.["x-forwarded-host"] || "")
+    .split(",")[0]
+    .trim();
+  const host = forwardedHost || String(request?.headers?.host || "").trim();
+  if (host) {
+    const protocol = forwardedProto || request?.protocol || "https";
+    return protocol + "://" + host;
+  }
+
+  const refererHeader = String(request?.headers?.referer || "").trim();
+  if (refererHeader) {
+    try {
+      const parsed = new URL(refererHeader);
+      return parsed.origin;
+    } catch (error) {
+      // Ignore invalid referer headers.
+    }
+  }
+
+  return "https://jadehummingbird.org";
+}
+
+function resolvePublicDashboardUrl(request) {
+  const candidate = PUBLIC_APP_URL || resolveRequestOrigin(request);
+  try {
+    const url = new URL(candidate);
+    if (url.pathname.endsWith("/api")) {
+      url.pathname = url.pathname.slice(0, -4) || "/";
+    }
+    if (url.pathname.endsWith("/api/")) {
+      url.pathname = url.pathname.slice(0, -5) || "/";
+    }
+    if (url.pathname.endsWith("/index.html")) {
+      url.pathname = url.pathname.slice(0, -"/index.html".length) || "/";
+    }
+    url.search = "";
+    url.hash = "";
+    return url;
+  } catch (error) {
+    return new URL("https://jadehummingbird.org");
+  }
+}
+
+function buildUserAccessUrl(request, token) {
+  const targetToken = String(token || "").trim();
+  const url = resolvePublicDashboardUrl(request);
+  url.searchParams.delete("token");
+  url.searchParams.delete("screen");
+  url.searchParams.delete("view");
+  url.searchParams.delete("manage");
+  url.searchParams.delete("tab");
+  url.searchParams.delete("section");
+  url.searchParams.delete("access");
+  if (targetToken) {
+    url.searchParams.set("access", targetToken);
+  }
+  return url.toString();
+}
+
+function listRecipientTournamentNames(state, user, tournamentId = "") {
+  const names = new Set();
+  const tournamentMap = new Map(
+    (state?.tournaments || []).map((tournament) => [
+      String(tournament?.id || "").trim(),
+      String(tournament?.name || "").trim(),
+    ]),
+  );
+
+  const explicitTournamentId = String(tournamentId || "").trim();
+  if (explicitTournamentId && tournamentMap.get(explicitTournamentId)) {
+    names.add(tournamentMap.get(explicitTournamentId));
+  }
+
+  (user?.registeredTournamentIds || []).forEach((id) => {
+    const name = tournamentMap.get(String(id || "").trim());
+    if (name) {
+      names.add(name);
+    }
+  });
+
+  return Array.from(names).filter(Boolean).slice(0, 3);
+}
+
+function normalizePrivateAccessEmailReason(reason = "registration") {
+  const key = String(reason || "registration")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return key || "registration";
+}
+
+function getPrivateAccessEmailReasonLabel(reasonKey = "registration") {
+  if (reasonKey === "manual_resend") return "manual resend";
+  if (reasonKey === "participant_registration") return "debater registration";
+  if (reasonKey === "judge_registration") return "judge registration";
+  if (reasonKey === "appointment") return "tournament appointment";
+  if (reasonKey === "sign_up") return "account sign-up";
+  return "registration";
+}
+
+function buildPrivateAccessEmailCopy({ user, accessUrl, tournamentNames = [], reasonKey }) {
+  const recipientName = String(user?.name || "").trim() || "there";
+  const headlineTournament =
+    tournamentNames.length > 0 ? " for " + tournamentNames[0] : "";
+  const reasonLabel = getPrivateAccessEmailReasonLabel(reasonKey);
+  const appName = DEFAULT_BRANDING.appName;
+  const subject =
+    "Your " + appName + " private access URL" + headlineTournament;
+  const tournamentLine = tournamentNames.length
+    ? "Tournament context: " + tournamentNames.join(", ") + "."
+    : "Tournament context will appear in your portal as soon as you are assigned.";
+
+  const text =
+    "Hi " +
+    recipientName +
+    ",\n\n" +
+    "Your private access URL for " +
+    appName +
+    " is ready.\n\n" +
+    accessUrl +
+    "\n\n" +
+    tournamentLine +
+    "\n" +
+    "Reason: " +
+    reasonLabel +
+    ".\n\n" +
+    "If this was not expected, reply to this email and a manager will help.\n";
+
+  const html =
+    "<p>Hi " +
+    escapeEmailHtml(recipientName) +
+    ",</p>" +
+    "<p>Your private access URL for <strong>" +
+    escapeEmailHtml(appName) +
+    "</strong> is ready.</p>" +
+    "<p><a href=\"" +
+    escapeEmailHtml(accessUrl) +
+    "\">Open your private access URL</a></p>" +
+    "<p>" +
+    escapeEmailHtml(tournamentLine) +
+    "<br/>Reason: " +
+    escapeEmailHtml(reasonLabel) +
+    ".</p>" +
+    "<p>If this was not expected, reply to this email and a manager will help.</p>";
+
+  return { subject, text, html };
+}
+
+function markPrivateAccessEmailSent(user, reasonKey, sentAtMs = Date.now()) {
+  const target = user && typeof user === "object" ? user : null;
+  if (!target) {
+    return;
+  }
+  const events = normalizePrivateAccessEmailEvents(target.privateAccessEmailEvents);
+  events[reasonKey] = sentAtMs;
+  target.privateAccessEmailEvents = events;
+  target.privateAccessEmailLastSentAtKey = sentAtMs;
+  target.privateAccessEmailLastSentAt = nowText();
+}
+
+function getPrivateAccessEmailCooldown(user, reasonKey, nowMs = Date.now()) {
+  const lastSentAtKey = Number(user?.privateAccessEmailLastSentAtKey || 0);
+  const reasonHistory = normalizePrivateAccessEmailEvents(user?.privateAccessEmailEvents);
+  const lastReasonAtKey = Number(reasonHistory?.[reasonKey] || 0);
+  const lastSentAt = Math.max(lastSentAtKey, lastReasonAtKey);
+
+  if (PRIVATE_LINK_EMAIL_COOLDOWN_MS <= 0 || lastSentAt <= 0) {
+    return {
+      blocked: false,
+      remainingSeconds: 0,
+    };
+  }
+
+  const elapsedMs = nowMs - lastSentAt;
+  if (elapsedMs >= PRIVATE_LINK_EMAIL_COOLDOWN_MS) {
+    return {
+      blocked: false,
+      remainingSeconds: 0,
+    };
+  }
+
+  const remainingSeconds = Math.max(
+    1,
+    Math.ceil((PRIVATE_LINK_EMAIL_COOLDOWN_MS - elapsedMs) / 1000),
+  );
+  return {
+    blocked: true,
+    remainingSeconds,
+  };
+}
+
+async function sendPrivateAccessEmail({
+  state,
+  user,
+  request,
+  reason = "registration",
+  tournamentId = "",
+  force = false,
+} = {}) {
+  const targetUser = user && typeof user === "object" ? user : null;
+  const email = normalizeEmail(targetUser?.email);
+  const reasonKey = normalizePrivateAccessEmailReason(reason);
+
+  if (!targetUser || !email) {
+    return {
+      email,
+      status: "failed",
+      reason: reasonKey,
+      message: "No valid account was available for private URL email delivery.",
+    };
+  }
+
+  if (targetUser.active === false) {
+    return {
+      email,
+      status: "failed",
+      reason: reasonKey,
+      message: "Private URL email delivery is disabled for inactive accounts.",
+    };
+  }
+
+  const cooldown = getPrivateAccessEmailCooldown(targetUser, reasonKey);
+  if (!force && cooldown.blocked) {
+    return {
+      email,
+      status: "skipped_cooldown",
+      reason: reasonKey,
+      cooldownRemainingSeconds: cooldown.remainingSeconds,
+      message:
+        "Skipped duplicate private URL email because cooldown is active for another " +
+        cooldown.remainingSeconds +
+        " seconds.",
+    };
+  }
+
+  if (!RESEND_API_KEY || !RESEND_FROM_EMAIL) {
+    console.warn(
+      "Private URL email skipped because RESEND_API_KEY or RESEND_FROM_EMAIL is missing.",
+    );
+    return {
+      email,
+      status: "failed",
+      reason: reasonKey,
+      message:
+        "Email delivery is not configured on this backend yet. Account and private URL are still ready.",
+    };
+  }
+
+  if (!String(targetUser.privateAccessToken || "").trim()) {
+    targetUser.privateAccessToken = createId("access");
+    targetUser.privateAccessIssuedAt = nowText();
+  }
+
+  const accessUrl = buildUserAccessUrl(request, targetUser.privateAccessToken);
+  const tournamentNames = listRecipientTournamentNames(state, targetUser, tournamentId);
+  const emailCopy = buildPrivateAccessEmailCopy({
+    user: targetUser,
+    accessUrl,
+    tournamentNames,
+    reasonKey,
+  });
+
+  try {
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + RESEND_API_KEY,
+      },
+      body: JSON.stringify({
+        from: RESEND_FROM_EMAIL,
+        to: [email],
+        subject: emailCopy.subject,
+        text: emailCopy.text,
+        html: emailCopy.html,
+        ...(RESEND_REPLY_TO ? { reply_to: RESEND_REPLY_TO } : {}),
+      }),
+    });
+
+    if (!resendResponse.ok) {
+      let providerMessage = "Email provider rejected the request.";
+      try {
+        const payload = await resendResponse.json();
+        if (payload?.message) {
+          providerMessage = String(payload.message);
+        }
+      } catch (error) {
+        // Keep the default provider message.
+      }
+      console.error(
+        "Private URL email delivery failed:",
+        resendResponse.status,
+        providerMessage,
+      );
+      return {
+        email,
+        status: "failed",
+        reason: reasonKey,
+        message:
+          "Account was saved, but private URL email delivery failed. You can still copy the private URL manually.",
+      };
+    }
+
+    markPrivateAccessEmailSent(targetUser, reasonKey);
+
+    return {
+      email,
+      status: "sent",
+      reason: reasonKey,
+      message: "Private URL email sent successfully.",
+    };
+  } catch (error) {
+    console.error("Private URL email delivery crashed:", error);
+    return {
+      email,
+      status: "failed",
+      reason: reasonKey,
+      message:
+        "Account was saved, but private URL email delivery failed. You can still copy the private URL manually.",
+    };
+  }
+}
+
+function collectPersistPrivateEmailTargets(previousState, nextState) {
+  const previousUsersByEmail = new Map(
+    (previousState?.users || []).map((user) => [normalizeEmail(user.email), user]),
+  );
+  const nextUsersByEmail = new Map(
+    (nextState?.users || []).map((user) => [normalizeEmail(user.email), user]),
+  );
+  const recipients = new Map();
+
+  const registerRecipient = (email, reason, tournamentId = "") => {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return;
+    }
+    if (!nextUsersByEmail.has(normalizedEmail)) {
+      return;
+    }
+    if (!recipients.has(normalizedEmail)) {
+      recipients.set(normalizedEmail, {
+        email: normalizedEmail,
+        reasons: new Set(),
+        tournamentIds: new Set(),
+      });
+    }
+    const entry = recipients.get(normalizedEmail);
+    entry.reasons.add(reason);
+    if (tournamentId) {
+      entry.tournamentIds.add(String(tournamentId).trim());
+    }
+  };
+
+  nextUsersByEmail.forEach((nextUser, email) => {
+    const previousUser = previousUsersByEmail.get(email);
+    if (!previousUser) {
+      registerRecipient(email, "account_created");
+      return;
+    }
+    if (previousUser.active === false && nextUser.active !== false) {
+      registerRecipient(email, "account_reactivated");
+    }
+  });
+
+  const previousTournaments = new Map(
+    (previousState?.tournaments || []).map((tournament) => [
+      String(tournament?.id || "").trim(),
+      tournament,
+    ]),
+  );
+
+  (nextState?.tournaments || []).forEach((tournament) => {
+    const tournamentId = String(tournament?.id || "").trim();
+    if (!tournamentId) {
+      return;
+    }
+    const previousTournament = previousTournaments.get(tournamentId) || null;
+
+    const previousParticipantEmails = new Set(
+      (previousTournament?.participants || [])
+        .map((participant) => normalizeEmail(participant?.email))
+        .filter(Boolean),
+    );
+    (tournament?.participants || []).forEach((participant) => {
+      const participantEmail = normalizeEmail(participant?.email);
+      if (participantEmail && !previousParticipantEmails.has(participantEmail)) {
+        registerRecipient(participantEmail, "participant_registration", tournamentId);
+      }
+    });
+
+    const previousJudgeEmails = new Set(
+      (previousTournament?.judges || [])
+        .map((judge) => normalizeEmail(judge?.email))
+        .filter(Boolean),
+    );
+    (tournament?.judges || []).forEach((judge) => {
+      const judgeEmail = normalizeEmail(judge?.email);
+      if (judgeEmail && !previousJudgeEmails.has(judgeEmail)) {
+        registerRecipient(judgeEmail, "judge_registration", tournamentId);
+      }
+    });
+
+    TOURNAMENT_PERMISSION_KEYS.forEach((key) => {
+      const previousEmails = new Set(
+        (previousTournament?.permissions?.[key] || [])
+          .map((value) => normalizeEmail(value))
+          .filter(Boolean),
+      );
+      (tournament?.permissions?.[key] || []).forEach((value) => {
+        const permissionEmail = normalizeEmail(value);
+        if (permissionEmail && !previousEmails.has(permissionEmail)) {
+          registerRecipient(permissionEmail, "appointment", tournamentId);
+        }
+      });
+    });
+  });
+
+  return Array.from(recipients.values()).map((entry) => ({
+    email: entry.email,
+    reasons: Array.from(entry.reasons),
+    tournamentIds: Array.from(entry.tournamentIds),
+  }));
+}
+
+function pickPersistEmailReason(reasons = []) {
+  const normalizedReasons = new Set(
+    (Array.isArray(reasons) ? reasons : []).map((reason) =>
+      normalizePrivateAccessEmailReason(reason),
+    ),
+  );
+  if (normalizedReasons.has("participant_registration")) return "participant_registration";
+  if (normalizedReasons.has("judge_registration")) return "judge_registration";
+  if (normalizedReasons.has("appointment")) return "appointment";
+  if (normalizedReasons.has("account_reactivated")) return "account_reactivated";
+  if (normalizedReasons.has("account_created")) return "account_created";
+  return "registration";
+}
+
+async function deliverPersistPrivateAccessEmails({ previousState, nextState, request } = {}) {
+  const targets = collectPersistPrivateEmailTargets(previousState, nextState);
+  if (!targets.length) {
+    return [];
+  }
+
+  const notifications = [];
+  targets.forEach((target) => {
+    const user = (nextState?.users || []).find(
+      (entry) => normalizeEmail(entry.email) === normalizeEmail(target.email),
+    );
+    if (!user) {
+      return;
+    }
+    notifications.push({
+      user,
+      reason: pickPersistEmailReason(target.reasons),
+      tournamentId: String(target.tournamentIds[0] || "").trim(),
+    });
+  });
+
+  const results = [];
+  for (const notification of notifications) {
+    // eslint-disable-next-line no-await-in-loop
+    const result = await sendPrivateAccessEmail({
+      state: nextState,
+      user: notification.user,
+      request,
+      reason: notification.reason,
+      tournamentId: notification.tournamentId,
+      force: false,
+    });
+    results.push(result);
+  }
+  return results;
 }
 
 function buildRecoveryRequest(state, email, note = "") {
@@ -1665,6 +2221,7 @@ app.post("/api", async (request, response) => {
 
         const shouldBootstrapManager = !hasSystemAdminAccounts(state);
         const existingUser = state.users.find((user) => user.email === email) || null;
+        let targetUser = null;
         if (existingUser) {
           if (!existingUser.active) {
             const error = new Error("This account has been disabled by the manager.");
@@ -1680,6 +2237,7 @@ app.post("/api", async (request, response) => {
               createdBy: normalizeEmail(email),
               lastLoginAt: nowText(),
             });
+            targetUser = existingUser;
           } else {
             const error = new Error("An account with that email already exists.");
             error.statusCode = 409;
@@ -1693,6 +2251,23 @@ app.post("/api", async (request, response) => {
           });
           user.lastLoginAt = nowText();
           state.users.push(user);
+          targetUser = user;
+        }
+
+        if (!targetUser) {
+          targetUser = state.users.find((user) => user.email === email) || null;
+        }
+
+        const notifications = [];
+        if (targetUser) {
+          notifications.push(
+            await sendPrivateAccessEmail({
+              state,
+              user: targetUser,
+              request,
+              reason: "sign_up",
+            }),
+          );
         }
 
         const nextWorkspace = await writeWorkspaceState(client, state, {
@@ -1703,6 +2278,7 @@ app.post("/api", async (request, response) => {
           state: nextWorkspace.state,
           revision: nextWorkspace.revision,
           sessionToken,
+          notifications,
         };
       });
 
@@ -1758,7 +2334,7 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        ensureRegistrationUser(state, {
+        const registeredUser = ensureRegistrationUser(state, {
           name,
           email,
           password,
@@ -1768,8 +2344,9 @@ app.post("/api", async (request, response) => {
           markLoggedIn: true,
         });
 
+        let teammateUser = null;
         if (teammateEmail) {
-          ensureRegistrationUser(state, {
+          teammateUser = ensureRegistrationUser(state, {
             name: teammateName || teammateEmail,
             email: teammateEmail,
             createdSource: "registered",
@@ -1810,6 +2387,30 @@ app.post("/api", async (request, response) => {
             (teamName ? " under team " + teamName + "." : "."),
         );
 
+        const notifications = [];
+        if (registeredUser) {
+          notifications.push(
+            await sendPrivateAccessEmail({
+              state,
+              user: registeredUser,
+              request,
+              reason: "participant_registration",
+              tournamentId,
+            }),
+          );
+        }
+        if (teammateUser) {
+          notifications.push(
+            await sendPrivateAccessEmail({
+              state,
+              user: teammateUser,
+              request,
+              reason: "participant_registration",
+              tournamentId,
+            }),
+          );
+        }
+
         const savedWorkspace = await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });
@@ -1818,6 +2419,7 @@ app.post("/api", async (request, response) => {
           state: savedWorkspace.state,
           revision: savedWorkspace.revision,
           sessionToken,
+          notifications,
         };
       });
 
@@ -1881,7 +2483,7 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        ensureRegistrationUser(state, {
+        const registeredUser = ensureRegistrationUser(state, {
           name,
           email,
           password,
@@ -1906,6 +2508,19 @@ app.post("/api", async (request, response) => {
           "Registered judge " + name + " for " + tournament.name + ".",
         );
 
+        const notifications = [];
+        if (registeredUser) {
+          notifications.push(
+            await sendPrivateAccessEmail({
+              state,
+              user: registeredUser,
+              request,
+              reason: "judge_registration",
+              tournamentId,
+            }),
+          );
+        }
+
         const savedWorkspace = await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });
@@ -1914,6 +2529,7 @@ app.post("/api", async (request, response) => {
           state: savedWorkspace.state,
           revision: savedWorkspace.revision,
           sessionToken,
+          notifications,
         };
       });
 
@@ -1961,6 +2577,93 @@ app.post("/api", async (request, response) => {
           revision: nextWorkspace.revision,
           sessionToken,
           userEmail: user.email,
+        };
+      });
+
+      sendStatePayload(response, 200, result);
+      return;
+    }
+
+    if (action === "send_private_link_email") {
+      const sessionToken = String(request.body?.sessionToken || "").trim();
+      const targetEmail = normalizeEmail(request.body?.email);
+      const reason = String(request.body?.reason || "manual_resend").trim();
+      const tournamentId = String(request.body?.tournamentId || "").trim();
+      const force = Boolean(request.body?.force);
+
+      const result = await withTransaction(async (client) => {
+        const session = await getSession(client, sessionToken);
+        if (!session) {
+          const error = new Error("Your backend session has expired. Please sign in again.");
+          error.statusCode = 401;
+          error.code = "invalid_session";
+          throw error;
+        }
+
+        const workspace = await readWorkspaceRecord(client);
+        const state = workspace?.state;
+        if (!state) {
+          const error = new Error("The shared backend workspace has not been initialized yet.");
+          error.statusCode = 409;
+          error.code = "workspace_not_initialized";
+          throw error;
+        }
+
+        const actorEmail = normalizeEmail(session.email);
+        const actor = state.users.find((entry) => normalizeEmail(entry.email) === actorEmail);
+        if (!actor || !actor.active) {
+          const error = new Error("This account is no longer allowed to access JADE.");
+          error.statusCode = 403;
+          error.code = "account_disabled";
+          throw error;
+        }
+
+        const canManageAll = isSystemAdmin(state, actorEmail);
+        if (!canManageAll && targetEmail !== actorEmail) {
+          const error = new Error("You can only send your own private URL email.");
+          error.statusCode = 403;
+          error.code = "forbidden_target_email";
+          throw error;
+        }
+
+        const targetUser = state.users.find(
+          (entry) => normalizeEmail(entry.email) === normalizeEmail(targetEmail),
+        );
+        if (!targetUser) {
+          const error = new Error("That account could not be found.");
+          error.statusCode = 404;
+          error.code = "account_not_found";
+          throw error;
+        }
+
+        const notification = await sendPrivateAccessEmail({
+          state,
+          user: targetUser,
+          request,
+          reason,
+          tournamentId,
+          force,
+        });
+
+        let savedWorkspace = {
+          state,
+          revision: workspace.revision,
+        };
+
+        if (notification.status === "sent") {
+          savedWorkspace = await writeWorkspaceState(client, state, {
+            expectedRevision: workspace.revision,
+          });
+        }
+
+        return {
+          state: savedWorkspace.state,
+          revision: savedWorkspace.revision,
+          delivered: notification.status === "sent",
+          skipped: notification.status === "skipped_cooldown",
+          reason: notification.reason,
+          cooldownRemainingSeconds: Number(notification.cooldownRemainingSeconds || 0),
+          notifications: [notification],
         };
       });
 
@@ -2074,12 +2777,19 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
+        const notifications = await deliverPersistPrivateAccessEmails({
+          previousState: currentState,
+          nextState,
+          request,
+        });
+
         const savedWorkspace = await writeWorkspaceState(client, nextState, {
           expectedRevision: expectedRevision || workspace.revision,
         });
         return {
           state: savedWorkspace.state,
           revision: savedWorkspace.revision,
+          notifications,
         };
       });
 

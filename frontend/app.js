@@ -11628,6 +11628,20 @@
         );
       }
 
+      function getPrivateAccessDeliveryWarning(notifications = []) {
+        const entries = Array.isArray(notifications) ? notifications : [];
+        if (!entries.length) {
+          return "";
+        }
+        if (entries.some((entry) => entry?.status === "failed")) {
+          return "A private URL email could not be delivered. The account and private URL still work, and managers can resend from Private links.";
+        }
+        if (entries.some((entry) => entry?.status === "skipped_cooldown")) {
+          return "A private URL email was sent recently, so another send was skipped.";
+        }
+        return "";
+      }
+
       function renderUserAccessLinksSection({
         title = "Private Access URLs",
         eyebrow = "Access Links",
@@ -11680,6 +11694,9 @@
                               <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
                                 user.email,
                               )}">Reset Link</button>
+                              <button class="secondary-button" type="button" data-action="send-user-access-email" data-email="${escapeHtml(
+                                user.email,
+                              )}">Send Email</button>
                             </div>
                           </div>
                         `,
@@ -21330,6 +21347,9 @@
                     <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
                       user.email,
                     )}">Rotate</button>
+                    <button class="secondary-button" type="button" data-action="send-user-access-email" data-email="${escapeHtml(
+                      user.email,
+                    )}">Send Email</button>
                     <button class="${user.active ? "danger-button" : "secondary-button"}" type="button" data-action="toggle-user-active" data-email="${escapeHtml(
                       user.email,
                     )}">${escapeHtml(user.active ? "Disable" : "Enable")}</button>
@@ -24567,7 +24587,14 @@
             clearFlash();
             saveState();
             saveSession();
-            setFlash("success", "Account created and signed in. Your private access URL is now ready.");
+            {
+              const warning = getPrivateAccessDeliveryWarning(result.notifications);
+              setFlash(
+                warning ? "warning" : "success",
+                "Account created and signed in. Your private access URL is now ready." +
+                  (warning ? " " + warning : ""),
+              );
+            }
             renderApp();
             return;
           } catch (error) {
@@ -24984,12 +25011,16 @@
             clearFlash();
             saveState();
             saveSession();
-            setFlash(
-              "success",
-              teammateEmail
-                ? "Team registration saved. Both accounts and private links are now ready."
-                : "Team registration saved. Your access links are ready.",
-            );
+            {
+              const warning = getPrivateAccessDeliveryWarning(result.notifications);
+              setFlash(
+                warning ? "warning" : "success",
+                (teammateEmail
+                  ? "Team registration saved. Both accounts and private links are now ready."
+                  : "Team registration saved. Your access links are ready.") +
+                  (warning ? " " + warning : ""),
+              );
+            }
             renderApp();
             return;
           } catch (error) {
@@ -25143,7 +25174,14 @@
             clearFlash();
             saveState();
             saveSession();
-            setFlash("success", "Judge registration saved. Your access links are ready.");
+            {
+              const warning = getPrivateAccessDeliveryWarning(result.notifications);
+              setFlash(
+                warning ? "warning" : "success",
+                "Judge registration saved. Your access links are ready." +
+                  (warning ? " " + warning : ""),
+              );
+            }
             renderApp();
             return;
           } catch (error) {
@@ -29870,6 +29908,75 @@
 
           if (action === "rotate-user-access-link") {
             rotateUserAccessLink(button.dataset.email);
+            return;
+          }
+
+          if (action === "send-user-access-email") {
+            const targetEmail = normalizeEmail(button.dataset.email);
+            if (!targetEmail) {
+              setFlash("error", "Choose an account before sending a private URL email.");
+              renderApp();
+              return;
+            }
+            if (!canAccessGlobalSettings() && targetEmail !== normalizeEmail(session.userEmail)) {
+              setFlash("error", "You can only send your own private access email.");
+              renderApp();
+              return;
+            }
+            if (!(await probeCloudBackend(true))) {
+              setFlash(
+                "error",
+                requiresSharedBackend()
+                  ? getSharedBackendUnavailableMessage()
+                  : "Email delivery is available only when the shared backend is online.",
+              );
+              renderApp();
+              return;
+            }
+            if (!session.cloudSessionToken) {
+              setFlash("error", "Please sign in again before sending private URL emails.");
+              renderApp();
+              return;
+            }
+
+            try {
+              const result = await callCloud("send_private_link_email", {
+                sessionToken: session.cloudSessionToken,
+                email: targetEmail,
+                reason: "manual_resend",
+                force: true,
+              });
+              if (result?.state) {
+                state = await rehydrateState(result.state);
+                saveState();
+              }
+              const notification = Array.isArray(result?.notifications)
+                ? result.notifications[0]
+                : null;
+              if (notification?.status === "sent") {
+                setFlash("success", "Private access email sent.");
+              } else if (notification?.status === "skipped_cooldown") {
+                setFlash(
+                  "warning",
+                  notification?.message ||
+                    "A private access email was sent recently, so this one was skipped.",
+                );
+              } else {
+                setFlash(
+                  "warning",
+                  notification?.message ||
+                    "Account is ready, but private URL email could not be delivered.",
+                );
+              }
+              saveSession();
+              renderApp();
+            } catch (error) {
+              setFlash(
+                "error",
+                error.message || "Private URL email could not be sent right now.",
+              );
+              renderApp();
+            }
             return;
           }
 
