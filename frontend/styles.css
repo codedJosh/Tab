@@ -5786,10 +5786,16 @@
         align-items: start;
       }
 
-      .draw-studio-left,
-      .draw-studio-right {
-        display: grid;
-        gap: 12px;
+      .draw-studio-layout-primary {
+        grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.9fr);
+      }
+
+      .draw-studio-layout-secondary {
+        grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
+      }
+
+      .draw-publish-shell {
+        align-content: start;
       }
 
       .draw-publish-grid {
@@ -5801,6 +5807,22 @@
       .draw-danger-form {
         padding-top: 8px;
         border-top: 1px solid rgba(20, 49, 38, 0.08);
+      }
+
+      .draw-conflict-panel-compact {
+        gap: 10px;
+      }
+
+      .draw-conflict-panel-compact .notice-list.compact {
+        gap: 8px;
+      }
+
+      .draw-conflict-panel-compact .notice-item {
+        padding: 12px 13px;
+      }
+
+      .draw-conflict-panel-compact .section-heading {
+        margin-bottom: 0;
       }
 
       .smart-insight-shell {
@@ -6648,6 +6670,44 @@
 
       .round-board-table td strong {
         font-size: 0.92rem;
+      }
+
+      .round-board-judge-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .round-board-judge-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      }
+
+      .round-board-judge-name {
+        font-size: var(--text-caption);
+        font-weight: 700;
+        color: var(--ink);
+      }
+
+      .round-board-judge-chip .mini-pill {
+        min-height: 18px;
+        padding: 2px 7px;
+        font-size: 0.64rem;
+      }
+
+      .round-board-judge-more {
+        display: inline-flex;
+        align-items: center;
+        font-size: var(--text-caption);
+        color: var(--muted);
+        font-weight: 700;
+        padding: 2px 4px;
       }
 
       .round-board-action-cell .secondary-button {

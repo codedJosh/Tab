@@ -18700,7 +18700,8 @@
         `;
       }
 
-      function renderConflictReviewPanel(tournament) {
+      function renderConflictReviewPanel(tournament, options = {}) {
+        const compact = Boolean(options.compact);
         const checkItems = [];
         const drawEntries = tournament.draw || [];
         const entriesByRound = new Map();
@@ -18885,8 +18886,11 @@
           ).values(),
         );
 
+        const visibleItems = compact ? dedupedItems.slice(0, 4) : dedupedItems;
+        const remainingCount = Math.max(0, dedupedItems.length - visibleItems.length);
+
         return `
-          <section class="surface draw-conflict-panel">
+          <section class="surface draw-conflict-panel ${compact ? "draw-conflict-panel-compact" : ""}">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Conflict Checker</p>
@@ -18897,10 +18901,10 @@
             ${
               dedupedItems.length
                 ? `<div class="notice-list compact">
-                    ${dedupedItems
+                    ${visibleItems
                       .map(
                         (item) => `
-                          <article class="notice-item">
+                          <article class="notice-item ${compact ? "notice-item-compact" : ""}">
                             <div class="section-heading">
                               <div>
                                 <strong>${escapeHtml(item.label)}</strong>
@@ -18911,7 +18915,7 @@
                               )}">${escapeHtml(item.tone === "danger" ? "High priority" : "Review")}</span>
                             </div>
                             ${
-                              item.actionSection
+                              !compact && item.actionSection
                                 ? `<div class="button-row">
                                     <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="${escapeHtml(
                                       item.actionSection,
@@ -18923,6 +18927,18 @@
                         `,
                       )
                       .join("")}
+                    ${
+                      compact && remainingCount
+                        ? `<p class="fine-print">+${escapeHtml(remainingCount)} more issue${
+                            remainingCount === 1 ? "" : "s"
+                          } detected in this round set.</p>`
+                        : ""
+                    }
+                    ${
+                      compact
+                        ? `<div class="button-row"><button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Draw Lab</button></div>`
+                        : ""
+                    }
                   </div>`
                 : `<div class="empty-state">No conflicts found.</div>`
             }
@@ -19047,7 +19063,7 @@
                     <th>Format</th>
                     <th>Draw</th>
                     <th>Motion</th>
-                    <th>Check-In</th>
+                    <th>Judges</th>
                     <th>Ballots</th>
                     <th>Rooms</th>
                     <th>Conflicts</th>
@@ -19069,12 +19085,65 @@
                     ? summary.published + "/" + totalRooms + " published"
                     : "Awaiting Draw";
                   const motionSummary = getRoundMotionStatus(control).label;
-                  const checkInSummary =
-                    totalRooms ? summary.checkedInEntries + "/" + totalRooms : "0/0";
                   const ballotTarget = canManage ? totalRooms : publicRoomCount;
                   const ballotSummary = ballotTarget
                     ? Math.min(summary.officialBallots, ballotTarget) + "/" + ballotTarget
                     : "0/0";
+                  const sortedAllocations = [...summary.allocations].sort(
+                    (left, right) =>
+                      String(left.room || "").localeCompare(String(right.room || "")) ||
+                      (normalizeJudgeAllocationRole(right.panelRole, "panelist") === "chair" ? 1 : 0) -
+                        (normalizeJudgeAllocationRole(left.panelRole, "panelist") === "chair" ? 1 : 0) ||
+                      String(left.judgeEmail || "").localeCompare(String(right.judgeEmail || "")),
+                  );
+                  const judgeSummaryMarkup = canManage
+                    ? (() => {
+                        if (!sortedAllocations.length) {
+                          return `<span class="muted">No judges assigned</span>`;
+                        }
+                        const visibleAllocations = sortedAllocations.slice(0, 4);
+                        const hiddenCount = Math.max(0, sortedAllocations.length - visibleAllocations.length);
+                        return `
+                          <div class="round-board-judge-list">
+                            ${visibleAllocations
+                              .map((allocation) => {
+                                const judge = getJudgeByEmail(tournament, allocation.judgeEmail);
+                                const isChair =
+                                  normalizeJudgeAllocationRole(allocation.panelRole, "panelist") ===
+                                  "chair";
+                                const roleLabel = isChair
+                                  ? "Chair"
+                                  : normalizeJudgeQualityTier(judge?.qualityTier) === "trainee"
+                                    ? "Trainee"
+                                    : "Wing";
+                                const judgeName = String(
+                                  judge?.name ||
+                                    allocation.judgeEmail ||
+                                    "Judge",
+                                ).trim();
+                                return `
+                                  <span class="round-board-judge-chip">
+                                    <span class="round-board-judge-name">${escapeHtml(judgeName)}</span>
+                                    <span class="mini-pill">${escapeHtml(roleLabel)}</span>
+                                  </span>
+                                `;
+                              })
+                              .join("")}
+                            ${
+                              hiddenCount
+                                ? `<span class="round-board-judge-more">+${escapeHtml(
+                                    hiddenCount,
+                                  )} more</span>`
+                                : ""
+                            }
+                          </div>
+                        `;
+                      })()
+                    : escapeHtml(
+                        summary.allocations.length
+                          ? summary.allocations.length + " assigned"
+                          : "No judges assigned",
+                      );
                   const conflictsLabel = conflictSummary.total
                     ? String(conflictSummary.total)
                     : "None";
@@ -19104,7 +19173,7 @@
                       <td>${escapeHtml(getRoundFormatDisplayLabel(tournament, profile, { includeInheritance: false }))}</td>
                       <td>${escapeHtml(drawSummary)}</td>
                       <td>${escapeHtml(motionSummary)}</td>
-                      <td>${escapeHtml(checkInSummary)}</td>
+                      <td>${judgeSummaryMarkup}</td>
                       <td>${escapeHtml(ballotSummary)}</td>
                       <td>${escapeHtml(visibleRooms)}</td>
                       <td>
@@ -19144,152 +19213,152 @@
               </div>
               <span class="role-pill">${escapeHtml(getRoundStructureSummary(tournament))}</span>
             </div>
-            <div class="draw-studio-layout">
-              <div class="draw-studio-left">
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Draw Builder</p>
-                      <h3>Build pairings for the selected round</h3>
-                    </div>
-                    <span class="mini-pill ${escapeHtml(
-                      isOutroundProfile(suggestedRoundProfile) ? "warning" : "success",
-                    )}">${escapeHtml(getRoundStageLabel(suggestedRoundProfile.stage))}</span>
+            <div class="draw-studio-layout draw-studio-layout-primary">
+              <section class="surface">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Draw Builder</p>
+                    <h3>Build pairings for the selected round</h3>
                   </div>
-                  <form class="stack" data-form="generate-draw" data-id="${escapeHtml(
-                    tournament.id,
-                  )}">
-                    <div class="field-grid three">
-                      <label>
-                        Selected Round
-                        <select name="round">${getRoundOptionMarkup(
-                          tournament,
-                          suggestedRound,
-                        )}</select>
-                      </label>
-                      <label>
-                        Draw Method
-                        <select name="method">${getDrawMethodOptionMarkup(suggestedMethod, {
-                          autoMethod: getResolvedDrawMethod(
-                            tournament,
-                            suggestedRoundProfile,
-                            "auto",
-                          ),
-                        })}</select>
-                      </label>
-                      <label>
-                        Teams Per Room
-                        <input type="number" min="1" max="8" name="teamsPerRoom" placeholder="Use round default" />
-                      </label>
-                    </div>
-                    <div class="field-grid three">
-                      <label>
-                        Room Prefix
-                        <input type="text" name="roomPrefix" value="Room" />
-                      </label>
-                      <label>
-                        Starting Room Number
-                        <input type="number" min="1" name="roomStart" value="1" />
-                      </label>
-                      <label class="checkbox-row">
-                        <input type="checkbox" name="releaseNow" checked />
-                        <span>Publish immediately</span>
-                      </label>
-                    </div>
-                    <p class="fine-print" data-draw-round-stage-note>${escapeHtml(
-                      getDrawGenerationFormStageNote(
-                        tournament,
-                        suggestedRoundProfile,
-                        "auto",
-                      ),
-                    )}</p>
-                    <div class="button-row wrap-row">
-                      <button type="submit">Generate Draw</button>
-                      <button class="secondary-button" type="submit" name="intent" value="preview">Preview Draw</button>
-                    </div>
-                  </form>
-                </section>
-
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Manual Room Editor</p>
-                      <h3>Add or adjust a single room</h3>
-                    </div>
-                  </div>
-                  <form class="stack" data-form="add-draw" data-id="${escapeHtml(
-                    tournament.id,
-                  )}">
-                    <div class="field-grid three">
-                      <label>
-                        Round
-                        <select name="round">${getRoundOptionMarkup(
-                          tournament,
-                          latestRound || 1,
-                        )}</select>
-                      </label>
-                      <label>
-                        Room
-                        <input type="text" name="room" placeholder="Room or venue" required />
-                      </label>
-                      <label>
-                        Status
-                        <input type="text" name="status" value="Draft" required />
-                      </label>
-                      <label>
-                        Priority
-                        <select name="priority">${getRoomPriorityOptionsMarkup(3)}</select>
-                      </label>
-                    </div>
+                  <span class="mini-pill ${escapeHtml(
+                    isOutroundProfile(suggestedRoundProfile) ? "warning" : "success",
+                  )}">${escapeHtml(getRoundStageLabel(suggestedRoundProfile.stage))}</span>
+                </div>
+                <form class="stack" data-form="generate-draw" data-id="${escapeHtml(
+                  tournament.id,
+                )}">
+                  <div class="field-grid three">
                     <label>
-                      Matchup
-                      <input type="text" name="matchup" placeholder="Team A vs Team B" required />
+                      Selected Round
+                      <select name="round">${getRoundOptionMarkup(
+                        tournament,
+                        suggestedRound,
+                      )}</select>
                     </label>
-                    <button type="submit">Add Manual Room</button>
+                    <label>
+                      Draw Method
+                      <select name="method">${getDrawMethodOptionMarkup(suggestedMethod, {
+                        autoMethod: getResolvedDrawMethod(
+                          tournament,
+                          suggestedRoundProfile,
+                          "auto",
+                        ),
+                      })}</select>
+                    </label>
+                    <label>
+                      Teams Per Room
+                      <input type="number" min="1" max="8" name="teamsPerRoom" placeholder="Use round default" />
+                    </label>
+                  </div>
+                  <div class="field-grid three">
+                    <label>
+                      Room Prefix
+                      <input type="text" name="roomPrefix" value="Room" />
+                    </label>
+                    <label>
+                      Starting Room Number
+                      <input type="number" min="1" name="roomStart" value="1" />
+                    </label>
+                    <label class="checkbox-row">
+                      <input type="checkbox" name="releaseNow" checked />
+                      <span>Publish immediately</span>
+                    </label>
+                  </div>
+                  <p class="fine-print" data-draw-round-stage-note>${escapeHtml(
+                    getDrawGenerationFormStageNote(
+                      tournament,
+                      suggestedRoundProfile,
+                      "auto",
+                    ),
+                  )}</p>
+                  <div class="button-row wrap-row">
+                    <button type="submit">Generate Draw</button>
+                    <button class="secondary-button" type="submit" name="intent" value="preview">Preview Draw</button>
+                  </div>
+                </form>
+              </section>
+
+              <section class="surface draw-publish-shell">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Publish Controls</p>
+                    <h3>Release or reset selected rounds</h3>
+                  </div>
+                </div>
+                <div class="draw-publish-grid">
+                  <form class="stack" data-form="release-draw-round" data-id="${escapeHtml(
+                    tournament.id,
+                  )}">
+                    <label>
+                      Round
+                      <select name="round">${getRoundOptionMarkup(
+                        tournament,
+                        latestRound || 1,
+                      )}</select>
+                    </label>
+                    <button type="submit">Publish Selected Round</button>
                   </form>
-                </section>
-              </div>
 
-              <div class="draw-studio-right">
-                ${renderRoundControlBoard(tournament, true, true, true)}
-                ${renderConflictReviewPanel(tournament)}
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Publish Controls</p>
-                      <h3>Release or reset selected rounds</h3>
-                    </div>
-                  </div>
-                  <div class="draw-publish-grid">
-                    <form class="stack" data-form="release-draw-round" data-id="${escapeHtml(
-                      tournament.id,
-                    )}">
-                      <label>
-                        Round
-                        <select name="round">${getRoundOptionMarkup(
-                          tournament,
-                          latestRound || 1,
-                        )}</select>
-                      </label>
-                      <button type="submit">Publish Selected Round</button>
-                    </form>
-
-                    <form class="stack draw-danger-form" data-form="clear-draw-round" data-id="${escapeHtml(
-                      tournament.id,
-                    )}">
-                      <label>
-                        Round
-                        <select name="round">${getRoundOptionMarkup(
-                          tournament,
-                          latestRound || 1,
-                        )}</select>
-                      </label>
-                      <button class="danger-button" type="submit">Reset Selected Round</button>
-                    </form>
-                  </div>
-                </section>
-              </div>
+                  <form class="stack draw-danger-form" data-form="clear-draw-round" data-id="${escapeHtml(
+                    tournament.id,
+                  )}">
+                    <label>
+                      Round
+                      <select name="round">${getRoundOptionMarkup(
+                        tournament,
+                        latestRound || 1,
+                      )}</select>
+                    </label>
+                    <button class="danger-button" type="submit">Reset Selected Round</button>
+                  </form>
+                </div>
+              </section>
             </div>
+
+            <div class="draw-studio-layout draw-studio-layout-secondary">
+              <section class="surface">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Manual Room Editor</p>
+                    <h3>Add or adjust a single room</h3>
+                  </div>
+                </div>
+                <form class="stack" data-form="add-draw" data-id="${escapeHtml(
+                  tournament.id,
+                )}">
+                  <div class="field-grid three">
+                    <label>
+                      Round
+                      <select name="round">${getRoundOptionMarkup(
+                        tournament,
+                        latestRound || 1,
+                      )}</select>
+                    </label>
+                    <label>
+                      Room
+                      <input type="text" name="room" placeholder="Room or venue" required />
+                    </label>
+                    <label>
+                      Status
+                      <input type="text" name="status" value="Draft" required />
+                    </label>
+                    <label>
+                      Priority
+                      <select name="priority">${getRoomPriorityOptionsMarkup(3)}</select>
+                    </label>
+                  </div>
+                  <label>
+                    Matchup
+                    <input type="text" name="matchup" placeholder="Team A vs Team B" required />
+                  </label>
+                  <button type="submit">Add Manual Room</button>
+                </form>
+              </section>
+
+              ${renderConflictReviewPanel(tournament, { compact: true })}
+            </div>
+
+            ${renderRoundControlBoard(tournament, true, true, true)}
             <section class="surface">
               <div class="section-heading">
                 <div>
