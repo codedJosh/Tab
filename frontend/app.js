@@ -13184,12 +13184,14 @@
           {
             title: "I am a tabber",
             body: "Open a tournament and manage rounds, rooms, and results.",
-            actionMarkup: '<a href="#auth-sign-in">Open Tournament</a>',
+            actionMarkup:
+              '<a class="secondary-button inline-link" href="#auth-sign-in">Open Tournament</a>',
           },
           {
             title: "I am a judge",
             body: "Go to your judging workspace and submit ballots.",
-            actionMarkup: '<a href="#auth-sign-in">Submit Ballot</a>',
+            actionMarkup:
+              '<a class="secondary-button inline-link" href="#auth-sign-in">Submit Ballot</a>',
           },
           {
             title: "I am a debater",
@@ -13223,7 +13225,7 @@
                         </p>
                       </div>
                       <div class="button-row wrap-row public-cta-row">
-                        <a href="#auth-sign-in">Open Tournament</a>
+                        <a class="button-primary inline-link" href="#auth-sign-in">Open Tournament</a>
                         <button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View Public Results</button>
                       </div>
                       <div class="kpi-line public-hero-tags">

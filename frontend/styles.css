@@ -41,7 +41,7 @@
         --button-bottom: var(--accent-deep);
         --button-hover-top: var(--accent);
         --button-hover-bottom: var(--accent-deep);
-        --btn-radius: 999px;
+        --btn-radius: 12px;
         --btn-font-size-sm: 0.82rem;
         --btn-font-size-md: var(--text-body-sm);
         --btn-font-size-lg: 0.96rem;
@@ -784,7 +784,7 @@
         justify-self: center;
         min-height: 40px;
         padding: 9px 14px;
-        border-radius: 999px;
+        border-radius: var(--btn-radius);
         border: 1px solid rgba(255, 255, 255, 0.18);
         background: rgba(255, 255, 255, 0.08);
         color: rgba(244, 249, 245, 0.92);
@@ -2878,7 +2878,7 @@
       }
 
       .roster-speaker-layout .registration-speaker-card .roster-private-link {
-        border-radius: 999px;
+        border-radius: var(--btn-radius);
         background: rgba(255, 255, 255, 0.98);
         color: var(--ink);
         border: 1px solid rgba(18, 63, 47, 0.12);
@@ -2925,7 +2925,7 @@
         gap: 8px;
         min-height: 34px;
         padding: 6px 12px;
-        border-radius: 999px;
+        border-radius: var(--btn-radius);
         border: 1px solid rgba(18, 63, 47, 0.12);
         background: rgba(255, 255, 255, 0.96);
         font-size: var(--text-caption);
@@ -4845,7 +4845,7 @@
         border-radius: 16px;
         border: 1px solid rgba(255, 255, 255, 0.14);
         background: rgba(255, 255, 255, 0.08);
-        --btn-radius: 11px;
+        --btn-radius: 12px;
         --btn-height: 34px;
         --btn-pad-x: 10px;
         --btn-pad-y: 6px;
@@ -5050,7 +5050,7 @@
         gap: 8px;
         min-height: 34px;
         padding: 8px 12px;
-        border-radius: 999px;
+        border-radius: var(--btn-radius);
         border: 1px solid rgba(18, 63, 47, 0.12);
         background: rgba(255, 255, 255, 0.96);
       }
@@ -5126,7 +5126,7 @@
         border: 1px solid rgba(18, 63, 47, 0.12);
         background: rgba(255, 255, 255, 0.92);
         color: var(--accent-deep);
-        border-radius: 999px;
+        border-radius: var(--btn-radius);
         padding: 7px 11px;
         font-size: var(--text-overline);
         font-weight: var(--weight-heavy);
@@ -5364,7 +5364,7 @@
         align-items: center;
         gap: 8px;
         padding: 6px 10px;
-        border-radius: 999px;
+        border-radius: var(--btn-radius);
         background: rgba(31, 106, 78, 0.08);
         color: var(--accent-deep);
         font-size: var(--text-overline);
@@ -5375,7 +5375,7 @@
         display: inline-flex;
         align-items: center;
         padding: 6px 10px;
-        border-radius: 999px;
+        border-radius: var(--btn-radius);
         border: 1px solid rgba(18, 63, 47, 0.12);
         background: rgba(20, 49, 38, 0.04);
         font-size: var(--text-overline);
@@ -5538,7 +5538,7 @@
         align-items: center;
         gap: 8px;
         padding: 6px 10px;
-        border-radius: 999px;
+        border-radius: var(--btn-radius);
         background: rgba(31, 106, 78, 0.08);
         color: var(--accent-deep);
         font-size: var(--text-overline);
@@ -6210,7 +6210,7 @@
       .collection-filter {
         min-height: 34px;
         padding: 7px 12px;
-        border-radius: 999px;
+        border-radius: var(--btn-radius);
         border: 1px solid rgba(20, 49, 38, 0.09);
         background: rgba(20, 49, 38, 0.03);
         color: rgba(26, 59, 47, 0.78);
@@ -6281,7 +6281,7 @@
         justify-content: center;
         min-height: 34px;
         padding: 7px 12px;
-        border-radius: 999px;
+        border-radius: var(--btn-radius);
         background: rgba(20, 49, 38, 0.05);
         border: 1px solid rgba(20, 49, 38, 0.08);
         color: var(--ink);
