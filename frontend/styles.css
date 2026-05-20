@@ -5782,16 +5782,23 @@
       .draw-studio-layout {
         display: grid;
         gap: 12px;
-        grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
-        align-items: start;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
       }
 
       .draw-studio-layout-primary {
-        grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.9fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .draw-studio-layout-secondary {
-        grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .draw-studio-layout > .surface,
+      .draw-studio-layout > .draw-conflict-panel {
+        display: grid;
+        align-content: start;
+        min-height: 100%;
       }
 
       .draw-publish-shell {

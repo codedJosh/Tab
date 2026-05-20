@@ -628,6 +628,7 @@
           selectedTournamentId: "",
           selectedTournamentBoardTab: "overview",
           focusedTournamentSection: "control",
+          resultsStudioView: "overview",
           recentTournamentIds: [],
           recentViewKeys: [],
           recentParticipantKeys: [],
@@ -834,6 +835,7 @@
           focusedTournamentSection:
             String(record.focusedTournamentSection || "control").trim().toLowerCase() ||
             "control",
+          resultsStudioView: normalizeResultsStudioView(record.resultsStudioView),
           recentTournamentIds: normalizeStringList(record.recentTournamentIds, 8),
           recentViewKeys: normalizeStringList(record.recentViewKeys, 8),
           recentParticipantKeys: normalizeStringList(record.recentParticipantKeys, 8),
@@ -851,6 +853,14 @@
           return normalized;
         }
         return "hub";
+      }
+
+      function normalizeResultsStudioView(value = "") {
+        const normalized = String(value || "overview").trim().toLowerCase();
+        if (["overview", "teams", "speakers", "institutions", "breaks"].includes(normalized)) {
+          return normalized;
+        }
+        return "overview";
       }
 
       function normalizePeopleDirectoryFilter(value = "") {
@@ -2913,7 +2923,7 @@
         }
 
         if (capabilities.canViewLinks) {
-          items.push({ key: "links", label: "Results & Links", count: stats.privateLinks, group: "Publication" });
+          items.push({ key: "links", label: "Private Links", count: stats.privateLinks, group: "Publication" });
         }
 
         if (capabilities.canViewSettings) {
@@ -2984,6 +2994,7 @@
         session.selectedTournamentId = "";
         session.selectedTournamentBoardTab = "overview";
         session.focusedTournamentSection = "control";
+        session.resultsStudioView = "overview";
         session.selectedParticipantKey = "";
         session.peopleSection = "hub";
         session.selectedPeopleEmail = "";
@@ -11324,6 +11335,7 @@
             session.selectedTournamentId = "";
             session.selectedTournamentBoardTab = "overview";
             session.focusedTournamentSection = "control";
+            session.resultsStudioView = "overview";
             session.selectedParticipantKey = "";
           }
           return false;
@@ -11358,11 +11370,13 @@
           session.focusedTournamentSection =
             String(url.searchParams.get("section") || "control").trim().toLowerCase() ||
             "control";
+          session.resultsStudioView = normalizeResultsStudioView(session.resultsStudioView);
         } else {
           session.managedTournamentId = "";
           session.selectedTournamentId = "";
           session.selectedTournamentBoardTab = "overview";
           session.focusedTournamentSection = "control";
+          session.resultsStudioView = "overview";
         }
 
         if (session.view === "search") {
@@ -19397,6 +19411,176 @@
         const standings = getComputedStandings(tournament);
         const speakerStandings = getSpeakerStandings(tournament);
         const teamPointStandings = usesTeamPointStandings(tournament);
+        const resultsView = normalizeResultsStudioView(session.resultsStudioView);
+        if (session.resultsStudioView !== resultsView) {
+          session.resultsStudioView = resultsView;
+        }
+
+        const resultsViewOptions = [
+          {
+            key: "overview",
+            label: "Overview",
+            badge: "Summary",
+          },
+          {
+            key: "teams",
+            label: teamPointStandings ? "Team board" : "Standings board",
+            badge: standings.length + " ranked",
+          },
+          {
+            key: "speakers",
+            label: "Speaker board",
+            badge: speakerStandings.length + " speakers",
+          },
+          {
+            key: "institutions",
+            label: "Institution board",
+            badge: "Breakdown",
+          },
+          {
+            key: "breaks",
+            label: "Break board",
+            badge: "Projection",
+          },
+        ];
+
+        const overviewPanelMarkup = `
+          <div class="stack">
+            <div class="alert info">
+              These boards now update automatically from judge ballots. Judges submit speaker scores by room, and the app recalculates standings and speaker rankings for you.
+            </div>
+            ${renderBreakProjectionPanel(tournament, {
+              showEmpty: true,
+            })}
+            ${renderBreakBoardPanel(tournament, {
+              showEmpty: true,
+            })}
+            <div class="leaderboard-grid">
+              <div class="leaderboard-card">
+                <div class="section-heading">
+                  <h3>${escapeHtml(
+                    teamPointStandings ? "Top Team Board" : "Top Standings",
+                  )}</h3>
+                </div>
+                ${
+                  standings.length
+                    ? `<div class="leaderboard-list">
+                        ${standings
+                          .slice(0, 5)
+                          .map(
+                            (standing) => `
+                              <div class="leaderboard-row">
+                                <div class="button-row">
+                                  <span class="leaderboard-rank">${escapeHtml(
+                                    standing.rank || "",
+                                  )}</span>
+                                  <strong>${escapeHtml(
+                                    getStandingDisplayName(tournament, standing, {
+                                      forcePrivate: true,
+                                    }),
+                                  )}</strong>
+                                </div>
+                                <span class="muted">${escapeHtml(getStandingSummaryText(tournament, standing))}</span>
+                              </div>
+                            `,
+                          )
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">Team standings will appear once judge ballots are submitted.</div>`
+                }
+              </div>
+              <div class="leaderboard-card">
+                <div class="section-heading">
+                  <h3>Top Speaker Board</h3>
+                </div>
+                ${
+                  speakerStandings.length
+                    ? `<div class="leaderboard-list">
+                        ${speakerStandings
+                          .slice(0, 5)
+                          .map(
+                            (participant) => `
+                              <div class="leaderboard-row">
+                                <div class="speaker-score-cell">
+                                  <div class="button-row">
+                                    <span class="leaderboard-rank">${escapeHtml(
+                                      participant.speakerRank || "",
+                                    )}</span>
+                                    <strong>${escapeHtml(participant.name)}</strong>
+                                  </div>
+                                  <span class="muted">${escapeHtml(
+                                    participant.teamName
+                                      ? participant.teamName +
+                                          (participant.institution
+                                            ? " • " + participant.institution
+                                            : "")
+                                      : participant.institution || "Individual",
+                                  )}</span>
+                                  ${renderSpeakerScoreBreakdownMarkup(participant)}
+                                </div>
+                                <div class="speaker-score-cell">
+                                  ${renderSpeakerScoreSummaryMarkup(participant)}
+                                  ${renderParticipantProfileButton(
+                                    participant,
+                                    "Open Profile",
+                                    true,
+                                  )}
+                                </div>
+                              </div>
+                            `,
+                          )
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">Speaker rankings will appear once judge ballots are submitted.</div>`
+                }
+              </div>
+            </div>
+          </div>
+        `;
+
+        const teamsPanelMarkup = `
+          <section class="flat-panel stack">
+            <div class="section-heading">
+              <h3>${escapeHtml(
+                teamPointStandings ? "Team Standings" : "Standings Board",
+              )}</h3>
+            </div>
+            ${renderStandingsTable(tournament, true, true)}
+          </section>
+        `;
+
+        const speakersPanelMarkup = `
+          <section class="flat-panel stack">
+            <div class="section-heading">
+              <h3>Speaker Rankings</h3>
+            </div>
+            ${renderSpeakerStandingsTable(tournament)}
+          </section>
+        `;
+
+        const institutionsPanelMarkup = `
+          ${renderInstitutionDashboardPanel(tournament)}
+        `;
+
+        const breaksPanelMarkup = `
+          <div class="stack">
+            ${renderBreakProjectionPanel(tournament, {
+              showEmpty: true,
+            })}
+            ${renderBreakBoardPanel(tournament, {
+              showEmpty: true,
+            })}
+          </div>
+        `;
+
+        const resultsViewContent = {
+          overview: overviewPanelMarkup,
+          teams: teamsPanelMarkup,
+          speakers: speakersPanelMarkup,
+          institutions: institutionsPanelMarkup,
+          breaks: breaksPanelMarkup,
+        };
+
         return `
           <section class="surface">
             <div class="section-heading">
@@ -19412,111 +19596,34 @@
                   : "Individual standings",
               )}</span>
             </div>
+            <div class="button-row wrap-row">
+              ${resultsViewOptions
+                .map(
+                  (option) => `
+                    <button
+                      class="${option.key === resultsView ? "button-primary" : "secondary-button"}"
+                      type="button"
+                      data-action="set-results-studio-view"
+                      data-view="${escapeHtml(option.key)}"
+                    >
+                      ${escapeHtml(option.label)}
+                    </button>
+                  `,
+                )
+                .join("")}
+            </div>
+            <div class="section-heading">
+              <h3>${escapeHtml(
+                resultsViewOptions.find((option) => option.key === resultsView)?.label ||
+                  "Overview",
+              )}</h3>
+              <span class="role-pill">${escapeHtml(
+                resultsViewOptions.find((option) => option.key === resultsView)?.badge ||
+                  "Summary",
+              )}</span>
+            </div>
             <div class="stack">
-              <div class="alert info">
-                These boards now update automatically from judge ballots. Judges submit speaker scores by room, and the app recalculates standings and speaker rankings for you.
-              </div>
-              ${renderBreakProjectionPanel(tournament, {
-                showEmpty: true,
-              })}
-              ${renderBreakBoardPanel(tournament, {
-                showEmpty: true,
-              })}
-              <div class="leaderboard-grid">
-                <div class="leaderboard-card">
-                  <div class="section-heading">
-                    <h3>${escapeHtml(
-                      teamPointStandings ? "Top Team Board" : "Top Standings",
-                    )}</h3>
-                  </div>
-                  ${
-                    standings.length
-                      ? `<div class="leaderboard-list">
-                          ${standings
-                            .slice(0, 5)
-                            .map(
-                              (standing) => `
-                                <div class="leaderboard-row">
-                                  <div class="button-row">
-                                    <span class="leaderboard-rank">${escapeHtml(
-                                      standing.rank || "",
-                                    )}</span>
-                                    <strong>${escapeHtml(
-                                      getStandingDisplayName(tournament, standing, {
-                                        forcePrivate: true,
-                                      }),
-                                    )}</strong>
-                                  </div>
-                                  <span class="muted">${escapeHtml(getStandingSummaryText(tournament, standing))}</span>
-                                </div>
-                              `,
-                            )
-                            .join("")}
-                        </div>`
-                      : `<div class="empty-state">Team standings will appear once judge ballots are submitted.</div>`
-                  }
-                </div>
-                <div class="leaderboard-card">
-                  <div class="section-heading">
-                    <h3>Top Speaker Board</h3>
-                  </div>
-                  ${
-                    speakerStandings.length
-                      ? `<div class="leaderboard-list">
-                          ${speakerStandings
-                            .slice(0, 5)
-                            .map(
-                              (participant) => `
-                                <div class="leaderboard-row">
-                                  <div class="speaker-score-cell">
-                                    <div class="button-row">
-                                      <span class="leaderboard-rank">${escapeHtml(
-                                        participant.speakerRank || "",
-                                      )}</span>
-                                      <strong>${escapeHtml(participant.name)}</strong>
-                                    </div>
-                                    <span class="muted">${escapeHtml(
-                                      participant.teamName
-                                        ? participant.teamName +
-                                            (participant.institution
-                                              ? " • " + participant.institution
-                                              : "")
-                                        : participant.institution || "Individual",
-                                    )}</span>
-                                    ${renderSpeakerScoreBreakdownMarkup(participant)}
-                                  </div>
-                                  <div class="speaker-score-cell">
-                                    ${renderSpeakerScoreSummaryMarkup(participant)}
-                                    ${renderParticipantProfileButton(
-                                      participant,
-                                      "Open Profile",
-                                      true,
-                                    )}
-                                  </div>
-                                </div>
-                              `,
-                            )
-                            .join("")}
-                        </div>`
-                      : `<div class="empty-state">Speaker rankings will appear once judge ballots are submitted.</div>`
-                  }
-                </div>
-              </div>
-              <div class="flat-panel stack">
-                <div class="section-heading">
-                  <h3>${escapeHtml(
-                    teamPointStandings ? "Team Standings" : "Standings Board",
-                  )}</h3>
-                </div>
-                ${renderStandingsTable(tournament, true, true)}
-              </div>
-              <div class="flat-panel stack">
-                <div class="section-heading">
-                  <h3>Speaker Rankings</h3>
-                </div>
-                ${renderSpeakerStandingsTable(tournament)}
-              </div>
-              ${renderInstitutionDashboardPanel(tournament)}
+              ${resultsViewContent[resultsView] || overviewPanelMarkup}
             </div>
           </section>
         `;
@@ -21491,12 +21598,6 @@
         const appointees = getTournamentAppointeeDashboard();
         const appointeeStats = getTournamentAppointeeStats();
         const peopleAccounts = getPeopleAccountCards();
-        const peopleSmartInsights = getPeopleSmartInsights({
-          pending,
-          trackedSignups,
-          appointees,
-          peopleAccounts,
-        });
         const peopleSection = normalizePeopleSection(session.peopleSection);
         const selectedPeopleAccount =
           peopleSection === "directory" ? getUserByEmail(session.selectedPeopleEmail) : null;
@@ -21563,20 +21664,6 @@
               }
             </div>
           </section>
-          ${
-            peopleSection === "hub"
-              ? renderSmartInsightSection({
-                  eyebrow: "Directory cues",
-                  title: "What needs attention in People",
-                  intro:
-                    "Use this only as a quick triage layer, then move into the directory you actually need.",
-                  items: peopleSmartInsights.slice(0, 3),
-                  badgeLabel: Math.min(peopleSmartInsights.length, 3) + " live cues",
-                  emptyMessage:
-                    "People, sign-ups, and appointments look stable right now.",
-                })
-              : ""
-          }
           ${peopleSectionContent}
         `;
       }
@@ -29698,9 +29785,13 @@
               return;
             }
             session.view = "tournaments";
+            const sameTournament = session.managedTournamentId === managedTournament.id;
             session.managedTournamentId = managedTournament.id;
             session.selectedTournamentId = "";
             session.focusedTournamentSection = section === "spotlight" ? "control" : section;
+            session.resultsStudioView = sameTournament
+              ? normalizeResultsStudioView(session.resultsStudioView)
+              : "overview";
             queueFocusedTournamentSectionJump(
               session.managedTournamentId,
               session.focusedTournamentSection,
@@ -29743,6 +29834,9 @@
               sameTournament && session.focusedTournamentSection
                 ? session.focusedTournamentSection
                 : "control";
+            session.resultsStudioView = sameTournament
+              ? normalizeResultsStudioView(session.resultsStudioView)
+              : "overview";
             recordRecentTournament(session.managedTournamentId);
             recordRecentView(session.view);
             clearFlash();
@@ -29762,9 +29856,13 @@
               return;
             }
             session.view = "tournaments";
+            const sameTournament = session.managedTournamentId === tournamentId;
             session.managedTournamentId = tournamentId;
             session.selectedTournamentId = "";
             session.focusedTournamentSection = section;
+            session.resultsStudioView = sameTournament
+              ? normalizeResultsStudioView(session.resultsStudioView)
+              : "overview";
             queueFocusedTournamentSectionJump(tournamentId, section);
             recordRecentTournament(session.managedTournamentId);
             recordRecentView(session.view);
@@ -29812,6 +29910,18 @@
               session.managedTournamentId,
               session.focusedTournamentSection,
             );
+            if (session.focusedTournamentSection !== "results") {
+              session.resultsStudioView = "overview";
+            }
+            clearFlash();
+            saveSession();
+            requestSessionHistoryPush();
+            renderApp();
+            return;
+          }
+
+          if (action === "set-results-studio-view") {
+            session.resultsStudioView = normalizeResultsStudioView(button.dataset.view);
             clearFlash();
             saveSession();
             requestSessionHistoryPush();
