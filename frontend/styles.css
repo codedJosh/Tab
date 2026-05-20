@@ -3139,12 +3139,12 @@
       }
 
       .token-link,
-      .inline-link:not(.secondary-button):not(.ghost-button) {
+      .inline-link:not(.secondary-button):not(.ghost-button):not(.button-primary):not(.button-secondary):not(.button-outline):not(.button-danger):not(.danger-button) {
         word-break: break-all;
       }
 
       .cta-link,
-      .inline-link:not(.secondary-button):not(.ghost-button) {
+      .inline-link:not(.secondary-button):not(.ghost-button):not(.button-primary):not(.button-secondary):not(.button-outline):not(.button-danger):not(.danger-button) {
         display: inline-flex;
         padding: 10px 14px;
         border-radius: 14px;

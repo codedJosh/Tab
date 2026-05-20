@@ -13185,25 +13185,25 @@
             title: "I am a tabber",
             body: "Open a tournament and manage rounds, rooms, and results.",
             actionMarkup:
-              '<a class="secondary-button inline-link" href="#auth-sign-in">Open Tournament</a>',
+              '<a class="button-primary inline-link" href="#auth-sign-in">Open Tournament</a>',
           },
           {
             title: "I am a judge",
             body: "Go to your judging workspace and submit ballots.",
             actionMarkup:
-              '<a class="secondary-button inline-link" href="#auth-sign-in">Submit Ballot</a>',
+              '<a class="button-primary inline-link" href="#auth-sign-in">Submit Ballot</a>',
           },
           {
             title: "I am a debater",
             body: "Check the draw, motions, and standings for public events.",
             actionMarkup:
-              '<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View Draw</button>',
+              '<a class="button-primary inline-link" href="#auth-sign-in">View Draw</a>',
           },
           {
             title: "I am a viewer",
             body: "Open public standings and published tournament results.",
             actionMarkup:
-              '<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View Results</button>',
+              '<a class="button-primary inline-link" href="#auth-sign-in">View Results</a>',
           },
         ];
         return `
@@ -13223,10 +13223,6 @@
                         <p class="hero-copy">
                           Run tournaments, manage draws, collect ballots, and publish results.
                         </p>
-                      </div>
-                      <div class="button-row wrap-row public-cta-row">
-                        <a class="button-primary inline-link" href="#auth-sign-in">Open Tournament</a>
-                        <button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View Public Results</button>
                       </div>
                       <div class="kpi-line public-hero-tags">
                         <span>Draws</span>
@@ -14196,6 +14192,15 @@
                     actionMarkup:
                       '<button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournament</button>',
                   },
+                  {
+                    eyebrow: "Search",
+                    title: "Search records",
+                    body: "Find tournaments, teams, speakers, institutions, and accounts quickly.",
+                    badge: "Fast find",
+                    tone: "success",
+                    actionMarkup:
+                      '<button class="secondary-button" data-action="set-view" data-view="search">Open Search</button>',
+                  },
                   capabilities.canViewJudging
                     ? {
                         eyebrow: "Ballots",
@@ -14402,12 +14407,7 @@
                     : "Open a tournament to begin operations"
                 }</h2>
               </div>
-              <div class="toolbar-row">
-                <button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournaments</button>
-                <button class="secondary-button" data-action="set-view" data-view="judging">Open Judging</button>
-                <button class="secondary-button" data-action="set-view" data-view="people">Open Teams & People</button>
-                <button class="secondary-button" data-action="set-view" data-view="settings">Open Settings</button>
-              </div>
+              <span class="role-pill">${escapeHtml(managedQueue.length)} managed</span>
             </div>
             ${
               activeManagedTournament
@@ -14415,8 +14415,20 @@
                     <button type="button" data-action="focus-tournament" data-id="${escapeHtml(
                       activeManagedTournament.id,
                     )}">Open Tab Room</button>
-                    <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Round Draw</button>
-                    <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Open Standings</button>
+                    <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+                      activeManagedTournament.id,
+                    )}" data-section="draw">Open Round Draw</button>
+                    <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+                      activeManagedTournament.id,
+                    )}" data-section="results">Open Standings</button>
+                    <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+                      activeManagedTournament.id,
+                    )}" data-section="roster">Open Registration</button>
+                    <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+                      activeManagedTournament.id,
+                    )}" data-section="judges">Open Judges</button>
+                    <button class="secondary-button" type="button" data-action="set-view" data-view="search">Open Search</button>
+                    <button class="secondary-button" type="button" data-action="set-view" data-view="people">Open Teams & People</button>
                   </div>`
                 : `<div class="empty-state">No manageable tournament is currently selected. Open one from Tournaments.</div>`
             }
@@ -17757,7 +17769,9 @@
                     : "All published ballots are submitted for this round.",
                 )}</p>
                 <div class="button-row">
-                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">View Missing Ballots</button>
+                  <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+                    tournament.id,
+                  )}" data-section="results">View Missing Ballots</button>
                 </div>
               </article>
               <article class="spotlight-card">
@@ -17775,7 +17789,9 @@
                     : "Published draw visibility is tied to tournament publication settings.",
                 )}</p>
                 <div class="button-row">
-                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Round Draw</button>
+                  <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+                    tournament.id,
+                  )}" data-section="draw">Open Round Draw</button>
                 </div>
               </article>
               <article class="spotlight-card">
@@ -17806,7 +17822,9 @@
                     "No immediate blocking issues. Continue with the next round workflow.",
                 )}</p>
                 <div class="button-row">
-                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="${escapeHtml(
+                  <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+                    tournament.id,
+                  )}" data-section="${escapeHtml(
                     control.nextSection,
                   )}">Open ${escapeHtml(toTitleLabel(control.nextSection))}</button>
                 </div>
@@ -29437,6 +29455,29 @@
               sameTournament && session.focusedTournamentSection
                 ? session.focusedTournamentSection
                 : "control";
+            recordRecentTournament(session.managedTournamentId);
+            recordRecentView(session.view);
+            clearFlash();
+            saveSession();
+            requestSessionHistoryPush();
+            renderApp();
+            return;
+          }
+
+          if (action === "open-tournament-section") {
+            const tournamentId = String(button.dataset.id || "").trim();
+            const section =
+              String(button.dataset.section || "control").trim().toLowerCase() || "control";
+            if (!tournamentId) {
+              setFlash("error", "Select a tournament before opening that section.");
+              renderApp();
+              return;
+            }
+            session.view = "tournaments";
+            session.managedTournamentId = tournamentId;
+            session.selectedTournamentId = "";
+            session.focusedTournamentSection = section;
+            queueFocusedTournamentSectionJump(tournamentId, section);
             recordRecentTournament(session.managedTournamentId);
             recordRecentView(session.view);
             clearFlash();
