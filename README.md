@@ -45,7 +45,7 @@ window.JADE_BACKEND_URL = "https://your-backend-host/api";
    - required: `DATABASE_URL`, `JADE_SESSION_SECRET`
    - optional: `JADE_WORKSPACE_ID`
    - optional email delivery (Resend): `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
-   - optional email behavior: `RESEND_REPLY_TO` (defaults to `jadehummingbird@gmail.com`), `PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES` (defaults to `10`), `PUBLIC_APP_URL`
+   - optional email behavior: `RESEND_REPLY_TO` (defaults to `hummingbird@myjade.org`), `PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES` (defaults to `10`), `PUBLIC_APP_URL`
 3. Run `npm install`
 4. Run `npm run dev` or double-click `start-jade.command`
 5. Open `http://127.0.0.1:8787/`

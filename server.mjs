@@ -17,7 +17,7 @@ const JADE_SESSION_SECRET = String(process.env.JADE_SESSION_SECRET || "").trim()
 const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
 const RESEND_FROM_EMAIL = String(process.env.RESEND_FROM_EMAIL || "").trim();
 const RESEND_REPLY_TO =
-  String(process.env.RESEND_REPLY_TO || "").trim() || "jadehummingbird@gmail.com";
+  String(process.env.RESEND_REPLY_TO || "").trim() || "hummingbird@myjade.org";
 const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || "").trim();
 const PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES = Math.max(
   0,
