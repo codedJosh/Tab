@@ -44,6 +44,15 @@ const REQUIRED_USER_CONTRACT_KEYS = [
   "registeredTournamentIds",
   "pinnedTournamentIds",
 ];
+
+const REGIONAL_OPERATIONS_ROLE_VALUES = new Set([
+  "regional_coordinator",
+  "deputy_regional_coordinator",
+  "membership_experience_specialist",
+  "regional_development_manager",
+  "deputy_regional_development_manager",
+  "tertiary_development_specialist",
+]);
 const DEFAULT_BRANDING = {
   appName: "JADE Hummingbird",
   subtitle:
@@ -363,13 +372,7 @@ function normalizeRegionalOperationsRole(value = "") {
     .replaceAll(" ", "_")
     .replaceAll("-", "_");
 
-  if (normalized === "regional_coordinator") {
-    return "regional_coordinator";
-  }
-
-  if (normalized === "deputy_regional_coordinator") {
-    return "deputy_regional_coordinator";
-  }
+  if (REGIONAL_OPERATIONS_ROLE_VALUES.has(normalized)) return normalized;
 
   return "";
 }

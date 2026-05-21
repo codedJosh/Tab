@@ -162,6 +162,22 @@
         "VM Building Society",
       ];
       const REGIONAL_BANK_ACCOUNT_TYPES = ["chequing", "savings"];
+      const REGIONAL_OPERATIONS_ROLES = [
+        { value: "regional_coordinator", label: "Regional Coordinator" },
+        { value: "deputy_regional_coordinator", label: "Deputy Regional Coordinator" },
+        { value: "membership_experience_specialist", label: "Membership Experience Specialist" },
+        { value: "regional_development_manager", label: "Regional Development Manager" },
+        { value: "deputy_regional_development_manager", label: "Deputy Regional Development Manager" },
+        { value: "tertiary_development_specialist", label: "Tertiary Development Specialist" },
+      ];
+      const REGIONAL_OPERATIONS_ADMIN_ROLES = new Set([
+        "membership_experience_specialist",
+        "regional_development_manager",
+        "deputy_regional_development_manager",
+      ]);
+      const REGIONAL_OPERATIONS_ALL_REGION_ROLES = new Set([
+        "tertiary_development_specialist",
+      ]);
       const WORKSPACE_CONTRACT_VERSION = "2026-04-05-ironclad";
       const REQUIRED_WORKSPACE_ROOT_KEYS = [
         "workspaceContractVersion",
@@ -1349,15 +1365,26 @@
           .replaceAll(" ", "_")
           .replaceAll("-", "_");
 
-        if (normalized === "regional_coordinator") {
-          return "regional_coordinator";
-        }
-
-        if (normalized === "deputy_regional_coordinator") {
-          return "deputy_regional_coordinator";
-        }
+        const matchedRole = REGIONAL_OPERATIONS_ROLES.find((role) => role.value === normalized);
+        if (matchedRole) return matchedRole.value;
 
         return "";
+      }
+
+      function getRegionalOperationsRoleLabel(value = "") {
+        const normalizedRole = normalizeRegionalOperationsRole(value);
+        return (
+          REGIONAL_OPERATIONS_ROLES.find((role) => role.value === normalizedRole)?.label ||
+          toTitleLabel(normalizedRole)
+        );
+      }
+
+      function isRegionalOperationsAdminRole(value = "") {
+        return REGIONAL_OPERATIONS_ADMIN_ROLES.has(normalizeRegionalOperationsRole(value));
+      }
+
+      function isRegionalOperationsAllRegionRole(value = "") {
+        return REGIONAL_OPERATIONS_ALL_REGION_ROLES.has(normalizeRegionalOperationsRole(value));
       }
 
       function normalizeRegionalRegion(value = "") {
@@ -3767,14 +3794,7 @@
                 },
               ]
             : []),
-          {
-            value: "regional_coordinator",
-            label: "Regional Coordinator",
-          },
-          {
-            value: "deputy_regional_coordinator",
-            label: "Deputy Regional Coordinator",
-          },
+          ...REGIONAL_OPERATIONS_ROLES,
         ];
         return roles
           .map(
@@ -14146,7 +14166,7 @@
                     <div class="inline-card auth-about-card">
                       <h3>Who should use this portal?</h3>
                       <p class="manager-note">
-                        Regional Coordinators, Deputy Regional Coordinators, managers, and system administrators. New accounts are created by managers inside the Regional Operations workspace, not from this public page.
+                        Regional Operations staff, managers, and system administrators. New accounts are created by managers inside the Regional Operations workspace, not from this public page.
                       </p>
                       <ul class="auth-feature-list" aria-label="Regional Operations features">
                         <li>Biweekly school reports</li>
@@ -14188,7 +14208,7 @@
                           <button type="submit">Enter Regional Operations</button>
                         </form>
                         <p class="auth-footer">
-                          Managers and system administrators can use their existing JADE Hummingbird credentials here. Regional Coordinators and Deputy Regional Coordinators need an account created for them by a manager first.
+                          Managers and system administrators can use their existing JADE Hummingbird credentials here. Regional Operations personnel need an account created for them by a manager first.
                         </p>
                       </div>
                     </div>
@@ -20842,7 +20862,7 @@
           user.email,
           user.globalRole,
           toTitleLabel(user.globalRole),
-          regionalRole ? toTitleLabel(regionalRole) : "",
+          regionalRole ? getRegionalOperationsRoleLabel(regionalRole) : "",
           user.regionalRegion,
           getUserCreationLabel(user),
         ]
@@ -21599,7 +21619,7 @@
                           ${
                             regionalRole
                               ? `<span class="mini-pill success">${escapeHtml(
-                                  toTitleLabel(regionalRole),
+                                  getRegionalOperationsRoleLabel(regionalRole),
                                 )}</span>`
                               : ""
                           }
@@ -21713,7 +21733,7 @@
             : user.createdBy
           : "Unrecorded";
         const visibleRoleLabel = user.regionalRole
-          ? `${toTitleLabel(user.regionalRole)}${
+          ? `${getRegionalOperationsRoleLabel(user.regionalRole)}${
               user.regionalRegion ? " • " + user.regionalRegion : ""
             }`
           : toTitleLabel(user.globalRole);
@@ -21759,7 +21779,7 @@
                     <article class="people-account-profile-card">
                       <span class="muted">Regional access</span>
                       <strong>${escapeHtml(
-                        toTitleLabel(user.regionalRole) +
+                        getRegionalOperationsRoleLabel(user.regionalRole) +
                           (user.regionalRegion ? " • " + user.regionalRegion : ""),
                       )}</strong>
                     </article>
@@ -21928,6 +21948,10 @@
         const canSubmit = canSubmitRegionalOperationsWork();
         const regionalRole = getRegionalOperationsRoleForEmail();
         const assignedRegion = getRegionalAssignmentForEmail();
+        const canChooseRegionalRegion = canAccessAllRegionalOperationsRegions();
+        const regionalAssignmentLabel = canChooseRegionalRegion
+          ? "All regions"
+          : assignedRegion || "Regional staff";
         const currentBanking = normalizeRegionalBankingInfo(currentUser?.regionalBanking || {});
         const summary = getRegionalOperationsSummary();
         const fundingSummary = getRegionalFundingStatusSummary();
@@ -21947,7 +21971,7 @@
                   <h2>Access restricted</h2>
                 </div>
               </div>
-              <div class="alert warning">This workspace is limited to managers, system administrators, Regional Coordinators, and Deputy Regional Coordinators.</div>
+                <div class="alert warning">This workspace is limited to managers, system administrators, and approved Regional Operations personnel.</div>
             </section>
           `;
         }
@@ -21997,10 +22021,10 @@
                 <span class="role-pill">${escapeHtml(
                   canManage
                     ? "Manager/Admin"
-                    : toTitleLabel(regionalRole || "regional_coordinator"),
+                    : getRegionalOperationsRoleLabel(regionalRole || "regional_coordinator"),
                 )}</span>
                 <span class="mini-pill success">${escapeHtml(
-                  assignedRegion || "All regions",
+                  regionalAssignmentLabel,
                 )}</span>
                 ${badge ? `<span class="mini-pill warning">${escapeHtml(badge)}</span>` : ""}
               </div>
@@ -22046,7 +22070,7 @@
                     <input type="text" name="phoneNumber" placeholder="+1 876 000 0000" />
                   </label>
                   ${
-                    canManage
+                    canChooseRegionalRegion
                       ? `<label>
                           Region
                           <select name="region">${getRegionalRegionOptions(
@@ -22184,7 +22208,7 @@
                                 entry.active !== false ? "Active" : "Disabled",
                               )}</span>
                             </div>
-                            <p class="muted">${escapeHtml(toTitleLabel(entry.regionalRole || ""))}</p>
+                            <p class="muted">${escapeHtml(getRegionalOperationsRoleLabel(entry.regionalRole || ""))}</p>
                             <p class="fine-print">${escapeHtml(
                               (entry.regionalRegion || "Region not set") +
                                 (entry.regionalParish ? " • " + entry.regionalParish : ""),
@@ -22272,16 +22296,25 @@
                           <p class="eyebrow">Report form</p>
                           <h3>Submit report</h3>
                         </div>
-                        <span class="mini-pill success">${escapeHtml(assignedRegion || "Regional staff")}</span>
+                        <span class="mini-pill success">${escapeHtml(regionalAssignmentLabel)}</span>
                       </div>
                       <form class="stack" data-form="submit-regional-report">
                         <div class="field-grid three">
-                          <label>
-                            Region
-                            <input type="text" name="region" value="${escapeHtml(
-                              assignedRegion || "",
-                            )}" readonly required />
-                          </label>
+                          ${
+                            canChooseRegionalRegion
+                              ? `<label>
+                                  Region
+                                  <select name="region">${getRegionalRegionOptions(
+                                    assignedRegion || "Region 1",
+                                  )}</select>
+                                </label>`
+                              : `<label>
+                                  Region
+                                  <input type="text" name="region" value="${escapeHtml(
+                                    assignedRegion || "",
+                                  )}" readonly required />
+                                </label>`
+                          }
                           <label>
                             School
                             <input type="text" name="school" placeholder="School name" required />
@@ -22438,16 +22471,25 @@
                           <p class="eyebrow">Request form</p>
                           <h3>Submit support request</h3>
                         </div>
-                        <span class="mini-pill success">${escapeHtml(assignedRegion || "Regional staff")}</span>
+                        <span class="mini-pill success">${escapeHtml(regionalAssignmentLabel)}</span>
                       </div>
                       <form class="stack" data-form="submit-regional-funding-request">
                         <div class="field-grid three">
-                          <label>
-                            Region
-                            <input type="text" name="region" value="${escapeHtml(
-                              assignedRegion || "",
-                            )}" readonly required />
-                          </label>
+                          ${
+                            canChooseRegionalRegion
+                              ? `<label>
+                                  Region
+                                  <select name="region">${getRegionalRegionOptions(
+                                    assignedRegion || "Region 1",
+                                  )}</select>
+                                </label>`
+                              : `<label>
+                                  Region
+                                  <input type="text" name="region" value="${escapeHtml(
+                                    assignedRegion || "",
+                                  )}" readonly required />
+                                </label>`
+                          }
                           <label>
                             School
                             <input type="text" name="school" placeholder="School or programme location" required />
@@ -22868,9 +22910,9 @@
                                     <div class="regional-log-summary-main">
                                       <strong>${escapeHtml(user.name || user.email)}</strong>
                                       <p class="muted">${escapeHtml(
-                                        user.email +
+                                      user.email +
                                           " • " +
-                                          toTitleLabel(user.regionalRole || "") +
+                                          getRegionalOperationsRoleLabel(user.regionalRole || "") +
                                           " • " +
                                           (user.regionalRegion || "No region"),
                                       )}</p>
@@ -23638,11 +23680,21 @@
       }
 
       function canManageRegionalOperations(email = session.userEmail) {
-        return isSystemAdmin(email);
+        return Boolean(
+          isSystemAdmin(email) ||
+            isRegionalOperationsAdminRole(getRegionalOperationsRoleForEmail(email)),
+        );
       }
 
       function canSubmitRegionalOperationsWork(email = session.userEmail) {
         return Boolean(getRegionalOperationsRoleForEmail(email));
+      }
+
+      function canAccessAllRegionalOperationsRegions(email = session.userEmail) {
+        return Boolean(
+          canManageRegionalOperations(email) ||
+            isRegionalOperationsAllRegionRole(getRegionalOperationsRoleForEmail(email)),
+        );
       }
 
       function getRegionalOperationsUsers() {
@@ -23659,7 +23711,7 @@
 
       function getVisibleRegionalReports(email = session.userEmail) {
         const reports = getRegionalOperationsState().reports || [];
-        if (canManageRegionalOperations(email)) {
+        if (canAccessAllRegionalOperationsRegions(email)) {
           return reports;
         }
         const target = normalizeEmail(email);
@@ -23668,7 +23720,7 @@
 
       function getVisibleRegionalFundingRequests(email = session.userEmail) {
         const requests = getRegionalOperationsState().transportRequests || [];
-        if (canManageRegionalOperations(email)) {
+        if (canAccessAllRegionalOperationsRegions(email)) {
           return requests;
         }
         const target = normalizeEmail(email);
@@ -23721,7 +23773,7 @@
 
       function getVisibleRegionalContacts(email = session.userEmail) {
         const contacts = getRegionalOperationsState().contacts || [];
-        if (canManageRegionalOperations(email)) {
+        if (canAccessAllRegionalOperationsRegions(email)) {
           return contacts;
         }
         const assignedRegion = getRegionalAssignmentForEmail(email);
@@ -24735,6 +24787,9 @@
         const currentUser = getCurrentUser();
         const regionalRole = getRegionalOperationsRoleForEmail();
         const assignedRegion = getRegionalAssignmentForEmail();
+        const regionalAssignmentLabel = canAccessAllRegionalOperationsRegions()
+          ? "All regions"
+          : assignedRegion || "Unassigned";
         const banking = normalizeRegionalBankingInfo(currentUser?.regionalBanking || {});
         return `
           <section class="surface regional-shell">
@@ -24750,14 +24805,14 @@
             <div class="regional-assignment-grid">
               <article class="spotlight-card">
                 <p class="eyebrow">Current role</p>
-                <h3>${escapeHtml(toTitleLabel(regionalRole || "regional_coordinator"))}</h3>
+                <h3>${escapeHtml(getRegionalOperationsRoleLabel(regionalRole || "regional_coordinator"))}</h3>
                 <p class="muted">Regional operations account type.</p>
               </article>
-              <article class="spotlight-card">
-                <p class="eyebrow">Region</p>
-                <h3>${escapeHtml(assignedRegion || "Unassigned")}</h3>
-                <p class="muted">Primary region for reports and requests.</p>
-              </article>
+	              <article class="spotlight-card">
+	                <p class="eyebrow">Region</p>
+	                <h3>${escapeHtml(regionalAssignmentLabel)}</h3>
+	                <p class="muted">Primary region for reports and requests.</p>
+	              </article>
               <article class="spotlight-card">
                 <p class="eyebrow">Parish</p>
                 <h3>${escapeHtml(currentUser?.regionalParish || "Unassigned")}</h3>
@@ -24796,10 +24851,10 @@
                         currentUser?.phoneNumber || "",
                       )}" />
                     </label>
-                    <label>
-                      Region
-                      <input type="text" value="${escapeAttributeValue(assignedRegion || "Not assigned")}" readonly />
-                    </label>
+	                    <label>
+	                      Region
+	                      <input type="text" value="${escapeAttributeValue(regionalAssignmentLabel)}" readonly />
+	                    </label>
                     <label>
                       Parish
                       <input type="text" value="${escapeAttributeValue(
@@ -26810,13 +26865,13 @@
           setFlash(
             "success",
             existingUser
-              ? toTitleLabel(regionalRole) +
+              ? getRegionalOperationsRoleLabel(regionalRole) +
                   " access updated for " +
                   email +
                   " in " +
                   regionalRegion +
                   "."
-              : toTitleLabel(regionalRole) +
+              : getRegionalOperationsRoleLabel(regionalRole) +
                   " account created for " +
                   email +
                   " in " +
