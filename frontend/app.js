@@ -127,6 +127,30 @@
         "Region 5",
         "Region 6",
       ];
+      const JAMAICA_PARISHES = [
+        "Kingston",
+        "St. Andrew",
+        "St. Thomas",
+        "Portland",
+        "St. Mary",
+        "St. Ann",
+        "Trelawny",
+        "St. James",
+        "Hanover",
+        "Westmoreland",
+        "St. Elizabeth",
+        "Manchester",
+        "Clarendon",
+        "St. Catherine",
+      ];
+      const REGIONAL_REQUEST_CATEGORIES = [
+        "Transportation",
+        "Meals",
+        "Events and Workshops",
+        "Trophies and Prizes",
+        "Materials (Digital and Physical)",
+        "Other",
+      ];
       const JAMAICA_MAJOR_BANKS = [
         "NCB",
         "Scotiabank Jamaica",
@@ -617,12 +641,20 @@
           linksPortalQuery: "",
           linksPortalPage: 1,
           regionalStaffQuery: "",
+          regionalStaffRoleFilter: "all",
+          regionalStaffRegionFilter: "all",
+          regionalStaffStatusFilter: "all",
           regionalStaffPage: 1,
           regionalReportsQuery: "",
           regionalReportsPage: 1,
           regionalFundingQuery: "",
           regionalFundingStatus: "all",
           regionalFundingPage: 1,
+          regionalContactsQuery: "",
+          regionalContactsRegionFilter: "all",
+          regionalContactsPage: 1,
+          regionalWorkshopQuery: "",
+          regionalWorkshopPage: 1,
           selectedPeopleEmail: "",
           managedTournamentId: "",
           selectedTournamentId: "",
@@ -818,6 +850,9 @@
           linksPortalQuery: String(record.linksPortalQuery || "").trim(),
           linksPortalPage: Math.max(1, Number.parseInt(record.linksPortalPage, 10) || 1),
           regionalStaffQuery: String(record.regionalStaffQuery || "").trim(),
+          regionalStaffRoleFilter: String(record.regionalStaffRoleFilter || "all").trim().toLowerCase() || "all",
+          regionalStaffRegionFilter: String(record.regionalStaffRegionFilter || "all").trim() || "all",
+          regionalStaffStatusFilter: String(record.regionalStaffStatusFilter || "all").trim().toLowerCase() || "all",
           regionalStaffPage: Math.max(1, Number.parseInt(record.regionalStaffPage, 10) || 1),
           regionalReportsQuery: String(record.regionalReportsQuery || "").trim(),
           regionalReportsPage: Math.max(1, Number.parseInt(record.regionalReportsPage, 10) || 1),
@@ -826,6 +861,11 @@
             record.regionalFundingStatus,
           ),
           regionalFundingPage: Math.max(1, Number.parseInt(record.regionalFundingPage, 10) || 1),
+          regionalContactsQuery: String(record.regionalContactsQuery || "").trim(),
+          regionalContactsRegionFilter: String(record.regionalContactsRegionFilter || "all").trim() || "all",
+          regionalContactsPage: Math.max(1, Number.parseInt(record.regionalContactsPage, 10) || 1),
+          regionalWorkshopQuery: String(record.regionalWorkshopQuery || "").trim(),
+          regionalWorkshopPage: Math.max(1, Number.parseInt(record.regionalWorkshopPage, 10) || 1),
           selectedPeopleEmail: normalizeEmail(record.selectedPeopleEmail),
           managedTournamentId: String(record.managedTournamentId || "").trim(),
           selectedTournamentId: String(record.selectedTournamentId || "").trim(),
@@ -895,6 +935,43 @@
           return normalized;
         }
         return "all";
+      }
+
+      function normalizeRegionalStaffRoleFilter(value = "") {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (["all", "regional_coordinator", "deputy_regional_coordinator"].includes(normalized)) {
+          return normalized;
+        }
+        return "all";
+      }
+
+      function normalizeRegionalStaffStatusFilter(value = "") {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (["all", "active", "disabled"].includes(normalized)) {
+          return normalized;
+        }
+        return "all";
+      }
+
+      function normalizeRegionalWorkspaceView(value = "") {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (
+          [
+            "regional",
+            "regional-home",
+            "regional-report",
+            "regional-requests",
+            "regional-workshop",
+            "regional-staff",
+          ].includes(normalized)
+        ) {
+          return normalized === "regional" ? "regional-home" : normalized;
+        }
+        return "regional-home";
+      }
+
+      function getRegionalWorkspaceViewForSession() {
+        return normalizeRegionalWorkspaceView(session.view);
       }
 
       function timestamp() {
@@ -1312,6 +1389,18 @@
         );
 
         return matchedRegion || raw;
+      }
+
+      function normalizeRegionalParish(value = "") {
+        const raw = String(value || "").trim();
+        if (!raw) {
+          return "";
+        }
+        const normalized = normalizeTextKey(raw);
+        const matchedParish = JAMAICA_PARISHES.find(
+          (parish) => normalizeTextKey(parish) === normalized,
+        );
+        return matchedParish || raw;
       }
 
       const TOURNAMENT_PERMISSION_ROLE_CONFIGS = [
@@ -1783,16 +1872,26 @@
 
       function normalizeRegionalReportEntry(entry = {}) {
         const createdAt = String(entry.createdAt || timestamp()).trim();
+        const experienceRating = parseFeedbackRating(
+          entry.experienceRating ?? entry.rating,
+          null,
+          1,
+          10,
+        );
         return {
           id: String(entry.id || createId("regional-report")).trim(),
           region: normalizeRegionalRegion(entry.region),
           school: String(entry.school || entry.schoolName || "").trim(),
+          reportDate: String(entry.reportDate || entry.reportingWindowEnd || "").trim(),
           reportingWindowStart: String(entry.reportingWindowStart || "").trim(),
           reportingWindowEnd: String(entry.reportingWindowEnd || "").trim(),
           summary: String(entry.summary || "").trim(),
           highlights: String(entry.highlights || "").trim(),
           challenges: String(entry.challenges || "").trim(),
           supportNeeded: String(entry.supportNeeded || "").trim(),
+          jadeSupport: String(entry.jadeSupport || entry.supportNeeded || "").trim(),
+          additionalNotes: String(entry.additionalNotes || entry.highlights || "").trim(),
+          experienceRating,
           submittedByEmail: normalizeEmail(entry.submittedByEmail || entry.authorEmail),
           submittedByName: String(entry.submittedByName || entry.authorName || "").trim(),
           submittedByRole: normalizeRegionalOperationsRole(
@@ -1885,6 +1984,17 @@
           region: normalizeRegionalRegion(entry.region),
           school: String(entry.school || entry.schoolName || "").trim(),
           tripDate: String(entry.tripDate || "").trim(),
+          categories: Array.isArray(entry.categories)
+            ? Array.from(
+                new Set(
+                  entry.categories
+                    .map((category) => String(category || "").trim())
+                    .filter(Boolean),
+                ),
+              )
+            : [],
+          otherCategoryText: String(entry.otherCategoryText || "").trim(),
+          amountOrItemRequired: String(entry.amountOrItemRequired || entry.itemRequired || "").trim(),
           amountJmd: Math.max(0, Number(entry.amountJmd || entry.amount || 0) || 0),
           bankName: knownBank,
           accountName: String(
@@ -1907,6 +2017,44 @@
         };
       }
 
+      function normalizeRegionalContactEntry(entry = {}) {
+        const createdAt = String(entry.createdAt || timestamp()).trim();
+        return {
+          id: String(entry.id || createId("regional-contact")).trim(),
+          region: normalizeRegionalRegion(entry.region),
+          contactName: String(entry.contactName || entry.name || "").trim(),
+          institution: String(entry.institution || entry.institutionalAffiliation || "").trim(),
+          role: String(entry.role || "").trim(),
+          email: normalizeEmail(entry.email),
+          phoneNumber: String(entry.phoneNumber || entry.phone || "").trim(),
+          createdByEmail: normalizeEmail(entry.createdByEmail || ""),
+          createdByName: String(entry.createdByName || "").trim(),
+          createdAt,
+          createdAtKey: normalizeTimestampKey(entry.createdAtKey, createdAt),
+        };
+      }
+
+      function normalizeRegionalWorkshopResourceEntry(entry = {}) {
+        const createdAt = String(entry.createdAt || timestamp()).trim();
+        const dataUrl = String(entry.dataUrl || "").trim();
+        const mimeType = String(entry.mimeType || "").trim();
+        const byteSize = Math.max(0, Number(entry.byteSize || 0) || 0);
+        return {
+          id: String(entry.id || createId("regional-workshop-resource")).trim(),
+          title: String(entry.title || entry.fileName || "Workshop resource").trim(),
+          description: String(entry.description || "").trim(),
+          fileName: String(entry.fileName || "").trim(),
+          linkUrl: String(entry.linkUrl || "").trim(),
+          dataUrl,
+          mimeType,
+          byteSize,
+          createdByEmail: normalizeEmail(entry.createdByEmail || ""),
+          createdByName: String(entry.createdByName || "").trim(),
+          createdAt,
+          createdAtKey: normalizeTimestampKey(entry.createdAtKey, createdAt),
+        };
+      }
+
       function normalizeRegionalOperationsState(record = {}) {
         const next = record && typeof record === "object" ? clone(record) : {};
         next.reports = Array.isArray(next.reports)
@@ -1918,6 +2066,21 @@
           ? next.transportRequests
               .map((entry) => normalizeRegionalFundingRequestEntry(entry))
               .sort((left, right) => Number(right.createdAtKey) - Number(left.createdAtKey))
+          : [];
+        next.contacts = Array.isArray(next.contacts)
+          ? next.contacts
+              .map((entry) => normalizeRegionalContactEntry(entry))
+              .filter((entry) => entry.contactName && entry.institution)
+              .sort(
+                (left, right) =>
+                  normalizeRegionalRegion(left.region).localeCompare(normalizeRegionalRegion(right.region)) ||
+                  String(left.contactName || "").localeCompare(String(right.contactName || "")),
+              )
+          : [];
+        next.workshopResources = Array.isArray(next.workshopResources)
+          ? next.workshopResources
+              .map((entry) => normalizeRegionalWorkshopResourceEntry(entry))
+              .sort((left, right) => Number(right.createdAtKey || 0) - Number(left.createdAtKey || 0))
           : [];
         return next;
       }
@@ -1948,7 +2111,9 @@
           registeredTournamentIds: normalizeStringList(user.registeredTournamentIds, 200),
           regionalRole: normalizeRegionalOperationsRole(user.regionalRole),
           regionalRegion: normalizeRegionalRegion(user.regionalRegion),
+          regionalParish: normalizeRegionalParish(user.regionalParish || user.parish || ""),
           regionalBanking: normalizeRegionalBankingInfo(user.regionalBanking || user.regionalBank || {}),
+          phoneNumber: String(user.phoneNumber || user.phone || "").trim(),
           preferredLandingView:
             String(user.preferredLandingView || "overview").trim() || "overview",
         };
@@ -1969,7 +2134,9 @@
           active: true,
           regionalRole: metadata.regionalRole || "",
           regionalRegion: metadata.regionalRegion || "",
+          regionalParish: metadata.regionalParish || "",
           regionalBanking: normalizeRegionalBankingInfo(metadata.regionalBanking || {}),
+          phoneNumber: metadata.phoneNumber || "",
         });
       }
 
@@ -2806,13 +2973,48 @@
         const capabilities = getWorkspaceCapabilities(email);
 
         if (capabilities.regionalPortalMode) {
-          return [
+          const regionalItems = [
             {
-              key: "regional",
-              label: "Regional",
+              key: "regional-home",
+              label: "Home",
               count: null,
               group: "Regional",
             },
+            {
+              key: "regional-report",
+              label: "Regional report",
+              count: null,
+              group: "Regional",
+            },
+            {
+              key: "regional-requests",
+              label: "Requests",
+              count: null,
+              group: "Regional",
+            },
+            {
+              key: "regional-workshop",
+              label: "Workshop",
+              count: null,
+              group: "Regional",
+            },
+          ];
+          if (canManageRegionalOperations(email)) {
+            regionalItems.push({
+              key: "regional-staff",
+              label: "Staff management",
+              count: null,
+              group: "Regional",
+            });
+          }
+          regionalItems.push({
+            key: "settings",
+            label: "Settings",
+            count: null,
+            group: "Settings",
+          });
+          return [
+            ...regionalItems,
           ];
         }
 
@@ -3575,6 +3777,25 @@
               normalizedCurrent,
             )}>${escapeHtml(region)}</option>`,
         ).join("");
+      }
+
+      function getRegionalParishOptions(current = "", options = {}) {
+        const normalizedCurrent = normalizeRegionalParish(current);
+        const allowEmpty = Boolean(options.allowEmpty);
+        const items = allowEmpty
+          ? [{ value: "", label: "Not set" }].concat(
+              JAMAICA_PARISHES.map((parish) => ({ value: parish, label: parish })),
+            )
+          : JAMAICA_PARISHES.map((parish) => ({ value: parish, label: parish }));
+        return items
+          .map(
+            (item) =>
+              `<option value="${escapeHtml(item.value)}" ${selected(
+                item.value,
+                normalizedCurrent,
+              )}>${escapeHtml(item.label)}</option>`,
+          )
+          .join("");
       }
 
       function getAccountStatusOptions(currentActive = true) {
@@ -12535,122 +12756,6 @@
         return insights.slice(0, 4);
       }
 
-      function getRegionalOperationsSmartInsights({
-        canManage = canManageRegionalOperations(),
-        canSubmit = canSubmitRegionalOperationsWork(),
-        summary = getRegionalOperationsSummary(),
-        fundingSummary = getRegionalFundingStatusSummary(),
-        reports = getVisibleRegionalReports(),
-        requests = getVisibleRegionalFundingRequests(),
-        latestReport = reports[0] || null,
-      } = {}) {
-        const insights = [];
-        const totalRegionalStaff = Number(summary.coordinators || 0) + Number(summary.deputies || 0);
-
-        if (canManage && !totalRegionalStaff) {
-          insights.push({
-            tone: "warning",
-            label: "No staff yet",
-            eyebrow: "Regional staffing",
-            title: "Regional Operations still needs its first coordinators",
-            body:
-              "Managers have the portal ready, but no Regional Coordinator or Deputy Regional Coordinator accounts exist yet.",
-            support:
-              "Create the first regional staff accounts here so reports and funding can begin flowing through the same shared backend.",
-            actionMarkup: renderSmartActionLink("Create Staff Account", "#regional-staff-create"),
-          });
-        }
-
-        if (summary.pendingFundingRequests) {
-          insights.push({
-            tone: summary.pendingFundingRequests > 3 ? "danger" : "warning",
-            label: summary.pendingFundingRequests + " pending",
-            eyebrow: "Funding queue",
-            title: "Transport stipends are waiting on review",
-            body:
-              summary.pendingFundingRequests +
-              " request" +
-              (summary.pendingFundingRequests === 1 ? " is" : "s are") +
-              " still open, while " +
-              fundingSummary.paid +
-              " have already been resolved as paid.",
-            support:
-              "Use the funding dashboard to review, approve, or move requests toward payment without losing the banking trail.",
-            actionMarkup: renderSmartActionLink(
-              "Open Funding Dashboard",
-              "#regional-funding-dashboard",
-            ),
-          });
-        }
-
-        if (canSubmit && !reports.length) {
-          insights.push({
-            tone: "warning",
-            label: "Report due",
-            eyebrow: "Reporting rhythm",
-            title: "Your regional report queue is empty",
-            body:
-              "No biweekly report is on record for this account yet, so the managers will not see fresh field intelligence from your region.",
-            support:
-              "File the next school report here so the regional dashboard starts to build a reliable operating history.",
-            actionMarkup: renderSmartActionLink(
-              "Open Reports Dashboard",
-              "#regional-reports-dashboard",
-            ),
-          });
-        } else if (latestReport) {
-          insights.push({
-            tone: "success",
-            label: latestReport.region || "Latest report",
-            eyebrow: "Recent signal",
-            title: "The latest field report is from " + (latestReport.school || "your region"),
-            body:
-              "The most recent reporting window closed on " +
-              (latestReport.reportingWindowEnd || latestReport.createdAt || "the latest cycle") +
-              ".",
-            support:
-              "Use the reports dashboard when you want to review what is already on record before sending the next update.",
-            actionMarkup: renderSmartActionLink("Review Reports", "#regional-reports-dashboard"),
-          });
-        }
-
-        if (canSubmit && !requests.length) {
-          insights.push({
-            tone: "success",
-            label: "Ready",
-            eyebrow: "Transport support",
-            title: "No stipend request is currently open for this account",
-            body:
-              "When a school trip needs transport support, the funding dashboard is ready to capture it with banking details and justification.",
-            support:
-              "The portal now remembers banking info, so repeat requests should feel faster instead of repetitive.",
-            actionMarkup: renderSmartActionLink(
-              "Open Funding Dashboard",
-              "#regional-funding-dashboard",
-            ),
-          });
-        }
-
-        if (!insights.length) {
-          insights.push({
-            tone: "success",
-            label: "Steady",
-            eyebrow: "Field signals",
-            title: "Regional Operations is in a calm state right now",
-            body:
-              "Staff accounts, reports, and stipend requests are all in a workable place with no obvious backlog demanding action.",
-            support:
-              "Use the portal when you need to file the next report, check funding, or review staff records by region.",
-            actionMarkup: renderSmartActionLink(
-              "Review Staff",
-              "#regional-staff-dashboard",
-            ),
-          });
-        }
-
-        return insights.slice(0, 4);
-      }
-
       function buildInvitationMessage(tournament, participant) {
         return state.appSettings.portal.emailTemplate
           .replaceAll("{{name}}", participant.name)
@@ -13996,7 +14101,7 @@
                         </div>
                         ${renderFlash()}
                         <form class="stack" data-form="regional-ops-sign-in" autocomplete="on">
-                          <input type="hidden" name="redirectView" value="regional" />
+                          <input type="hidden" name="redirectView" value="regional-home" />
                           <input type="hidden" name="requireRegionalOperationsAccess" value="yes" />
                           <label>
                             Email Address
@@ -14053,9 +14158,12 @@
           String(currentUser?.name || "").trim() ||
           String(session.userEmail || "").trim().split("@")[0] ||
           "there";
-        const activeManagedTournament = capabilities.canManageAny
+        const activeManagedTournament = capabilities.regionalPortalMode
+          ? null
+          : capabilities.canManageAny
           ? getManagedTournamentForSession() || (capabilities.managedTournaments || [])[0] || null
           : null;
+        const regionalAssignment = getRegionalAssignmentForEmail() || "Manager-wide";
         const menuVisibleTournaments = getVisibleTournaments();
         const menuPinnedTournaments = getPinnedTournaments(menuVisibleTournaments).slice(0, 2);
         const menuRecentTournaments = getRecentTournaments(menuVisibleTournaments)
@@ -14077,7 +14185,7 @@
           const b = rightOrder === -1 ? Number.MAX_SAFE_INTEGER : rightOrder;
           return a - b || String(left[0]).localeCompare(String(right[0]));
         });
-        const managerOpsButtons = capabilities.canManageAny
+        const managerOpsButtons = capabilities.canManageAny && !capabilities.regionalPortalMode
           ? [
               { section: "control", label: "Overview" },
               { section: "draw", label: "Round Draw" },
@@ -14106,11 +14214,13 @@
                 )}</span>
               </div>
               ${
-                activeManagedTournament
-                  ? `<p class="fine-print">Current tournament: ${escapeHtml(
-                      activeManagedTournament.code || activeManagedTournament.name,
-                    )}</p>`
-                  : ""
+                capabilities.regionalPortalMode
+                  ? `<p class="fine-print">Assigned region: ${escapeHtml(regionalAssignment)}</p>`
+                  : activeManagedTournament
+                    ? `<p class="fine-print">Current tournament: ${escapeHtml(
+                        activeManagedTournament.code || activeManagedTournament.name,
+                      )}</p>`
+                    : ""
               }
               ${orderedGroups
                 .map(
@@ -21720,295 +21830,358 @@
         const regionalRole = getRegionalOperationsRoleForEmail();
         const assignedRegion = getRegionalAssignmentForEmail();
         const currentBanking = normalizeRegionalBankingInfo(currentUser?.regionalBanking || {});
+        const summary = getRegionalOperationsSummary();
+        const fundingSummary = getRegionalFundingStatusSummary();
         const staff = getRegionalOperationsUsers();
         const reports = getVisibleRegionalReports();
         const requests = getVisibleRegionalFundingRequests();
-        const summary = getRegionalOperationsSummary();
-        const fundingSummary = getRegionalFundingStatusSummary();
-        const latestReport = reports[0] || null;
-        const regionalSmartInsights = getRegionalOperationsSmartInsights({
-          canManage,
-          canSubmit,
-          summary,
-          fundingSummary,
-          reports,
-          requests,
-          latestReport,
-        });
-        const pagedStaff = getPagedCollection(
-          getFilteredRegionalStaffRecords(staff),
-          session.regionalStaffPage,
-          12,
-        );
-        const pagedReports = getPagedCollection(
-          getFilteredRegionalReports(reports),
-          session.regionalReportsPage,
-          10,
-        );
-        const pagedRequests = getPagedCollection(
-          getFilteredRegionalFundingRequests(requests),
-          session.regionalFundingPage,
-          10,
-        );
+        const contacts = getVisibleRegionalContacts();
+        const workshopResources = getRegionalWorkshopResources();
+        const regionalView = getRegionalWorkspaceViewForSession();
 
         if (!canAccessRegionalOperations()) {
           return `
             <section class="surface">
               <div class="section-heading">
                 <div>
-                  <p class="eyebrow">Regional Operations</p>
+                  <p class="eyebrow">Regional Development</p>
                   <h2>Access restricted</h2>
                 </div>
               </div>
-              <div class="alert warning">This portal is limited to managers, system administrators, Regional Coordinators, and Deputy Regional Coordinators.</div>
+              <div class="alert warning">This workspace is limited to managers, system administrators, Regional Coordinators, and Deputy Regional Coordinators.</div>
             </section>
           `;
         }
 
-        return `
-          <section class="surface">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Regional Operations</p>
-                <h2>Regional coordination, reports, and transport support</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(
-                canManage
-                  ? "Manager oversight"
-                  : toTitleLabel(regionalRole || "regional_operations"),
-              )}</span>
-            </div>
-            <div class="stat-grid">
-              <div class="stat-card">
-                <span class="muted">Regional coordinators</span>
-                <strong>${escapeHtml(summary.coordinators)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Deputy coordinators</span>
-                <strong>${escapeHtml(summary.deputies)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Biweekly reports</span>
-                <strong>${escapeHtml(summary.reports)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Funding requests</span>
-                <strong>${escapeHtml(summary.fundingRequests)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Pending stipends</span>
-                <strong>${escapeHtml(summary.pendingFundingRequests)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Assigned region</span>
-                <strong>${escapeHtml(assignedRegion || "Manager-wide access")}</strong>
-              </div>
-            </div>
-            <p class="fine-print">
-              Regional Operations uses the same shared backend as the rest of JADE Hummingbird, so coordinator accounts, reports, and stipend requests persist across devices and stay attached to the same audit trail.
-            </p>
-          </section>
+        const coordinatorRows = staff.filter((user) =>
+          ["regional_coordinator", "deputy_regional_coordinator"].includes(
+            normalizeRegionalOperationsRole(user.regionalRole),
+          ),
+        );
 
-          ${renderSmartInsightSection({
-            eyebrow: "Field Signals",
-            title: "What Regional Operations thinks needs attention",
-            intro:
-              "This portal is watching staffing, reporting rhythm, and stipend backlog so regional work can feel guided instead of manual.",
-            items: regionalSmartInsights,
-            badgeLabel: regionalSmartInsights.length + " live signals",
-            emptyMessage:
-              "Regional Operations looks calm right now. Use the dashboards below when the next report or funding request is ready.",
-          })}
+        const filteredContacts = getFilteredRegionalContactRecords(contacts);
+        const filteredReports = getFilteredRegionalReports(reports);
+        const filteredRequests = getFilteredRegionalFundingRequests(requests);
+        const filteredWorkshopResources = getFilteredRegionalWorkshopResources(workshopResources);
+        const filteredStaff = getFilteredRegionalStaffRecords(staff);
 
-          ${
-            canManage
-              ? `
-                <section class="surface" id="regional-staff-create">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Regional Staff Accounts</p>
-                      <h2>Create coordinator access</h2>
-                    </div>
-                    <span class="role-pill">Manager only</span>
-                  </div>
-                  <div class="manager-tools">
-                    <section class="flat-panel">
-                      <div class="section-heading">
-                        <div>
-                          <h3>Create a regional account</h3>
-                        </div>
-                      </div>
-                      <form class="stack" data-form="create-regional-ops-user">
-                        <div class="field-grid two">
-                          <label>
-                            Full name
-                            <input type="text" name="name" placeholder="Regional staff name" required />
-                          </label>
-                          <label>
-                            Email address
-                            <input type="email" name="email" placeholder="staff@example.com" required />
-                          </label>
-                        </div>
-                        <div class="field-grid three">
-                          <label>
-                            Portal role
-                            <select name="regionalRole">${getRegionalOperationsRoleOptions("regional_coordinator")}</select>
-                          </label>
-                          <label>
-                            Region
-                            <select name="regionalRegion">${getRegionalRegionOptions("Region 1")}</select>
-                          </label>
-                          <label>
-                            Temporary password
-                            <input type="password" name="password" placeholder="Optional for existing accounts" />
-                          </label>
-                        </div>
-                        <button class="secondary-button" type="submit">Create Or Update Regional Account</button>
-                      </form>
-                    </section>
-                  </div>
-                </section>
-              `
-              : ""
+        const pagedContacts = getPagedCollection(filteredContacts, session.regionalContactsPage, 16);
+        const pagedReports = getPagedCollection(filteredReports, session.regionalReportsPage, 10);
+        const pagedRequests = getPagedCollection(filteredRequests, session.regionalFundingPage, 10);
+        const pagedWorkshopResources = getPagedCollection(
+          filteredWorkshopResources,
+          session.regionalWorkshopPage,
+          12,
+        );
+        const pagedStaff = getPagedCollection(filteredStaff, session.regionalStaffPage, 12);
+
+        const contactGroups = pagedContacts.items.reduce((groups, entry) => {
+          const regionKey = entry.region || "Unassigned";
+          if (!groups[regionKey]) {
+            groups[regionKey] = [];
           }
+          groups[regionKey].push(entry);
+          return groups;
+        }, {});
 
-          <section class="surface" id="regional-staff-dashboard">
+        const contactRegionOptions = ["all", ...getRegionalContactRegions(contacts)];
+        const roleFilter = normalizeRegionalStaffRoleFilter(session.regionalStaffRoleFilter);
+        const statusFilter = normalizeRegionalStaffStatusFilter(session.regionalStaffStatusFilter);
+        const regionFilter = String(session.regionalStaffRegionFilter || "all").trim() || "all";
+
+        const renderRegionalHeader = (eyebrow, title, description, badge = "") => `
+          <section class="surface regional-shell">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Regional Directory</p>
-                <h2>Assigned regional staff</h2>
+                <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+                <h2>${escapeHtml(title)}</h2>
+                <p class="muted">${escapeHtml(description)}</p>
               </div>
-              <span class="role-pill">${escapeHtml(pagedStaff.totalRecords)} accounts</span>
+              <div class="workspace-chip-row">
+                <span class="role-pill">${escapeHtml(
+                  canManage
+                    ? "Manager/Admin"
+                    : toTitleLabel(regionalRole || "regional_coordinator"),
+                )}</span>
+                <span class="mini-pill success">${escapeHtml(
+                  assignedRegion || "All regions",
+                )}</span>
+                ${badge ? `<span class="mini-pill warning">${escapeHtml(badge)}</span>` : ""}
+              </div>
             </div>
-            ${renderCollectionToolbar({
-              formName: "regional-staff-search",
-              query: session.regionalStaffQuery || "",
-              placeholder: "Search staff by name, email, role, or region",
-              clearAction: "clear-regional-staff-query",
-              pageData: pagedStaff,
-            })}
+          </section>
+        `;
+
+        const renderContactForm = () => {
+          if (!canManage && !canSubmit) {
+            return "";
+          }
+          return `
+            <section class="flat-panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Regional contacts</p>
+                  <h3>Add contact</h3>
+                </div>
+                <span class="mini-pill success">${escapeHtml(contacts.length)} stored</span>
+              </div>
+              <form class="stack" data-form="submit-regional-contact">
+                <div class="field-grid three">
+                  <label>
+                    Contact name
+                    <input type="text" name="contactName" placeholder="Contact name" required />
+                  </label>
+                  <label>
+                    Institution
+                    <input type="text" name="institution" placeholder="Institutional affiliation" required />
+                  </label>
+                  <label>
+                    Role
+                    <input type="text" name="role" placeholder="Coach, principal, liaison..." required />
+                  </label>
+                </div>
+                <div class="field-grid three">
+                  <label>
+                    Email
+                    <input type="email" name="email" placeholder="contact@example.com" />
+                  </label>
+                  <label>
+                    Phone
+                    <input type="text" name="phoneNumber" placeholder="+1 876 000 0000" />
+                  </label>
+                  ${
+                    canManage
+                      ? `<label>
+                          Region
+                          <select name="region">${getRegionalRegionOptions(
+                            assignedRegion || "Region 1",
+                          )}</select>
+                        </label>`
+                      : `<label>
+                          Region
+                          <input type="text" name="region" value="${escapeHtml(
+                            assignedRegion || "",
+                          )}" readonly required />
+                        </label>`
+                  }
+                </div>
+                <button type="submit">Save contact</button>
+              </form>
+            </section>
+          `;
+        };
+
+        const renderContactList = () => `
+          <section class="flat-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Regional contact database</p>
+                <h3>Contacts by region</h3>
+              </div>
+              <span class="role-pill">${escapeHtml(pagedContacts.totalRecords)} matches</span>
+            </div>
+            <form class="compact-inline-form" data-form="regional-contacts-search">
+              <input
+                type="search"
+                name="query"
+                value="${escapeHtml(session.regionalContactsQuery || "")}"
+                placeholder="Search contacts by name, institution, role, email, or phone"
+                autocomplete="off"
+              />
+              <select name="regionFilter">
+                ${contactRegionOptions
+                  .map((region) => {
+                    const label = region === "all" ? "All regions" : region;
+                    return `<option value="${escapeHtml(region)}" ${selected(
+                      region,
+                      session.regionalContactsRegionFilter || "all",
+                    )}>${escapeHtml(label)}</option>`;
+                  })
+                  .join("")}
+              </select>
+              <button type="submit">Find</button>
+              ${
+                session.regionalContactsQuery || session.regionalContactsRegionFilter !== "all"
+                  ? `<button class="secondary-button" type="button" data-action="clear-regional-contacts-query">Clear</button>`
+                  : ""
+              }
+            </form>
             ${
-              pagedStaff.items.length
-                ? `<div class="directory-grid">
-                    ${pagedStaff.items
+              Object.keys(contactGroups).length
+                ? `<div class="regional-list-stack">
+                    ${Object.entries(contactGroups)
+                      .sort(([left], [right]) => String(left).localeCompare(String(right)))
                       .map(
-                        (user) => `
-                          <article class="directory-card">
+                        ([regionKey, rows]) => `
+                          <article class="surface regional-group-card">
                             <div class="section-heading">
-                              <div>
-                                <strong>${escapeHtml(user.name)}</strong>
-                                <p class="muted">${escapeHtml(user.email)}</p>
-                              </div>
-                              <span class="mini-pill ${user.active ? "success" : "warning"}">${escapeHtml(
-                                user.active ? "Active" : "Disabled",
-                              )}</span>
+                              <strong>${escapeHtml(regionKey)}</strong>
+                              <span class="mini-pill success">${escapeHtml(rows.length)} contacts</span>
                             </div>
-                            <div class="workspace-chip-row">
-                              <span class="role-pill">${escapeHtml(
-                                toTitleLabel(user.regionalRole || "regional_coordinator"),
-                              )}</span>
-                              <span class="mini-pill success">${escapeHtml(
-                                user.regionalRegion || "Region not set",
-                              )}</span>
-                            </div>
-                            <p class="fine-print">${escapeHtml(
-                              user.lastLoginAt
-                                ? "Last signed in " + user.lastLoginAt
-                                : "This account has not signed in yet.",
-                            )}</p>
-                            ${
-                              canManage && hasRegionalBankingInfo(user.regionalBanking || {})
-                                ? `<p class="fine-print">${escapeHtml(
-                                    "Banking: " +
-                                      getRegionalBankingSummary(user.regionalBanking || {}, {
-                                        maskAccount: true,
-                                      }),
-                                  )}</p>`
-                                : ""
-                            }
-                            ${
-                              canManage
-                                ? `
-                                  <div class="regional-account-manager">
-                                    <form class="stack compact-stack" data-form="update-regional-ops-account" data-email="${escapeHtml(
-                                      user.email,
-                                    )}">
-                                      <div class="field-grid three">
-                                        <label>
-                                          Portal role
-                                          <select name="regionalRole">${getRegionalOperationsRoleOptions(
-                                            user.regionalRole,
-                                            { allowEmpty: true },
-                                          )}</select>
-                                        </label>
-                                        <label>
-                                          Region
-                                          <select name="regionalRegion">${getRegionalRegionOptions(
-                                            user.regionalRegion || "Region 1",
-                                          )}</select>
-                                        </label>
-                                        <label>
-                                          Account status
-                                          <select name="active">${getAccountStatusOptions(
-                                            user.active !== false,
-                                          )}</select>
-                                        </label>
+                            <div class="regional-list-stack">
+                              ${rows
+                                .map(
+                                  (entry) => `
+                                    <details class="regional-contact-row">
+                                      <summary class="regional-contact-summary">
+                                        <span>${escapeHtml(entry.contactName || "Contact")}</span>
+                                        <span class="muted">${escapeHtml(
+                                          entry.institution || "No institution",
+                                        )}</span>
+                                      </summary>
+                                      <div class="regional-contact-detail">
+                                        <p><strong>Role:</strong> ${escapeHtml(entry.role || "N/A")}</p>
+                                        <p><strong>Email:</strong> ${escapeHtml(entry.email || "N/A")}</p>
+                                        <p><strong>Phone:</strong> ${escapeHtml(
+                                          entry.phoneNumber || "N/A",
+                                        )}</p>
+                                        ${
+                                          canManage
+                                            ? `<div class="button-row">
+                                                <button
+                                                  class="danger-button button-size-small"
+                                                  type="button"
+                                                  data-action="delete-regional-contact"
+                                                  data-contact-id="${escapeHtml(entry.id)}"
+                                                >
+                                                  Remove contact
+                                                </button>
+                                              </div>`
+                                            : ""
+                                        }
                                       </div>
-                                      <button class="secondary-button" type="submit">Save Account Access</button>
-                                    </form>
-                                    <form class="compact-inline-form" data-form="reset-regional-ops-password" data-email="${escapeHtml(
-                                      user.email,
-                                    )}">
-                                      <input type="password" name="password" placeholder="Set new password" required />
-                                      <button class="secondary-button" type="submit">Change Password</button>
-                                    </form>
-                                  </div>
-                                `
-                                : ""
-                            }
+                                    </details>
+                                  `,
+                                )
+                                .join("")}
+                            </div>
                           </article>
                         `,
                       )
                       .join("")}
                   </div>`
-                : `<div class="empty-state">Regional staff accounts will appear here once managers create them.</div>`
+                : `<div class="empty-state">No regional contacts matched this view yet.</div>`
             }
-            ${renderCollectionPagination("set-regional-staff-page", pagedStaff)}
+            ${renderCollectionPagination("set-regional-contacts-page", pagedContacts)}
           </section>
+        `;
 
-          <section class="surface" id="regional-reports-dashboard">
+        const renderCoordinatorDirectory = () => `
+          <section class="flat-panel" id="regional-coordinator-directory">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Reports Dashboard</p>
-                <h2>${escapeHtml(canManage ? "Regional reporting dashboard" : "Your reporting dashboard")}</h2>
+                <p class="eyebrow">Directory</p>
+                <h3>Regional and deputy coordinators</h3>
               </div>
-              <span class="role-pill">${escapeHtml(pagedReports.totalRecords)} reports</span>
-            </div>
-            <div class="stat-grid">
-              <div class="stat-card">
-                <span class="muted">Visible reports</span>
-                <strong>${escapeHtml(reports.length)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Assigned region</span>
-                <strong>${escapeHtml(assignedRegion || "All regions")}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Latest school</span>
-                <strong>${escapeHtml(latestReport?.school || "No reports yet")}</strong>
-              </div>
+              <span class="role-pill">${escapeHtml(coordinatorRows.length)} active profiles</span>
             </div>
             ${
-              canSubmit
-                ? `
-                  <div class="manager-tools regional-dashboard-grid">
-                    <section class="flat-panel">
+              coordinatorRows.length
+                ? `<div class="directory-grid">
+                    ${coordinatorRows
+                      .map(
+                        (entry) => `
+                          <article class="directory-card">
+                            <div class="section-heading">
+                              <strong>${escapeHtml(entry.name || entry.email)}</strong>
+                              <span class="mini-pill ${entry.active !== false ? "success" : "warning"}">${escapeHtml(
+                                entry.active !== false ? "Active" : "Disabled",
+                              )}</span>
+                            </div>
+                            <p class="muted">${escapeHtml(toTitleLabel(entry.regionalRole || ""))}</p>
+                            <p class="fine-print">${escapeHtml(
+                              (entry.regionalRegion || "Region not set") +
+                                (entry.regionalParish ? " • " + entry.regionalParish : ""),
+                            )}</p>
+                            <p class="fine-print">${escapeHtml(entry.phoneNumber || entry.email)}</p>
+                          </article>
+                        `,
+                      )
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state">No coordinator accounts have been created yet.</div>`
+            }
+            ${
+              canManage
+                ? `<div class="button-row">
+                    <button class="secondary-button" type="button" data-action="set-view" data-view="regional-staff">Open staff management</button>
+                  </div>`
+                : ""
+            }
+          </section>
+        `;
+
+        const renderRegionalHome = () => `
+          ${renderRegionalHeader(
+            "Regional Development",
+            "Home",
+            "Regional coordination hub for contacts, coordinators, and field activity.",
+            summary.pendingFundingRequests ? summary.pendingFundingRequests + " pending requests" : "",
+          )}
+          <section class="surface regional-shell">
+            <div class="regional-card-grid">
+              <article class="spotlight-card">
+                <p class="eyebrow">Coordinators</p>
+                <h3>${escapeHtml(summary.coordinators)}</h3>
+                <p class="muted">Regional coordinator accounts currently active.</p>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Deputies</p>
+                <h3>${escapeHtml(summary.deputies)}</h3>
+                <p class="muted">Deputy regional coordinator accounts on file.</p>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Reports</p>
+                <h3>${escapeHtml(summary.reports)}</h3>
+                <p class="muted">Regional reports submitted and visible in this workspace.</p>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Requests</p>
+                <h3>${escapeHtml(summary.fundingRequests)}</h3>
+                <p class="muted">Resource requests logged for review and processing.</p>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Contacts</p>
+                <h3>${escapeHtml(contacts.length)}</h3>
+                <p class="muted">Regional contacts stored outside account records.</p>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Workshop files</p>
+                <h3>${escapeHtml(workshopResources.length)}</h3>
+                <p class="muted">Training resources available to coordinators.</p>
+              </article>
+            </div>
+          </section>
+          <section class="surface regional-shell">
+            <div class="regional-home-grid">
+              <div class="regional-list-stack">
+                ${renderContactForm()}
+                ${renderContactList()}
+              </div>
+              <div class="regional-list-stack">
+                ${renderCoordinatorDirectory()}
+              </div>
+            </div>
+          </section>
+        `;
+
+        const renderRegionalReports = () => `
+          ${renderRegionalHeader(
+            "Regional Development",
+            "Regional report",
+            "Submit field reports and track the latest regional updates.",
+          )}
+          <section class="surface regional-shell">
+            <div class="regional-home-grid">
+              ${
+                canSubmit
+                  ? `<section class="flat-panel">
                       <div class="section-heading">
                         <div>
-                          <p class="eyebrow">Biweekly Reporting</p>
-                          <h3>Submit a school report for your region</h3>
+                          <p class="eyebrow">Report form</p>
+                          <h3>Submit report</h3>
                         </div>
-                        <span class="role-pill">${escapeHtml(assignedRegion || "Regional staff")}</span>
+                        <span class="mini-pill success">${escapeHtml(assignedRegion || "Regional staff")}</span>
                       </div>
                       <form class="stack" data-form="submit-regional-report">
                         <div class="field-grid three">
@@ -22016,172 +22189,147 @@
                             Region
                             <input type="text" name="region" value="${escapeHtml(
                               assignedRegion || "",
-                            )}" ${assignedRegion ? "readonly" : ""} required />
+                            )}" readonly required />
                           </label>
                           <label>
                             School
-                            <input type="text" name="school" placeholder="School visited or monitored" required />
+                            <input type="text" name="school" placeholder="School name" required />
                           </label>
                           <label>
-                            Reporting period end
-                            <input type="date" name="reportingWindowEnd" required />
+                            Date of report
+                            <input type="date" name="reportDate" required />
                           </label>
                         </div>
-                        <label>
-                          Reporting period start
-                          <input type="date" name="reportingWindowStart" required />
-                        </label>
                         <label>
                           Summary
-                          <textarea name="summary" rows="3" placeholder="Overall update for this school and region." required></textarea>
+                          <textarea name="summary" rows="3" placeholder="Summary of activity and progress." required></textarea>
                         </label>
-                        <div class="field-grid two">
-                          <label>
-                            Highlights
-                            <textarea name="highlights" rows="3" placeholder="Key wins, turnout, or positive developments."></textarea>
-                          </label>
-                          <label>
-                            Challenges and support needed
-                            <textarea name="supportNeeded" rows="3" placeholder="Issues to escalate to managers and support requested."></textarea>
-                          </label>
-                        </div>
                         <label>
-                          Additional challenges
-                          <textarea name="challenges" rows="2" placeholder="Operational blockers, school engagement issues, or scheduling concerns."></textarea>
+                          Challenges
+                          <textarea name="challenges" rows="3" placeholder="Key challenges observed." required></textarea>
                         </label>
-                        <button type="submit">Submit Biweekly Report</button>
+                        <label>
+                          How JADE can help
+                          <textarea name="jadeSupport" rows="3" placeholder="Support requested from JADE." required></textarea>
+                        </label>
+                        <div class="field-grid two">
+                          <label>
+                            Experience rating
+                            <select name="experienceRating" required>
+                              <option value="">Select rating</option>
+                              ${Array.from({ length: 10 }, (_, index) => index + 1)
+                                .map(
+                                  (score) => `<option value="${escapeHtml(score)}">${escapeHtml(
+                                    score + " / 10",
+                                  )}</option>`,
+                                )
+                                .join("")}
+                            </select>
+                          </label>
+                          <label>
+                            Additional notes
+                            <textarea name="additionalNotes" rows="3" placeholder="Optional additional context."></textarea>
+                          </label>
+                        </div>
+                        <button type="submit">Submit regional report</button>
                       </form>
-                    </section>
+                    </section>`
+                  : `<section class="flat-panel">
+                      <div class="alert info">Report submission is available to regional coordinators and deputy regional coordinators.</div>
+                    </section>`
+              }
+              <section class="flat-panel">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Report log</p>
+                    <h3>${escapeHtml(canManage ? "Regional reports" : "My reports")}</h3>
                   </div>
-                `
-                : ""
-            }
-            ${renderCollectionToolbar({
-              formName: "regional-reports-search",
-              query: session.regionalReportsQuery || "",
-              placeholder: "Search reports by school, region, summary, or staff",
-              clearAction: "clear-regional-reports-query",
-              pageData: pagedReports,
-            })}
-            ${
-              pagedReports.items.length
-                ? `<div class="directory-grid">
-                    ${pagedReports.items
-                      .map(
-                        (entry) => `
-                          <article class="directory-card">
-                            <div class="section-heading">
-                              <div>
-                                <strong>${escapeHtml(entry.school || "School report")}</strong>
-                                <p class="muted">${escapeHtml(
-                                  entry.region +
-                                    " • " +
-                                    (entry.reportingWindowStart || "No start date") +
-                                    " to " +
-                                    (entry.reportingWindowEnd || "No end date"),
+                  <span class="role-pill">${escapeHtml(pagedReports.totalRecords)} entries</span>
+                </div>
+                ${renderCollectionToolbar({
+                  formName: "regional-reports-search",
+                  query: session.regionalReportsQuery || "",
+                  placeholder: "Search reports by school, region, summary, or coordinator",
+                  clearAction: "clear-regional-reports-query",
+                  pageData: pagedReports,
+                })}
+                ${
+                  pagedReports.items.length
+                    ? `<div class="regional-list-stack">
+                        ${pagedReports.items
+                          .map(
+                            (entry) => `
+                              <article class="surface regional-log-card">
+                                <div class="section-heading">
+                                  <div>
+                                    <strong>${escapeHtml(entry.school || "Regional report")}</strong>
+                                    <p class="muted">${escapeHtml(
+                                      (entry.region || "Region not set") +
+                                        " • " +
+                                        (entry.reportDate || entry.createdAt),
+                                    )}</p>
+                                  </div>
+                                  ${
+                                    entry.experienceRating
+                                      ? `<span class="mini-pill success">${escapeHtml(
+                                          entry.experienceRating + "/10",
+                                        )}</span>`
+                                      : ""
+                                  }
+                                </div>
+                                <p class="muted">${escapeHtml(entry.summary || "No summary provided.")}</p>
+                                <p class="fine-print"><strong>Challenges:</strong> ${escapeHtml(
+                                  entry.challenges || "None listed.",
                                 )}</p>
-                              </div>
-                              <span class="mini-pill success">${escapeHtml(entry.createdAt)}</span>
-                            </div>
-                            <p class="muted">${escapeHtml(entry.summary || "No summary added.")}</p>
-                            <p class="fine-print">${escapeHtml(
-                              "Submitted by " +
-                                (entry.submittedByName || entry.submittedByEmail || "Regional staff"),
-                            )}</p>
-                          </article>
-                        `,
-                      )
-                      .join("")}
-                  </div>`
-                : `<div class="empty-state">${
-                    canManage
-                      ? "Regional reports will appear here once coordinators start submitting them."
-                      : "Your biweekly reports will appear here after submission."
-                  }</div>`
-            }
-            ${renderCollectionPagination("set-regional-reports-page", pagedReports)}
+                                <p class="fine-print"><strong>JADE support:</strong> ${escapeHtml(
+                                  entry.jadeSupport || "No support request listed.",
+                                )}</p>
+                                ${
+                                  entry.additionalNotes
+                                    ? `<p class="fine-print"><strong>Additional notes:</strong> ${escapeHtml(
+                                        entry.additionalNotes,
+                                      )}</p>`
+                                    : ""
+                                }
+                                <p class="fine-print">${escapeHtml(
+                                  "Submitted by " +
+                                    (entry.submittedByName || entry.submittedByEmail || "Regional staff"),
+                                )}</p>
+                              </article>
+                            `,
+                          )
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">${
+                        canManage
+                          ? "Regional reports will appear here once submissions begin."
+                          : "Your submitted reports will appear here."
+                      }</div>`
+                }
+                ${renderCollectionPagination("set-regional-reports-page", pagedReports)}
+              </section>
+            </div>
           </section>
+        `;
 
-          <section class="surface" id="regional-funding-dashboard">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Funding Dashboard</p>
-                <h2>${escapeHtml(canManage ? "Transport funding dashboard" : "Your funding dashboard")}</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(pagedRequests.totalRecords)} requests</span>
-            </div>
-            <div class="stat-grid">
-              <div class="stat-card">
-                <span class="muted">Total requests</span>
-                <strong>${escapeHtml(fundingSummary.total)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Pending</span>
-                <strong>${escapeHtml(fundingSummary.pending)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Approved</span>
-                <strong>${escapeHtml(fundingSummary.approved)}</strong>
-              </div>
-              <div class="stat-card">
-                <span class="muted">Paid</span>
-                <strong>${escapeHtml(fundingSummary.paid)}</strong>
-              </div>
-            </div>
-            ${
-              canSubmit
-                ? `
-                  <div class="manager-tools regional-dashboard-grid">
-                    <section class="flat-panel">
+        const renderRegionalRequests = () => `
+          ${renderRegionalHeader(
+            "Regional Development",
+            "Requests",
+            "Track support requests for transport, events, workshops, and resources.",
+            fundingSummary.pending ? fundingSummary.pending + " pending" : "",
+          )}
+          <section class="surface regional-shell">
+            <div class="regional-home-grid">
+              ${
+                canSubmit
+                  ? `<section class="flat-panel">
                       <div class="section-heading">
                         <div>
-                          <p class="eyebrow">Banking Profile</p>
-                          <h3>Save the payout details attached to your account</h3>
+                          <p class="eyebrow">Request form</p>
+                          <h3>Submit support request</h3>
                         </div>
-                        <span class="role-pill">Saved with your account</span>
-                      </div>
-                      <form class="stack" data-form="save-regional-banking-profile">
-                        <div class="field-grid two">
-                          <label>
-                            Bank
-                            <select name="bankName">${getJamaicanBankOptions(
-                              currentBanking.bankName || "NCB",
-                            )}</select>
-                          </label>
-                          <label>
-                            Account holder name
-                            <input type="text" name="accountName" value="${escapeAttributeValue(
-                              currentBanking.accountName || currentUser?.name || "",
-                            )}" placeholder="Name on the bank account" required />
-                          </label>
-                        </div>
-                        <div class="field-grid two">
-                          <label>
-                            Account number
-                            <input type="text" name="accountNumber" value="${escapeAttributeValue(
-                              currentBanking.accountNumber || "",
-                            )}" placeholder="Bank account number" required />
-                          </label>
-                          <label>
-                            Branch
-                            <input type="text" name="branchName" value="${escapeAttributeValue(
-                              currentBanking.branchName || "",
-                            )}" placeholder="Branch or branch code" />
-                          </label>
-                        </div>
-                        <p class="fine-print">
-                          These details stay attached to your Regional Operations account and can be reused whenever you submit a transport stipend request.
-                        </p>
-                        <button type="submit">Save Banking Details</button>
-                      </form>
-                    </section>
-                    <section class="flat-panel">
-                      <div class="section-heading">
-                        <div>
-                          <p class="eyebrow">Transport Stipends</p>
-                          <h3>Request transport funding for a school trip</h3>
-                        </div>
-                        <span class="role-pill">Sent to managers</span>
+                        <span class="mini-pill success">${escapeHtml(assignedRegion || "Regional staff")}</span>
                       </div>
                       <form class="stack" data-form="submit-regional-funding-request">
                         <div class="field-grid three">
@@ -22189,164 +22337,570 @@
                             Region
                             <input type="text" name="region" value="${escapeHtml(
                               assignedRegion || "",
-                            )}" ${assignedRegion ? "readonly" : ""} required />
+                            )}" readonly required />
                           </label>
                           <label>
                             School
-                            <input type="text" name="school" placeholder="School visited" required />
+                            <input type="text" name="school" placeholder="School or programme location" required />
                           </label>
                           <label>
-                            Trip date
+                            Date needed
                             <input type="date" name="tripDate" required />
                           </label>
                         </div>
+                        <fieldset class="stack">
+                          <legend>Request categories</legend>
+                          <div class="collection-filter-row">
+                            ${REGIONAL_REQUEST_CATEGORIES.map(
+                              (category) => `
+                                <label class="checkbox-row">
+                                  <input type="checkbox" name="categories" value="${escapeHtml(category)}" />
+                                  <span>${escapeHtml(category)}</span>
+                                </label>
+                              `,
+                            ).join("")}
+                          </div>
+                        </fieldset>
+                        <label>
+                          Other category
+                          <input type="text" name="otherCategoryText" placeholder="If Other, describe the category." />
+                        </label>
                         <div class="field-grid two">
                           <label>
-                            Amount requested (JMD)
-                            <input type="number" name="amountJmd" min="0" step="1" placeholder="0" required />
+                            Money or item required
+                            <input type="text" name="amountOrItemRequired" placeholder="e.g. JMD 45,000 or 2 projectors" required />
                           </label>
                           <label>
-                            Bank
-                            <select name="bankName">${getJamaicanBankOptions(
-                              currentBanking.bankName || "NCB",
-                            )}</select>
+                            Amount (JMD)
+                            <input type="number" min="0" step="0.01" name="amountJmd" placeholder="Optional numeric amount" />
                           </label>
                         </div>
-                        <div class="field-grid two">
+                        <div class="field-grid three">
                           <label>
-                            Account holder name
+                            Bank
+                            <input type="text" name="bankName" value="${escapeAttributeValue(
+                              currentBanking.bankName || "",
+                            )}" required />
+                          </label>
+                          <label>
+                            Account name
                             <input type="text" name="accountName" value="${escapeAttributeValue(
-                              currentBanking.accountName || currentUser?.name || "",
-                            )}" placeholder="Name on the receiving account" required />
+                              currentBanking.accountName || "",
+                            )}" required />
                           </label>
                           <label>
                             Account number
                             <input type="text" name="accountNumber" value="${escapeAttributeValue(
                               currentBanking.accountNumber || "",
-                            )}" placeholder="Receiving account number" required />
-                          </label>
-                        </div>
-                        <div class="field-grid two">
-                          <label>
-                            Branch
-                            <input type="text" name="branchName" value="${escapeAttributeValue(
-                              currentBanking.branchName || "",
-                            )}" placeholder="Branch or branch code" />
+                            )}" required />
                           </label>
                         </div>
                         <label>
-                          Justification
-                          <textarea name="justification" rows="3" placeholder="Explain why this transport stipend amount is needed." required></textarea>
+                          Branch
+                          <input type="text" name="branchName" value="${escapeAttributeValue(
+                            currentBanking.branchName || "",
+                          )}" />
                         </label>
-                        <p class="fine-print">
-                          The banking details above are stored with this specific request so managers and system administrators can process the stipend exactly as submitted.
-                        </p>
-                        <button type="submit">Submit Funding Request</button>
+                        <label>
+                          Justification
+                          <textarea name="justification" rows="3" placeholder="Why this request is needed." required></textarea>
+                        </label>
+                        <button type="submit">Submit request</button>
                       </form>
-                    </section>
+                    </section>`
+                  : `<section class="flat-panel">
+                      <div class="alert info">Requests can be submitted by regional coordinators and deputy regional coordinators.</div>
+                    </section>`
+              }
+              <section class="flat-panel">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Request log</p>
+                    <h3>${escapeHtml(canManage ? "Regional requests" : "My requests")}</h3>
                   </div>
-                `
-                : ""
-            }
-            ${renderCollectionToolbar({
-              formName: "regional-funding-search",
-              query: session.regionalFundingQuery || "",
-              placeholder: "Search funding by school, staff, bank, or reason",
-              clearAction: "clear-regional-funding-query",
-              pageData: pagedRequests,
-            })}
-            <div class="collection-filter-row" role="toolbar" aria-label="Filter funding requests">
-              ${renderRegionalFundingFilterButton("all", "All")}
-              ${renderRegionalFundingFilterButton("pending", "Pending")}
-              ${renderRegionalFundingFilterButton("approved", "Approved")}
-              ${renderRegionalFundingFilterButton("paid", "Paid")}
-              ${renderRegionalFundingFilterButton("rejected", "Rejected")}
-            </div>
-            ${
-              pagedRequests.items.length
-                ? `<div class="directory-grid">
-                    ${pagedRequests.items
-                      .map(
-                        (entry) => `
-                          <article class="directory-card">
-                            <div class="section-heading">
-                              <div>
-                                <strong>${escapeHtml(entry.school || "Transport request")}</strong>
-                                <p class="muted">${escapeHtml(
-                                  entry.region + " • " + (entry.tripDate || "Trip date pending"),
+                  <span class="role-pill">${escapeHtml(pagedRequests.totalRecords)} entries</span>
+                </div>
+                ${renderCollectionToolbar({
+                  formName: "regional-funding-search",
+                  query: session.regionalFundingQuery || "",
+                  placeholder: "Search by school, category, bank, or justification",
+                  clearAction: "clear-regional-funding-query",
+                  pageData: pagedRequests,
+                })}
+                <div class="collection-filter-row" role="toolbar" aria-label="Filter regional requests">
+                  ${renderRegionalFundingFilterButton("all", "All")}
+                  ${renderRegionalFundingFilterButton("pending", "Pending")}
+                  ${renderRegionalFundingFilterButton("approved", "Approved")}
+                  ${renderRegionalFundingFilterButton("paid", "Paid")}
+                  ${renderRegionalFundingFilterButton("rejected", "Rejected")}
+                </div>
+                ${
+                  pagedRequests.items.length
+                    ? `<div class="regional-list-stack">
+                        ${pagedRequests.items
+                          .map(
+                            (entry) => `
+                              <article class="surface regional-log-card">
+                                <div class="section-heading">
+                                  <div>
+                                    <strong>${escapeHtml(entry.school || "Regional request")}</strong>
+                                    <p class="muted">${escapeHtml(
+                                      (entry.region || "Region not set") +
+                                        " • " +
+                                        (entry.tripDate || "Date pending"),
+                                    )}</p>
+                                  </div>
+                                  <span class="mini-pill ${entry.status === "pending" ? "warning" : "success"}">${escapeHtml(
+                                    toTitleLabel(entry.status),
+                                  )}</span>
+                                </div>
+                                <p class="fine-print"><strong>Categories:</strong> ${escapeHtml(
+                                  entry.categories?.length ? entry.categories.join(", ") : "None selected",
+                                )}${entry.otherCategoryText ? escapeHtml(" • " + entry.otherCategoryText) : ""}</p>
+                                <p class="fine-print"><strong>Required:</strong> ${escapeHtml(
+                                  entry.amountOrItemRequired ||
+                                    (entry.amountJmd ? formatCurrencyJmd(entry.amountJmd) : "Not provided"),
                                 )}</p>
-                              </div>
-                              <span class="mini-pill ${entry.status === "pending" ? "warning" : "success"}">${escapeHtml(
-                                toTitleLabel(entry.status),
-                              )}</span>
-                            </div>
-                            <div class="workspace-chip-row">
-                              <span class="role-pill">${escapeHtml(formatCurrencyJmd(entry.amountJmd))}</span>
-                              <span class="mini-pill success">${escapeHtml(
-                                entry.bankName || "Bank pending",
-                              )}</span>
-                            </div>
-                            ${
-                              entry.accountName || entry.accountNumber || entry.branchName
-                                ? `<p class="fine-print">${escapeHtml(
-                                    "Banking: " +
-                                      getRegionalBankingSummary(entry, {
-                                        maskAccount: !canManage,
-                                      }),
-                                  )}</p>`
-                                : ""
-                            }
-                            <p class="muted">${escapeHtml(entry.justification || "No justification supplied.")}</p>
-                            <p class="fine-print">${escapeHtml(
-                              "Submitted by " +
-                                (entry.submittedByName || entry.submittedByEmail || "Regional staff") +
-                                " • " +
-                                entry.createdAt,
-                            )}</p>
-                            ${
-                              canManage
-                                ? `
-                                  <form class="stack compact-stack" data-form="review-regional-funding-request" data-request-id="${escapeHtml(
-                                    entry.id,
-                                  )}">
-                                    <div class="field-grid two">
-                                      <label>
-                                        Status
-                                        <select name="status">
-                                          <option value="pending" ${selected("pending", entry.status)}>Pending</option>
-                                          <option value="approved" ${selected("approved", entry.status)}>Approved</option>
-                                          <option value="rejected" ${selected("rejected", entry.status)}>Rejected</option>
-                                          <option value="paid" ${selected("paid", entry.status)}>Paid</option>
-                                        </select>
-                                      </label>
-                                      <label>
-                                        Manager note
-                                        <input type="text" name="managerNote" value="${escapeAttributeValue(
-                                          entry.managerNote || "",
-                                        )}" placeholder="Optional review note" />
-                                      </label>
-                                    </div>
-                                    <button class="secondary-button" type="submit">Save Review</button>
-                                  </form>
-                                `
-                                : entry.managerNote
-                                  ? `<p class="fine-print">${escapeHtml("Manager note: " + entry.managerNote)}</p>`
-                                  : ""
-                            }
-                          </article>
-                        `,
-                      )
-                      .join("")}
-                  </div>`
-                : `<div class="empty-state">${
-                    canManage
-                      ? "Transport stipend requests will appear here for manager review."
-                      : "Your stipend requests will appear here after submission."
-                  }</div>`
-            }
-            ${renderCollectionPagination("set-regional-funding-page", pagedRequests)}
+                                <p class="fine-print"><strong>Bank:</strong> ${escapeHtml(
+                                  getRegionalBankingSummary(entry, {
+                                    maskAccount: !canManage,
+                                  }),
+                                )}</p>
+                                <p class="muted">${escapeHtml(entry.justification || "No justification provided.")}</p>
+                                <p class="fine-print">${escapeHtml(
+                                  "Submitted by " +
+                                    (entry.submittedByName || entry.submittedByEmail || "Regional staff"),
+                                )}</p>
+                                ${
+                                  canManage
+                                    ? `<form class="stack compact-stack" data-form="review-regional-funding-request" data-request-id="${escapeHtml(
+                                        entry.id,
+                                      )}">
+                                        <div class="field-grid two">
+                                          <label>
+                                            Status
+                                            <select name="status">
+                                              <option value="pending" ${selected(
+                                                "pending",
+                                                entry.status,
+                                              )}>Pending</option>
+                                              <option value="approved" ${selected(
+                                                "approved",
+                                                entry.status,
+                                              )}>Approved</option>
+                                              <option value="rejected" ${selected(
+                                                "rejected",
+                                                entry.status,
+                                              )}>Rejected</option>
+                                              <option value="paid" ${selected(
+                                                "paid",
+                                                entry.status,
+                                              )}>Paid</option>
+                                            </select>
+                                          </label>
+                                          <label>
+                                            Manager note
+                                            <input type="text" name="managerNote" value="${escapeAttributeValue(
+                                              entry.managerNote || "",
+                                            )}" placeholder="Optional note" />
+                                          </label>
+                                        </div>
+                                        <button class="secondary-button" type="submit">Save review</button>
+                                      </form>`
+                                    : entry.managerNote
+                                      ? `<p class="fine-print"><strong>Manager note:</strong> ${escapeHtml(
+                                          entry.managerNote,
+                                        )}</p>`
+                                      : ""
+                                }
+                              </article>
+                            `,
+                          )
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">${
+                        canManage
+                          ? "No regional requests yet."
+                          : "Your submitted requests will appear here."
+                      }</div>`
+                }
+                ${renderCollectionPagination("set-regional-funding-page", pagedRequests)}
+              </section>
+            </div>
           </section>
         `;
+
+        const renderWorkshop = () => `
+          ${renderRegionalHeader(
+            "Regional Development",
+            "Workshop",
+            "Share training documents and reference resources for coordinators.",
+            workshopResources.length ? workshopResources.length + " resources" : "",
+          )}
+          <section class="surface regional-shell">
+            <div class="regional-home-grid">
+              ${
+                canManage
+                  ? `<section class="flat-panel">
+                      <div class="section-heading">
+                        <div>
+                          <p class="eyebrow">Upload resource</p>
+                          <h3>Add workshop file</h3>
+                        </div>
+                        <span class="mini-pill success">Manager/Admin</span>
+                      </div>
+                      <form class="stack" data-form="upload-regional-workshop-resource">
+                        <label>
+                          Title
+                          <input type="text" name="title" placeholder="Workshop title" required />
+                        </label>
+                        <label>
+                          Description
+                          <textarea name="description" rows="3" placeholder="What this resource helps with." required></textarea>
+                        </label>
+                        <label>
+                          Resource file
+                          <input type="file" name="resourceFile" required />
+                        </label>
+                        <label>
+                          Optional link
+                          <input type="url" name="linkUrl" placeholder="https://..." />
+                        </label>
+                        <button type="submit">Upload resource</button>
+                      </form>
+                    </section>`
+                  : ""
+              }
+              <section class="flat-panel">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Resource library</p>
+                    <h3>Workshop resources</h3>
+                  </div>
+                  <span class="role-pill">${escapeHtml(pagedWorkshopResources.totalRecords)} entries</span>
+                </div>
+                ${renderCollectionToolbar({
+                  formName: "regional-workshop-search",
+                  query: session.regionalWorkshopQuery || "",
+                  placeholder: "Search workshop files by title, notes, or uploader",
+                  clearAction: "clear-regional-workshop-query",
+                  pageData: pagedWorkshopResources,
+                })}
+                ${
+                  pagedWorkshopResources.items.length
+                    ? `<div class="regional-list-stack">
+                        ${pagedWorkshopResources.items
+                          .map(
+                            (resource) => `
+                              <article class="surface regional-log-card">
+                                <div class="section-heading">
+                                  <div>
+                                    <strong>${escapeHtml(resource.title || "Workshop resource")}</strong>
+                                    <p class="muted">${escapeHtml(resource.description || "No description provided.")}</p>
+                                  </div>
+                                  <span class="mini-pill success">${escapeHtml(resource.createdAt)}</span>
+                                </div>
+                                <p class="fine-print">${escapeHtml(
+                                  "Uploaded by " +
+                                    (resource.createdByName || resource.createdByEmail || "Staff"),
+                                )}</p>
+                                <p class="fine-print">${escapeHtml(
+                                  resource.fileName
+                                    ? resource.fileName + (resource.fileSize ? " • " + formatFileSize(resource.fileSize) : "")
+                                    : "Link resource",
+                                )}</p>
+                                <div class="button-row">
+                                  ${
+                                    resource.fileDataUrl && resource.fileName
+                                      ? `<a class="secondary-button inline-link" href="${escapeHtml(
+                                          resource.fileDataUrl,
+                                        )}" download="${escapeAttributeValue(resource.fileName)}">Download file</a>`
+                                      : ""
+                                  }
+                                  ${
+                                    resource.linkUrl
+                                      ? `<a class="secondary-button inline-link" href="${escapeHtml(
+                                          resource.linkUrl,
+                                        )}" target="_blank" rel="noopener">Open link</a>`
+                                      : ""
+                                  }
+                                  ${
+                                    canManage
+                                      ? `<button
+                                          class="danger-button button-size-small"
+                                          type="button"
+                                          data-action="delete-regional-workshop-resource"
+                                          data-resource-id="${escapeHtml(resource.id)}"
+                                        >
+                                          Remove
+                                        </button>`
+                                      : ""
+                                  }
+                                </div>
+                              </article>
+                            `,
+                          )
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">No workshop resources uploaded yet.</div>`
+                }
+                ${renderCollectionPagination("set-regional-workshop-page", pagedWorkshopResources)}
+              </section>
+            </div>
+          </section>
+        `;
+
+        const renderStaff = () => {
+          if (!canManage) {
+            return `
+              ${renderRegionalHeader(
+                "Regional Development",
+                "Staff management",
+                "Staff account controls are available to managers and system administrators.",
+              )}
+              <section class="surface regional-shell">
+                <div class="alert warning">You do not have access to staff management tools.</div>
+              </section>
+            `;
+          }
+          return `
+            ${renderRegionalHeader(
+              "Regional Development",
+              "Staff management",
+              "Create, update, and monitor regional personnel accounts.",
+              pagedStaff.totalRecords + " staff records",
+            )}
+            <section class="surface regional-shell">
+              <div class="regional-home-grid">
+                <section class="flat-panel">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Create account</p>
+                      <h3>Regional personnel</h3>
+                    </div>
+                  </div>
+                  <form class="stack" data-form="create-regional-ops-user">
+                    <div class="field-grid two">
+                      <label>
+                        Full name
+                        <input type="text" name="name" placeholder="Regional staff name" required />
+                      </label>
+                      <label>
+                        Email
+                        <input type="email" name="email" placeholder="staff@example.com" required />
+                      </label>
+                    </div>
+                    <div class="field-grid three">
+                      <label>
+                        Role
+                        <select name="regionalRole">${getRegionalOperationsRoleOptions(
+                          "regional_coordinator",
+                        )}</select>
+                      </label>
+                      <label>
+                        Region
+                        <select name="regionalRegion">${getRegionalRegionOptions("Region 1")}</select>
+                      </label>
+                      <label>
+                        Parish
+                        <select name="regionalParish">${getRegionalParishOptions("", {
+                          includeEmpty: true,
+                        })}</select>
+                      </label>
+                    </div>
+                    <div class="field-grid two">
+                      <label>
+                        Phone number
+                        <input type="text" name="phoneNumber" placeholder="+1 876 000 0000" />
+                      </label>
+                      <label>
+                        Temporary password
+                        <input type="password" name="password" placeholder="Required for new account" />
+                      </label>
+                    </div>
+                    <button type="submit">Save regional account</button>
+                  </form>
+                </section>
+                <section class="flat-panel">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Filters</p>
+                      <h3>Find staff quickly</h3>
+                    </div>
+                  </div>
+                  <form class="stack" data-form="regional-staff-search">
+                    <label>
+                      Search
+                      <input
+                        type="search"
+                        name="query"
+                        value="${escapeHtml(session.regionalStaffQuery || "")}"
+                        placeholder="Search by name, email, role, parish, or phone"
+                      />
+                    </label>
+                    <div class="field-grid three">
+                      <label>
+                        Role
+                        <select name="roleFilter">
+                          <option value="all" ${selected("all", roleFilter)}>All roles</option>
+                          <option value="regional_coordinator" ${selected(
+                            "regional_coordinator",
+                            roleFilter,
+                          )}>Regional coordinator</option>
+                          <option value="deputy_regional_coordinator" ${selected(
+                            "deputy_regional_coordinator",
+                            roleFilter,
+                          )}>Deputy regional coordinator</option>
+                        </select>
+                      </label>
+                      <label>
+                        Region
+                        <select name="regionFilter">
+                          <option value="all" ${selected("all", regionFilter)}>All regions</option>
+                          ${JAMAICA_REGIONS.map(
+                            (region) =>
+                              `<option value="${escapeHtml(region)}" ${selected(
+                                region,
+                                regionFilter,
+                              )}>${escapeHtml(region)}</option>`,
+                          ).join("")}
+                        </select>
+                      </label>
+                      <label>
+                        Activity status
+                        <select name="statusFilter">
+                          <option value="all" ${selected("all", statusFilter)}>All statuses</option>
+                          <option value="active" ${selected("active", statusFilter)}>Active</option>
+                          <option value="disabled" ${selected("disabled", statusFilter)}>Disabled</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div class="button-row">
+                      <button type="submit">Apply filters</button>
+                      <button class="secondary-button" type="button" data-action="clear-regional-staff-query">Clear</button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+            </section>
+            <section class="surface regional-shell">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Staff roster</p>
+                  <h3>Regional personnel accounts</h3>
+                </div>
+                <span class="role-pill">${escapeHtml(pagedStaff.totalRecords)} matches</span>
+              </div>
+              ${
+                pagedStaff.items.length
+                  ? `<div class="directory-grid">
+                      ${pagedStaff.items
+                        .map(
+                          (user) => `
+                            <article class="directory-card">
+                              <div class="section-heading">
+                                <div>
+                                  <strong>${escapeHtml(user.name || user.email)}</strong>
+                                  <p class="muted">${escapeHtml(user.email)}</p>
+                                </div>
+                                <span class="mini-pill ${user.active !== false ? "success" : "warning"}">${escapeHtml(
+                                  user.active !== false ? "Active" : "Disabled",
+                                )}</span>
+                              </div>
+                              <p class="fine-print">${escapeHtml(
+                                toTitleLabel(user.regionalRole || "") +
+                                  " • " +
+                                  (user.regionalRegion || "No region") +
+                                  (user.regionalParish ? " • " + user.regionalParish : ""),
+                              )}</p>
+                              <p class="fine-print">${escapeHtml(user.phoneNumber || "No phone number saved.")}</p>
+                              <form class="stack compact-stack" data-form="update-regional-ops-account" data-email="${escapeHtml(
+                                user.email,
+                              )}">
+                                <div class="field-grid three">
+                                  <label>
+                                    Role
+                                    <select name="regionalRole">${getRegionalOperationsRoleOptions(
+                                      user.regionalRole,
+                                      { allowEmpty: true },
+                                    )}</select>
+                                  </label>
+                                  <label>
+                                    Region
+                                    <select name="regionalRegion">${getRegionalRegionOptions(
+                                      user.regionalRegion || "Region 1",
+                                    )}</select>
+                                  </label>
+                                  <label>
+                                    Parish
+                                    <select name="regionalParish">${getRegionalParishOptions(
+                                      user.regionalParish || "",
+                                      { includeEmpty: true },
+                                    )}</select>
+                                  </label>
+                                </div>
+                                <div class="field-grid two">
+                                  <label>
+                                    Phone number
+                                    <input type="text" name="phoneNumber" value="${escapeAttributeValue(
+                                      user.phoneNumber || "",
+                                    )}" />
+                                  </label>
+                                  <label>
+                                    Status
+                                    <select name="active">${getAccountStatusOptions(
+                                      user.active !== false,
+                                    )}</select>
+                                  </label>
+                                </div>
+                                <button class="secondary-button" type="submit">Save account</button>
+                              </form>
+                              <form class="compact-inline-form" data-form="reset-regional-ops-password" data-email="${escapeHtml(
+                                user.email,
+                              )}">
+                                <input type="password" name="password" placeholder="Set new password" required />
+                                <button class="secondary-button" type="submit">Reset password</button>
+                              </form>
+                              ${
+                                normalizeEmail(user.email) !== normalizeEmail(session.userEmail)
+                                  ? `<div class="button-row">
+                                      <button
+                                        class="danger-button button-size-small"
+                                        type="button"
+                                        data-action="delete-user"
+                                        data-email="${escapeHtml(user.email)}"
+                                      >
+                                        Delete account
+                                      </button>
+                                    </div>`
+                                  : ""
+                              }
+                            </article>
+                          `,
+                        )
+                        .join("")}
+                    </div>`
+                  : `<div class="empty-state">No regional personnel matched your filters.</div>`
+              }
+              ${renderCollectionPagination("set-regional-staff-page", pagedStaff)}
+            </section>
+          `;
+        };
+
+        if (regionalView === "regional-report") {
+          return renderRegionalReports();
+        }
+        if (regionalView === "regional-requests") {
+          return renderRegionalRequests();
+        }
+        if (regionalView === "regional-workshop") {
+          return renderWorkshop();
+        }
+        if (regionalView === "regional-staff") {
+          return renderStaff();
+        }
+
+        return renderRegionalHome();
       }
 
       function getTournamentOpenAction(tournament) {
@@ -22381,6 +22935,16 @@
             "Use Counsel for troubleshooting and next-step guidance.",
           regional:
             "Regional keeps reports, stipends, and coordinator accounts together.",
+          "regional-home":
+            "Regional home tracks coordinators, contacts, and the latest field activity.",
+          "regional-report":
+            "Regional report captures field updates, challenges, and support needs.",
+          "regional-requests":
+            "Requests tracks logistics, workshop, and resource funding needs by region.",
+          "regional-workshop":
+            "Workshop shares training files and briefing material for coordinators.",
+          "regional-staff":
+            "Staff management controls regional personnel accounts and assignments.",
           judging:
             "Open assigned rooms, submit ballots, and review round notes.",
           people:
@@ -22394,7 +22958,10 @@
         };
 
         if (capabilities.regionalPortalMode) {
-          return "Regional keeps reporting, stipend requests, and account management in one focused place.";
+          return (
+            messages[normalizeRegionalWorkspaceView(normalizedView)] ||
+            "Regional keeps reporting, requests, workshop resources, and account management in one focused place."
+          );
         }
 
         return messages[normalizedView] || messages.overview;
@@ -22556,6 +23123,11 @@
           judging: "Ballots",
           links: "Private Links",
           regional: "Regional",
+          "regional-home": "Regional Home",
+          "regional-report": "Regional Report",
+          "regional-requests": "Regional Requests",
+          "regional-workshop": "Regional Workshop",
+          "regional-staff": "Regional Staff",
         };
 
         return getAllowedLandingViews()
@@ -23025,18 +23597,105 @@
         );
       }
 
+      function getVisibleRegionalContacts(email = session.userEmail) {
+        const contacts = getRegionalOperationsState().contacts || [];
+        if (canManageRegionalOperations(email)) {
+          return contacts;
+        }
+        const assignedRegion = getRegionalAssignmentForEmail(email);
+        if (!assignedRegion) {
+          return contacts;
+        }
+        return contacts.filter(
+          (entry) =>
+            normalizeRegionalRegion(entry.region) === normalizeRegionalRegion(assignedRegion),
+        );
+      }
+
+      function getRegionalContactRegions(contacts = getVisibleRegionalContacts()) {
+        const regionSet = new Set(
+          (Array.isArray(contacts) ? contacts : [])
+            .map((entry) => normalizeRegionalRegion(entry.region))
+            .filter(Boolean),
+        );
+        return [...regionSet].sort((left, right) => String(left).localeCompare(String(right)));
+      }
+
+      function getFilteredRegionalContactRecords(contacts = getVisibleRegionalContacts()) {
+        const query = String(session.regionalContactsQuery || "").trim();
+        const regionFilter = String(session.regionalContactsRegionFilter || "all").trim();
+        return (Array.isArray(contacts) ? contacts : []).filter((entry) => {
+          if (
+            regionFilter &&
+            regionFilter !== "all" &&
+            normalizeRegionalRegion(entry.region) !== normalizeRegionalRegion(regionFilter)
+          ) {
+            return false;
+          }
+          return matchesCollectionQuery(query, [
+            entry?.region,
+            entry?.contactName,
+            entry?.institution,
+            entry?.role,
+            entry?.email,
+            entry?.phoneNumber,
+          ]);
+        });
+      }
+
+      function getRegionalWorkshopResources() {
+        return getRegionalOperationsState().workshopResources || [];
+      }
+
+      function getFilteredRegionalWorkshopResources(resources = getRegionalWorkshopResources()) {
+        const query = String(session.regionalWorkshopQuery || "").trim();
+        return (Array.isArray(resources) ? resources : []).filter((entry) =>
+          matchesCollectionQuery(query, [
+            entry?.title,
+            entry?.description,
+            entry?.fileName,
+            entry?.linkUrl,
+            entry?.createdByName,
+            entry?.createdByEmail,
+          ]),
+        );
+      }
+
       function getFilteredRegionalStaffRecords(staff = getRegionalOperationsUsers()) {
         const query = String(session.regionalStaffQuery || "").trim();
-        return (Array.isArray(staff) ? staff : []).filter((user) =>
-          matchesCollectionQuery(query, [
+        const roleFilter = normalizeRegionalStaffRoleFilter(session.regionalStaffRoleFilter);
+        const regionFilter = String(session.regionalStaffRegionFilter || "all").trim();
+        const statusFilter = normalizeRegionalStaffStatusFilter(session.regionalStaffStatusFilter);
+        return (Array.isArray(staff) ? staff : []).filter((user) => {
+          if (
+            roleFilter !== "all" &&
+            normalizeRegionalOperationsRole(user?.regionalRole) !== roleFilter
+          ) {
+            return false;
+          }
+          if (
+            regionFilter !== "all" &&
+            normalizeRegionalRegion(user?.regionalRegion) !== normalizeRegionalRegion(regionFilter)
+          ) {
+            return false;
+          }
+          if (statusFilter === "active" && user?.active === false) {
+            return false;
+          }
+          if (statusFilter === "disabled" && user?.active !== false) {
+            return false;
+          }
+          return matchesCollectionQuery(query, [
             user?.name,
             user?.email,
+            user?.phoneNumber,
             user?.regionalRole,
             toTitleLabel(user?.regionalRole || ""),
             user?.regionalRegion,
+            user?.regionalParish,
             user?.globalRole,
-          ]),
-        );
+          ]);
+        });
       }
 
       function getFilteredRegionalReports(reports = getVisibleRegionalReports()) {
@@ -23048,8 +23707,12 @@
             entry?.summary,
             entry?.submittedByName,
             entry?.submittedByEmail,
+            entry?.reportDate,
             entry?.reportingWindowStart,
             entry?.reportingWindowEnd,
+            entry?.jadeSupport,
+            entry?.additionalNotes,
+            entry?.experienceRating,
           ]),
         );
       }
@@ -23067,6 +23730,9 @@
             entry?.tripDate,
             entry?.submittedByName,
             entry?.submittedByEmail,
+            entry?.categories?.join(" "),
+            entry?.otherCategoryText,
+            entry?.amountOrItemRequired,
             entry?.justification,
             entry?.bankName,
             entry?.status,
@@ -23095,6 +23761,30 @@
           currency: "JMD",
           maximumFractionDigits: 0,
         }).format(amount);
+      }
+
+      function formatFileSize(bytes = 0) {
+        const size = Math.max(0, Number(bytes || 0) || 0);
+        if (size < 1024) {
+          return size + " B";
+        }
+        if (size < 1024 * 1024) {
+          return roundScoreValue(size / 1024, 1) + " KB";
+        }
+        return roundScoreValue(size / (1024 * 1024), 1) + " MB";
+      }
+
+      async function readFileAsDataUrl(file) {
+        if (!file) {
+          return null;
+        }
+        return await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () =>
+            reject(new Error("This file could not be read for workshop upload."));
+          reader.readAsDataURL(file);
+        });
       }
 
       function getRegionalOperationsLandingLink() {
@@ -23955,6 +24645,189 @@
         `;
       }
 
+      function renderRegionalSettingsView() {
+        const currentUser = getCurrentUser();
+        const regionalRole = getRegionalOperationsRoleForEmail();
+        const assignedRegion = getRegionalAssignmentForEmail();
+        const banking = normalizeRegionalBankingInfo(currentUser?.regionalBanking || {});
+        const devicePasswordSavingSupported = supportsDevicePasswordSaving();
+        const devicePasswordSavingEnabled =
+          normalizeEmail(authPrefs?.rememberedEmail) === normalizeEmail(currentUser?.email) &&
+          authPrefs?.savePasswordOnDevice !== false;
+        return `
+          <section class="surface regional-shell">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Regional settings</p>
+                <h2>Profile, password, and banking</h2>
+                <p class="muted">Manage your account profile and saved regional request details.</p>
+              </div>
+              <div class="workspace-chip-row">
+                <span class="role-pill">${escapeHtml(
+                  toTitleLabel(regionalRole || "regional_coordinator"),
+                )}</span>
+                <span class="mini-pill success">${escapeHtml(assignedRegion || "All regions")}</span>
+              </div>
+            </div>
+          </section>
+          <section class="surface regional-shell">
+            <div class="regional-home-grid">
+              <section class="flat-panel">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Profile information</p>
+                    <h3>Update profile</h3>
+                  </div>
+                </div>
+                <form class="stack" data-form="update-regional-profile">
+                  <div class="field-grid two">
+                    <label>
+                      Full name
+                      <input type="text" name="name" value="${escapeAttributeValue(
+                        currentUser?.name || "",
+                      )}" required />
+                    </label>
+                    <label>
+                      Email
+                      <input type="email" name="email" value="${escapeAttributeValue(
+                        currentUser?.email || "",
+                      )}" readonly />
+                    </label>
+                  </div>
+                  <div class="field-grid three">
+                    <label>
+                      Phone number
+                      <input type="text" name="phoneNumber" value="${escapeAttributeValue(
+                        currentUser?.phoneNumber || "",
+                      )}" />
+                    </label>
+                    <label>
+                      Region
+                      <input type="text" value="${escapeAttributeValue(assignedRegion || "Not assigned")}" readonly />
+                    </label>
+                    <label>
+                      Parish
+                      <input type="text" value="${escapeAttributeValue(
+                        currentUser?.regionalParish || "Not assigned",
+                      )}" readonly />
+                    </label>
+                  </div>
+                  <button type="submit">Save profile</button>
+                </form>
+              </section>
+              <section class="flat-panel">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Password change</p>
+                    <h3>Set a new password</h3>
+                  </div>
+                </div>
+                <form class="stack" data-form="change-regional-password">
+                  <label>
+                    New password
+                    <input type="password" name="password" placeholder="Enter new password" required />
+                  </label>
+                  <button type="submit">Update password</button>
+                </form>
+                <form class="stack" data-form="update-device-password-preference" autocomplete="on">
+                  <label>
+                    Current password
+                    <input
+                      type="password"
+                      name="currentPassword"
+                      placeholder="Enter your current password"
+                      autocomplete="current-password"
+                      ${devicePasswordSavingSupported ? "" : "disabled"}
+                    />
+                  </label>
+                  <label class="checkbox-row">
+                    <input
+                      type="checkbox"
+                      name="savePasswordOnDevice"
+                      ${checked(devicePasswordSavingEnabled || authPrefs?.savePasswordOnDevice !== false)}
+                      ${devicePasswordSavingSupported ? "" : "disabled"}
+                    />
+                    <span>Save password securely on this device</span>
+                  </label>
+                  <button type="submit" ${devicePasswordSavingSupported ? "" : "disabled"}>
+                    ${
+                      devicePasswordSavingEnabled
+                        ? "Update device password preference"
+                        : "Save password on this device"
+                    }
+                  </button>
+                </form>
+              </section>
+            </div>
+          </section>
+          <section class="surface regional-shell">
+            <div class="regional-home-grid">
+              <section class="flat-panel">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Saved bank account information</p>
+                    <h3>Regional request payout details</h3>
+                  </div>
+                </div>
+                <form class="stack" data-form="save-regional-banking-profile">
+                  <div class="field-grid two">
+                    <label>
+                      Bank
+                      <input type="text" name="bankName" value="${escapeAttributeValue(
+                        banking.bankName || "",
+                      )}" required />
+                    </label>
+                    <label>
+                      Account name
+                      <input type="text" name="accountName" value="${escapeAttributeValue(
+                        banking.accountName || "",
+                      )}" required />
+                    </label>
+                  </div>
+                  <div class="field-grid two">
+                    <label>
+                      Account number
+                      <input type="text" name="accountNumber" value="${escapeAttributeValue(
+                        banking.accountNumber || "",
+                      )}" required />
+                    </label>
+                    <label>
+                      Branch
+                      <input type="text" name="branchName" value="${escapeAttributeValue(
+                        banking.branchName || "",
+                      )}" />
+                    </label>
+                  </div>
+                  <button type="submit">Save bank account</button>
+                </form>
+              </section>
+              <section class="flat-panel">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Regional assignment visibility</p>
+                    <h3>Current assignment</h3>
+                  </div>
+                </div>
+                <p class="muted">
+                  Your role and regional assignment are visible to managers and system administrators for staffing coordination.
+                </p>
+                <div class="workspace-chip-row">
+                  <span class="role-pill">${escapeHtml(
+                    toTitleLabel(regionalRole || "regional_coordinator"),
+                  )}</span>
+                  <span class="mini-pill success">${escapeHtml(assignedRegion || "Unassigned")}</span>
+                  ${
+                    currentUser?.regionalParish
+                      ? `<span class="mini-pill success">${escapeHtml(currentUser.regionalParish)}</span>`
+                      : ""
+                  }
+                </div>
+              </section>
+            </div>
+          </section>
+        `;
+      }
+
       function renderWorkspace() {
         const capabilities = getWorkspaceCapabilities();
         if (capabilities.competitorOnly && !capabilities.regionalPortalMode) {
@@ -23980,7 +24853,11 @@
               key: "overview",
               label: "Workspace",
             };
-        const showOverviewBand = currentView !== "overview" && !focusedParticipantProfile;
+        const regionalView = capabilities.regionalPortalMode
+          ? normalizeRegionalWorkspaceView(currentView)
+          : "";
+        const showOverviewBand =
+          !capabilities.regionalPortalMode && currentView !== "overview" && !focusedParticipantProfile;
 
         const viewMarkup =
           currentView === "overview"
@@ -23989,7 +24866,12 @@
               ? renderTournamentsView()
             : currentView === "launch"
               ? renderLaunchView()
-            : currentView === "regional"
+            : currentView === "regional" ||
+                currentView === "regional-home" ||
+                currentView === "regional-report" ||
+                currentView === "regional-requests" ||
+                currentView === "regional-workshop" ||
+                currentView === "regional-staff"
               ? renderRegionalOperationsView()
             : currentView === "search"
               ? renderSearchView()
@@ -23997,11 +24879,13 @@
               ? renderJudgingView()
             : currentView === "people"
                 ? renderPeopleView()
-              : currentView === "links"
+                : currentView === "links"
                   ? renderLinksView()
                 : currentView === "about"
                   ? renderAboutView(false)
-                  : renderSettingsView();
+                  : capabilities.regionalPortalMode
+                    ? renderRegionalSettingsView()
+                    : renderSettingsView();
 
         return `
           <div class="page-shell">
@@ -24016,7 +24900,7 @@
                       ? "View one person at a time."
                       :
                       capabilities.regionalPortalMode
-                        ? "Regional reports, accounts, and transport requests."
+                        ? "Regional coordination, reporting, support requests, and training resources."
                         : capabilities.canManageAny
                         ? "Run tournaments, manage rounds, and publish results."
                         : capabilities.canJudgeAny
@@ -24027,7 +24911,11 @@
                     <div>
                       <p class="eyebrow">${escapeHtml(currentNavItem.label)}</p>
                       <h1>${escapeHtml(
-                        focusedParticipantProfile ? focusedParticipantProfile.name : currentNavItem.label,
+                        focusedParticipantProfile
+                          ? focusedParticipantProfile.name
+                          : capabilities.regionalPortalMode
+                            ? currentNavItem.label
+                            : currentNavItem.label,
                       )}</h1>
                       ${
                         focusedParticipantProfile
@@ -25790,6 +26678,8 @@
         const password = String(formData.get("password") || "").trim();
         const regionalRole = normalizeRegionalOperationsRole(formData.get("regionalRole"));
         const regionalRegion = normalizeRegionalRegion(formData.get("regionalRegion"));
+        const regionalParish = normalizeRegionalParish(formData.get("regionalParish"));
+        const phoneNumber = String(formData.get("phoneNumber") || "").trim();
         const existingUser = getUserByEmail(email);
 
         if (!name || !email || !regionalRole || !regionalRegion) {
@@ -25832,6 +26722,8 @@
                     active: true,
                     regionalRole,
                     regionalRegion,
+                    regionalParish,
+                    phoneNumber: phoneNumber || user.phoneNumber || "",
                   })
                 : user,
             );
@@ -25842,6 +26734,8 @@
                 createdBy: normalizeEmail(session.userEmail) || normalizeEmail(MANAGER_EMAIL),
                 regionalRole,
                 regionalRegion,
+                regionalParish,
+                phoneNumber,
               }),
             );
           }
@@ -25855,7 +26749,8 @@
           if (
             !savedUser ||
             normalizeRegionalOperationsRole(savedUser.regionalRole) !== regionalRole ||
-            normalizeRegionalRegion(savedUser.regionalRegion) !== regionalRegion
+            normalizeRegionalRegion(savedUser.regionalRegion) !== regionalRegion ||
+            normalizeRegionalParish(savedUser.regionalParish) !== regionalParish
           ) {
             await refreshStateFromBackend({ skipRender: true });
             throw new Error(
@@ -25905,6 +26800,8 @@
         const targetEmail = normalizeEmail(email);
         const regionalRole = normalizeRegionalOperationsRole(formData.get("regionalRole"));
         const regionalRegion = normalizeRegionalRegion(formData.get("regionalRegion"));
+        const regionalParish = normalizeRegionalParish(formData.get("regionalParish"));
+        const phoneNumber = String(formData.get("phoneNumber") || "").trim();
         const active = String(formData.get("active") || "active").trim().toLowerCase() !== "disabled";
 
         if (!targetEmail) {
@@ -25941,6 +26838,8 @@
                     active,
                     regionalRole,
                     regionalRegion: regionalRole ? regionalRegion : "",
+                    regionalParish: regionalRole ? regionalParish : "",
+                    phoneNumber,
                   })
                 : user,
             );
@@ -26016,6 +26915,222 @@
         );
       }
 
+      async function submitRegionalContact(formData) {
+        if (!canManageRegionalOperations() && !canSubmitRegionalOperationsWork()) {
+          setFlash("error", "Regional contacts can only be added by regional staff or managers.");
+          renderApp();
+          return;
+        }
+
+        const currentUser = getCurrentUser();
+        const region = normalizeRegionalRegion(formData.get("region") || currentUser?.regionalRegion);
+        const contactName = String(formData.get("contactName") || "").trim();
+        const institution = String(formData.get("institution") || "").trim();
+        const role = String(formData.get("role") || "").trim();
+        const email = normalizeEmail(formData.get("email"));
+        const phoneNumber = String(formData.get("phoneNumber") || "").trim();
+
+        if (!region || !contactName || !institution || !role) {
+          setFlash("error", "Region, contact name, institution, and role are required.");
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            const regionalOperations = getRegionalOperationsState();
+            regionalOperations.contacts.unshift(
+              normalizeRegionalContactEntry({
+                region,
+                contactName,
+                institution,
+                role,
+                email,
+                phoneNumber,
+                createdByName: currentUser?.name || currentUser?.email || "",
+                createdByEmail: normalizeEmail(currentUser?.email),
+              }),
+            );
+          },
+          {
+            success: "Regional contact saved.",
+            error: "The regional contact could not be saved to the shared system.",
+          },
+        );
+      }
+
+      async function removeRegionalContact(contactId) {
+        if (!canManageRegionalOperations()) {
+          setFlash("error", "Only managers and system administrators can remove contacts.");
+          renderApp();
+          return;
+        }
+        const targetId = String(contactId || "").trim();
+        if (!targetId) {
+          setFlash("error", "Select a contact before trying to remove it.");
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            const regionalOperations = getRegionalOperationsState();
+            regionalOperations.contacts = (regionalOperations.contacts || []).filter(
+              (entry) => String(entry.id || "").trim() !== targetId,
+            );
+          },
+          {
+            success: "Regional contact removed.",
+            error: "The contact could not be removed from the shared system.",
+          },
+        );
+      }
+
+      async function uploadRegionalWorkshopResource(formData) {
+        if (!canManageRegionalOperations()) {
+          setFlash("error", "Only managers and system administrators can upload workshop resources.");
+          renderApp();
+          return;
+        }
+
+        const currentUser = getCurrentUser();
+        const title = String(formData.get("title") || "").trim();
+        const description = String(formData.get("description") || "").trim();
+        const linkUrl = String(formData.get("linkUrl") || "").trim();
+        const file = formData.get("resourceFile");
+        const hasFile = file && typeof file === "object" && typeof file.name === "string";
+
+        if (!title || !description || !hasFile) {
+          setFlash("error", "Title, description, and resource file are required.");
+          renderApp();
+          return;
+        }
+
+        if (Number(file.size || 0) > 5 * 1024 * 1024) {
+          setFlash("error", "Please upload files smaller than 5 MB.");
+          renderApp();
+          return;
+        }
+
+        let fileDataUrl = "";
+        try {
+          fileDataUrl = await readFileAsDataUrl(file);
+        } catch (error) {
+          setFlash("error", error?.message || "This file could not be read for upload.");
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            const regionalOperations = getRegionalOperationsState();
+            regionalOperations.workshopResources.unshift(
+              normalizeRegionalWorkshopResourceEntry({
+                title,
+                description,
+                linkUrl,
+                fileName: file.name,
+                fileType: file.type || "application/octet-stream",
+                fileSize: Number(file.size || 0) || 0,
+                fileDataUrl,
+                createdByName: currentUser?.name || currentUser?.email || "",
+                createdByEmail: normalizeEmail(currentUser?.email),
+              }),
+            );
+          },
+          {
+            success: "Workshop resource uploaded.",
+            error: "The workshop resource could not be saved.",
+          },
+        );
+      }
+
+      async function deleteRegionalWorkshopResource(resourceId) {
+        if (!canManageRegionalOperations()) {
+          setFlash("error", "Only managers and system administrators can remove workshop resources.");
+          renderApp();
+          return;
+        }
+        const targetId = String(resourceId || "").trim();
+        if (!targetId) {
+          setFlash("error", "Select a workshop resource before trying to remove it.");
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            const regionalOperations = getRegionalOperationsState();
+            regionalOperations.workshopResources = (regionalOperations.workshopResources || []).filter(
+              (entry) => String(entry.id || "").trim() !== targetId,
+            );
+          },
+          {
+            success: "Workshop resource removed.",
+            error: "The workshop resource could not be removed.",
+          },
+        );
+      }
+
+      async function updateRegionalProfile(formData) {
+        if (!canAccessRegionalOperations()) {
+          setFlash("error", "Regional profile settings are unavailable for this account.");
+          renderApp();
+          return;
+        }
+        const currentUser = getCurrentUser();
+        if (!currentUser?.email) {
+          setFlash("error", "Sign in again before updating your profile.");
+          renderApp();
+          return;
+        }
+
+        const name = String(formData.get("name") || "").trim();
+        const phoneNumber = String(formData.get("phoneNumber") || "").trim();
+        if (!name) {
+          setFlash("error", "Your name is required.");
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            state.users = state.users.map((user) =>
+              normalizeEmail(user.email) === normalizeEmail(currentUser.email)
+                ? normalizeUserRecord({
+                    ...user,
+                    name,
+                    phoneNumber,
+                  })
+                : user,
+            );
+          },
+          {
+            success: "Regional profile updated.",
+            error: "Your profile could not be saved.",
+          },
+        );
+      }
+
+      async function changeRegionalPassword(formData) {
+        if (!canAccessRegionalOperations()) {
+          setFlash("error", "Regional password settings are unavailable for this account.");
+          renderApp();
+          return;
+        }
+        const currentUser = getCurrentUser();
+        if (!currentUser?.email) {
+          setFlash("error", "Sign in again before changing your password.");
+          renderApp();
+          return;
+        }
+        await persistManagedPasswordChange(currentUser.email, formData.get("password"), {
+          success: "Password updated for your regional account.",
+          error: "Your password could not be saved.",
+          missing: "The password update could not be verified on the shared backend.",
+        });
+      }
+
       async function submitRegionalReport(formData) {
         if (!canSubmitRegionalOperationsWork()) {
           setFlash("error", "Only regional coordinators and deputy coordinators can submit reports.");
@@ -26026,15 +27141,18 @@
         const currentUser = getCurrentUser();
         const region = normalizeRegionalRegion(formData.get("region") || currentUser?.regionalRegion);
         const school = String(formData.get("school") || "").trim();
-        const reportingWindowStart = String(formData.get("reportingWindowStart") || "").trim();
-        const reportingWindowEnd = String(formData.get("reportingWindowEnd") || "").trim();
+        const reportDate = String(formData.get("reportDate") || "").trim();
         const summary = String(formData.get("summary") || "").trim();
-        const highlights = String(formData.get("highlights") || "").trim();
         const challenges = String(formData.get("challenges") || "").trim();
-        const supportNeeded = String(formData.get("supportNeeded") || "").trim();
+        const jadeSupport = String(formData.get("jadeSupport") || "").trim();
+        const additionalNotes = String(formData.get("additionalNotes") || "").trim();
+        const experienceRating = parseFeedbackRating(formData.get("experienceRating"), 1, 10);
 
-        if (!region || !school || !reportingWindowStart || !reportingWindowEnd || !summary) {
-          setFlash("error", "Region, school, reporting dates, and summary are required.");
+        if (!region || !school || !reportDate || !summary || !challenges || !jadeSupport || !experienceRating) {
+          setFlash(
+            "error",
+            "Region, school, report date, summary, challenges, JADE support, and experience rating are required.",
+          );
           renderApp();
           return;
         }
@@ -26046,12 +27164,12 @@
               normalizeRegionalReportEntry({
                 region,
                 school,
-                reportingWindowStart,
-                reportingWindowEnd,
+                reportDate,
                 summary,
-                highlights,
                 challenges,
-                supportNeeded,
+                jadeSupport,
+                additionalNotes,
+                experienceRating,
                 submittedByEmail: normalizeEmail(currentUser?.email),
                 submittedByName: currentUser?.name || currentUser?.email,
                 submittedByRole: currentUser?.regionalRole,
@@ -26059,8 +27177,8 @@
             );
           },
           {
-            success: "Biweekly report saved for " + school + ".",
-            error: "The biweekly report could not be saved to the shared system.",
+            success: "Regional report saved for " + school + ".",
+            error: "The regional report could not be saved to the shared system.",
           },
         );
       }
@@ -26077,6 +27195,11 @@
         const school = String(formData.get("school") || "").trim();
         const tripDate = String(formData.get("tripDate") || "").trim();
         const amountJmd = Math.max(0, Number(formData.get("amountJmd") || 0) || 0);
+        const categories = Array.from(formData.getAll("categories") || [])
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        const otherCategoryText = String(formData.get("otherCategoryText") || "").trim();
+        const amountOrItemRequired = String(formData.get("amountOrItemRequired") || "").trim();
         const banking = normalizeRegionalBankingInfo({
           bankName: formData.get("bankName") || currentUser?.regionalBanking?.bankName,
           accountName: formData.get("accountName") || currentUser?.regionalBanking?.accountName,
@@ -26090,7 +27213,8 @@
           !region ||
           !school ||
           !tripDate ||
-          !amountJmd ||
+          !amountOrItemRequired ||
+          (!categories.length && !otherCategoryText) ||
           !banking.bankName ||
           !banking.accountName ||
           !banking.accountNumber ||
@@ -26098,7 +27222,7 @@
         ) {
           setFlash(
             "error",
-            "Region, school, trip date, amount, full banking details, and justification are all required.",
+            "Region, school, date needed, category, amount or item required, full banking details, and justification are all required.",
           );
           renderApp();
           return;
@@ -26121,6 +27245,9 @@
                 school,
                 tripDate,
                 amountJmd,
+                categories,
+                otherCategoryText,
+                amountOrItemRequired,
                 ...banking,
                 justification,
                 submittedByEmail: normalizeEmail(currentUser?.email),
@@ -29743,8 +30870,11 @@
           }
 
           if (action === "clear-regional-staff-query") {
-            session.view = "regional";
+            session.view = "regional-staff";
             session.regionalStaffQuery = "";
+            session.regionalStaffRoleFilter = "all";
+            session.regionalStaffRegionFilter = "all";
+            session.regionalStaffStatusFilter = "all";
             session.regionalStaffPage = 1;
             clearFlash();
             saveSession();
@@ -29754,7 +30884,7 @@
           }
 
           if (action === "set-regional-staff-page") {
-            session.view = "regional";
+            session.view = "regional-staff";
             session.regionalStaffPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
             clearFlash();
             saveSession();
@@ -29764,7 +30894,7 @@
           }
 
           if (action === "clear-regional-reports-query") {
-            session.view = "regional";
+            session.view = "regional-report";
             session.regionalReportsQuery = "";
             session.regionalReportsPage = 1;
             clearFlash();
@@ -29775,7 +30905,7 @@
           }
 
           if (action === "set-regional-reports-page") {
-            session.view = "regional";
+            session.view = "regional-report";
             session.regionalReportsPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
             clearFlash();
             saveSession();
@@ -29785,7 +30915,7 @@
           }
 
           if (action === "set-regional-funding-status") {
-            session.view = "regional";
+            session.view = "regional-requests";
             session.regionalFundingStatus = normalizeRegionalFundingStatusFilter(button.dataset.status);
             session.regionalFundingPage = 1;
             clearFlash();
@@ -29796,8 +30926,9 @@
           }
 
           if (action === "clear-regional-funding-query") {
-            session.view = "regional";
+            session.view = "regional-requests";
             session.regionalFundingQuery = "";
+            session.regionalFundingStatus = "all";
             session.regionalFundingPage = 1;
             clearFlash();
             saveSession();
@@ -29807,7 +30938,7 @@
           }
 
           if (action === "set-regional-funding-page") {
-            session.view = "regional";
+            session.view = "regional-requests";
             session.regionalFundingPage = Math.max(
               1,
               Number.parseInt(button.dataset.page, 10) || 1,
@@ -29819,10 +30950,73 @@
             return;
           }
 
+          if (action === "clear-regional-contacts-query") {
+            session.view = "regional-home";
+            session.regionalContactsQuery = "";
+            session.regionalContactsRegionFilter = "all";
+            session.regionalContactsPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "set-regional-contacts-page") {
+            session.view = "regional-home";
+            session.regionalContactsPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "clear-regional-workshop-query") {
+            session.view = "regional-workshop";
+            session.regionalWorkshopQuery = "";
+            session.regionalWorkshopPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "set-regional-workshop-page") {
+            session.view = "regional-workshop";
+            session.regionalWorkshopPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (action === "delete-regional-contact") {
+            await removeRegionalContact(button.dataset.contactId);
+            return;
+          }
+
+          if (action === "delete-regional-workshop-resource") {
+            await deleteRegionalWorkshopResource(button.dataset.resourceId);
+            return;
+          }
+
           if (action === "set-view") {
             session.view = button.dataset.view || "overview";
+            if (session.view === "regional") {
+              session.view = "regional-home";
+            }
             if (session.view === "overview") {
               resetWorkspaceHomeState();
+            }
+            if (String(session.view || "").startsWith("regional-")) {
+              session.managedTournamentId = "";
+              session.selectedTournamentId = "";
+              session.focusedTournamentSection = "control";
+              session.selectedTournamentBoardTab = "overview";
+              session.resultsStudioView = "overview";
             }
             if (session.view === "people") {
               session.peopleSection = "hub";
@@ -30671,8 +31865,15 @@
           }
 
           if (form.dataset.form === "regional-staff-search") {
-            session.view = "regional";
+            session.view = "regional-staff";
             session.regionalStaffQuery = String(formData.get("query") || "").trim();
+            session.regionalStaffRoleFilter = normalizeRegionalStaffRoleFilter(
+              formData.get("roleFilter"),
+            );
+            session.regionalStaffRegionFilter = String(formData.get("regionFilter") || "all").trim() || "all";
+            session.regionalStaffStatusFilter = normalizeRegionalStaffStatusFilter(
+              formData.get("statusFilter"),
+            );
             session.regionalStaffPage = 1;
             clearFlash();
             saveSession();
@@ -30682,7 +31883,7 @@
           }
 
           if (form.dataset.form === "regional-reports-search") {
-            session.view = "regional";
+            session.view = "regional-report";
             session.regionalReportsQuery = String(formData.get("query") || "").trim();
             session.regionalReportsPage = 1;
             clearFlash();
@@ -30693,9 +31894,33 @@
           }
 
           if (form.dataset.form === "regional-funding-search") {
-            session.view = "regional";
+            session.view = "regional-requests";
             session.regionalFundingQuery = String(formData.get("query") || "").trim();
             session.regionalFundingPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (form.dataset.form === "regional-contacts-search") {
+            session.view = "regional-home";
+            session.regionalContactsQuery = String(formData.get("query") || "").trim();
+            session.regionalContactsRegionFilter =
+              String(formData.get("regionFilter") || "all").trim() || "all";
+            session.regionalContactsPage = 1;
+            clearFlash();
+            saveSession();
+            pendingViewportReset = true;
+            renderApp();
+            return;
+          }
+
+          if (form.dataset.form === "regional-workshop-search") {
+            session.view = "regional-workshop";
+            session.regionalWorkshopQuery = String(formData.get("query") || "").trim();
+            session.regionalWorkshopPage = 1;
             clearFlash();
             saveSession();
             pendingViewportReset = true;
@@ -30843,6 +32068,16 @@
             return;
           }
 
+          if (form.dataset.form === "update-regional-profile") {
+            await updateRegionalProfile(formData);
+            return;
+          }
+
+          if (form.dataset.form === "change-regional-password") {
+            await changeRegionalPassword(formData);
+            return;
+          }
+
           if (form.dataset.form === "reset-user-password") {
             await resetUserPassword(form.dataset.email, formData.get("password"));
             return;
@@ -30911,8 +32146,18 @@
             return;
           }
 
+          if (form.dataset.form === "submit-regional-contact") {
+            await submitRegionalContact(formData);
+            return;
+          }
+
           if (form.dataset.form === "review-regional-funding-request") {
             await reviewRegionalFundingRequest(form.dataset.requestId, formData);
+            return;
+          }
+
+          if (form.dataset.form === "upload-regional-workshop-resource") {
+            await uploadRegionalWorkshopResource(formData);
             return;
           }
         });

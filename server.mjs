@@ -73,6 +73,22 @@ const REGIONAL_OPERATION_REGIONS = [
   "Region 5",
   "Region 6",
 ];
+const JAMAICA_PARISHES = [
+  "Kingston",
+  "St. Andrew",
+  "St. Thomas",
+  "Portland",
+  "St. Mary",
+  "St. Ann",
+  "Trelawny",
+  "St. James",
+  "Hanover",
+  "Westmoreland",
+  "St. Elizabeth",
+  "Manchester",
+  "Clarendon",
+  "St. Catherine",
+];
 const JAMAICA_MAJOR_BANKS = [
   "NCB",
   "Scotiabank Jamaica",
@@ -463,6 +479,16 @@ function normalizeRegionalRegion(value = "") {
   return matchedRegion || raw;
 }
 
+function normalizeRegionalParish(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+  const normalized = normalizeTextKey(raw);
+  const matched = JAMAICA_PARISHES.find((parish) => normalizeTextKey(parish) === normalized);
+  return matched || raw;
+}
+
 function createTemporaryRegistrationPassword() {
   return crypto.randomBytes(24).toString("base64url");
 }
@@ -527,16 +553,21 @@ function verifyUserPassword(user = {}, password = "") {
 
 function normalizeRegionalReportEntry(entry = {}) {
   const createdAt = String(entry.createdAt || nowText()).trim();
+  const reportDate = String(entry.reportDate || entry.reportingWindowEnd || "").trim();
   return {
     id: String(entry.id || createId("regional-report")).trim(),
     region: normalizeRegionalRegion(entry.region),
     school: String(entry.school || entry.schoolName || "").trim(),
+    reportDate,
     reportingWindowStart: String(entry.reportingWindowStart || "").trim(),
-    reportingWindowEnd: String(entry.reportingWindowEnd || "").trim(),
+    reportingWindowEnd: String(entry.reportingWindowEnd || reportDate).trim(),
     summary: String(entry.summary || "").trim(),
     highlights: String(entry.highlights || "").trim(),
     challenges: String(entry.challenges || "").trim(),
     supportNeeded: String(entry.supportNeeded || "").trim(),
+    jadeSupport: String(entry.jadeSupport || entry.supportNeeded || "").trim(),
+    additionalNotes: String(entry.additionalNotes || "").trim(),
+    experienceRating: Math.max(0, Math.min(10, Number(entry.experienceRating || 0) || 0)),
     submittedByEmail: normalizeEmail(entry.submittedByEmail || entry.authorEmail),
     submittedByName: String(entry.submittedByName || entry.authorName || "").trim(),
     submittedByRole: normalizeRegionalOperationsRole(
@@ -593,6 +624,15 @@ function normalizeRegionalFundingRequestEntry(entry = {}) {
     school: String(entry.school || entry.schoolName || "").trim(),
     tripDate: String(entry.tripDate || "").trim(),
     amountJmd: Math.max(0, Number(entry.amountJmd || entry.amount || 0) || 0),
+    categories: Array.from(
+      new Set(
+        (Array.isArray(entry.categories) ? entry.categories : [])
+          .map((value) => String(value || "").trim())
+          .filter(Boolean),
+      ),
+    ),
+    otherCategoryText: String(entry.otherCategoryText || "").trim(),
+    amountOrItemRequired: String(entry.amountOrItemRequired || "").trim(),
     bankName: knownBank,
     accountName: String(
       entry.accountName || entry.accountHolderName || entry.accountHolder || "",
@@ -614,6 +654,41 @@ function normalizeRegionalFundingRequestEntry(entry = {}) {
   };
 }
 
+function normalizeRegionalContactEntry(entry = {}) {
+  const createdAt = String(entry.createdAt || nowText()).trim();
+  return {
+    id: String(entry.id || createId("regional-contact")).trim(),
+    region: normalizeRegionalRegion(entry.region),
+    contactName: String(entry.contactName || entry.name || "").trim(),
+    institution: String(entry.institution || entry.affiliation || "").trim(),
+    role: String(entry.role || "").trim(),
+    email: normalizeEmail(entry.email),
+    phoneNumber: String(entry.phoneNumber || entry.phone || "").trim(),
+    createdByName: String(entry.createdByName || "").trim(),
+    createdByEmail: normalizeEmail(entry.createdByEmail),
+    createdAt,
+    createdAtKey: normalizeTimestampKey(entry.createdAtKey, createdAt),
+  };
+}
+
+function normalizeRegionalWorkshopResourceEntry(entry = {}) {
+  const createdAt = String(entry.createdAt || nowText()).trim();
+  return {
+    id: String(entry.id || createId("regional-workshop-resource")).trim(),
+    title: String(entry.title || "").trim(),
+    description: String(entry.description || "").trim(),
+    fileName: String(entry.fileName || "").trim(),
+    fileType: String(entry.fileType || "").trim(),
+    fileSize: Math.max(0, Number(entry.fileSize || 0) || 0),
+    fileDataUrl: String(entry.fileDataUrl || "").trim(),
+    linkUrl: String(entry.linkUrl || "").trim(),
+    createdByName: String(entry.createdByName || "").trim(),
+    createdByEmail: normalizeEmail(entry.createdByEmail),
+    createdAt,
+    createdAtKey: normalizeTimestampKey(entry.createdAtKey, createdAt),
+  };
+}
+
 function normalizeRegionalOperationsState(record = {}) {
   const next = record && typeof record === "object" ? clone(record) : {};
   next.reports = Array.isArray(next.reports)
@@ -624,6 +699,20 @@ function normalizeRegionalOperationsState(record = {}) {
   next.transportRequests = Array.isArray(next.transportRequests)
     ? next.transportRequests
         .map((entry) => normalizeRegionalFundingRequestEntry(entry))
+        .sort((left, right) => Number(right.createdAtKey) - Number(left.createdAtKey))
+    : [];
+  next.contacts = Array.isArray(next.contacts)
+    ? next.contacts
+        .map((entry) => normalizeRegionalContactEntry(entry))
+        .sort(
+          (left, right) =>
+            normalizeRegionalRegion(left.region).localeCompare(normalizeRegionalRegion(right.region)) ||
+            Number(right.createdAtKey) - Number(left.createdAtKey),
+        )
+    : [];
+  next.workshopResources = Array.isArray(next.workshopResources)
+    ? next.workshopResources
+        .map((entry) => normalizeRegionalWorkshopResourceEntry(entry))
         .sort((left, right) => Number(right.createdAtKey) - Number(left.createdAtKey))
     : [];
   return next;
@@ -663,6 +752,8 @@ function normalizeUserRecord(user = {}) {
     registeredTournamentIds: normalizeStringList(user.registeredTournamentIds, 200),
     regionalRole: normalizeRegionalOperationsRole(user.regionalRole),
     regionalRegion: normalizeRegionalRegion(user.regionalRegion),
+    regionalParish: normalizeRegionalParish(user.regionalParish || user.parish || ""),
+    phoneNumber: String(user.phoneNumber || user.phone || "").trim(),
     regionalBanking: normalizeRegionalBankingInfo(user.regionalBanking || user.regionalBank || {}),
     themePreset: String(user.themePreset || "jade_classic").trim() || "jade_classic",
     preferredLandingView:
@@ -685,6 +776,8 @@ function buildUser(name, email, globalRole, password, metadata = {}) {
     active: true,
     regionalRole: metadata.regionalRole || "",
     regionalRegion: metadata.regionalRegion || "",
+    regionalParish: metadata.regionalParish || "",
+    phoneNumber: metadata.phoneNumber || "",
     regionalBanking: normalizeRegionalBankingInfo(metadata.regionalBanking || {}),
   });
 }

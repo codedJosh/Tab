@@ -4015,6 +4015,67 @@
         gap: 12px;
       }
 
+      .regional-shell {
+        padding: 18px;
+      }
+
+      .regional-home-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+
+      .regional-card-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      }
+
+      .regional-list-stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .regional-group-card {
+        padding: 12px;
+      }
+
+      .regional-contact-row {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 0;
+        background: rgba(255, 255, 255, 0.76);
+      }
+
+      .regional-contact-summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        list-style: none;
+        cursor: pointer;
+        padding: 10px 12px;
+        font-weight: var(--weight-strong);
+      }
+
+      .regional-contact-summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .regional-contact-detail {
+        display: grid;
+        gap: 6px;
+        padding: 0 12px 12px;
+      }
+
+      .regional-contact-detail p {
+        margin: 0;
+      }
+
+      .regional-log-card {
+        padding: 12px;
+      }
+
       .regional-dashboard-grid > *,
       .regional-account-manager > * {
         min-width: 0;
