@@ -1387,6 +1387,21 @@
         return REGIONAL_OPERATIONS_ALL_REGION_ROLES.has(normalizeRegionalOperationsRole(value));
       }
 
+      function regionalOperationsRoleRequiresRegion(value = "") {
+        return ["regional_coordinator", "deputy_regional_coordinator"].includes(
+          normalizeRegionalOperationsRole(value),
+        );
+      }
+
+      function getRegionalOperationsScopeLabel(role = "", region = "") {
+        const normalizedRole = normalizeRegionalOperationsRole(role);
+        const normalizedRegion = normalizeRegionalRegion(region);
+        if (!normalizedRole) return "";
+        return regionalOperationsRoleRequiresRegion(normalizedRole)
+          ? normalizedRegion || "Region not set"
+          : "All regions";
+      }
+
       function normalizeRegionalRegion(value = "") {
         const raw = String(value || "").trim();
         if (!raw) {
@@ -3807,14 +3822,19 @@
           .join("");
       }
 
-      function getRegionalRegionOptions(current = "") {
+      function getRegionalRegionOptions(current = "", options = {}) {
         const normalizedCurrent = normalizeRegionalRegion(current);
-        return REGIONAL_OPERATION_REGIONS.map(
+        const regions = options.includeEmpty
+          ? [{ value: "", label: "All regions / not region-specific" }].concat(
+              REGIONAL_OPERATION_REGIONS.map((region) => ({ value: region, label: region })),
+            )
+          : REGIONAL_OPERATION_REGIONS.map((region) => ({ value: region, label: region }));
+        return regions.map(
           (region) =>
-            `<option value="${escapeHtml(region)}" ${selected(
-              region,
+            `<option value="${escapeHtml(region.value)}" ${selected(
+              region.value,
               normalizedCurrent,
-            )}>${escapeHtml(region)}</option>`,
+            )}>${escapeHtml(region.label)}</option>`,
         ).join("");
       }
 
@@ -22865,7 +22885,9 @@
                       </label>
                       <label>
                         Region
-                        <select name="regionalRegion">${getRegionalRegionOptions("Region 1")}</select>
+                        <select name="regionalRegion">${getRegionalRegionOptions("", {
+                          includeEmpty: true,
+                        })}</select>
                       </label>
                       <label>
                         Parish
@@ -22914,7 +22936,10 @@
                                           " • " +
                                           getRegionalOperationsRoleLabel(user.regionalRole || "") +
                                           " • " +
-                                          (user.regionalRegion || "No region"),
+                                          getRegionalOperationsScopeLabel(
+                                            user.regionalRole,
+                                            user.regionalRegion,
+                                          ),
                                       )}</p>
                                     </div>
                                     <span class="mini-pill ${user.active !== false ? "success" : "warning"}">${escapeHtml(
@@ -22975,7 +23000,8 @@
                                         <label>
                                           Region
                                           <select name="regionalRegion">${getRegionalRegionOptions(
-                                            user.regionalRegion || "Region 1",
+                                            user.regionalRegion || "",
+                                            { includeEmpty: true },
                                           )}</select>
                                         </label>
                                         <label>
@@ -26783,11 +26809,21 @@
         const regionalRole = normalizeRegionalOperationsRole(formData.get("regionalRole"));
         const regionalRegion = normalizeRegionalRegion(formData.get("regionalRegion"));
         const regionalParish = normalizeRegionalParish(formData.get("regionalParish"));
+        const regionRequired = regionalOperationsRoleRequiresRegion(regionalRole);
+        const savedRegionalRegion = regionRequired ? regionalRegion : "";
+        const savedRegionalParish = regionRequired ? regionalParish : "";
+        const scopeLabel = getRegionalOperationsScopeLabel(regionalRole, savedRegionalRegion);
         const phoneNumber = String(formData.get("phoneNumber") || "").trim();
         const existingUser = getUserByEmail(email);
 
-        if (!name || !email || !regionalRole || !regionalRegion) {
-          setFlash("error", "Name, email, role, and region are all required.");
+        if (!name || !email || !regionalRole) {
+          setFlash("error", "Name, email, and role are required.");
+          renderApp();
+          return;
+        }
+
+        if (regionRequired && !regionalRegion) {
+          setFlash("error", "Choose a region for Regional Coordinator and Deputy Regional Coordinator accounts.");
           renderApp();
           return;
         }
@@ -26822,25 +26858,25 @@
                 ? normalizeUserRecord({
                     ...user,
                     name: name || user.name,
-                    ...(passwordRecord || {}),
-                    active: true,
-                    regionalRole,
-                    regionalRegion,
-                    regionalParish,
-                    phoneNumber: phoneNumber || user.phoneNumber || "",
-                  })
+	                    ...(passwordRecord || {}),
+	                    active: true,
+	                    regionalRole,
+	                    regionalRegion: savedRegionalRegion,
+	                    regionalParish: savedRegionalParish,
+	                    phoneNumber: phoneNumber || user.phoneNumber || "",
+	                  })
                 : user,
             );
           } else {
             state.users.push(
               await buildUser(name, email, "member", password, {
                 createdSource: "manager_created",
-                createdBy: normalizeEmail(session.userEmail) || normalizeEmail(MANAGER_EMAIL),
-                regionalRole,
-                regionalRegion,
-                regionalParish,
-                phoneNumber,
-              }),
+	                createdBy: normalizeEmail(session.userEmail) || normalizeEmail(MANAGER_EMAIL),
+	                regionalRole,
+	                regionalRegion: savedRegionalRegion,
+	                regionalParish: savedRegionalParish,
+	                phoneNumber,
+	              }),
             );
           }
 
@@ -26851,11 +26887,11 @@
 
           const savedUser = getUserByEmail(email);
           if (
-            !savedUser ||
-            normalizeRegionalOperationsRole(savedUser.regionalRole) !== regionalRole ||
-            normalizeRegionalRegion(savedUser.regionalRegion) !== regionalRegion ||
-            normalizeRegionalParish(savedUser.regionalParish) !== regionalParish
-          ) {
+	            !savedUser ||
+	            normalizeRegionalOperationsRole(savedUser.regionalRole) !== regionalRole ||
+	            normalizeRegionalRegion(savedUser.regionalRegion) !== savedRegionalRegion ||
+	            normalizeRegionalParish(savedUser.regionalParish) !== savedRegionalParish
+	          ) {
             await refreshStateFromBackend({ skipRender: true });
             throw new Error(
               "The regional account did not finish syncing to the shared backend. Please refresh and try again.",
@@ -26866,17 +26902,17 @@
             "success",
             existingUser
               ? getRegionalOperationsRoleLabel(regionalRole) +
-                  " access updated for " +
-                  email +
-                  " in " +
-                  regionalRegion +
-                  "."
-              : getRegionalOperationsRoleLabel(regionalRole) +
-                  " account created for " +
-                  email +
-                  " in " +
-                  regionalRegion +
-                  ".",
+	                  " access updated for " +
+	                  email +
+	                  " for " +
+	                  scopeLabel +
+	                  "."
+	              : getRegionalOperationsRoleLabel(regionalRole) +
+	                  " account created for " +
+	                  email +
+	                  " for " +
+	                  scopeLabel +
+	                  ".",
           );
         } catch (error) {
           if (!persisted && error?.code !== "stale_revision") {
@@ -26905,6 +26941,9 @@
         const regionalRole = normalizeRegionalOperationsRole(formData.get("regionalRole"));
         const regionalRegion = normalizeRegionalRegion(formData.get("regionalRegion"));
         const regionalParish = normalizeRegionalParish(formData.get("regionalParish"));
+        const regionRequired = regionalOperationsRoleRequiresRegion(regionalRole);
+        const savedRegionalRegion = regionRequired ? regionalRegion : "";
+        const savedRegionalParish = regionRequired ? regionalParish : "";
         const phoneNumber = String(formData.get("phoneNumber") || "").trim();
         const active = String(formData.get("active") || "active").trim().toLowerCase() !== "disabled";
 
@@ -26921,8 +26960,8 @@
           return;
         }
 
-        if (regionalRole && !regionalRegion) {
-          setFlash("error", "A region is required whenever regional access is enabled.");
+        if (regionalRole && regionRequired && !regionalRegion) {
+          setFlash("error", "Choose a region for Regional Coordinator and Deputy Regional Coordinator accounts.");
           renderApp();
           return;
         }
@@ -26939,11 +26978,11 @@
               user.email === targetEmail
                 ? normalizeUserRecord({
                     ...user,
-                    active,
-                    regionalRole,
-                    regionalRegion: regionalRole ? regionalRegion : "",
-                    regionalParish: regionalRole ? regionalParish : "",
-                    phoneNumber,
+	                    active,
+	                    regionalRole,
+	                    regionalRegion: regionalRole ? savedRegionalRegion : "",
+	                    regionalParish: regionalRole ? savedRegionalParish : "",
+	                    phoneNumber,
                   })
                 : user,
             );
