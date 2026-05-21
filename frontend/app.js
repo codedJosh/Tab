@@ -3028,7 +3028,7 @@
             },
             {
               key: "regional-report",
-              label: "Regional report",
+              label: "Regional Report",
               count: null,
               group: "Regional",
             },
@@ -3048,7 +3048,7 @@
           if (canManageRegionalOperations(email)) {
             regionalItems.push({
               key: "regional-staff",
-              label: "Staff management",
+              label: "Staff Management",
               count: null,
               group: "Regional",
             });
@@ -22283,7 +22283,7 @@
         const renderRegionalReports = () => `
           ${renderRegionalHeader(
             "Regional Development",
-            "Regional report",
+            "Regional Report",
             "Submit field reports and track the latest regional updates.",
           )}
           <section class="surface regional-shell">
@@ -22821,7 +22821,7 @@
             return `
               ${renderRegionalHeader(
                 "Regional Development",
-                "Staff management",
+                "Staff Management",
                 "Staff account controls are available to managers and system administrators.",
               )}
               <section class="surface regional-shell">
@@ -22832,7 +22832,7 @@
           return `
             ${renderRegionalHeader(
               "Regional Development",
-              "Staff management",
+              "Staff Management",
               "Create, update, and monitor regional personnel accounts.",
               pagedStaff.totalRecords + " staff records",
             )}
