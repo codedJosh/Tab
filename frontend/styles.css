@@ -4009,12 +4009,6 @@
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       }
 
-      .regional-dashboard-grid,
-      .regional-account-manager {
-        display: grid;
-        gap: 12px;
-      }
-
       .regional-shell {
         padding: 18px;
       }
@@ -4023,6 +4017,35 @@
         display: grid;
         gap: 14px;
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+
+      .regional-home-grid-squared {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+      }
+
+      .regional-home-grid-squared > .flat-panel {
+        min-width: 0;
+        height: 100%;
+      }
+
+      .regional-home-grid-squared > .flat-panel:nth-child(1),
+      .regional-home-grid-squared > .flat-panel:nth-child(2) {
+        grid-column: span 6;
+      }
+
+      .regional-home-grid-squared > .flat-panel:nth-child(3) {
+        grid-column: 1 / -1;
+      }
+
+      .regional-assignment-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+
+      .regional-section-stack {
+        display: grid;
+        gap: 14px;
       }
 
       .regional-card-grid {
@@ -4072,21 +4095,50 @@
         margin: 0;
       }
 
-      .regional-log-card {
-        padding: 12px;
+      .regional-log-details {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.84);
       }
 
-      .regional-dashboard-grid > *,
-      .regional-account-manager > * {
+      .regional-log-summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 11px 12px;
+      }
+
+      .regional-log-summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .regional-log-summary-main {
+        display: grid;
+        gap: 4px;
         min-width: 0;
       }
 
-      .regional-account-manager .compact-inline-form {
-        align-items: end;
+      .regional-log-summary-main p {
+        margin: 0;
       }
 
-      .regional-account-manager .compact-inline-form input {
-        flex: 1 1 220px;
+      .regional-log-details-body {
+        display: grid;
+        gap: 8px;
+        padding: 0 12px 12px;
+      }
+
+      .regional-request-filter-row {
+        gap: 6px;
+      }
+
+      .regional-request-filter {
+        min-height: 30px;
+        padding: 5px 10px;
+        font-size: 0.76rem;
       }
 
       .fine-print {
@@ -7182,6 +7234,11 @@
         .participant-track-grid,
         .registration-speaker-grid {
           grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+
+        .regional-home-grid-squared,
+        .regional-assignment-grid {
+          grid-template-columns: 1fr;
         }
 
         .tournament-rail-stats,

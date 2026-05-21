@@ -932,7 +932,7 @@
 
       function normalizeRegionalFundingStatusFilter(value = "") {
         const normalized = String(value || "").trim().toLowerCase();
-        if (["all", "pending", "approved", "rejected", "paid"].includes(normalized)) {
+        if (["all", "pending", "approved", "rejected"].includes(normalized)) {
           return normalized;
         }
         return "all";
@@ -2064,18 +2064,18 @@
 
       function normalizeRegionalWorkshopResourceEntry(entry = {}) {
         const createdAt = String(entry.createdAt || timestamp()).trim();
-        const dataUrl = String(entry.dataUrl || "").trim();
-        const mimeType = String(entry.mimeType || "").trim();
-        const byteSize = Math.max(0, Number(entry.byteSize || 0) || 0);
+        const fileDataUrl = String(entry.fileDataUrl || entry.dataUrl || "").trim();
+        const fileType = String(entry.fileType || entry.mimeType || "").trim();
+        const fileSize = Math.max(0, Number(entry.fileSize || entry.byteSize || 0) || 0);
         return {
           id: String(entry.id || createId("regional-workshop-resource")).trim(),
           title: String(entry.title || entry.fileName || "Workshop resource").trim(),
           description: String(entry.description || "").trim(),
           fileName: String(entry.fileName || "").trim(),
           linkUrl: String(entry.linkUrl || "").trim(),
-          dataUrl,
-          mimeType,
-          byteSize,
+          fileDataUrl,
+          fileType,
+          fileSize,
           createdByEmail: normalizeEmail(entry.createdByEmail || ""),
           createdByName: String(entry.createdByName || "").trim(),
           createdAt,
@@ -22154,13 +22154,6 @@
                   </div>`
                 : `<div class="empty-state">No coordinator accounts have been created yet.</div>`
             }
-            ${
-              canManage
-                ? `<div class="button-row">
-                    <button class="secondary-button" type="button" data-action="set-view" data-view="regional-staff">Open staff management</button>
-                  </div>`
-                : ""
-            }
           </section>
         `;
 
@@ -22206,14 +22199,10 @@
             </div>
           </section>
           <section class="surface regional-shell">
-            <div class="regional-home-grid">
-              <div class="regional-list-stack">
-                ${renderContactForm()}
-                ${renderContactList()}
-              </div>
-              <div class="regional-list-stack">
-                ${renderCoordinatorDirectory()}
-              </div>
+            <div class="regional-home-grid regional-home-grid-squared">
+              ${renderContactForm()}
+              ${renderContactList()}
+              ${renderCoordinatorDirectory()}
             </div>
           </section>
         `;
@@ -22225,7 +22214,7 @@
             "Submit field reports and track the latest regional updates.",
           )}
           <section class="surface regional-shell">
-            <div class="regional-home-grid">
+            <div class="regional-section-stack">
               ${
                 canSubmit
                   ? `<section class="flat-panel">
@@ -22312,9 +22301,9 @@
                         ${pagedReports.items
                           .map(
                             (entry) => `
-                              <article class="surface regional-log-card">
-                                <div class="section-heading">
-                                  <div>
+                              <details class="regional-log-details">
+                                <summary class="regional-log-summary">
+                                  <div class="regional-log-summary-main">
                                     <strong>${escapeHtml(entry.school || "Regional report")}</strong>
                                     <p class="muted">${escapeHtml(
                                       (entry.region || "Region not set") +
@@ -22327,28 +22316,30 @@
                                       ? `<span class="mini-pill success">${escapeHtml(
                                           entry.experienceRating + "/10",
                                         )}</span>`
+                                      : `<span class="mini-pill warning">No rating</span>`
+                                  }
+                                </summary>
+                                <div class="regional-log-details-body">
+                                  <p class="muted">${escapeHtml(entry.summary || "No summary provided.")}</p>
+                                  <p class="fine-print"><strong>Challenges:</strong> ${escapeHtml(
+                                    entry.challenges || "None listed.",
+                                  )}</p>
+                                  <p class="fine-print"><strong>JADE support:</strong> ${escapeHtml(
+                                    entry.jadeSupport || "No support request listed.",
+                                  )}</p>
+                                  ${
+                                    entry.additionalNotes
+                                      ? `<p class="fine-print"><strong>Additional notes:</strong> ${escapeHtml(
+                                          entry.additionalNotes,
+                                        )}</p>`
                                       : ""
                                   }
+                                  <p class="fine-print">${escapeHtml(
+                                    "Submitted by " +
+                                      (entry.submittedByName || entry.submittedByEmail || "Regional staff"),
+                                  )}</p>
                                 </div>
-                                <p class="muted">${escapeHtml(entry.summary || "No summary provided.")}</p>
-                                <p class="fine-print"><strong>Challenges:</strong> ${escapeHtml(
-                                  entry.challenges || "None listed.",
-                                )}</p>
-                                <p class="fine-print"><strong>JADE support:</strong> ${escapeHtml(
-                                  entry.jadeSupport || "No support request listed.",
-                                )}</p>
-                                ${
-                                  entry.additionalNotes
-                                    ? `<p class="fine-print"><strong>Additional notes:</strong> ${escapeHtml(
-                                        entry.additionalNotes,
-                                      )}</p>`
-                                    : ""
-                                }
-                                <p class="fine-print">${escapeHtml(
-                                  "Submitted by " +
-                                    (entry.submittedByName || entry.submittedByEmail || "Regional staff"),
-                                )}</p>
-                              </article>
+                              </details>
                             `,
                           )
                           .join("")}
@@ -22373,7 +22364,7 @@
             fundingSummary.pending ? fundingSummary.pending + " pending" : "",
           )}
           <section class="surface regional-shell">
-            <div class="regional-home-grid">
+            <div class="regional-section-stack">
               ${
                 canSubmit
                   ? `<section class="flat-panel">
@@ -22490,11 +22481,10 @@
                   clearAction: "clear-regional-funding-query",
                   pageData: pagedRequests,
                 })}
-                <div class="collection-filter-row" role="toolbar" aria-label="Filter regional requests">
+                <div class="collection-filter-row regional-request-filter-row" role="toolbar" aria-label="Filter regional requests">
                   ${renderRegionalFundingFilterButton("all", "All")}
                   ${renderRegionalFundingFilterButton("pending", "Pending")}
                   ${renderRegionalFundingFilterButton("approved", "Approved")}
-                  ${renderRegionalFundingFilterButton("paid", "Paid")}
                   ${renderRegionalFundingFilterButton("rejected", "Rejected")}
                 </div>
                 ${
@@ -22503,9 +22493,9 @@
                         ${pagedRequests.items
                           .map(
                             (entry) => `
-                              <article class="surface regional-log-card">
-                                <div class="section-heading">
-                                  <div>
+                              <details class="regional-log-details">
+                                <summary class="regional-log-summary">
+                                  <div class="regional-log-summary-main">
                                     <strong>${escapeHtml(entry.school || "Regional request")}</strong>
                                     <p class="muted">${escapeHtml(
                                       (entry.region || "Region not set") +
@@ -22516,67 +22506,69 @@
                                   <span class="mini-pill ${entry.status === "pending" ? "warning" : "success"}">${escapeHtml(
                                     toTitleLabel(entry.status),
                                   )}</span>
+                                </summary>
+                                <div class="regional-log-details-body">
+                                  <p class="fine-print"><strong>Categories:</strong> ${escapeHtml(
+                                    entry.categories?.length ? entry.categories.join(", ") : "None selected",
+                                  )}${entry.otherCategoryText ? escapeHtml(" • " + entry.otherCategoryText) : ""}</p>
+                                  <p class="fine-print"><strong>Required:</strong> ${escapeHtml(
+                                    entry.amountOrItemRequired ||
+                                      (entry.amountJmd ? formatCurrencyJmd(entry.amountJmd) : "Not provided"),
+                                  )}</p>
+                                  <p class="fine-print"><strong>Bank:</strong> ${escapeHtml(
+                                    getRegionalBankingSummary(entry, {
+                                      maskAccount: !canManage,
+                                    }),
+                                  )}</p>
+                                  <p class="muted">${escapeHtml(entry.justification || "No justification provided.")}</p>
+                                  <p class="fine-print">${escapeHtml(
+                                    "Submitted by " +
+                                      (entry.submittedByName || entry.submittedByEmail || "Regional staff"),
+                                  )}</p>
+                                  ${
+                                    canManage
+                                      ? `<form class="stack compact-stack" data-form="review-regional-funding-request" data-request-id="${escapeHtml(
+                                          entry.id,
+                                        )}">
+                                          <div class="field-grid two">
+                                            <label>
+                                              Status
+                                              <select name="status">
+                                                <option value="pending" ${selected(
+                                                  "pending",
+                                                  entry.status,
+                                                )}>Pending</option>
+                                                <option value="approved" ${selected(
+                                                  "approved",
+                                                  entry.status,
+                                                )}>Approved</option>
+                                                <option value="rejected" ${selected(
+                                                  "rejected",
+                                                  entry.status,
+                                                )}>Rejected</option>
+                                                <option value="paid" ${selected(
+                                                  "paid",
+                                                  entry.status,
+                                                )}>Paid</option>
+                                              </select>
+                                            </label>
+                                            <label>
+                                              Manager note
+                                              <input type="text" name="managerNote" value="${escapeAttributeValue(
+                                                entry.managerNote || "",
+                                              )}" placeholder="Optional note" />
+                                            </label>
+                                          </div>
+                                          <button class="secondary-button" type="submit">Save review</button>
+                                        </form>`
+                                      : entry.managerNote
+                                        ? `<p class="fine-print"><strong>Manager note:</strong> ${escapeHtml(
+                                            entry.managerNote,
+                                          )}</p>`
+                                        : ""
+                                  }
                                 </div>
-                                <p class="fine-print"><strong>Categories:</strong> ${escapeHtml(
-                                  entry.categories?.length ? entry.categories.join(", ") : "None selected",
-                                )}${entry.otherCategoryText ? escapeHtml(" • " + entry.otherCategoryText) : ""}</p>
-                                <p class="fine-print"><strong>Required:</strong> ${escapeHtml(
-                                  entry.amountOrItemRequired ||
-                                    (entry.amountJmd ? formatCurrencyJmd(entry.amountJmd) : "Not provided"),
-                                )}</p>
-                                <p class="fine-print"><strong>Bank:</strong> ${escapeHtml(
-                                  getRegionalBankingSummary(entry, {
-                                    maskAccount: !canManage,
-                                  }),
-                                )}</p>
-                                <p class="muted">${escapeHtml(entry.justification || "No justification provided.")}</p>
-                                <p class="fine-print">${escapeHtml(
-                                  "Submitted by " +
-                                    (entry.submittedByName || entry.submittedByEmail || "Regional staff"),
-                                )}</p>
-                                ${
-                                  canManage
-                                    ? `<form class="stack compact-stack" data-form="review-regional-funding-request" data-request-id="${escapeHtml(
-                                        entry.id,
-                                      )}">
-                                        <div class="field-grid two">
-                                          <label>
-                                            Status
-                                            <select name="status">
-                                              <option value="pending" ${selected(
-                                                "pending",
-                                                entry.status,
-                                              )}>Pending</option>
-                                              <option value="approved" ${selected(
-                                                "approved",
-                                                entry.status,
-                                              )}>Approved</option>
-                                              <option value="rejected" ${selected(
-                                                "rejected",
-                                                entry.status,
-                                              )}>Rejected</option>
-                                              <option value="paid" ${selected(
-                                                "paid",
-                                                entry.status,
-                                              )}>Paid</option>
-                                            </select>
-                                          </label>
-                                          <label>
-                                            Manager note
-                                            <input type="text" name="managerNote" value="${escapeAttributeValue(
-                                              entry.managerNote || "",
-                                            )}" placeholder="Optional note" />
-                                          </label>
-                                        </div>
-                                        <button class="secondary-button" type="submit">Save review</button>
-                                      </form>`
-                                    : entry.managerNote
-                                      ? `<p class="fine-print"><strong>Manager note:</strong> ${escapeHtml(
-                                          entry.managerNote,
-                                        )}</p>`
-                                      : ""
-                                }
-                              </article>
+                              </details>
                             `,
                           )
                           .join("")}
@@ -22601,7 +22593,7 @@
             workshopResources.length ? workshopResources.length + " resources" : "",
           )}
           <section class="surface regional-shell">
-            <div class="regional-home-grid">
+            <div class="regional-section-stack">
               ${
                 canManage
                   ? `<section class="flat-panel">
@@ -22655,52 +22647,56 @@
                         ${pagedWorkshopResources.items
                           .map(
                             (resource) => `
-                              <article class="surface regional-log-card">
-                                <div class="section-heading">
-                                  <div>
+                              <details class="regional-log-details">
+                                <summary class="regional-log-summary">
+                                  <div class="regional-log-summary-main">
                                     <strong>${escapeHtml(resource.title || "Workshop resource")}</strong>
-                                    <p class="muted">${escapeHtml(resource.description || "No description provided.")}</p>
+                                    <p class="muted">${escapeHtml(
+                                      resource.description || "No description provided.",
+                                    )}</p>
                                   </div>
                                   <span class="mini-pill success">${escapeHtml(resource.createdAt)}</span>
+                                </summary>
+                                <div class="regional-log-details-body">
+                                  <p class="fine-print">${escapeHtml(
+                                    "Uploaded by " +
+                                      (resource.createdByName || resource.createdByEmail || "Staff"),
+                                  )}</p>
+                                  <p class="fine-print">${escapeHtml(
+                                    resource.fileName
+                                      ? resource.fileName + (resource.fileSize ? " • " + formatFileSize(resource.fileSize) : "")
+                                      : "Link resource",
+                                  )}</p>
+                                  <div class="button-row">
+                                    ${
+                                      resource.fileDataUrl && resource.fileName
+                                        ? `<a class="secondary-button inline-link" href="${escapeHtml(
+                                            resource.fileDataUrl,
+                                          )}" download="${escapeAttributeValue(resource.fileName)}">Download file</a>`
+                                        : ""
+                                    }
+                                    ${
+                                      resource.linkUrl
+                                        ? `<a class="secondary-button inline-link" href="${escapeHtml(
+                                            resource.linkUrl,
+                                          )}" target="_blank" rel="noopener">Open link</a>`
+                                        : ""
+                                    }
+                                    ${
+                                      canManage
+                                        ? `<button
+                                            class="danger-button button-size-small"
+                                            type="button"
+                                            data-action="delete-regional-workshop-resource"
+                                            data-resource-id="${escapeHtml(resource.id)}"
+                                          >
+                                            Remove
+                                          </button>`
+                                        : ""
+                                    }
+                                  </div>
                                 </div>
-                                <p class="fine-print">${escapeHtml(
-                                  "Uploaded by " +
-                                    (resource.createdByName || resource.createdByEmail || "Staff"),
-                                )}</p>
-                                <p class="fine-print">${escapeHtml(
-                                  resource.fileName
-                                    ? resource.fileName + (resource.fileSize ? " • " + formatFileSize(resource.fileSize) : "")
-                                    : "Link resource",
-                                )}</p>
-                                <div class="button-row">
-                                  ${
-                                    resource.fileDataUrl && resource.fileName
-                                      ? `<a class="secondary-button inline-link" href="${escapeHtml(
-                                          resource.fileDataUrl,
-                                        )}" download="${escapeAttributeValue(resource.fileName)}">Download file</a>`
-                                      : ""
-                                  }
-                                  ${
-                                    resource.linkUrl
-                                      ? `<a class="secondary-button inline-link" href="${escapeHtml(
-                                          resource.linkUrl,
-                                        )}" target="_blank" rel="noopener">Open link</a>`
-                                      : ""
-                                  }
-                                  ${
-                                    canManage
-                                      ? `<button
-                                          class="danger-button button-size-small"
-                                          type="button"
-                                          data-action="delete-regional-workshop-resource"
-                                          data-resource-id="${escapeHtml(resource.id)}"
-                                        >
-                                          Remove
-                                        </button>`
-                                      : ""
-                                  }
-                                </div>
-                              </article>
+                              </details>
                             `,
                           )
                           .join("")}
@@ -22820,7 +22816,7 @@
                         Region
                         <select name="regionFilter">
                           <option value="all" ${selected("all", regionFilter)}>All regions</option>
-                          ${JAMAICA_REGIONS.map(
+                          ${REGIONAL_OPERATION_REGIONS.map(
                             (region) =>
                               `<option value="${escapeHtml(region)}" ${selected(
                                 region,
@@ -23808,7 +23804,7 @@
         const active = normalizeRegionalFundingStatusFilter(session.regionalFundingStatus) === status;
         return `
           <button
-            class="collection-filter ${active ? "is-active" : ""}"
+            class="collection-filter regional-request-filter button-size-small ${active ? "is-active" : ""}"
             type="button"
             data-action="set-regional-funding-status"
             data-status="${escapeHtml(status)}"
@@ -24714,10 +24710,6 @@
         const regionalRole = getRegionalOperationsRoleForEmail();
         const assignedRegion = getRegionalAssignmentForEmail();
         const banking = normalizeRegionalBankingInfo(currentUser?.regionalBanking || {});
-        const devicePasswordSavingSupported = supportsDevicePasswordSaving();
-        const devicePasswordSavingEnabled =
-          normalizeEmail(authPrefs?.rememberedEmail) === normalizeEmail(currentUser?.email) &&
-          authPrefs?.savePasswordOnDevice !== false;
         return `
           <section class="surface regional-shell">
             <div class="section-heading">
@@ -24726,12 +24718,25 @@
                 <h2>Profile, password, and banking</h2>
                 <p class="muted">Manage your account profile and saved regional request details.</p>
               </div>
-              <div class="workspace-chip-row">
-                <span class="role-pill">${escapeHtml(
-                  toTitleLabel(regionalRole || "regional_coordinator"),
-                )}</span>
-                <span class="mini-pill success">${escapeHtml(assignedRegion || "All regions")}</span>
-              </div>
+            </div>
+          </section>
+          <section class="surface regional-shell">
+            <div class="regional-assignment-grid">
+              <article class="spotlight-card">
+                <p class="eyebrow">Current role</p>
+                <h3>${escapeHtml(toTitleLabel(regionalRole || "regional_coordinator"))}</h3>
+                <p class="muted">Regional operations account type.</p>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Region</p>
+                <h3>${escapeHtml(assignedRegion || "Unassigned")}</h3>
+                <p class="muted">Primary region for reports and requests.</p>
+              </article>
+              <article class="spotlight-card">
+                <p class="eyebrow">Parish</p>
+                <h3>${escapeHtml(currentUser?.regionalParish || "Unassigned")}</h3>
+                <p class="muted">Current parish assignment on your account.</p>
+              </article>
             </div>
           </section>
           <section class="surface regional-shell">
@@ -24782,53 +24787,6 @@
               <section class="flat-panel">
                 <div class="section-heading">
                   <div>
-                    <p class="eyebrow">Password change</p>
-                    <h3>Set a new password</h3>
-                  </div>
-                </div>
-                <form class="stack" data-form="change-regional-password">
-                  <label>
-                    New password
-                    <input type="password" name="password" placeholder="Enter new password" required />
-                  </label>
-                  <button type="submit">Update password</button>
-                </form>
-                <form class="stack" data-form="update-device-password-preference" autocomplete="on">
-                  <label>
-                    Current password
-                    <input
-                      type="password"
-                      name="currentPassword"
-                      placeholder="Enter your current password"
-                      autocomplete="current-password"
-                      ${devicePasswordSavingSupported ? "" : "disabled"}
-                    />
-                  </label>
-                  <label class="checkbox-row">
-                    <input
-                      type="checkbox"
-                      name="savePasswordOnDevice"
-                      ${checked(devicePasswordSavingEnabled || authPrefs?.savePasswordOnDevice !== false)}
-                      ${devicePasswordSavingSupported ? "" : "disabled"}
-                    />
-                    <span>Save password securely on this device</span>
-                  </label>
-                  <button type="submit" ${devicePasswordSavingSupported ? "" : "disabled"}>
-                    ${
-                      devicePasswordSavingEnabled
-                        ? "Update device password preference"
-                        : "Save password on this device"
-                    }
-                  </button>
-                </form>
-              </section>
-            </div>
-          </section>
-          <section class="surface regional-shell">
-            <div class="regional-home-grid">
-              <section class="flat-panel">
-                <div class="section-heading">
-                  <div>
                     <p class="eyebrow">Saved bank account information</p>
                     <h3>Regional request payout details</h3>
                   </div>
@@ -24873,29 +24831,24 @@
                   <button type="submit">Save bank account</button>
                 </form>
               </section>
-              <section class="flat-panel">
-                <div class="section-heading">
-                  <div>
-                    <p class="eyebrow">Regional assignment visibility</p>
-                    <h3>Current assignment</h3>
-                  </div>
-                </div>
-                <p class="muted">
-                  Your role and regional assignment are visible to managers and system administrators for staffing coordination.
-                </p>
-                <div class="workspace-chip-row">
-                  <span class="role-pill">${escapeHtml(
-                    toTitleLabel(regionalRole || "regional_coordinator"),
-                  )}</span>
-                  <span class="mini-pill success">${escapeHtml(assignedRegion || "Unassigned")}</span>
-                  ${
-                    currentUser?.regionalParish
-                      ? `<span class="mini-pill success">${escapeHtml(currentUser.regionalParish)}</span>`
-                      : ""
-                  }
-                </div>
-              </section>
             </div>
+          </section>
+          <section class="surface regional-shell">
+            <section class="flat-panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Password change</p>
+                  <h3>Set a new password</h3>
+                </div>
+              </div>
+              <form class="stack" data-form="change-regional-password">
+                <label>
+                  New password
+                  <input type="password" name="password" placeholder="Enter new password" required />
+                </label>
+                <button type="submit">Update password</button>
+              </form>
+            </section>
           </section>
         `;
       }
