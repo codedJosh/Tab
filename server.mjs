@@ -1635,9 +1635,26 @@ function resolvePublicDashboardUrl(request) {
   }
 }
 
-function buildUserAccessUrl(request, token) {
+function normalizePrivateAccessPortal(value = "") {
+  const key = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (["regional", "regional_operations", "regional_ops"].includes(key)) {
+    return "regional_operations";
+  }
+  return "";
+}
+
+function buildUserAccessUrl(request, token, options = {}) {
   const targetToken = String(token || "").trim();
-  const url = resolvePublicDashboardUrl(request);
+  const portal = normalizePrivateAccessPortal(options.portal || options.screen || "");
+  const baseUrl = resolvePublicDashboardUrl(request);
+  const url =
+    portal === "regional_operations"
+      ? new URL("regional-operations.html", baseUrl)
+      : baseUrl;
   url.searchParams.delete("token");
   url.searchParams.delete("screen");
   url.searchParams.delete("view");
@@ -1686,32 +1703,53 @@ function normalizePrivateAccessEmailReason(reason = "registration") {
 
 function getPrivateAccessEmailReasonLabel(reasonKey = "registration") {
   if (reasonKey === "manual_resend") return "manual resend";
+  if (reasonKey === "regional_operations") return "regional operations access";
   if (reasonKey === "participant_registration") return "debater registration";
   if (reasonKey === "judge_registration") return "judge registration";
   if (reasonKey === "appointment") return "tournament appointment";
   if (reasonKey === "sign_up") return "account sign-up";
+  if (reasonKey === "account_created") return "account creation";
+  if (reasonKey === "account_reactivated") return "account reactivation";
   return "registration";
 }
 
-function buildPrivateAccessEmailCopy({ user, accessUrl, tournamentNames = [], reasonKey }) {
+function buildPrivateAccessEmailCopy({
+  user,
+  accessUrl,
+  tournamentNames = [],
+  reasonKey,
+  portal = "",
+}) {
   const recipientName = String(user?.name || "").trim() || "there";
+  const portalKey = normalizePrivateAccessPortal(portal);
+  const regionalPortal = portalKey === "regional_operations";
   const headlineTournament =
-    tournamentNames.length > 0 ? " for " + tournamentNames[0] : "";
+    !regionalPortal && tournamentNames.length > 0 ? " for " + tournamentNames[0] : "";
   const reasonLabel = getPrivateAccessEmailReasonLabel(reasonKey);
   const appName = DEFAULT_BRANDING.appName;
   const subject =
-    "Your " + appName + " private access URL" + headlineTournament;
-  const tournamentLine = tournamentNames.length
+    regionalPortal
+      ? "Your " + appName + " Regional Operations private access URL"
+      : "Your " + appName + " private access URL" + headlineTournament;
+  const tournamentLine = regionalPortal
+    ? "This link opens the Regional Coordination and Operations portal for reports, requests, contacts, workshop resources, and regional staff tools."
+    : tournamentNames.length
     ? "Tournament context: " + tournamentNames.join(", ") + "."
     : "Tournament context will appear in your portal as soon as you are assigned.";
+  const accessLabel = regionalPortal
+    ? "Open Regional Coordination and Operations"
+    : "Open your private access URL";
 
   const text =
     "Hi " +
     recipientName +
     ",\n\n" +
-    "Your private access URL for " +
-    appName +
-    " is ready.\n\n" +
+    (regionalPortal
+      ? "Your Regional Coordination and Operations private access URL for " +
+        appName +
+        " is ready."
+      : "Your private access URL for " + appName + " is ready.") +
+    "\n\n" +
     accessUrl +
     "\n\n" +
     tournamentLine +
@@ -1725,12 +1763,18 @@ function buildPrivateAccessEmailCopy({ user, accessUrl, tournamentNames = [], re
     "<p>Hi " +
     escapeEmailHtml(recipientName) +
     ",</p>" +
-    "<p>Your private access URL for <strong>" +
-    escapeEmailHtml(appName) +
-    "</strong> is ready.</p>" +
+    (regionalPortal
+      ? "<p>Your <strong>Regional Coordination and Operations</strong> private access URL for <strong>" +
+        escapeEmailHtml(appName) +
+        "</strong> is ready.</p>"
+      : "<p>Your private access URL for <strong>" +
+        escapeEmailHtml(appName) +
+        "</strong> is ready.</p>") +
     "<p><a href=\"" +
     escapeEmailHtml(accessUrl) +
-    "\">Open your private access URL</a></p>" +
+    "\">" +
+    escapeEmailHtml(accessLabel) +
+    "</a></p>" +
     "<p>" +
     escapeEmailHtml(tournamentLine) +
     "<br/>Reason: " +
@@ -1791,10 +1835,16 @@ async function sendPrivateAccessEmail({
   reason = "registration",
   tournamentId = "",
   force = false,
+  portal = "",
 } = {}) {
   const targetUser = user && typeof user === "object" ? user : null;
   const email = normalizeEmail(targetUser?.email);
   const reasonKey = normalizePrivateAccessEmailReason(reason);
+  const portalKey =
+    normalizePrivateAccessPortal(portal) ||
+    (normalizeRegionalOperationsRole(targetUser?.regionalRole)
+      ? "regional_operations"
+      : "");
 
   if (!targetUser || !email) {
     return {
@@ -1846,13 +1896,16 @@ async function sendPrivateAccessEmail({
     targetUser.privateAccessIssuedAt = nowText();
   }
 
-  const accessUrl = buildUserAccessUrl(request, targetUser.privateAccessToken);
+  const accessUrl = buildUserAccessUrl(request, targetUser.privateAccessToken, {
+    portal: portalKey,
+  });
   const tournamentNames = listRecipientTournamentNames(state, targetUser, tournamentId);
   const emailCopy = buildPrivateAccessEmailCopy({
     user: targetUser,
     accessUrl,
     tournamentNames,
     reasonKey,
+    portal: portalKey,
   });
 
   try {
@@ -2703,6 +2756,7 @@ app.post("/api", async (request, response) => {
       const targetEmail = normalizeEmail(request.body?.email);
       const reason = String(request.body?.reason || "manual_resend").trim();
       const tournamentId = String(request.body?.tournamentId || "").trim();
+      const portal = normalizePrivateAccessPortal(request.body?.portal || "");
       const force = Boolean(request.body?.force);
 
       const result = await withTransaction(async (client) => {
@@ -2757,6 +2811,7 @@ app.post("/api", async (request, response) => {
           reason,
           tournamentId,
           force,
+          portal,
         });
 
         let savedWorkspace = {

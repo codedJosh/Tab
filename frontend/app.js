@@ -938,22 +938,6 @@
         return "all";
       }
 
-      function normalizeRegionalStaffRoleFilter(value = "") {
-        const normalized = String(value || "").trim().toLowerCase();
-        if (["all", "regional_coordinator", "deputy_regional_coordinator"].includes(normalized)) {
-          return normalized;
-        }
-        return "all";
-      }
-
-      function normalizeRegionalStaffStatusFilter(value = "") {
-        const normalized = String(value || "").trim().toLowerCase();
-        if (["all", "active", "disabled"].includes(normalized)) {
-          return normalized;
-        }
-        return "all";
-      }
-
       function normalizeRegionalWorkspaceView(value = "") {
         const normalized = String(value || "").trim().toLowerCase();
         if (
@@ -8117,6 +8101,18 @@
         updateCurrentUserRecord();
         saveState();
         saveSession();
+        const intendedState = clone(state);
+        const intendedSession = normalizeSessionRecord(session);
+
+        try {
+          await cloudPersistQueue;
+        } catch (error) {
+          console.error(error);
+        }
+        state = await rehydrateState(intendedState);
+        session = intendedSession;
+        saveState();
+        saveSession();
 
         const cloudAvailable = await probeCloudBackend(true);
         if (!cloudAvailable) {
@@ -11397,11 +11393,11 @@
           return;
         }
         if (intent.action === "toggle-user-active") {
-          toggleUserActive(intent.email);
+          await toggleUserActive(intent.email);
           return;
         }
         if (intent.action === "delete-user") {
-          deleteUser(intent.email);
+          await deleteUser(intent.email);
           return;
         }
         if (intent.action === "clear-draw-round") {
@@ -11478,6 +11474,18 @@
         url.searchParams.delete("screen");
         clearWorkspaceRouteParams(url);
         url.searchParams.set("access", token);
+        return url.toString();
+      }
+
+      function getRegionalUserAccessLink(token) {
+        const targetToken = String(token || "").trim();
+        const url = new URL("regional-operations.html", getDashboardLink());
+        url.searchParams.delete("token");
+        url.searchParams.delete("screen");
+        clearWorkspaceRouteParams(url);
+        if (targetToken) {
+          url.searchParams.set("access", targetToken);
+        }
         return url.toString();
       }
 
@@ -21417,6 +21425,37 @@
                     <section class="flat-panel">
                       <div class="section-heading">
                         <div>
+                          <h3>Create regular account</h3>
+                          <p class="fine-print">Create a standard account directly from Access Control.</p>
+                        </div>
+                      </div>
+                      <form class="stack" data-form="create-managed-user">
+                        <div class="field-grid two">
+                          <label>
+                            Full name
+                            <input type="text" name="name" placeholder="Staff or member name" required />
+                          </label>
+                          <label>
+                            Email
+                            <input type="email" name="email" placeholder="person@example.com" required />
+                          </label>
+                        </div>
+                        <div class="field-grid two">
+                          <label>
+                            Global role
+                            <select name="globalRole">${getGlobalRoleOptions("member")}</select>
+                          </label>
+                          <label>
+                            Temporary password
+                            <input type="password" name="password" placeholder="Create a temporary password" required />
+                          </label>
+                        </div>
+                        <button type="submit">Create account</button>
+                      </form>
+                    </section>
+                    <section class="flat-panel">
+                      <div class="section-heading">
+                        <div>
                           <h3>Grant tournament access</h3>
                         </div>
                       </div>
@@ -21923,7 +21962,7 @@
         const filteredReports = getFilteredRegionalReports(reports);
         const filteredRequests = getFilteredRegionalFundingRequests(requests);
         const filteredWorkshopResources = getFilteredRegionalWorkshopResources(workshopResources);
-        const filteredStaff = getFilteredRegionalStaffRecords(staff);
+        const filteredStaff = Array.isArray(staff) ? [...staff] : [];
 
         const pagedContacts = getPagedCollection(filteredContacts, session.regionalContactsPage, 16);
         const pagedReports = getPagedCollection(filteredReports, session.regionalReportsPage, 10);
@@ -21945,9 +21984,6 @@
         }, {});
 
         const contactRegionOptions = ["all", ...getRegionalContactRegions(contacts)];
-        const roleFilter = normalizeRegionalStaffRoleFilter(session.regionalStaffRoleFilter);
-        const statusFilter = normalizeRegionalStaffStatusFilter(session.regionalStaffStatusFilter);
-        const regionFilter = String(session.regionalStaffRegionFilter || "all").trim() || "all";
 
         const renderRegionalHeader = (eyebrow, title, description, badge = "") => `
           <section class="surface regional-shell">
@@ -22759,7 +22795,7 @@
               pagedStaff.totalRecords + " staff records",
             )}
             <section class="surface regional-shell">
-              <div class="regional-home-grid">
+              <div class="regional-section-stack">
                 <section class="flat-panel">
                   <div class="section-heading">
                     <div>
@@ -22809,66 +22845,6 @@
                     <button type="submit">Save regional account</button>
                   </form>
                 </section>
-                <section class="flat-panel">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Filters</p>
-                      <h3>Find staff quickly</h3>
-                    </div>
-                  </div>
-                  <form class="stack" data-form="regional-staff-search">
-                    <label>
-                      Search
-                      <input
-                        type="search"
-                        name="query"
-                        value="${escapeHtml(session.regionalStaffQuery || "")}"
-                        placeholder="Search by name, email, role, parish, or phone"
-                      />
-                    </label>
-                    <div class="field-grid three">
-                      <label>
-                        Role
-                        <select name="roleFilter">
-                          <option value="all" ${selected("all", roleFilter)}>All roles</option>
-                          <option value="regional_coordinator" ${selected(
-                            "regional_coordinator",
-                            roleFilter,
-                          )}>Regional coordinator</option>
-                          <option value="deputy_regional_coordinator" ${selected(
-                            "deputy_regional_coordinator",
-                            roleFilter,
-                          )}>Deputy regional coordinator</option>
-                        </select>
-                      </label>
-                      <label>
-                        Region
-                        <select name="regionFilter">
-                          <option value="all" ${selected("all", regionFilter)}>All regions</option>
-                          ${REGIONAL_OPERATION_REGIONS.map(
-                            (region) =>
-                              `<option value="${escapeHtml(region)}" ${selected(
-                                region,
-                                regionFilter,
-                              )}>${escapeHtml(region)}</option>`,
-                          ).join("")}
-                        </select>
-                      </label>
-                      <label>
-                        Activity status
-                        <select name="statusFilter">
-                          <option value="all" ${selected("all", statusFilter)}>All statuses</option>
-                          <option value="active" ${selected("active", statusFilter)}>Active</option>
-                          <option value="disabled" ${selected("disabled", statusFilter)}>Disabled</option>
-                        </select>
-                      </label>
-                    </div>
-                    <div class="button-row">
-                      <button type="submit">Apply filters</button>
-                      <button class="secondary-button" type="button" data-action="clear-regional-staff-query">Clear</button>
-                    </div>
-                  </form>
-                </section>
               </div>
             </section>
             <section class="surface regional-shell">
@@ -22912,7 +22888,7 @@
                                       ${
                                         user.privateAccessToken
                                           ? `<a class="secondary-button inline-link" href="${escapeHtml(
-                                              getUserAccessLink(user.privateAccessToken),
+                                              getRegionalUserAccessLink(user.privateAccessToken),
                                             )}" target="_blank" rel="noopener">Open private link</a>`
                                           : ""
                                       }
@@ -22920,6 +22896,7 @@
                                         class="secondary-button"
                                         type="button"
                                         data-action="copy-user-access-link"
+                                        data-portal="regional"
                                         data-email="${escapeHtml(user.email)}"
                                       >
                                         Copy private link
@@ -22928,6 +22905,7 @@
                                         class="secondary-button"
                                         type="button"
                                         data-action="send-user-access-email"
+                                        data-portal="regional"
                                         data-email="${escapeHtml(user.email)}"
                                       >
                                         Send private link
@@ -23803,43 +23781,6 @@
             entry?.createdByEmail,
           ]),
         );
-      }
-
-      function getFilteredRegionalStaffRecords(staff = getRegionalOperationsUsers()) {
-        const query = String(session.regionalStaffQuery || "").trim();
-        const roleFilter = normalizeRegionalStaffRoleFilter(session.regionalStaffRoleFilter);
-        const regionFilter = String(session.regionalStaffRegionFilter || "all").trim();
-        const statusFilter = normalizeRegionalStaffStatusFilter(session.regionalStaffStatusFilter);
-        return (Array.isArray(staff) ? staff : []).filter((user) => {
-          if (
-            roleFilter !== "all" &&
-            normalizeRegionalOperationsRole(user?.regionalRole) !== roleFilter
-          ) {
-            return false;
-          }
-          if (
-            regionFilter !== "all" &&
-            normalizeRegionalRegion(user?.regionalRegion) !== normalizeRegionalRegion(regionFilter)
-          ) {
-            return false;
-          }
-          if (statusFilter === "active" && user?.active === false) {
-            return false;
-          }
-          if (statusFilter === "disabled" && user?.active !== false) {
-            return false;
-          }
-          return matchesCollectionQuery(query, [
-            user?.name,
-            user?.email,
-            user?.phoneNumber,
-            user?.regionalRole,
-            toTitleLabel(user?.regionalRole || ""),
-            user?.regionalRegion,
-            user?.regionalParish,
-            user?.globalRole,
-          ]);
-        });
       }
 
       function getFilteredRegionalReports(reports = getVisibleRegionalReports()) {
@@ -24968,6 +24909,7 @@
           : "";
         const showOverviewBand =
           !capabilities.regionalPortalMode && currentView !== "overview" && !focusedParticipantProfile;
+        const showTopbarHeading = Boolean(focusedParticipantProfile);
 
         const viewMarkup =
           currentView === "overview"
@@ -25019,23 +24961,19 @@
                           : "Open tournaments, public results, and private links.",
                   })}
                   <div class="topbar">
-                    <div>
-                      <p class="eyebrow">${escapeHtml(currentNavItem.label)}</p>
-                      <h1>${escapeHtml(
-                        focusedParticipantProfile
-                          ? focusedParticipantProfile.name
-                          : capabilities.regionalPortalMode
-                            ? currentNavItem.label
-                            : currentNavItem.label,
-                      )}</h1>
-                      ${
-                        focusedParticipantProfile
-                          ? `<div class="button-row wrap-row">
+                    ${
+                      showTopbarHeading
+                        ? `<div>
+                            <p class="eyebrow">${escapeHtml(currentNavItem.label)}</p>
+                            <h1>${escapeHtml(focusedParticipantProfile.name)}</h1>
+                            <div class="button-row wrap-row">
                               <button class="secondary-button" type="button" data-action="clear-participant-profile">Back To Profile Directory</button>
-                            </div>`
-                          : ""
-                      }
-                    </div>
+                            </div>
+                          </div>`
+                        : `<p class="fine-print">${escapeHtml(
+                            getWorkspaceViewSupportText(currentNavItem.key || session.view, session.userEmail),
+                          )}</p>`
+                    }
                   </div>
                   ${showOverviewBand ? renderWorkspaceStatusBand(currentNavItem, session.userEmail) : ""}
                 </div>
@@ -27978,6 +27916,11 @@
             return addAudit(tournament, "Removed " + targetEmail + " from tournament appointments.");
           },
           "Tournament appointee removed.",
+          {
+            forceCloud: true,
+            errorMessage:
+              "The tournament appointee removal could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -28003,6 +27946,10 @@
             );
           },
           "Permission removed.",
+          {
+            forceCloud: true,
+            errorMessage: "The permission removal could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -28501,6 +28448,10 @@
             return addAudit(tournament, "Removed judge " + target + " from the tournament.");
           },
           "Judge removed.",
+          {
+            forceCloud: true,
+            errorMessage: "The judge removal could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -28933,6 +28884,11 @@
             return addAudit(tournament, "Removed a judge allocation.");
           },
           "Judge allocation removed.",
+          {
+            forceCloud: true,
+            errorMessage:
+              "The judge allocation removal could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -29345,6 +29301,10 @@
             return addAudit(tournament, "Removed a noticeboard update.");
           },
           "Notice removed.",
+          {
+            forceCloud: true,
+            errorMessage: "The notice removal could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -29722,6 +29682,10 @@
             );
           },
           "Team removed.",
+          {
+            forceCloud: true,
+            errorMessage: "The team removal could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -29750,6 +29714,10 @@
             return addAudit(tournament, "Removed participant " + (target?.name || participantId) + ".");
           },
           "Participant removed.",
+          {
+            forceCloud: true,
+            errorMessage: "The participant removal could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -29804,6 +29772,11 @@
             return addAudit(tournament, "Deleted a standings row.");
           },
           "Standings row deleted.",
+          {
+            forceCloud: true,
+            errorMessage:
+              "The standings deletion could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -29926,6 +29899,10 @@
             return addAudit(tournament, "Tournament archived.");
           },
           "Tournament archived.",
+          {
+            forceCloud: true,
+            errorMessage: "The archive action could not be synced to the shared backend.",
+          },
         );
       }
 
@@ -30425,7 +30402,7 @@
         persist("success", "User role updated.");
       }
 
-      function toggleUserActive(email) {
+      async function toggleUserActive(email) {
         if (!canAccessGlobalSettings()) {
           setFlash("error", "Only System Managers can enable or disable accounts.");
           renderApp();
@@ -30439,13 +30416,33 @@
           return;
         }
 
+        const previousState = clone(state);
+        const previousSession = normalizeSessionRecord(session);
         state.users = state.users.map((user) =>
           user.email === target ? { ...user, active: !user.active } : user,
         );
-        persist("success", "Account status updated.");
+        try {
+          await persistStateToCloudNow({
+            skipRender: true,
+          });
+          setFlash("success", "Account status updated.");
+        } catch (error) {
+          if (error?.code !== "stale_revision") {
+            state = previousState;
+          }
+          session = previousSession;
+          setFlash(
+            error?.code === "stale_revision" ? "warning" : "error",
+            error?.message || "The account status could not be saved to the shared system.",
+          );
+        }
+
+        saveState();
+        saveSession();
+        renderApp();
       }
 
-      function deleteUser(email) {
+      async function deleteUser(email) {
         if (!canAccessGlobalSettings()) {
           setFlash("error", "Only System Managers can remove user accounts.");
           renderApp();
@@ -30458,6 +30455,8 @@
           renderApp();
           return;
         }
+        const previousState = clone(state);
+        const previousSession = normalizeSessionRecord(session);
 
         removePasswordFromDeviceVault(target);
         if (normalizeEmail(authPrefs?.rememberedEmail) === target) {
@@ -30499,7 +30498,25 @@
           session.managedTournamentId = "";
         }
 
-        persist("success", "User removed from the database.");
+        try {
+          await persistStateToCloudNow({
+            skipRender: true,
+          });
+          setFlash("success", "User removed from the database.");
+        } catch (error) {
+          if (error?.code !== "stale_revision") {
+            state = previousState;
+          }
+          session = previousSession;
+          setFlash(
+            error?.code === "stale_revision" ? "warning" : "error",
+            error?.message || "The account removal could not be saved to the shared system.",
+          );
+        }
+
+        saveState();
+        saveSession();
+        renderApp();
       }
 
       function updateBranding(formData) {
@@ -31027,20 +31044,6 @@
             return;
           }
 
-          if (action === "clear-regional-staff-query") {
-            session.view = "regional-staff";
-            session.regionalStaffQuery = "";
-            session.regionalStaffRoleFilter = "all";
-            session.regionalStaffRegionFilter = "all";
-            session.regionalStaffStatusFilter = "all";
-            session.regionalStaffPage = 1;
-            clearFlash();
-            saveSession();
-            pendingViewportReset = true;
-            renderApp();
-            return;
-          }
-
           if (action === "set-regional-staff-page") {
             session.view = "regional-staff";
             session.regionalStaffPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
@@ -31546,8 +31549,12 @@
               return;
             }
             await flushCloudPersistQueue();
+            const privateAccessLink =
+              button.dataset.portal === "regional"
+                ? getRegionalUserAccessLink(user.privateAccessToken)
+                : getUserAccessLink(user.privateAccessToken);
             await copyTextToClipboard(
-              getUserAccessLink(user.privateAccessToken),
+              privateAccessLink,
               "Private access URL copied to the clipboard.",
             );
             return;
@@ -31595,10 +31602,12 @@
             }
 
             try {
+              const portal = String(button.dataset.portal || "").trim().toLowerCase();
               const result = await callCloud("send_private_link_email", {
                 sessionToken: session.cloudSessionToken,
                 email: targetEmail,
-                reason: "manual_resend",
+                reason: portal === "regional" ? "regional_operations" : "manual_resend",
+                portal,
                 force: true,
               });
               if (result?.state) {
@@ -32020,24 +32029,6 @@
             session.view = "links";
             session.linksPortalQuery = String(formData.get("query") || "").trim();
             session.linksPortalPage = 1;
-            clearFlash();
-            saveSession();
-            pendingViewportReset = true;
-            renderApp();
-            return;
-          }
-
-          if (form.dataset.form === "regional-staff-search") {
-            session.view = "regional-staff";
-            session.regionalStaffQuery = String(formData.get("query") || "").trim();
-            session.regionalStaffRoleFilter = normalizeRegionalStaffRoleFilter(
-              formData.get("roleFilter"),
-            );
-            session.regionalStaffRegionFilter = String(formData.get("regionFilter") || "all").trim() || "all";
-            session.regionalStaffStatusFilter = normalizeRegionalStaffStatusFilter(
-              formData.get("statusFilter"),
-            );
-            session.regionalStaffPage = 1;
             clearFlash();
             saveSession();
             pendingViewportReset = true;
