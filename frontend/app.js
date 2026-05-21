@@ -161,6 +161,7 @@
         "First Global Bank",
         "VM Building Society",
       ];
+      const REGIONAL_BANK_ACCOUNT_TYPES = ["chequing", "savings"];
       const WORKSPACE_CONTRACT_VERSION = "2026-04-05-ironclad";
       const REQUIRED_WORKSPACE_ROOT_KEYS = [
         "workspaceContractVersion",
@@ -1403,6 +1404,20 @@
         return matchedParish || raw;
       }
 
+      function normalizeRegionalBankAccountType(value = "") {
+        const normalized = normalizeTextKey(value);
+        if (["chequing", "checking", "current"].includes(normalized)) {
+          return "chequing";
+        }
+        if (normalized === "saving") {
+          return "savings";
+        }
+        if (REGIONAL_BANK_ACCOUNT_TYPES.includes(normalized)) {
+          return normalized;
+        }
+        return "";
+      }
+
       const TOURNAMENT_PERMISSION_ROLE_CONFIGS = [
         {
           key: "tabDirectorEmails",
@@ -1926,6 +1941,9 @@
 
         return {
           bankName: knownBank,
+          accountType: normalizeRegionalBankAccountType(
+            next.accountType || next.account_kind || next.type,
+          ),
           accountName: String(
             next.accountName || next.accountHolderName || next.accountHolder || "",
           ).trim(),
@@ -1937,7 +1955,11 @@
       function hasRegionalBankingInfo(record = {}) {
         const banking = normalizeRegionalBankingInfo(record);
         return Boolean(
-          banking.bankName || banking.accountName || banking.accountNumber || banking.branchName,
+          banking.bankName ||
+            banking.accountType ||
+            banking.accountName ||
+            banking.accountNumber ||
+            banking.branchName,
         );
       }
 
@@ -1957,6 +1979,9 @@
 
         if (banking.bankName) {
           parts.push(banking.bankName);
+        }
+        if (banking.accountType) {
+          parts.push(toTitleLabel(banking.accountType));
         }
         if (banking.accountName) {
           parts.push(banking.accountName);
@@ -1997,6 +2022,9 @@
           amountOrItemRequired: String(entry.amountOrItemRequired || entry.itemRequired || "").trim(),
           amountJmd: Math.max(0, Number(entry.amountJmd || entry.amount || 0) || 0),
           bankName: knownBank,
+          accountType: normalizeRegionalBankAccountType(
+            entry.accountType || entry.account_kind || entry.type,
+          ),
           accountName: String(
             entry.accountName || entry.accountHolderName || entry.accountHolder || "",
           ).trim(),
@@ -3787,6 +3815,31 @@
               JAMAICA_PARISHES.map((parish) => ({ value: parish, label: parish })),
             )
           : JAMAICA_PARISHES.map((parish) => ({ value: parish, label: parish }));
+        return items
+          .map(
+            (item) =>
+              `<option value="${escapeHtml(item.value)}" ${selected(
+                item.value,
+                normalizedCurrent,
+              )}>${escapeHtml(item.label)}</option>`,
+          )
+          .join("");
+      }
+
+      function getRegionalBankAccountTypeOptions(current = "", options = {}) {
+        const normalizedCurrent = normalizeRegionalBankAccountType(current);
+        const includeEmpty = options.includeEmpty !== false;
+        const items = includeEmpty
+          ? [{ value: "", label: "Select account type" }].concat(
+              REGIONAL_BANK_ACCOUNT_TYPES.map((type) => ({
+                value: type,
+                label: toTitleLabel(type),
+              })),
+            )
+          : REGIONAL_BANK_ACCOUNT_TYPES.map((type) => ({
+              value: type,
+              label: toTitleLabel(type),
+            }));
         return items
           .map(
             (item) =>
@@ -22395,12 +22448,22 @@
                             )}" required />
                           </label>
                         </div>
-                        <label>
-                          Branch
-                          <input type="text" name="branchName" value="${escapeAttributeValue(
-                            currentBanking.branchName || "",
-                          )}" />
-                        </label>
+                        <div class="field-grid two">
+                          <label>
+                            Account type
+                            <select name="accountType" required>
+                              ${getRegionalBankAccountTypeOptions(currentBanking.accountType || "", {
+                                includeEmpty: true,
+                              })}
+                            </select>
+                          </label>
+                          <label>
+                            Branch
+                            <input type="text" name="branchName" value="${escapeAttributeValue(
+                              currentBanking.branchName || "",
+                            )}" />
+                          </label>
+                        </div>
                         <label>
                           Justification
                           <textarea name="justification" rows="3" placeholder="Why this request is needed." required></textarea>
@@ -23735,6 +23798,7 @@
             entry?.amountOrItemRequired,
             entry?.justification,
             entry?.bankName,
+            entry?.accountType,
             entry?.status,
           ]);
         });
@@ -24790,6 +24854,14 @@
                       <input type="text" name="accountNumber" value="${escapeAttributeValue(
                         banking.accountNumber || "",
                       )}" required />
+                    </label>
+                    <label>
+                      Account type
+                      <select name="accountType" required>
+                        ${getRegionalBankAccountTypeOptions(banking.accountType || "", {
+                          includeEmpty: true,
+                        })}
+                      </select>
                     </label>
                     <label>
                       Branch
@@ -26886,13 +26958,17 @@
 
         const banking = normalizeRegionalBankingInfo({
           bankName: formData.get("bankName"),
+          accountType: formData.get("accountType"),
           accountName: formData.get("accountName"),
           accountNumber: formData.get("accountNumber"),
           branchName: formData.get("branchName"),
         });
 
-        if (!banking.bankName || !banking.accountName || !banking.accountNumber) {
-          setFlash("error", "Bank, account holder name, and account number are required.");
+        if (!banking.bankName || !banking.accountType || !banking.accountName || !banking.accountNumber) {
+          setFlash(
+            "error",
+            "Bank, account type, account holder name, and account number are required.",
+          );
           renderApp();
           return;
         }
@@ -27202,6 +27278,7 @@
         const amountOrItemRequired = String(formData.get("amountOrItemRequired") || "").trim();
         const banking = normalizeRegionalBankingInfo({
           bankName: formData.get("bankName") || currentUser?.regionalBanking?.bankName,
+          accountType: formData.get("accountType") || currentUser?.regionalBanking?.accountType,
           accountName: formData.get("accountName") || currentUser?.regionalBanking?.accountName,
           accountNumber:
             formData.get("accountNumber") || currentUser?.regionalBanking?.accountNumber,
@@ -27216,13 +27293,14 @@
           !amountOrItemRequired ||
           (!categories.length && !otherCategoryText) ||
           !banking.bankName ||
+          !banking.accountType ||
           !banking.accountName ||
           !banking.accountNumber ||
           !justification
         ) {
           setFlash(
             "error",
-            "Region, school, date needed, category, amount or item required, full banking details, and justification are all required.",
+            "Region, school, date needed, category, amount or item required, full banking details including account type, and justification are all required.",
           );
           renderApp();
           return;

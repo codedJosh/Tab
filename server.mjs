@@ -99,6 +99,7 @@ const JAMAICA_MAJOR_BANKS = [
   "First Global Bank",
   "VM Building Society",
 ];
+const REGIONAL_BANK_ACCOUNT_TYPES = ["chequing", "savings"];
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const PASSWORD_HASH_VERSION = "pbkdf2-sha256-v1";
 const PASSWORD_HASH_ITERATIONS = 210000;
@@ -489,6 +490,20 @@ function normalizeRegionalParish(value = "") {
   return matched || raw;
 }
 
+function normalizeRegionalBankAccountType(value = "") {
+  const normalized = normalizeTextKey(value);
+  if (["chequing", "checking", "current"].includes(normalized)) {
+    return "chequing";
+  }
+  if (normalized === "saving") {
+    return "savings";
+  }
+  if (REGIONAL_BANK_ACCOUNT_TYPES.includes(normalized)) {
+    return normalized;
+  }
+  return "";
+}
+
 function createTemporaryRegistrationPassword() {
   return crypto.randomBytes(24).toString("base64url");
 }
@@ -602,6 +617,9 @@ function normalizeRegionalBankingInfo(record = {}) {
 
   return {
     bankName: knownBank,
+    accountType: normalizeRegionalBankAccountType(
+      next.accountType || next.account_kind || next.type,
+    ),
     accountName: String(
       next.accountName || next.accountHolderName || next.accountHolder || "",
     ).trim(),
@@ -634,6 +652,9 @@ function normalizeRegionalFundingRequestEntry(entry = {}) {
     otherCategoryText: String(entry.otherCategoryText || "").trim(),
     amountOrItemRequired: String(entry.amountOrItemRequired || "").trim(),
     bankName: knownBank,
+    accountType: normalizeRegionalBankAccountType(
+      entry.accountType || entry.account_kind || entry.type,
+    ),
     accountName: String(
       entry.accountName || entry.accountHolderName || entry.accountHolder || "",
     ).trim(),
