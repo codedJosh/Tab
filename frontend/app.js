@@ -960,6 +960,7 @@
           [
             "regional",
             "regional-home",
+            "regional-contacts",
             "regional-report",
             "regional-requests",
             "regional-workshop",
@@ -3005,6 +3006,12 @@
             {
               key: "regional-home",
               label: "Home",
+              count: null,
+              group: "Regional",
+            },
+            {
+              key: "regional-contacts",
+              label: "Contacts",
               count: null,
               group: "Regional",
             },
@@ -14222,7 +14229,7 @@
         const menuRecentTournaments = getRecentTournaments(menuVisibleTournaments)
           .filter((tournament) => !menuPinnedTournaments.some((entry) => entry.id === tournament.id))
           .slice(0, 2);
-        const groupOrder = ["Home", "Tournament", "People", "Publication", "Settings", "Regional", "Debater", "Judge", "Tools", "Account"];
+        const groupOrder = ["Home", "Tournament", "People", "Publication", "Regional", "Debater", "Judge", "Tools", "Account", "Settings"];
         const groupedItems = items.reduce((groups, item) => {
           const groupLabel = String(item.group || "Workspace").trim() || "Workspace";
           if (!groups[groupLabel]) {
@@ -22161,7 +22168,7 @@
           ${renderRegionalHeader(
             "Regional Development",
             "Home",
-            "Regional coordination hub for contacts, coordinators, and field activity.",
+            "Regional coordination hub for coordinators and field activity.",
             summary.pendingFundingRequests ? summary.pendingFundingRequests + " pending requests" : "",
           )}
           <section class="surface regional-shell">
@@ -22187,11 +22194,6 @@
                 <p class="muted">Resource requests logged for review and processing.</p>
               </article>
               <article class="spotlight-card">
-                <p class="eyebrow">Contacts</p>
-                <h3>${escapeHtml(contacts.length)}</h3>
-                <p class="muted">Regional contacts stored outside account records.</p>
-              </article>
-              <article class="spotlight-card">
                 <p class="eyebrow">Workshop files</p>
                 <h3>${escapeHtml(workshopResources.length)}</h3>
                 <p class="muted">Training resources available to coordinators.</p>
@@ -22199,10 +22201,21 @@
             </div>
           </section>
           <section class="surface regional-shell">
-            <div class="regional-home-grid regional-home-grid-squared">
+            ${renderCoordinatorDirectory()}
+          </section>
+        `;
+
+        const renderRegionalContacts = () => `
+          ${renderRegionalHeader(
+            "Regional Development",
+            "Contacts",
+            "Store and manage regional contacts by institution and role.",
+            contacts.length ? contacts.length + " contacts" : "",
+          )}
+          <section class="surface regional-shell">
+            <div class="regional-section-stack">
               ${renderContactForm()}
               ${renderContactList()}
-              ${renderCoordinatorDirectory()}
             </div>
           </section>
         `;
@@ -22338,6 +22351,22 @@
                                     "Submitted by " +
                                       (entry.submittedByName || entry.submittedByEmail || "Regional staff"),
                                   )}</p>
+                                  ${
+                                    canManage ||
+                                    normalizeEmail(entry.submittedByEmail) ===
+                                      normalizeEmail(session.userEmail)
+                                      ? `<div class="button-row">
+                                          <button
+                                            class="danger-button button-size-small"
+                                            type="button"
+                                            data-action="delete-regional-report"
+                                            data-report-id="${escapeHtml(entry.id)}"
+                                          >
+                                            Delete report
+                                          </button>
+                                        </div>`
+                                      : ""
+                                  }
                                 </div>
                               </details>
                             `,
@@ -22843,111 +22872,164 @@
               </div>
             </section>
             <section class="surface regional-shell">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Staff roster</p>
-                  <h3>Regional personnel accounts</h3>
-                </div>
-                <span class="role-pill">${escapeHtml(pagedStaff.totalRecords)} matches</span>
-              </div>
-              ${
-                pagedStaff.items.length
-                  ? `<div class="directory-grid">
-                      ${pagedStaff.items
-                        .map(
-                          (user) => `
-                            <article class="directory-card">
-                              <div class="section-heading">
-                                <div>
-                                  <strong>${escapeHtml(user.name || user.email)}</strong>
-                                  <p class="muted">${escapeHtml(user.email)}</p>
-                                </div>
-                                <span class="mini-pill ${user.active !== false ? "success" : "warning"}">${escapeHtml(
-                                  user.active !== false ? "Active" : "Disabled",
-                                )}</span>
-                              </div>
-                              <p class="fine-print">${escapeHtml(
-                                toTitleLabel(user.regionalRole || "") +
-                                  " • " +
-                                  (user.regionalRegion || "No region") +
-                                  (user.regionalParish ? " • " + user.regionalParish : ""),
-                              )}</p>
-                              <p class="fine-print">${escapeHtml(user.phoneNumber || "No phone number saved.")}</p>
-                              <form class="stack compact-stack" data-form="update-regional-ops-account" data-email="${escapeHtml(
-                                user.email,
-                              )}">
-                                <div class="field-grid three">
-                                  <label>
-                                    Role
-                                    <select name="regionalRole">${getRegionalOperationsRoleOptions(
-                                      user.regionalRole,
-                                      { allowEmpty: true },
-                                    )}</select>
-                                  </label>
-                                  <label>
-                                    Region
-                                    <select name="regionalRegion">${getRegionalRegionOptions(
-                                      user.regionalRegion || "Region 1",
-                                    )}</select>
-                                  </label>
-                                  <label>
-                                    Parish
-                                    <select name="regionalParish">${getRegionalParishOptions(
-                                      user.regionalParish || "",
-                                      { includeEmpty: true },
-                                    )}</select>
-                                  </label>
-                                </div>
-                                <div class="field-grid two">
-                                  <label>
-                                    Phone number
-                                    <input type="text" name="phoneNumber" value="${escapeAttributeValue(
-                                      user.phoneNumber || "",
-                                    )}" />
-                                  </label>
-                                  <label>
-                                    Status
-                                    <select name="active">${getAccountStatusOptions(
-                                      user.active !== false,
-                                    )}</select>
-                                  </label>
-                                </div>
-                                <button class="secondary-button" type="submit">Save account</button>
-                              </form>
-                              <form class="compact-inline-form" data-form="reset-regional-ops-password" data-email="${escapeHtml(
-                                user.email,
-                              )}">
-                                <input type="password" name="password" placeholder="Set new password" required />
-                                <button class="secondary-button" type="submit">Reset password</button>
-                              </form>
-                              ${
-                                normalizeEmail(user.email) !== normalizeEmail(session.userEmail)
-                                  ? `<div class="button-row">
+              <details class="flat-panel regional-roster-details" open>
+                <summary class="regional-log-summary regional-roster-summary">
+                  <div class="regional-log-summary-main">
+                    <p class="eyebrow">Staff roster</p>
+                    <h3>Regional personnel accounts</h3>
+                  </div>
+                  <span class="role-pill">${escapeHtml(pagedStaff.totalRecords)} matches</span>
+                </summary>
+                <div class="regional-log-details-body">
+                  ${
+                    pagedStaff.items.length
+                      ? `<div class="regional-list-stack regional-staff-list">
+                          ${pagedStaff.items
+                            .map(
+                              (user) => `
+                                <details class="regional-log-details regional-staff-entry">
+                                  <summary class="regional-log-summary">
+                                    <div class="regional-log-summary-main">
+                                      <strong>${escapeHtml(user.name || user.email)}</strong>
+                                      <p class="muted">${escapeHtml(
+                                        user.email +
+                                          " • " +
+                                          toTitleLabel(user.regionalRole || "") +
+                                          " • " +
+                                          (user.regionalRegion || "No region"),
+                                      )}</p>
+                                    </div>
+                                    <span class="mini-pill ${user.active !== false ? "success" : "warning"}">${escapeHtml(
+                                      user.active !== false ? "Active" : "Suspended",
+                                    )}</span>
+                                  </summary>
+                                  <div class="regional-log-details-body">
+                                    <p class="fine-print">${escapeHtml(
+                                      (user.regionalParish ? user.regionalParish + " • " : "") +
+                                        (user.phoneNumber || "No phone number saved."),
+                                    )}</p>
+                                    <div class="button-row wrap-row">
+                                      ${
+                                        user.privateAccessToken
+                                          ? `<a class="secondary-button inline-link" href="${escapeHtml(
+                                              getUserAccessLink(user.privateAccessToken),
+                                            )}" target="_blank" rel="noopener">Open private link</a>`
+                                          : ""
+                                      }
                                       <button
-                                        class="danger-button button-size-small"
+                                        class="secondary-button"
                                         type="button"
-                                        data-action="delete-user"
+                                        data-action="copy-user-access-link"
                                         data-email="${escapeHtml(user.email)}"
                                       >
-                                        Delete account
+                                        Copy private link
                                       </button>
-                                    </div>`
-                                  : ""
-                              }
-                            </article>
-                          `,
-                        )
-                        .join("")}
-                    </div>`
-                  : `<div class="empty-state">No regional personnel matched your filters.</div>`
-              }
-              ${renderCollectionPagination("set-regional-staff-page", pagedStaff)}
+                                      <button
+                                        class="secondary-button"
+                                        type="button"
+                                        data-action="send-user-access-email"
+                                        data-email="${escapeHtml(user.email)}"
+                                      >
+                                        Send private link
+                                      </button>
+                                      <button
+                                        class="secondary-button"
+                                        type="button"
+                                        data-action="rotate-user-access-link"
+                                        data-email="${escapeHtml(user.email)}"
+                                      >
+                                        Reset private link
+                                      </button>
+                                    </div>
+                                    <form class="stack compact-stack" data-form="update-regional-ops-account" data-email="${escapeHtml(
+                                      user.email,
+                                    )}">
+                                      <div class="field-grid three">
+                                        <label>
+                                          Role
+                                          <select name="regionalRole">${getRegionalOperationsRoleOptions(
+                                            user.regionalRole,
+                                            { allowEmpty: true },
+                                          )}</select>
+                                        </label>
+                                        <label>
+                                          Region
+                                          <select name="regionalRegion">${getRegionalRegionOptions(
+                                            user.regionalRegion || "Region 1",
+                                          )}</select>
+                                        </label>
+                                        <label>
+                                          Parish
+                                          <select name="regionalParish">${getRegionalParishOptions(
+                                            user.regionalParish || "",
+                                            { includeEmpty: true },
+                                          )}</select>
+                                        </label>
+                                      </div>
+                                      <div class="field-grid two">
+                                        <label>
+                                          Phone number
+                                          <input type="text" name="phoneNumber" value="${escapeAttributeValue(
+                                            user.phoneNumber || "",
+                                          )}" />
+                                        </label>
+                                        <label>
+                                          Status
+                                          <select name="active">${getAccountStatusOptions(
+                                            user.active !== false,
+                                          )}</select>
+                                        </label>
+                                      </div>
+                                      <button class="secondary-button" type="submit">Save account</button>
+                                    </form>
+                                    <form class="compact-inline-form" data-form="reset-regional-ops-password" data-email="${escapeHtml(
+                                      user.email,
+                                    )}">
+                                      <input type="password" name="password" placeholder="Set new password" required />
+                                      <button class="secondary-button" type="submit">Reset password</button>
+                                    </form>
+                                    ${
+                                      normalizeEmail(user.email) !== normalizeEmail(session.userEmail)
+                                        ? `<div class="button-row wrap-row">
+                                            <button
+                                              class="${user.active !== false ? "danger-button" : "secondary-button"} button-size-small"
+                                              type="button"
+                                              data-action="toggle-user-active"
+                                              data-email="${escapeHtml(user.email)}"
+                                            >
+                                              ${escapeHtml(user.active !== false ? "Suspend account" : "Re-activate account")}
+                                            </button>
+                                            <button
+                                              class="danger-button button-size-small"
+                                              type="button"
+                                              data-action="delete-user"
+                                              data-email="${escapeHtml(user.email)}"
+                                            >
+                                              Delete account
+                                            </button>
+                                          </div>`
+                                        : ""
+                                    }
+                                  </div>
+                                </details>
+                              `,
+                            )
+                            .join("")}
+                        </div>`
+                      : `<div class="empty-state">No regional personnel matched your filters.</div>`
+                  }
+                  ${renderCollectionPagination("set-regional-staff-page", pagedStaff)}
+                </div>
+              </details>
             </section>
           `;
         };
 
         if (regionalView === "regional-report") {
           return renderRegionalReports();
+        }
+        if (regionalView === "regional-contacts") {
+          return renderRegionalContacts();
         }
         if (regionalView === "regional-requests") {
           return renderRegionalRequests();
@@ -22995,7 +23077,9 @@
           regional:
             "Regional keeps reports, stipends, and coordinator accounts together.",
           "regional-home":
-            "Regional home tracks coordinators, contacts, and the latest field activity.",
+            "Regional home tracks coordinators and the latest field activity.",
+          "regional-contacts":
+            "Contacts stores regional records by institution, role, and region.",
           "regional-report":
             "Regional report captures field updates, challenges, and support needs.",
           "regional-requests":
@@ -23183,6 +23267,7 @@
           links: "Private Links",
           regional: "Regional",
           "regional-home": "Regional Home",
+          "regional-contacts": "Regional Contacts",
           "regional-report": "Regional Report",
           "regional-requests": "Regional Requests",
           "regional-workshop": "Regional Workshop",
@@ -24893,6 +24978,7 @@
               ? renderLaunchView()
             : currentView === "regional" ||
                 currentView === "regional-home" ||
+                currentView === "regional-contacts" ||
                 currentView === "regional-report" ||
                 currentView === "regional-requests" ||
                 currentView === "regional-workshop" ||
@@ -27011,6 +27097,47 @@
           {
             success: "Regional contact removed.",
             error: "The contact could not be removed from the shared system.",
+          },
+        );
+      }
+
+      async function removeRegionalReport(reportId) {
+        const targetId = String(reportId || "").trim();
+        if (!targetId) {
+          setFlash("error", "Select a report before trying to remove it.");
+          renderApp();
+          return;
+        }
+
+        const currentUser = getCurrentUser();
+        const regionalOperations = getRegionalOperationsState();
+        const targetReport = (regionalOperations.reports || []).find(
+          (entry) => String(entry.id || "").trim() === targetId,
+        );
+        if (!targetReport) {
+          setFlash("error", "That regional report could not be found.");
+          renderApp();
+          return;
+        }
+
+        const isOwner =
+          normalizeEmail(targetReport.submittedByEmail) === normalizeEmail(currentUser?.email);
+        if (!canManageRegionalOperations() && !isOwner) {
+          setFlash("error", "You can only remove reports that you submitted.");
+          renderApp();
+          return;
+        }
+
+        await commitSharedWorkspaceMutation(
+          () => {
+            const nextRegionalOperations = getRegionalOperationsState();
+            nextRegionalOperations.reports = (nextRegionalOperations.reports || []).filter(
+              (entry) => String(entry.id || "").trim() !== targetId,
+            );
+          },
+          {
+            success: "Regional report removed.",
+            error: "The regional report could not be removed from the shared system.",
           },
         );
       }
@@ -30982,7 +31109,7 @@
           }
 
           if (action === "clear-regional-contacts-query") {
-            session.view = "regional-home";
+            session.view = "regional-contacts";
             session.regionalContactsQuery = "";
             session.regionalContactsRegionFilter = "all";
             session.regionalContactsPage = 1;
@@ -30994,7 +31121,7 @@
           }
 
           if (action === "set-regional-contacts-page") {
-            session.view = "regional-home";
+            session.view = "regional-contacts";
             session.regionalContactsPage = Math.max(1, Number.parseInt(button.dataset.page, 10) || 1);
             clearFlash();
             saveSession();
@@ -31026,6 +31153,11 @@
 
           if (action === "delete-regional-contact") {
             await removeRegionalContact(button.dataset.contactId);
+            return;
+          }
+
+          if (action === "delete-regional-report") {
+            await removeRegionalReport(button.dataset.reportId);
             return;
           }
 
@@ -31936,7 +32068,7 @@
           }
 
           if (form.dataset.form === "regional-contacts-search") {
-            session.view = "regional-home";
+            session.view = "regional-contacts";
             session.regionalContactsQuery = String(formData.get("query") || "").trim();
             session.regionalContactsRegionFilter =
               String(formData.get("regionFilter") || "all").trim() || "all";

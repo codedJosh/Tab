@@ -4131,6 +4131,26 @@
         padding: 0 12px 12px;
       }
 
+      .regional-roster-details {
+        padding: 0;
+      }
+
+      .regional-roster-summary {
+        padding: 12px;
+      }
+
+      .regional-roster-summary h3 {
+        margin: 0;
+      }
+
+      .regional-staff-list {
+        gap: 10px;
+      }
+
+      .regional-staff-entry {
+        background: rgba(255, 255, 255, 0.9);
+      }
+
       .regional-request-filter-row {
         gap: 6px;
       }
