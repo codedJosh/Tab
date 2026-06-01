@@ -1536,6 +1536,12 @@
         gap: 16px;
       }
 
+      .auth-layout-single {
+        width: 100%;
+        max-width: 720px;
+        margin: 0 auto;
+      }
+
       .auth-primary {
         display: grid;
         gap: 12px;
@@ -1673,13 +1679,6 @@
         margin-bottom: 6px;
       }
 
-      .auth-security-note {
-        padding: 16px 18px;
-        border-radius: 18px;
-        background: rgba(225, 191, 67, 0.12);
-        border: 1px solid var(--line);
-      }
-
       .auth-card .section-heading {
         align-items: flex-start;
       }
@@ -1689,7 +1688,6 @@
         color: var(--accent-deep);
       }
 
-      .auth-security-note p:last-child,
       .auth-support-card p:last-child,
       .portal-note-card p:last-child {
         margin-bottom: 0;
@@ -1953,10 +1951,6 @@
 
       .public-step-card .mini-pill {
         margin-bottom: 10px;
-      }
-
-      .public-support-grid {
-        align-content: start;
       }
 
       .stack {

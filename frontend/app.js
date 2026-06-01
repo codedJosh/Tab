@@ -13604,7 +13604,7 @@
                 </section>
 
                 <section class="auth-card premium-auth-card">
-                  <div class="auth-layout">
+                  <div class="auth-layout auth-layout-single">
                     <div class="auth-primary" id="auth-sign-in">
                       <div class="form-shell">
                         <div class="section-heading">
@@ -13644,54 +13644,6 @@
                           Sign in with the email linked to your tournament access. If you already have a private link, you can use that instead.
                         </p>
                       </div>
-                      <div class="auth-security-note">
-                        <h3>Using a private link?</h3>
-                        <p>
-                          Private links open a focused debater view with draws, standings, speaker scores, and feedback.
-                        </p>
-                      </div>
-                    </div>
-                    <div class="auth-support-grid public-support-grid">
-                      <section class="auth-support-card">
-                        <div class="section-heading">
-                          <div>
-                            <p class="eyebrow">Tournament registration</p>
-                            <h3>Register for a tournament</h3>
-                          </div>
-                        </div>
-                        <p>
-                          Debaters can register teams. Judges can register with an institution or as independent.
-                        </p>
-                        <div class="button-row wrap-row">
-                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Register a team</button>
-                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-judge">Register as a judge</button>
-                        </div>
-                        <p class="auth-footer">${escapeHtml(
-                          openDebaterRegistrations.length +
-                            " debater events and " +
-                            openJudgeRegistrations.length +
-                            " judge events are currently live for registration.",
-                        )}</p>
-                      </section>
-                      <section class="auth-support-card">
-                        <div class="section-heading">
-                          <div>
-                            <p class="eyebrow">Regional operations</p>
-                            <h3>Open the regional workspace</h3>
-                          </div>
-                        </div>
-                        <p>
-                          Regional coordinators can file reports and transport requests from a separate workspace.
-                        </p>
-                        <div class="button-row wrap-row">
-                          <a class="secondary-button" href="${escapeHtml(
-                            getRegionalOperationsLandingLink(),
-                          )}">Open regional workspace</a>
-                        </div>
-                        <p class="auth-footer">Passwords must be at least ${escapeHtml(
-                          state.appSettings.auth.minimumPasswordLength,
-                        )} characters.</p>
-                      </section>
                     </div>
                   </div>
                 </div>
