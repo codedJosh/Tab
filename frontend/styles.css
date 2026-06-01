@@ -1756,9 +1756,12 @@
       }
 
       .premium-home-hero .secondary-button {
-        background: rgba(255, 255, 255, 0.86);
-        color: var(--accent-deep);
-        border-color: rgba(255, 255, 255, 0.46);
+        --btn-bg: rgba(255, 255, 255, 0.9);
+        --btn-color: var(--accent-deep);
+        --btn-border: rgba(255, 255, 255, 0.46);
+        --btn-bg-hover: #ffffff;
+        --btn-color-hover: var(--accent-deep);
+        --btn-border-hover: rgba(255, 255, 255, 0.72);
       }
 
       .public-hero-content {
@@ -1796,7 +1799,22 @@
       }
 
       .public-hero-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
         margin-top: 4px;
+        width: min(100%, 520px);
+        align-items: stretch;
+      }
+
+      .public-hero-actions > :is(button, a) {
+        width: 100%;
+        min-height: var(--btn-height-lg);
+      }
+
+      .public-hero-actions > :is(button, a),
+      .public-hero-actions > :is(button, a) * {
+        color: #ffffff !important;
       }
 
       .premium-auth-card {
@@ -1820,11 +1838,26 @@
       }
 
       .auth-login-actions {
-        align-items: center;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        align-items: stretch;
       }
 
       .auth-create-account-button {
-        justify-self: start;
+        width: 100%;
+      }
+
+      .auth-login-actions > button,
+      .auth-create-account-button {
+        min-height: var(--btn-height-lg);
+      }
+
+      .auth-create-account-row {
+        display: grid;
+        width: 50%;
+        min-width: min(100%, 220px);
+        justify-self: center;
       }
 
       .public-hero-grid {

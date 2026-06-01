@@ -13596,7 +13596,7 @@
                     </p>
                     <div class="button-row wrap-row public-hero-actions">
                       <button type="button" data-action="set-public-view" data-view="register-debater">Register for a tournament</button>
-                      <a class="secondary-button" href="${escapeHtml(
+                      <a class="button-primary" href="${escapeHtml(
                         getRegionalOperationsLandingLink(),
                       )}">Regional operations</a>
                     </div>
@@ -13630,13 +13630,15 @@
                             )} />
                             <span>Save password on this device</span>
                           </label>
-                          <div class="button-row wrap-row auth-login-actions">
+                          <div class="auth-login-actions">
                             <button type="submit">Sign In</button>
                             <button class="secondary-button" type="button" data-action="set-public-view" data-view="forgot-password">Forgot password</button>
                           </div>
-                          <button class="secondary-button auth-create-account-button" type="button" data-action="set-public-view" data-view="create-account">
-                            Create account
-                          </button>
+                          <div class="auth-create-account-row">
+                            <button class="secondary-button auth-create-account-button" type="button" data-action="set-public-view" data-view="create-account">
+                              Create account
+                            </button>
+                          </div>
                         </form>
                         <p class="auth-footer">
                           Sign in with the email linked to your tournament access. If you already have a private link, you can use that instead.
@@ -13718,7 +13720,7 @@
                       Send a reset request to the tournament manager linked to your account.
                     </p>
                     <div class="button-row wrap-row">
-                      <button class="secondary-button" type="button" data-action="set-public-view" data-view="auth">Back to sign in</button>
+                      <button class="button-primary" type="button" data-action="set-public-view" data-view="auth">Back to sign in</button>
                     </div>
                   </div>
                 </section>
@@ -13783,7 +13785,7 @@
                       Create your password, then return to sign in with your assigned tournament access.
                     </p>
                     <div class="button-row wrap-row">
-                      <button class="secondary-button" type="button" data-action="set-public-view" data-view="auth">Back to sign in</button>
+                      <button class="button-primary" type="button" data-action="set-public-view" data-view="auth">Back to sign in</button>
                     </div>
                   </div>
                 </section>
