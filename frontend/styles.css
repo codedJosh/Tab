@@ -1713,7 +1713,7 @@
         background:
           linear-gradient(90deg, rgba(8, 28, 19, 0.9) 0%, rgba(12, 52, 33, 0.72) 42%, rgba(244, 249, 245, 0.1) 100%),
           radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.26), transparent 28%),
-          url("hummingbird-home-bg.jpg") center 68% / cover no-repeat;
+          url("hummingbird-home-bg.jpg") center 34% / cover no-repeat;
         box-shadow:
           0 24px 70px rgba(9, 28, 19, 0.2),
           inset 0 1px 0 rgba(255, 255, 255, 0.28);
