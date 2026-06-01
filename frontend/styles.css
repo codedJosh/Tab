@@ -1242,7 +1242,6 @@
         scroll-margin-top: 20px;
       }
 
-      .workspace-topbar,
       .auth-card,
       .menu-welcome-card,
       .search-result-card,
@@ -1252,7 +1251,6 @@
         overflow: hidden;
       }
 
-      .workspace-topbar > *,
       .auth-card > *,
       .menu-welcome-card > *,
       .search-result-card > *,
@@ -1262,7 +1260,6 @@
         z-index: 1;
       }
 
-      .workspace-topbar::before,
       .auth-card::before,
       .menu-welcome-card::before,
       .search-result-card::before,
@@ -1271,15 +1268,10 @@
         display: none;
       }
 
-      .workspace-topbar::after,
       .auth-card::after,
       .search-result-card::after,
       .participant-track-card::after,
       .participant-team-card::after {
-        display: none;
-      }
-
-      .workspace-topbar::after {
         display: none;
       }
 
@@ -3702,65 +3694,6 @@
         padding: 9px 12px;
       }
 
-      .workspace-overview-band {
-        display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      }
-
-      .workspace-overview-card {
-        display: grid;
-        gap: 8px;
-        padding: 12px 13px;
-        min-width: 0;
-        border-radius: 18px;
-        border: 1px solid rgba(20, 49, 38, 0.08);
-        background:
-          radial-gradient(circle at top right, rgba(225, 191, 67, 0.08), transparent 32%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 246, 0.92));
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.76),
-          0 10px 24px rgba(15, 55, 39, 0.06);
-      }
-
-      .workspace-overview-card.is-primary {
-        background:
-          radial-gradient(circle at top right, rgba(225, 191, 67, 0.16), transparent 28%),
-          linear-gradient(155deg, rgba(18, 63, 47, 0.98), rgba(31, 106, 78, 0.92));
-        border-color: rgba(255, 255, 255, 0.08);
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.12),
-          0 14px 30px rgba(6, 20, 13, 0.16);
-        color: #f6fbf7;
-      }
-
-      .workspace-overview-card.is-primary .workspace-overview-label,
-      .workspace-overview-card.is-primary .muted {
-        color: rgba(241, 248, 244, 0.78);
-      }
-
-      .workspace-overview-label {
-        font-size: var(--text-overline);
-        font-weight: var(--weight-heavy);
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-
-      .workspace-overview-card strong {
-        display: block;
-        font-size: 1.04rem;
-        line-height: 1.14;
-        letter-spacing: -0.03em;
-        text-wrap: balance;
-      }
-
-      .workspace-overview-card p {
-        margin: 0;
-        font-size: var(--text-body-sm);
-        line-height: 1.5;
-      }
-
       .search-results-shell,
       .participant-profile-section {
         display: grid;
@@ -4622,19 +4555,6 @@
         opacity: 0.76;
       }
 
-      .workspace-topbar {
-        position: relative;
-        overflow: hidden;
-        display: grid;
-        gap: 12px;
-        background: rgba(255, 255, 255, 0.98);
-        animation: fadeUp 480ms ease both;
-      }
-
-      .workspace-topbar .topbar {
-        margin-top: 0;
-      }
-
       .workspace-view-note {
         margin: 6px 0 0;
         max-width: 62ch;
@@ -4651,14 +4571,6 @@
       [data-round-control-prep],
       [data-draw-round-stage-note] {
         display: none !important;
-      }
-
-      .workspace-topbar .brand-lockup .jade-logo-wrap {
-        width: 98px;
-      }
-
-      .workspace-topbar .brand-name {
-        font-size: 1.18rem;
       }
 
       .competitor-shell {
@@ -6229,7 +6141,6 @@
       .hero-feature-list > *,
       .hero-stat-band > *,
       .auth-support-grid > *,
-      .workspace-overview-band > *,
       .tournament-switch-grid > *,
       .workspace-stat-grid > *,
       .competitor-card-grid > *,
@@ -6245,7 +6156,6 @@
       .hero-feature-list > *:nth-child(1),
       .hero-stat-band > *:nth-child(1),
       .auth-support-grid > *:nth-child(1),
-      .workspace-overview-band > *:nth-child(1),
       .tournament-switch-grid > *:nth-child(1),
       .workspace-stat-grid > *:nth-child(1),
       .competitor-card-grid > *:nth-child(1),
@@ -6260,7 +6170,6 @@
       .hero-feature-list > *:nth-child(2),
       .hero-stat-band > *:nth-child(2),
       .auth-support-grid > *:nth-child(2),
-      .workspace-overview-band > *:nth-child(2),
       .tournament-switch-grid > *:nth-child(2),
       .workspace-stat-grid > *:nth-child(2),
       .competitor-card-grid > *:nth-child(2),
@@ -6275,7 +6184,6 @@
       .hero-feature-list > *:nth-child(3),
       .hero-stat-band > *:nth-child(3),
       .auth-support-grid > *:nth-child(3),
-      .workspace-overview-band > *:nth-child(3),
       .tournament-switch-grid > *:nth-child(3),
       .workspace-stat-grid > *:nth-child(3),
       .competitor-card-grid > *:nth-child(3),
@@ -6290,7 +6198,6 @@
       .hero-feature-list > *:nth-child(4),
       .hero-stat-band > *:nth-child(4),
       .auth-support-grid > *:nth-child(4),
-      .workspace-overview-band > *:nth-child(4),
       .tournament-switch-grid > *:nth-child(4),
       .workspace-stat-grid > *:nth-child(4),
       .competitor-card-grid > *:nth-child(4),
@@ -6305,7 +6212,6 @@
       .hero-feature-list > *:nth-child(5),
       .hero-stat-band > *:nth-child(5),
       .auth-support-grid > *:nth-child(5),
-      .workspace-overview-band > *:nth-child(5),
       .tournament-switch-grid > *:nth-child(5),
       .workspace-stat-grid > *:nth-child(5),
       .competitor-card-grid > *:nth-child(5),
@@ -7241,10 +7147,6 @@
           grid-template-columns: repeat(auto-fit, minmax(180px, max-content));
         }
 
-        .workspace-overview-band {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
         .menu-panel {
           position: static;
           max-height: none;
@@ -7332,7 +7234,6 @@
           flex-direction: column;
         }
 
-        .workspace-overview-band,
         .focus-nav-grid,
         .draw-publish-grid,
         .workspace-action-row,
@@ -7565,7 +7466,6 @@
           border-radius: 14px;
         }
 
-        .workspace-topbar,
         .auth-card,
         .menu-welcome-card,
         .search-result-card,
@@ -7574,7 +7474,6 @@
           overflow: hidden;
         }
 
-        .workspace-topbar::before,
         .auth-card::before,
         .menu-welcome-card::before,
         .search-result-card::before,
@@ -7584,7 +7483,6 @@
           width: min(42%, 108px);
         }
 
-        .workspace-topbar::after,
         .auth-card::after,
         .search-result-card::after,
         .participant-track-card::after,
@@ -7710,14 +7608,9 @@
         }
 
         .topbar,
-        .workspace-topbar,
         .portal-topline,
         .section-heading {
           align-items: stretch;
-        }
-
-        .workspace-topbar .topbar {
-          gap: 10px;
         }
 
         .private-shell {

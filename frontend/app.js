@@ -23043,146 +23043,6 @@
         )}</span></button>`;
       }
 
-      function getWorkspaceViewSupportText(view = session.view, email = session.userEmail) {
-        const normalizedView = normalizeWorkspaceView(view, email);
-        const capabilities = getWorkspaceCapabilities(email);
-        const messages = {
-          overview:
-            "Start here when you need a quick view of tournaments, ballots, or private links.",
-          tournaments:
-            "Open a tournament to work on rounds, teams, judges, and results.",
-          launch:
-            "Create a tournament, choose the format, and open registration when you are ready.",
-          search:
-            "Search people, teams, institutions, and tournament history.",
-          counsel:
-            "Use Counsel for troubleshooting and next-step guidance.",
-          regional:
-            "Regional keeps reports, stipends, and coordinator accounts together.",
-          "regional-home":
-            "Regional home tracks coordinators and the latest field activity.",
-          "regional-contacts":
-            "Contacts stores regional records by institution, role, and region.",
-          "regional-report":
-            "Regional report captures field updates, challenges, and support needs.",
-          "regional-requests":
-            "Requests tracks logistics, workshop, and resource funding needs by region.",
-          "regional-workshop":
-            "Workshop shares training files and briefing material for coordinators.",
-          "regional-staff":
-            "Staff management controls regional personnel accounts and assignments.",
-          judging:
-            "Open assigned rooms, submit ballots, and review round notes.",
-          people:
-            "Review accounts, registrations, and tournament appointments.",
-          links:
-            "Copy or reset private links for judges, debaters, and staff.",
-          about:
-            "Read the platform background and public mission.",
-          settings:
-            "Change your preferences and open tournament admin tools.",
-        };
-
-        if (capabilities.regionalPortalMode) {
-          return (
-            messages[normalizeRegionalWorkspaceView(normalizedView)] ||
-            "Regional keeps reporting, requests, workshop resources, and account management in one focused place."
-          );
-        }
-
-        return messages[normalizedView] || messages.overview;
-      }
-
-      function renderWorkspaceStatusBand(currentNavItem, email = session.userEmail) {
-        const user = getCurrentUser(email);
-        const capabilities = getWorkspaceCapabilities(email);
-        const activeTournament = capabilities.canManageAny
-          ? getManagedTournamentForSession()
-          : getSelectedTournamentForSession(email);
-
-        return `
-          <div class="workspace-overview-band">
-            <article class="workspace-overview-card is-primary">
-              <span class="workspace-overview-label">Signed In</span>
-              <strong>${escapeHtml(user?.name || user?.email || "JADE User")}</strong>
-              <p class="muted">${escapeHtml(toTitleLabel(user?.globalRole || "member"))}</p>
-            </article>
-            ${
-              capabilities.canManageAny
-                ? (() => {
-                    if (!activeTournament) {
-                      return `
-                        <article class="workspace-overview-card">
-                          <span class="workspace-overview-label">Current Tournament</span>
-                          <strong>No tab room open</strong>
-                          <p class="muted">Open a tournament to see live round state and ballot progress.</p>
-                        </article>
-                      `;
-                    }
-                    const controlRoom = getTournamentControlRoomState(activeTournament);
-                    return `
-                      <article class="workspace-overview-card">
-                        <span class="workspace-overview-label">Current Tournament</span>
-                        <strong>${escapeHtml(activeTournament.name)}</strong>
-                        <p class="muted">${escapeHtml(activeTournament.code + " • " + getFormatLabel(activeTournament))}</p>
-                      </article>
-                      <article class="workspace-overview-card">
-                        <span class="workspace-overview-label">Current Round</span>
-                        <strong>${escapeHtml("Round " + controlRoom.activeRound)}</strong>
-                        <p class="muted">${escapeHtml(controlRoom.lifecycle)}</p>
-                      </article>
-                      <article class="workspace-overview-card">
-                        <span class="workspace-overview-label">Ballot Progress</span>
-                        <strong>${escapeHtml(controlRoom.ballotProgress.label)}</strong>
-                        <p class="muted">${escapeHtml(
-                          controlRoom.ballotProgress.missing
-                            ? controlRoom.ballotProgress.missing + " ballot(s) missing"
-                            : "No ballots pending",
-                        )}</p>
-                      </article>
-                      <article class="workspace-overview-card">
-                        <span class="workspace-overview-label">Next Required Action</span>
-                        <strong>${escapeHtml(controlRoom.nextRequiredAction)}</strong>
-                        <p class="muted">${escapeHtml(
-                          controlRoom.snapshot.conflictFlags
-                            ? controlRoom.snapshot.conflictFlags + " conflict warning(s) to review"
-                            : "No conflict warnings currently flagged",
-                        )}</p>
-                      </article>
-                    `;
-                  })()
-                : `
-                    <article class="workspace-overview-card">
-                      <span class="workspace-overview-label">Current View</span>
-                      <strong>${escapeHtml(currentNavItem.label)}</strong>
-                      <p class="muted">${escapeHtml(
-                        getWorkspaceViewSupportText(currentNavItem.key || session.view, email),
-                      )}</p>
-                    </article>
-                    ${
-                      capabilities.canJudgeAny
-                        ? `<article class="workspace-overview-card">
-                            <span class="workspace-overview-label">Judge Ballots</span>
-                            <strong>${escapeHtml(getJudgeAssignments(email).length)}</strong>
-                            <p class="muted">Assigned rooms currently visible from the judging workspace.</p>
-                          </article>`
-                        : ""
-                    }
-                    ${
-                      getUserAccessRecord(email)
-                        ? `<article class="workspace-overview-card">
-                            <span class="workspace-overview-label">Public Link Status</span>
-                            <strong>Private URL Ready</strong>
-                            <p class="muted">Your private access URL is available in Access Links.</p>
-                          </article>`
-                        : ""
-                    }
-                  `
-            }
-          </div>
-        `;
-      }
-
       function renderParticipantProfileButton(participant, label = "Open Profile", secondary = false) {
         if (!participant) {
           return "";
@@ -24912,22 +24772,9 @@
           session.view = currentView;
         }
 
-        const navItems = getWorkspaceNavItems();
-        const currentNavItem = focusedParticipantProfile
-          ? {
-              key: "profile",
-              label: "Profile",
-            }
-          : navItems.find((item) => item.key === currentView) || navItems[0] || {
-              key: "overview",
-              label: "Workspace",
-            };
         const regionalView = capabilities.regionalPortalMode
           ? normalizeRegionalWorkspaceView(currentView)
           : "";
-        const showOverviewBand =
-          !capabilities.regionalPortalMode && currentView !== "overview" && !focusedParticipantProfile;
-        const showTopbarHeading = Boolean(focusedParticipantProfile);
 
         const viewMarkup =
           currentView === "overview"
@@ -24963,38 +24810,6 @@
             <div class="workspace-shell">
               ${renderMenu()}
               <section id="workspace-main" class="content-panel" role="main">
-                <div class="workspace-topbar surface">
-                  ${renderBrandLockup({
-                    kicker: "Hummingbird Debate Tab",
-                    size: "compact",
-                    subtitle: focusedParticipantProfile
-                      ? "View one person at a time."
-                      :
-                      capabilities.regionalPortalMode
-                        ? "Regional coordination, reporting, support requests, and training resources."
-                        : capabilities.canManageAny
-                        ? "Run tournaments, manage rounds, and publish results."
-                        : capabilities.canJudgeAny
-                          ? "Open ballots, view assignments, and track tournaments."
-                          : "Open tournaments, public results, and private links.",
-                  })}
-                  <div class="topbar">
-                    ${
-                      showTopbarHeading
-                        ? `<div>
-                            <p class="eyebrow">${escapeHtml(currentNavItem.label)}</p>
-                            <h1>${escapeHtml(focusedParticipantProfile.name)}</h1>
-                            <div class="button-row wrap-row">
-                              <button class="secondary-button" type="button" data-action="clear-participant-profile">Back To Profile Directory</button>
-                            </div>
-                          </div>`
-                        : `<p class="fine-print">${escapeHtml(
-                            getWorkspaceViewSupportText(currentNavItem.key || session.view, session.userEmail),
-                          )}</p>`
-                    }
-                  </div>
-                  ${showOverviewBand ? renderWorkspaceStatusBand(currentNavItem, session.userEmail) : ""}
-                </div>
                 ${renderFlash()}
                 ${viewMarkup}
               </section>
