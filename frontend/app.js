@@ -11574,15 +11574,29 @@
           .trim()
           .toLowerCase();
         if (
-          ["about", "register-debater", "register-judge", "regional-operations"].includes(
-            forcedScreen,
-          )
+          [
+            "about",
+            "register-debater",
+            "register-judge",
+            "regional-operations",
+            "forgot-password",
+            "create-account",
+          ].includes(forcedScreen)
         ) {
           return forcedScreen;
         }
         const url = new URL(window.location.href);
         const screen = String(url.searchParams.get("screen") || "").trim().toLowerCase();
-        if (["about", "register-debater", "register-judge", "regional-operations"].includes(screen)) {
+        if (
+          [
+            "about",
+            "register-debater",
+            "register-judge",
+            "regional-operations",
+            "forgot-password",
+            "create-account",
+          ].includes(screen)
+        ) {
           return screen;
         }
         return "";
@@ -13560,143 +13574,36 @@
             ? String(authAutofill?.password || "")
             : "";
         const savePasswordChecked = authPrefs?.savePasswordOnDevice !== false;
-        const overviewStats = getOverviewStats();
         const openDebaterRegistrations = getOpenRegistrationTournaments("debater");
         const openJudgeRegistrations = getOpenRegistrationTournaments("judge");
-        const registrationTournamentCount = new Set(
-          [...openDebaterRegistrations, ...openJudgeRegistrations].map((tournament) =>
-            String(tournament?.id || "").trim(),
-          ),
-        ).size;
-        const institutionCount = new Set(
-          state.tournaments.flatMap((tournament) =>
-            [
-              ...(tournament.teams || []).map((team) => team?.institution),
-              ...(tournament.judges || []).map((judge) => judge?.institution),
-              ...(tournament.participants || []).map((participant) => participant?.institution),
-            ]
-              .map((value) => String(value || "").trim())
-              .filter(Boolean),
-          ),
-        ).size;
-        const publicFeatureCards = [
-          {
-            title: "Create rounds",
-            body: "Set the format, build the draw, and keep each round moving.",
-          },
-          {
-            title: "Assign judges",
-            body: "Match judges to rooms, track clashes, and keep staffing clear.",
-          },
-          {
-            title: "Release motions",
-            body: "Post motions, prep time, and round notes when each room is ready.",
-          },
-          {
-            title: "Register teams",
-            body: "Let debaters and judges register directly for open tournaments.",
-          },
-          {
-            title: "Check standings",
-            body: "Track wins, speaker points, averages, and ties in the right format.",
-          },
-          {
-            title: "Publish results",
-            body: "Choose when draws, standings, ballots, and feedback become public.",
-          },
-        ];
-        const publicRoleCards = [
-          {
-            title: "I am a tabber",
-            body: "Open a tournament and manage rounds, rooms, and results.",
-            actionMarkup:
-              '<a class="button-primary inline-link" href="#auth-sign-in">Open Tournament</a>',
-          },
-          {
-            title: "I am a judge",
-            body: "Go to your judging workspace and submit ballots.",
-            actionMarkup:
-              '<a class="button-primary inline-link" href="#auth-sign-in">Submit Ballot</a>',
-          },
-          {
-            title: "I am a debater",
-            body: "Check the draw, motions, and standings for public events.",
-            actionMarkup:
-              '<a class="button-primary inline-link" href="#auth-sign-in">View Draw</a>',
-          },
-          {
-            title: "I am a viewer",
-            body: "Open public standings and published tournament results.",
-            actionMarkup:
-              '<a class="button-primary inline-link" href="#auth-sign-in">View Results</a>',
-          },
-        ];
         return `
           <div class="auth-page">
             <div class="page-shell">
               <div class="stack public-front-page">
-                <section class="hero-panel auth-hero public-hero-panel">
-                  <div class="public-hero-grid">
-                    <div class="stack public-hero-copy">
-                      ${renderBrandLockup({
-                        kicker: "Hummingbird Debate Tab",
-                        size: "hero featured",
-                        subtitle: "Run tournaments, manage draws, collect ballots, and publish results.",
-                      })}
+                <section class="hero-panel auth-hero public-hero-panel premium-home-hero">
+                  <div class="public-hero-content">
+                    <div class="public-hero-title-lockup">
+                      <div class="jade-logo-wrap hero-logo-wrap">
+                        <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird logo" />
+                      </div>
                       <div>
-                        <h1>Hummingbird Debate Tab</h1>
-                        <p class="hero-copy">
-                          Run tournaments, manage draws, collect ballots, and publish results.
-                        </p>
-                      </div>
-                      <div class="kpi-line public-hero-tags">
-                        <span>Draws</span>
-                        <span>Ballots</span>
-                        <span>Registration</span>
-                        <span>Standings</span>
+                        <p class="eyebrow">Hummingbird Tab System</p>
+                        <h1>JADE Hummingbird</h1>
                       </div>
                     </div>
-                    <div class="public-role-grid">
-                      ${publicRoleCards
-                        .map(
-                          (item) => `
-                            <article class="public-role-card">
-                              <h3>${escapeHtml(item.title)}</h3>
-                              <p>${escapeHtml(item.body)}</p>
-                              <div class="button-row wrap-row">
-                                ${item.actionMarkup}
-                              </div>
-                            </article>
-                          `,
-                        )
-                        .join("")}
+                    <p class="hero-copy premium-hero-copy">
+                      Premium tournament infrastructure for tabbing, judging, registration, motions, and results.
+                    </p>
+                    <div class="button-row wrap-row public-hero-actions">
+                      <button type="button" data-action="set-public-view" data-view="register-debater">Register for a tournament</button>
+                      <a class="secondary-button" href="${escapeHtml(
+                        getRegionalOperationsLandingLink(),
+                      )}">Regional operations</a>
                     </div>
                   </div>
                 </section>
 
-                <section id="platform-overview" class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Start here</p>
-                      <h2>What you can do here</h2>
-                    </div>
-                    <span class="role-pill">${escapeHtml(overviewStats.visibleTournaments)} tournaments</span>
-                  </div>
-                  <div class="public-feature-grid">
-                    ${publicFeatureCards
-                      .map(
-                        (item) => `
-                          <article class="public-feature-card">
-                            <h3>${escapeHtml(item.title)}</h3>
-                            <p>${escapeHtml(item.body)}</p>
-                          </article>
-                        `,
-                      )
-                      .join("")}
-                  </div>
-                </section>
-
-                <section class="auth-card">
+                <section class="auth-card premium-auth-card">
                   <div class="auth-layout">
                     <div class="auth-primary" id="auth-sign-in">
                       <div class="form-shell">
@@ -13723,7 +13630,13 @@
                             )} />
                             <span>Save password on this device</span>
                           </label>
-                          <button type="submit">Sign In</button>
+                          <div class="button-row wrap-row auth-login-actions">
+                            <button type="submit">Sign In</button>
+                            <button class="secondary-button" type="button" data-action="set-public-view" data-view="forgot-password">Forgot password</button>
+                          </div>
+                          <button class="secondary-button auth-create-account-button" type="button" data-action="set-public-view" data-view="create-account">
+                            Create account
+                          </button>
                         </form>
                         <p class="auth-footer">
                           Sign in with the email linked to your tournament access. If you already have a private link, you can use that instead.
@@ -13740,88 +13653,6 @@
                       <section class="auth-support-card">
                         <div class="section-heading">
                           <div>
-                            <p class="eyebrow">Password Help</p>
-                            <h3>Forgot your password?</h3>
-                          </div>
-                        </div>
-                        ${
-                          state.appSettings.auth.allowPasswordResetRequests
-                            ? `
-                              <form class="stack" data-form="forgot-password">
-                                <label>
-                                  Email address
-                                  <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
-                                </label>
-                                <label>
-                                  Note for the manager
-                                  <textarea name="note" rows="2" placeholder="Optional context, such as the tournament you need to access."></textarea>
-                                </label>
-                                <button type="submit">Send Reset Request</button>
-                              </form>
-                              <p class="auth-footer">A manager will review your request and reset your access.</p>
-                            `
-                            : `<div class="alert info">Password reset is currently turned off. Please contact a tournament manager.</div>`
-                        }
-                      </section>
-                      <section class="auth-support-card" id="auth-sign-up">
-                        <div class="section-heading">
-                          <div>
-                            <p class="eyebrow">${escapeHtml(
-                              needsBootstrapManager ? "First-Time Setup" : "Create Account",
-                            )}</p>
-                            <h3>${escapeHtml(
-                              needsBootstrapManager
-                                ? "Create the first system manager"
-                                : "Create your password",
-                            )}</h3>
-                          </div>
-                        </div>
-                        ${
-                          needsBootstrapManager
-                            ? `<div class="alert info">No system manager exists yet. The first account created here becomes the first system manager.</div>`
-                            : ""
-                        }
-                        ${
-                          signupDisabled
-                            ? `<div class="alert warning">Self sign-up is turned off right now.</div>`
-                            : `
-                              <form class="stack" data-form="sign-up" autocomplete="on">
-                                <label>
-                                  Full name
-                                  <input type="text" name="name" placeholder="Your name" autocomplete="name" required />
-                                </label>
-                                <label>
-                                  Email address
-                                  <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
-                                </label>
-                                <div class="field-grid two">
-                                  <label>
-                                    Password
-                                    <input type="password" name="password" placeholder="Create password" autocomplete="new-password" required />
-                                  </label>
-                                  <label>
-                                    Confirm password
-                                    <input type="password" name="confirmPassword" placeholder="Repeat password" autocomplete="new-password" required />
-                                  </label>
-                                </div>
-                                <label class="checkbox-row">
-                                  <input type="checkbox" name="savePasswordOnDevice" ${checked(
-                                    savePasswordChecked,
-                                  )} />
-                                  <span>Save password on this device</span>
-                                </label>
-                                <button type="submit">${escapeHtml(
-                                  needsBootstrapManager
-                                    ? "Create System Manager"
-                                    : "Create Account",
-                                )}</button>
-                              </form>
-                            `
-                        }
-                      </section>
-                      <section class="auth-support-card">
-                        <div class="section-heading">
-                          <div>
                             <p class="eyebrow">Tournament registration</p>
                             <h3>Register for a tournament</h3>
                           </div>
@@ -13830,8 +13661,8 @@
                           Debaters can register teams. Judges can register with an institution or as independent.
                         </p>
                         <div class="button-row wrap-row">
-                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Register A Team</button>
-                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-judge">Register As A Judge</button>
+                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-debater">Register a team</button>
+                          <button class="secondary-button" type="button" data-action="set-public-view" data-view="register-judge">Register as a judge</button>
                         </div>
                         <p class="auth-footer">${escapeHtml(
                           openDebaterRegistrations.length +
@@ -13853,7 +13684,7 @@
                         <div class="button-row wrap-row">
                           <a class="secondary-button" href="${escapeHtml(
                             getRegionalOperationsLandingLink(),
-                          )}">Open Regional Workspace</a>
+                          )}">Open regional workspace</a>
                         </div>
                         <p class="auth-footer">Passwords must be at least ${escapeHtml(
                           state.appSettings.auth.minimumPasswordLength,
@@ -13862,6 +13693,158 @@
                     </div>
                   </div>
                 </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderForgotPasswordPublicView() {
+        return `
+          <div class="auth-page">
+            <div class="page-shell">
+              <div class="stack public-front-page auth-flow-page">
+                <section class="hero-panel auth-hero public-hero-panel premium-home-hero compact-auth-hero">
+                  <div class="public-hero-content">
+                    <div class="public-hero-title-lockup">
+                      <div class="jade-logo-wrap hero-logo-wrap">
+                        <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird logo" />
+                      </div>
+                      <div>
+                        <p class="eyebrow">Password Help</p>
+                        <h1>Forgot password</h1>
+                      </div>
+                    </div>
+                    <p class="hero-copy premium-hero-copy">
+                      Send a reset request to the tournament manager linked to your account.
+                    </p>
+                    <div class="button-row wrap-row">
+                      <button class="secondary-button" type="button" data-action="set-public-view" data-view="auth">Back to sign in</button>
+                    </div>
+                  </div>
+                </section>
+                <section class="auth-card auth-flow-card">
+                  <div class="form-shell">
+                    <div class="section-heading">
+                      <div>
+                        <p class="eyebrow">Reset request</p>
+                        <h2>Request password help</h2>
+                      </div>
+                    </div>
+                    ${renderFlash()}
+                    ${
+                      state.appSettings.auth.allowPasswordResetRequests
+                        ? `
+                          <form class="stack" data-form="forgot-password">
+                            <label>
+                              Email address
+                              <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
+                            </label>
+                            <label>
+                              Note for the manager
+                              <textarea name="note" rows="3" placeholder="Optional context, such as the tournament you need to access."></textarea>
+                            </label>
+                            <button type="submit">Send reset request</button>
+                          </form>
+                        `
+                        : `<div class="alert info">Password reset is currently turned off. Please contact a tournament manager.</div>`
+                    }
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderCreateAccountPublicView() {
+        const signupDisabled = !state.appSettings.auth.allowSelfSignup;
+        const needsBootstrapManager = needsLocalBootstrapManagerSetup();
+        const savePasswordChecked = authPrefs?.savePasswordOnDevice !== false;
+        return `
+          <div class="auth-page">
+            <div class="page-shell">
+              <div class="stack public-front-page auth-flow-page">
+                <section class="hero-panel auth-hero public-hero-panel premium-home-hero compact-auth-hero">
+                  <div class="public-hero-content">
+                    <div class="public-hero-title-lockup">
+                      <div class="jade-logo-wrap hero-logo-wrap">
+                        <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird logo" />
+                      </div>
+                      <div>
+                        <p class="eyebrow">${escapeHtml(
+                          needsBootstrapManager ? "First-Time Setup" : "Create Account",
+                        )}</p>
+                        <h1>${escapeHtml(
+                          needsBootstrapManager ? "Create system manager" : "Create account",
+                        )}</h1>
+                      </div>
+                    </div>
+                    <p class="hero-copy premium-hero-copy">
+                      Create your password, then return to sign in with your assigned tournament access.
+                    </p>
+                    <div class="button-row wrap-row">
+                      <button class="secondary-button" type="button" data-action="set-public-view" data-view="auth">Back to sign in</button>
+                    </div>
+                  </div>
+                </section>
+                <section class="auth-card auth-flow-card">
+                  <div class="form-shell">
+                    <div class="section-heading">
+                      <div>
+                        <p class="eyebrow">${escapeHtml(
+                          needsBootstrapManager ? "System Manager" : "Account setup",
+                        )}</p>
+                        <h2>${escapeHtml(
+                          needsBootstrapManager
+                            ? "Create the first manager account"
+                            : "Create your password",
+                        )}</h2>
+                      </div>
+                    </div>
+                    ${renderFlash()}
+                    ${
+                      needsBootstrapManager
+                        ? `<div class="alert info">No system manager exists yet. The first account created here becomes the first system manager.</div>`
+                        : ""
+                    }
+                    ${
+                      signupDisabled
+                        ? `<div class="alert warning">Self sign-up is turned off right now.</div>`
+                        : `
+                          <form class="stack" data-form="sign-up" autocomplete="on">
+                            <label>
+                              Full name
+                              <input type="text" name="name" placeholder="Your name" autocomplete="name" required />
+                            </label>
+                            <label>
+                              Email address
+                              <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
+                            </label>
+                            <div class="field-grid two">
+                              <label>
+                                Password
+                                <input type="password" name="password" placeholder="Create password" autocomplete="new-password" required />
+                              </label>
+                              <label>
+                                Confirm password
+                                <input type="password" name="confirmPassword" placeholder="Repeat password" autocomplete="new-password" required />
+                              </label>
+                            </div>
+                            <label class="checkbox-row">
+                              <input type="checkbox" name="savePasswordOnDevice" ${checked(
+                                savePasswordChecked,
+                              )} />
+                              <span>Save password on this device</span>
+                            </label>
+                            <button type="submit">${escapeHtml(
+                              needsBootstrapManager ? "Create system manager" : "Create account",
+                            )}</button>
+                          </form>
+                        `
+                    }
+                  </div>
+                </section>
+              </div>
             </div>
           </div>
         `;
@@ -25520,11 +25503,15 @@
                 ? renderAboutView(true)
                 : publicView === "register-debater"
                   ? renderPublicRegistrationView("debater")
-                  : publicView === "register-judge"
-                    ? renderPublicRegistrationView("judge")
-                    : publicView === "regional-operations"
-                      ? renderRegionalOperationsPublicView()
-                      : renderAuthView();
+	                  : publicView === "register-judge"
+	                    ? renderPublicRegistrationView("judge")
+	                    : publicView === "regional-operations"
+	                      ? renderRegionalOperationsPublicView()
+	                      : publicView === "forgot-password"
+	                        ? renderForgotPasswordPublicView()
+	                        : publicView === "create-account"
+	                          ? renderCreateAccountPublicView()
+	                          : renderAuthView();
           document.querySelector("#app").innerHTML = appMarkup + renderConfirmationDialog();
           restoreTrackedFormDrafts();
           syncBrowserUrlWithSession();
@@ -30920,7 +30907,14 @@
               window.location.assign(getRegionalOperationsLandingLink());
               return;
             }
-            const nextView = ["about", "register-debater", "register-judge", "regional-operations"].includes(requestedView)
+            const nextView = [
+              "about",
+              "register-debater",
+              "register-judge",
+              "regional-operations",
+              "forgot-password",
+              "create-account",
+            ].includes(requestedView)
               ? requestedView
               : "auth";
             const nextUrl = nextView === "auth" ? getDashboardLink() : getPublicScreenLink(nextView);
