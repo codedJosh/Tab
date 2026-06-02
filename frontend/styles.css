@@ -1873,10 +1873,10 @@
         display: block;
         width: min(315px, 86%);
         height: clamp(112px, 12.5vw, 138px);
-        margin-bottom: clamp(-18px, -2vw, -12px);
+        margin-bottom: clamp(-24px, -2.6vw, -18px);
         object-fit: cover;
         object-position: center 38%;
-        transform: translateY(7px);
+        transform: translateY(13px);
         filter:
           drop-shadow(0 18px 34px rgba(0, 0, 0, 0.34))
           drop-shadow(0 2px 0 rgba(255, 255, 255, 0.08));
@@ -1886,7 +1886,15 @@
         min-width: 0;
         display: grid;
         justify-items: center;
-        gap: 0;
+        gap: 4px;
+      }
+
+      .public-hero-title-copy h1 {
+        margin-bottom: 0;
+      }
+
+      .public-hero-title-copy .eyebrow {
+        margin-top: 0;
       }
 
       .hero-logo-wrap {
@@ -2390,7 +2398,37 @@
       }
 
       .menu-brand {
-        margin-bottom: 18px;
+        display: grid;
+        justify-items: center;
+        margin-bottom: 14px;
+        text-align: center;
+      }
+
+      .menu-brand-lockup {
+        display: grid;
+        justify-items: center;
+        gap: 0;
+        width: 100%;
+      }
+
+      .menu-brand-jade-logo {
+        display: block;
+        width: min(188px, 86%);
+        height: 82px;
+        object-fit: cover;
+        object-position: center 38%;
+        filter:
+          drop-shadow(0 14px 30px rgba(0, 0, 0, 0.22))
+          drop-shadow(0 1px 0 rgba(255, 255, 255, 0.08));
+      }
+
+      .menu-brand-name {
+        margin: -6px 0 0;
+        color: #f4f9ff;
+        font-size: clamp(1.7rem, 2.5vw, 2.08rem);
+        font-weight: 900;
+        letter-spacing: -0.055em;
+        line-height: 0.95;
       }
 
       .menu-brand h2,

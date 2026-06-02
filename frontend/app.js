@@ -201,6 +201,7 @@
       const PASSWORD_HASH_ITERATIONS = 210000;
       const PASSWORD_SALT_BYTES = 16;
       const JADE_LOGO_SRC = "jade-logo.jpg";
+      const JADE_LANDING_LOGO_SRC = "jade-landing-logo.png";
       const MAX_TOURNAMENT_ROUNDS = 20;
       const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const STARTUP_SPLASH_STORAGE_KEY = "hummingbird-startup-splash-seen-v1";
@@ -14248,11 +14249,12 @@
           <a class="skip-link" href="#workspace-main">Skip to main content</a>
           <aside class="menu-panel" role="navigation" aria-label="Primary workspace navigation">
             <div class="menu-brand">
-              ${renderBrandLockup({
-                kicker: "Workspace Menu",
-                size: "compact",
-                showSubtitle: false,
-              })}
+              <div class="menu-brand-lockup" aria-label="JADE Hummingbird">
+                <img class="menu-brand-jade-logo" src="${escapeHtml(
+                  JADE_LANDING_LOGO_SRC,
+                )}" alt="JADE logo" />
+                <p class="menu-brand-name">Hummingbird</p>
+              </div>
             </div>
             <div class="inline-card menu-welcome-card">
               <div class="section-heading">
