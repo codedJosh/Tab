@@ -2113,6 +2113,11 @@
 
       .auth-login-actions > button,
       .auth-create-account-button {
+        font-family: inherit;
+        font-size: var(--btn-font-size-md);
+        font-weight: var(--btn-font-weight);
+        letter-spacing: 0.005em;
+        line-height: 1.2;
         min-height: var(--btn-height-md);
         width: 100%;
       }
