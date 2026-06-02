@@ -1883,10 +1883,10 @@
         display: block;
         width: min(315px, 86%);
         height: clamp(112px, 12.5vw, 138px);
-        margin-bottom: clamp(-12px, -1.4vw, -8px);
+        margin-bottom: clamp(-17px, -1.9vw, -12px);
         object-fit: cover;
         object-position: center 38%;
-        transform: translateY(5px);
+        transform: translateY(8px);
         filter:
           drop-shadow(0 18px 34px rgba(0, 0, 0, 0.34))
           drop-shadow(0 2px 0 rgba(255, 255, 255, 0.08));
