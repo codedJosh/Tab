@@ -1731,19 +1731,52 @@
 
       .premium-home-hero.regional-operations-hero {
         background:
-          linear-gradient(112deg, rgba(4, 18, 12, 0.5) 0%, rgba(10, 45, 29, 0.26) 39%, rgba(12, 43, 29, 0.08) 68%, rgba(6, 24, 16, 0.38) 100%),
-          radial-gradient(ellipse at 22% 76%, rgba(5, 24, 16, 0.36) 0%, rgba(20, 74, 45, 0.2) 38%, transparent 67%),
-          radial-gradient(circle at 82% 22%, rgba(186, 232, 163, 0.2), transparent 28%),
           url("regional-operations-bg.jpg") center 46% / cover no-repeat;
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero {
-        align-items: center;
-        padding-bottom: clamp(30px, 4vw, 54px);
+        align-items: end;
+        justify-items: start;
+        padding: clamp(30px, 4vw, 54px);
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
-        align-self: center;
+        align-self: end;
+        justify-self: start;
+        width: clamp(300px, 39vw, 440px);
+        max-width: 45%;
+        justify-items: start;
+        text-align: left;
+        padding: clamp(14px, 2vw, 22px);
+        border: 1px solid rgba(255, 255, 255, 0.34);
+        background: rgba(255, 255, 255, 0.16);
+        -webkit-backdrop-filter: blur(14px) saturate(1.14);
+        backdrop-filter: blur(14px) saturate(1.14);
+        box-shadow:
+          0 24px 54px rgba(0, 0, 0, 0.24),
+          inset 0 1px 0 rgba(255, 255, 255, 0.34);
+      }
+
+      .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-brand-stack,
+      .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-title-copy {
+        justify-items: start;
+        text-align: left;
+      }
+
+      .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-jade-logo {
+        width: min(270px, 88%);
+      }
+
+      .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero::before {
+        background:
+          linear-gradient(106deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.36) 28%, rgba(0, 0, 0, 0.12) 55%, transparent 66%),
+          radial-gradient(circle at 14% 88%, rgba(255, 255, 255, 0.1), transparent 26%);
+      }
+
+      .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero::after {
+        height: 100%;
+        background:
+          linear-gradient(128deg, rgba(255, 255, 255, 0.12) 0%, transparent 18%, transparent 100%);
       }
 
       .premium-home-hero::after {
@@ -7881,11 +7914,43 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero {
+          align-items: end;
+          justify-items: center;
+          min-height: min(72vh, 560px);
+          padding: 12px;
           background:
-            linear-gradient(180deg, rgba(26, 90, 57, 0.18) 0%, rgba(11, 50, 32, 0.08) 44%, rgba(7, 31, 21, 0.58) 100%),
-            radial-gradient(ellipse at 50% 82%, rgba(7, 34, 22, 0.36) 0%, rgba(44, 95, 56, 0.2) 34%, transparent 64%),
-            radial-gradient(circle at 50% 20%, rgba(124, 176, 111, 0.1), transparent 34%),
-            url("regional-operations-bg.jpg") center 48% / cover no-repeat;
+            url("regional-operations-bg.jpg") center 49% / cover no-repeat;
+        }
+
+        .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero::before {
+          background:
+            linear-gradient(180deg, transparent 0%, transparent 44%, rgba(0, 0, 0, 0.5) 100%);
+        }
+
+        .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero::after {
+          height: 46%;
+          background:
+            linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.08) 34%, transparent 100%);
+        }
+
+        .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
+          align-self: end;
+          justify-self: center;
+          width: min(92vw, 360px);
+          max-width: none;
+          justify-items: center;
+          text-align: center;
+          padding: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.34);
+          background: rgba(255, 255, 255, 0.16);
+          -webkit-backdrop-filter: blur(14px) saturate(1.14);
+          backdrop-filter: blur(14px) saturate(1.14);
+        }
+
+        .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-brand-stack,
+        .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-title-copy {
+          justify-items: center;
+          text-align: center;
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
