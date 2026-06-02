@@ -1,9 +1,9 @@
       :root {
-        --bg: #f3f5f3;
-        --bg-deep: #e7ece8;
+        --bg: #143827;
+        --bg-deep: #071d14;
         --bg-paper: #ffffff;
-        --panel: rgba(255, 255, 255, 0.84);
-        --panel-strong: rgba(255, 255, 255, 0.93);
+        --panel: rgba(255, 255, 255, 0.82);
+        --panel-strong: rgba(255, 255, 255, 0.9);
         --panel-dark: #24322b;
         --panel-dark-soft: rgba(36, 50, 43, 0.96);
         --ink: #18231d;
@@ -17,8 +17,8 @@
         --gold-deep: #8d7128;
         --line: rgba(24, 35, 29, 0.12);
         --line-strong: rgba(24, 35, 29, 0.18);
-        --shadow: 0 16px 40px rgba(20, 31, 25, 0.08);
-        --shadow-soft: 0 8px 22px rgba(20, 31, 25, 0.06);
+        --shadow: 0 18px 46px rgba(4, 22, 14, 0.18);
+        --shadow-soft: 0 10px 26px rgba(4, 22, 14, 0.12);
         --success: #246c45;
         --success-soft: rgba(36, 108, 69, 0.12);
         --warning: #8a601e;
@@ -28,15 +28,15 @@
         --jade: #2d7d5b;
         --jade-soft: rgba(45, 125, 91, 0.14);
         --gold-soft: rgba(185, 154, 67, 0.1);
-        --shadow-strong: 0 14px 32px rgba(20, 31, 25, 0.08);
-        --surface-shadow: 0 10px 30px rgba(20, 31, 25, 0.07);
-        --surface-shadow-hover: 0 14px 36px rgba(20, 31, 25, 0.1);
-        --body-glow-one: rgba(33, 112, 79, 0.04);
-        --body-glow-two: rgba(185, 154, 67, 0.03);
-        --body-glow-three: rgba(33, 112, 79, 0.025);
-        --body-glow-four: rgba(255, 255, 255, 0);
-        --body-orb-top: rgba(255, 255, 255, 0);
-        --body-orb-bottom: rgba(255, 255, 255, 0);
+        --shadow-strong: 0 18px 42px rgba(4, 22, 14, 0.16);
+        --surface-shadow: 0 12px 34px rgba(4, 22, 14, 0.13);
+        --surface-shadow-hover: 0 16px 42px rgba(4, 22, 14, 0.18);
+        --body-glow-one: rgba(57, 148, 91, 0.34);
+        --body-glow-two: rgba(120, 135, 66, 0.24);
+        --body-glow-three: rgba(18, 86, 56, 0.28);
+        --body-glow-four: rgba(130, 184, 121, 0.12);
+        --body-orb-top: rgba(77, 160, 99, 0.22);
+        --body-orb-bottom: rgba(113, 128, 58, 0.2);
         --button-top: var(--accent-bright);
         --button-bottom: var(--accent-deep);
         --button-hover-top: var(--accent);
@@ -98,16 +98,18 @@
           sans-serif;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, var(--body-glow-one), transparent 24%),
-          radial-gradient(circle at bottom right, var(--body-glow-two), transparent 20%),
-          linear-gradient(180deg, #fafcfb 0%, var(--bg) 48%, var(--bg-deep) 100%);
+          radial-gradient(circle at 14% 8%, var(--body-glow-one), transparent 28%),
+          radial-gradient(circle at 85% 18%, var(--body-glow-four), transparent 30%),
+          radial-gradient(ellipse at 18% 92%, var(--body-glow-two), transparent 34%),
+          radial-gradient(ellipse at 82% 86%, var(--body-glow-three), transparent 38%),
+          linear-gradient(145deg, #061a12 0%, #123823 34%, #1f5130 62%, #071d14 100%);
         letter-spacing: 0.002em;
         position: relative;
         overflow-x: hidden;
         overscroll-behavior-y: none;
         scrollbar-gutter: stable both-edges;
         scrollbar-width: thin;
-        scrollbar-color: rgba(18, 63, 47, 0.34) rgba(255, 255, 255, 0.3);
+        scrollbar-color: rgba(130, 184, 121, 0.52) rgba(7, 29, 20, 0.38);
         text-rendering: optimizeLegibility;
         font-size: var(--text-body);
         line-height: 1.52;
@@ -129,13 +131,20 @@
 
       #app::before {
         inset: 0;
-        opacity: 0;
-        background: none;
+        opacity: 0.9;
+        background:
+          linear-gradient(115deg, rgba(255, 255, 255, 0.04), transparent 32%),
+          radial-gradient(ellipse at 50% 0%, rgba(143, 190, 128, 0.08), transparent 42%);
         animation: none;
       }
 
       #app::after {
-        display: none;
+        inset: 0;
+        opacity: 0.45;
+        background-image:
+          linear-gradient(rgba(236, 255, 240, 0.045) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(236, 255, 240, 0.035) 1px, transparent 1px);
+        background-size: 46px 46px;
       }
 
       body::-webkit-scrollbar {
@@ -143,13 +152,13 @@
       }
 
       body::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.34);
+        background: rgba(7, 29, 20, 0.42);
       }
 
       body::-webkit-scrollbar-thumb {
-        background: linear-gradient(180deg, rgba(31, 106, 78, 0.54), rgba(18, 63, 47, 0.72));
+        background: linear-gradient(180deg, rgba(126, 174, 137, 0.7), rgba(22, 87, 55, 0.86));
         border-radius: 999px;
-        border: 2px solid rgba(255, 255, 255, 0.48);
+        border: 2px solid rgba(7, 29, 20, 0.42);
       }
 
       body::before,
@@ -163,11 +172,21 @@
       }
 
       body::before {
-        display: none;
+        display: block;
+        width: min(50vw, 560px);
+        height: min(50vw, 560px);
+        left: -16vw;
+        top: 18vh;
+        background: radial-gradient(circle, var(--body-orb-top), transparent 68%);
       }
 
       body::after {
-        display: none;
+        display: block;
+        width: min(48vw, 520px);
+        height: min(48vw, 520px);
+        right: -14vw;
+        bottom: -10vh;
+        background: radial-gradient(circle, var(--body-orb-bottom), transparent 70%);
       }
 
       @keyframes drift {
@@ -1220,7 +1239,7 @@
 
       .hero-panel {
         background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 250, 248, 0.96));
+          linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(236, 248, 239, 0.78));
         border: 1px solid var(--line);
         color: var(--ink);
         position: relative;
@@ -1515,11 +1534,11 @@
         background:
           radial-gradient(circle at top right, rgba(225, 191, 67, 0.14), transparent 28%),
           radial-gradient(circle at 14% 16%, rgba(106, 164, 129, 0.1), transparent 24%),
-          linear-gradient(180deg, rgba(254, 255, 252, 0.98), rgba(244, 249, 245, 0.97));
-        border: 1px solid rgba(20, 49, 38, 0.1);
+          linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(235, 247, 239, 0.74));
+        border: 1px solid rgba(175, 210, 177, 0.22);
         box-shadow:
-          0 24px 58px rgba(14, 44, 31, 0.1),
-          inset 0 1px 0 rgba(255, 255, 255, 0.74);
+          0 24px 58px rgba(4, 22, 14, 0.18),
+          inset 0 1px 0 rgba(255, 255, 255, 0.58);
       }
 
       .auth-layout {
@@ -1548,8 +1567,10 @@
 
       .form-shell {
         padding: 24px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 251, 248, 0.82));
-        box-shadow: 0 16px 34px rgba(15, 55, 39, 0.08);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(237, 248, 240, 0.7)),
+          radial-gradient(circle at 92% 8%, rgba(71, 139, 84, 0.1), transparent 32%);
+        box-shadow: 0 16px 34px rgba(4, 22, 14, 0.14);
       }
 
       .auth-support-grid {
@@ -1867,8 +1888,8 @@
       }
 
       .premium-auth-card {
-        background: rgba(255, 255, 255, 0.76);
-        border-color: rgba(255, 255, 255, 0.54);
+        background: rgba(229, 244, 233, 0.58);
+        border-color: rgba(169, 209, 172, 0.34);
       }
 
       .auth-flow-page {
