@@ -14081,72 +14081,45 @@
       }
 
       function renderRegionalOperationsPublicView() {
-        const staffCount = getRegionalOperationsUsers().length;
-        const summary = getRegionalOperationsSummary();
+        const savePasswordChecked = authPrefs?.savePasswordOnDevice !== false;
 
         return `
           <div class="auth-page">
             <div class="page-shell">
-              <div class="auth-shell">
-                <section class="hero-panel auth-hero">
-                  <div class="stack">
-                    ${renderBrandLockup({
-                      kicker: "Regional Operations",
-                      size: "hero featured",
-                      subtitle:
-                        "A dedicated portal for regional coordinators, deputy coordinators, and managers supervising field operations.",
-                    })}
-                    <div>
-                      <p class="eyebrow">Field Coordination Portal</p>
-                      <h1>Track reports and transport support without leaving the shared system.</h1>
-                      <p class="hero-copy">
-                        Regional staff sign in here with accounts created by managers. Once inside, they can file biweekly reports for their assigned region and submit transport stipend requests that route directly to managers and system administrators.
-                      </p>
-                    </div>
-                    <div class="button-row wrap-row">
-                      <a class="secondary-button" href="${escapeHtml(
-                        getDashboardLink(),
-                      )}">Back To Sign In</a>
-                    </div>
+              <div class="stack public-front-page regional-public-front-page">
+                <section class="hero-panel auth-hero public-hero-panel premium-home-hero regional-operations-hero">
+                  <div class="public-hero-light-field" aria-hidden="true">
+                    <span class="public-hero-light public-hero-light-one"></span>
+                    <span class="public-hero-light public-hero-light-two"></span>
+                    <span class="public-hero-light public-hero-light-three"></span>
                   </div>
-                  <div class="stack">
-                    <div class="hero-stat-band">
-                      <div class="hero-stat-chip">
-                        <span class="muted">Regional staff</span>
-                        <strong>${escapeHtml(staffCount)}</strong>
-                      </div>
-                      <div class="hero-stat-chip">
-                        <span class="muted">Biweekly reports logged</span>
-                        <strong>${escapeHtml(summary.reports)}</strong>
-                      </div>
-                      <div class="hero-stat-chip">
-                        <span class="muted">Pending stipends</span>
-                        <strong>${escapeHtml(summary.pendingFundingRequests)}</strong>
+                  <div class="public-hero-content">
+                    <div class="public-hero-title-lockup public-hero-brand-stack">
+                      <img class="public-hero-jade-logo" src="jade-landing-logo.png" alt="JADE logo" />
+                      <div class="public-hero-title-copy">
+                        <h1>Hummingbird</h1>
+                        <p class="eyebrow">Regional Operations</p>
                       </div>
                     </div>
-                    <div class="inline-card auth-about-card">
-                      <h3>Who should use this portal?</h3>
-                      <p class="manager-note">
-                        Regional Operations staff, managers, and system administrators. New accounts are created by managers inside the Regional Operations workspace, not from this public page.
-                      </p>
-                      <ul class="auth-feature-list" aria-label="Regional Operations features">
-                        <li>Biweekly school reports</li>
-                        <li>Transport stipend requests</li>
-                        <li>Manager review queue</li>
-                      </ul>
+                    <p class="hero-copy premium-hero-copy">
+                      Sign in to file reports, manage requests, access workshops, and support regional debate development.
+                    </p>
+                    <div class="button-row wrap-row public-hero-actions regional-hero-actions">
+                      <a class="button-primary" href="${escapeHtml(getDashboardLink())}">Back to main sign in</a>
                     </div>
                   </div>
                 </section>
-                <section class="auth-card">
-                  <div class="auth-layout">
-                    <div class="auth-primary">
+
+                <section class="auth-card premium-auth-card">
+                  <div class="auth-layout auth-layout-single">
+                    <div class="auth-primary" id="regional-auth-sign-in">
                       <div class="form-shell">
                         <div class="section-heading">
                           <div>
                             <p class="eyebrow">Regional Sign In</p>
-                            <h2>Open the Regional Operations portal</h2>
+                            <h2>Access regional operations</h2>
                           </div>
-                          <span class="role-pill">Account required</span>
+                          <span class="role-pill">Password protected</span>
                         </div>
                         ${renderFlash()}
                         <form class="stack" data-form="regional-ops-sign-in" autocomplete="on">
@@ -14162,33 +14135,19 @@
                           </label>
                           <label class="checkbox-row">
                             <input type="checkbox" name="savePasswordOnDevice" ${checked(
-                              authPrefs?.savePasswordOnDevice !== false,
+                              savePasswordChecked,
                             )} />
-                            <span>Save Password Securely On This Device</span>
+                            <span>Save password on this device</span>
                           </label>
-                          <button type="submit">Enter Regional Operations</button>
+                          <div class="auth-login-actions">
+                            <button type="submit">Sign In</button>
+                            <button class="secondary-button" type="button" data-action="set-public-view" data-view="forgot-password">Forgot Password</button>
+                          </div>
                         </form>
                         <p class="auth-footer">
-                          Managers and system administrators can use their existing JADE Hummingbird credentials here. Regional Operations personnel need an account created for them by a manager first.
+                          Regional Operations accounts are created by managers. Use the email and password assigned to your regional workspace.
                         </p>
                       </div>
-                    </div>
-                    <div class="auth-support-grid">
-                      <section class="auth-support-card">
-                        <p class="eyebrow">Coordinator Responsibilities</p>
-                        <h3>What happens inside</h3>
-                        <p>
-                          Submit school-by-school biweekly updates for Region 1 through Region 6, then file transport stipend requests with a Jamaica bank selection and justification for each field trip.
-                        </p>
-                      </section>
-                      <section class="auth-support-card">
-                        <p class="eyebrow">Account Creation</p>
-                        <h3>Managers control access</h3>
-                        <p>
-                          This portal does not allow public account creation. Managers create regional accounts inside the shared workspace so every record stays tied to the same backend and audit trail.
-                        </p>
-                        <a class="inline-link" href="${escapeHtml(getDashboardLink())}">Open the main sign-in page</a>
-                      </section>
                     </div>
                   </div>
                 </section>
