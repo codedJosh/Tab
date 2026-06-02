@@ -14717,7 +14717,7 @@
         });
 
         return `
-          <section class="surface">
+          <section class="surface manager-home-control">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Tournament Control Room</p>
@@ -14750,7 +14750,21 @@
                     <button class="secondary-button" type="button" data-action="set-view" data-view="search">Open Search</button>
                     <button class="secondary-button" type="button" data-action="set-view" data-view="people">Open Teams & People</button>
                   </div>`
-                : `<div class="empty-state">No manageable tournament is currently selected. Open one from Tournaments.</div>`
+                : `<div class="manager-home-empty-callout">
+                    <div>
+                      <p class="eyebrow">No active tab room</p>
+                      <strong>No manageable tournament is currently selected.</strong>
+                      <span>Open a tournament to see live round state, ballot progress, draw status, and publication controls.</span>
+                    </div>
+                    <div class="button-row wrap-row">
+                      <button type="button" data-action="set-view" data-view="tournaments">Open tournaments</button>
+                      ${
+                        capabilities.canLaunchTournaments
+                          ? `<button class="secondary-button" type="button" data-action="set-view" data-view="launch">Create tournament</button>`
+                          : ""
+                      }
+                    </div>
+                  </div>`
             }
           </section>
           ${
@@ -14758,7 +14772,7 @@
               ? renderTournamentControlRoomPanel(activeManagedTournament)
               : ""
           }
-          <section class="surface">
+          <section class="surface manager-home-panel manager-home-attention">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Next Required Actions</p>
@@ -14802,11 +14816,18 @@
                       })
                       .join("")}
                   </div>`
-                : `<div class="empty-state">No tournaments are available for this manager account yet.</div>`
+                : `<div class="manager-home-empty-callout manager-home-empty-callout-light">
+                    <div>
+                      <p class="eyebrow">Clear queue</p>
+                      <strong>No tournaments need manager attention yet.</strong>
+                      <span>When a tournament is assigned to you, warnings and next actions will appear here.</span>
+                    </div>
+                    <button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View tournaments</button>
+                  </div>`
             }
           </section>
-          <section class="surface-grid">
-            <section class="surface">
+          <section class="surface-grid manager-home-bottom-grid">
+            <section class="surface manager-home-panel manager-home-ops">
               <div class="section-heading">
                 <div>
                   <p class="eyebrow">Operations Queue</p>
@@ -14814,25 +14835,25 @@
                 </div>
               </div>
               <div class="manager-grid">
-                <div class="stat-card">
+                <div class="stat-card manager-home-stat">
                   <span class="muted">Pending sign-ups</span>
                   <strong>${escapeHtml(managerMetrics.pendingAccounts)}</strong>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card manager-home-stat">
                   <span class="muted">Password reset requests</span>
                   <strong>${escapeHtml(managerMetrics.passwordResetRequests)}</strong>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card manager-home-stat">
                   <span class="muted">Hidden standings boards</span>
                   <strong>${escapeHtml(managerMetrics.hiddenStandings)}</strong>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card manager-home-stat">
                   <span class="muted">Inactive accounts</span>
                   <strong>${escapeHtml(managerMetrics.inactiveUsers)}</strong>
                 </div>
               </div>
             </section>
-            <section class="surface">
+            <section class="surface manager-home-panel manager-home-audit">
               <div class="section-heading">
                 <div>
                   <p class="eyebrow">Audit Trail</p>
@@ -14851,7 +14872,13 @@
                         )
                         .join("")}
                     </ul>`
-                  : `<div class="empty-state">No recent audit events yet.</div>`
+                  : `<div class="manager-home-empty-callout manager-home-empty-callout-light">
+                      <div>
+                        <p class="eyebrow">Quiet log</p>
+                        <strong>No recent audit events yet.</strong>
+                        <span>Tournament updates, published draws, ballot changes, and admin actions will appear here.</span>
+                      </div>
+                    </div>`
               }
             </section>
           </section>

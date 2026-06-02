@@ -3772,6 +3772,218 @@
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       }
 
+      .manager-home-control,
+      .manager-home-panel {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .manager-home-control {
+        padding: clamp(18px, 2.4vw, 28px);
+        border-radius: 26px;
+        border-color: rgba(220, 239, 222, 0.42);
+        color: #f8fff9;
+        background:
+          linear-gradient(120deg, rgba(9, 39, 27, 0.96), rgba(20, 83, 54, 0.82) 48%, rgba(225, 191, 67, 0.24)),
+          radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.2), transparent 34%),
+          radial-gradient(circle at 86% 18%, rgba(216, 181, 74, 0.18), transparent 28%);
+        box-shadow:
+          0 28px 70px rgba(5, 24, 16, 0.26),
+          inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      }
+
+      .manager-home-control::before,
+      .manager-home-panel::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .manager-home-control::before {
+        background:
+          linear-gradient(100deg, rgba(255, 255, 255, 0.14), transparent 24%, transparent 72%, rgba(255, 255, 255, 0.08)),
+          radial-gradient(circle at 8% 85%, rgba(255, 255, 255, 0.16), transparent 34%);
+      }
+
+      .manager-home-control > *,
+      .manager-home-panel > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .manager-home-control .section-heading h2,
+      .manager-home-control .section-heading h3,
+      .manager-home-control .eyebrow,
+      .manager-home-control .muted {
+        color: #f8fff9;
+      }
+
+      .manager-home-control .eyebrow {
+        color: rgba(233, 251, 235, 0.78);
+      }
+
+      .manager-home-control .role-pill {
+        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.16);
+        color: #f8fff9;
+        -webkit-backdrop-filter: blur(12px) saturate(1.1);
+        backdrop-filter: blur(12px) saturate(1.1);
+      }
+
+      .manager-home-control .section-heading {
+        align-items: flex-start;
+        margin-bottom: clamp(16px, 2.2vw, 24px);
+      }
+
+      .manager-home-control .section-heading h2 {
+        max-width: 900px;
+        font-size: clamp(2.2rem, 4.8vw, 4.9rem);
+        line-height: 0.94;
+        letter-spacing: -0.065em;
+        text-shadow: 0 22px 48px rgba(0, 0, 0, 0.26);
+      }
+
+      .manager-home-empty-callout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 16px;
+        align-items: center;
+        padding: clamp(14px, 2vw, 20px);
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07)),
+          rgba(5, 24, 16, 0.18);
+        -webkit-backdrop-filter: blur(18px) saturate(1.18);
+        backdrop-filter: blur(18px) saturate(1.18);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.24),
+          0 18px 48px rgba(5, 24, 16, 0.18);
+      }
+
+      .manager-home-empty-callout strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: clamp(1.08rem, 1.7vw, 1.38rem);
+        line-height: 1.12;
+        color: inherit;
+      }
+
+      .manager-home-empty-callout span:not(.role-pill) {
+        display: block;
+        max-width: 70ch;
+        color: rgba(246, 255, 248, 0.78);
+        font-weight: var(--weight-medium);
+        line-height: 1.46;
+      }
+
+      .manager-home-empty-callout .button-row {
+        justify-content: flex-end;
+        min-width: min(100%, 320px);
+      }
+
+      .manager-home-control .manager-home-empty-callout button:not(.secondary-button) {
+        --btn-bg: #f8fff9;
+        --btn-color: #0f3f2b;
+        --btn-border: rgba(255, 255, 255, 0.52);
+        --btn-bg-hover: #ffffff;
+        --btn-color-hover: #092d1e;
+        --btn-border-hover: rgba(255, 255, 255, 0.78);
+        --btn-shadow: 0 14px 34px rgba(4, 18, 12, 0.2);
+      }
+
+      .manager-home-control .manager-home-empty-callout .secondary-button {
+        --btn-bg: rgba(255, 255, 255, 0.14);
+        --btn-color: #f8fff9;
+        --btn-border: rgba(255, 255, 255, 0.28);
+        --btn-bg-hover: rgba(255, 255, 255, 0.22);
+        --btn-color-hover: #ffffff;
+        --btn-border-hover: rgba(255, 255, 255, 0.42);
+      }
+
+      .manager-home-empty-callout-light {
+        grid-template-columns: minmax(0, 1fr) auto;
+        color: var(--ink);
+        border-color: rgba(18, 63, 47, 0.08);
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(244, 249, 246, 0.72)),
+          radial-gradient(circle at top left, rgba(31, 106, 78, 0.08), transparent 28%);
+        box-shadow:
+          0 14px 34px rgba(11, 45, 30, 0.08),
+          inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      }
+
+      .manager-home-empty-callout-light span:not(.role-pill) {
+        color: var(--muted);
+      }
+
+      .manager-home-panel {
+        padding: clamp(16px, 2vw, 22px);
+        border-radius: 26px;
+        border-color: rgba(18, 63, 47, 0.08);
+        background:
+          radial-gradient(circle at 92% 8%, rgba(216, 181, 74, 0.09), transparent 30%),
+          radial-gradient(circle at 8% 92%, rgba(31, 106, 78, 0.08), transparent 34%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 252, 249, 0.78));
+        box-shadow:
+          0 22px 54px rgba(9, 39, 27, 0.09),
+          inset 0 1px 0 rgba(255, 255, 255, 0.84);
+      }
+
+      .manager-home-panel::before {
+        background: linear-gradient(120deg, rgba(255, 255, 255, 0.42), transparent 28%, transparent 76%, rgba(255, 255, 255, 0.24));
+      }
+
+      .manager-home-panel .section-heading {
+        margin-bottom: 14px;
+      }
+
+      .manager-home-panel .section-heading h3 {
+        font-size: clamp(1.5rem, 2.15vw, 2.15rem);
+        letter-spacing: -0.045em;
+      }
+
+      .manager-home-bottom-grid {
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        gap: 14px;
+      }
+
+      .manager-home-ops .manager-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .manager-home-stat {
+        min-height: 132px;
+        padding: 18px;
+        border-radius: 22px;
+        border-color: rgba(18, 63, 47, 0.08);
+        background:
+          linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(243, 249, 245, 0.74)),
+          radial-gradient(circle at 16% 10%, rgba(31, 106, 78, 0.08), transparent 32%);
+        box-shadow:
+          0 16px 36px rgba(9, 39, 27, 0.08),
+          inset 0 1px 0 rgba(255, 255, 255, 0.78);
+      }
+
+      .manager-home-stat strong {
+        margin-top: 12px;
+        font-size: clamp(2.25rem, 4vw, 3.35rem);
+        line-height: 0.9;
+        letter-spacing: -0.05em;
+      }
+
+      .manager-home-audit {
+        min-height: 100%;
+      }
+
+      .manager-home-audit .audit-list {
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.62);
+        border: 1px solid rgba(18, 63, 47, 0.08);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      }
+
       .tournament-discovery-form {
         display: grid;
         grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.7fr) auto;
@@ -7550,6 +7762,10 @@
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
+        .manager-home-bottom-grid {
+          grid-template-columns: 1fr;
+        }
+
         .tournament-viewer-hero {
           grid-template-columns: 1fr;
         }
@@ -7664,6 +7880,28 @@
 
         .overview-quick-row {
           grid-template-columns: 1fr;
+        }
+
+        .manager-home-control {
+          padding: 18px;
+        }
+
+        .manager-home-control .section-heading h2 {
+          font-size: clamp(2.1rem, 9vw, 3.4rem);
+        }
+
+        .manager-home-empty-callout,
+        .manager-home-empty-callout-light {
+          grid-template-columns: 1fr;
+        }
+
+        .manager-home-empty-callout .button-row {
+          min-width: 0;
+          justify-content: flex-start;
+        }
+
+        .manager-home-ops .manager-grid {
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         }
 
         .workspace-action-row-secondary > :is(button, a) {
@@ -7843,6 +8081,10 @@
 
         h1 {
           font-size: clamp(2.3rem, 12vw, 3.4rem);
+        }
+
+        .manager-home-stat {
+          min-height: 112px;
         }
       }
 
