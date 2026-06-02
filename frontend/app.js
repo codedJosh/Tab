@@ -12058,44 +12058,68 @@
             ${toolbarMarkup}
             ${
               records.length
-                ? `<div class="${compact ? "stack" : "links-grid"}">
+                ? `<div class="${compact ? "private-link-compact-list" : "links-grid"}">
                     ${records
-                      .map(
-                        ({ user, link }) => `
-                          <div class="${compact ? "flat-panel" : "link-card"}">
+                      .map(({ user, link }) => {
+                        const accessUser = user || {};
+                        const displayName = accessUser.name || accessUser.email || "Private account";
+                        const email = accessUser.email || "";
+                        const issuedAt =
+                          accessUser.privateAccessIssuedAt || accessUser.createdAt || "Recently";
+                        const lastUsed = accessUser.lastPrivateAccessAt
+                          ? " • Last used " + escapeHtml(accessUser.lastPrivateAccessAt)
+                          : "";
+                        const roleLabel = toTitleLabel(accessUser.globalRole || "member");
+                        const cardBody = `
+                          <a class="token-link" href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${escapeHtml(
+                            link,
+                          )}</a>
+                          <p class="fine-print">Issued ${escapeHtml(issuedAt)}${lastUsed}</p>
+                          <div class="button-row private-link-actions">
+                            <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
+                              email,
+                            )}">Copy link</button>
+                            <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
+                              email,
+                            )}">Reset link</button>
+                            <button class="secondary-button" type="button" data-action="send-user-access-email" data-email="${escapeHtml(
+                              email,
+                            )}">Send email</button>
+                          </div>
+                        `;
+
+                        if (compact) {
+                          return `
+                            <details class="private-link-card">
+                              <summary class="private-link-summary">
+                                <span class="private-link-person">
+                                  <strong>${escapeHtml(displayName)}</strong>
+                                  <span>${escapeHtml(email || "No email saved")}</span>
+                                </span>
+                                <span class="private-link-meta">
+                                  <span class="mini-pill success">${escapeHtml(roleLabel)}</span>
+                                </span>
+                              </summary>
+                              <div class="private-link-panel">
+                                ${cardBody}
+                              </div>
+                            </details>
+                          `;
+                        }
+
+                        return `
+                          <div class="link-card">
                             <div class="section-heading">
                               <div>
-                                <strong>${escapeHtml(user.name || user.email)}</strong>
-                                <p class="muted">${escapeHtml(user.email)}</p>
+                                <strong>${escapeHtml(displayName)}</strong>
+                                <p class="muted">${escapeHtml(email)}</p>
                               </div>
-                              <span class="mini-pill success">${escapeHtml(
-                                toTitleLabel(user.globalRole),
-                              )}</span>
+                              <span class="mini-pill success">${escapeHtml(roleLabel)}</span>
                             </div>
-                            <a class="token-link" href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${escapeHtml(
-                              link,
-                            )}</a>
-                            <p class="fine-print">Issued ${escapeHtml(
-                              user.privateAccessIssuedAt || user.createdAt || "Recently",
-                            )}${
-                              user.lastPrivateAccessAt
-                                ? " • Last used " + escapeHtml(user.lastPrivateAccessAt)
-                                : ""
-                            }</p>
-                            <div class="button-row">
-                              <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
-                                user.email,
-                              )}">Copy Link</button>
-                              <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
-                                user.email,
-                              )}">Reset Link</button>
-                              <button class="secondary-button" type="button" data-action="send-user-access-email" data-email="${escapeHtml(
-                                user.email,
-                              )}">Send Email</button>
-                            </div>
+                            ${cardBody}
                           </div>
-                        `,
-                      )
+                        `;
+                      })
                       .join("")}
                   </div>`
                 : `<div class="empty-state">No private links are available yet. They will appear here after accounts are created.</div>`
@@ -23803,53 +23827,49 @@
                         const privateLink = getPrivateLink(participant.token);
 
                         return `
-                          <article class="portal-link-item">
-                            <div class="portal-link-row">
-                              <div class="portal-link-main">
-                                <div class="section-heading portal-link-head">
-                                  <div>
-                                    <strong>${escapeHtml(participant.name)}</strong>
-                                    <p class="muted">${escapeHtml(
-                                      participant.email,
-                                    )}</p>
-                                  </div>
-                                  <span class="mini-pill success">${escapeHtml(
-                                    tournament.code,
-                                  )}</span>
-                                </div>
-                                <div class="workspace-chip-row">
-                                  <span class="role-pill">${escapeHtml(tournament.name)}</span>
-                                  <span class="mini-pill success">${escapeHtml(
-                                    participant.teamName || "Independent",
-                                  )}</span>
-                                </div>
+                          <details class="portal-link-item portal-link-item-compact">
+                            <summary class="portal-link-summary">
+                              <span class="portal-link-main">
+                                <strong>${escapeHtml(participant.name)}</strong>
+                                <span class="muted">${escapeHtml(participant.email)}</span>
+                              </span>
+                              <span class="portal-link-meta">
+                                <span class="mini-pill success">${escapeHtml(tournament.code)}</span>
+                                <span class="role-pill">${escapeHtml(
+                                  participant.teamName || "Independent",
+                                )}</span>
+                              </span>
+                            </summary>
+                            <div class="portal-link-panel">
+                              <div class="portal-link-context">
+                                <strong>${escapeHtml(tournament.name)}</strong>
+                                <span class="muted">${escapeHtml(
+                                  participant.teamName || "Independent entry",
+                                )}</span>
                               </div>
+                              <a class="token-link" href="${escapeHtml(
+                                privateLink,
+                              )}" target="_blank" rel="noreferrer">${escapeHtml(privateLink)}</a>
+                              <p class="fine-print">${escapeHtml(preview)}</p>
                               ${
                                 canManageTournament(tournament)
                                   ? `
                                     <div class="button-row portal-link-actions">
                                       <button class="secondary-button" type="button" data-action="copy-link" data-id="${escapeHtml(
                                         tournament.id,
-                                      )}" data-participant-id="${escapeHtml(participant.id)}">Copy</button>
+                                      )}" data-participant-id="${escapeHtml(participant.id)}">Copy link</button>
                                       <button class="secondary-button" type="button" data-action="copy-invite" data-id="${escapeHtml(
                                         tournament.id,
-                                      )}" data-participant-id="${escapeHtml(participant.id)}">Invite</button>
+                                      )}" data-participant-id="${escapeHtml(participant.id)}">Copy invite</button>
                                       <button class="secondary-button" type="button" data-action="rotate-link" data-id="${escapeHtml(
                                         tournament.id,
-                                      )}" data-participant-id="${escapeHtml(participant.id)}">Reset</button>
+                                      )}" data-participant-id="${escapeHtml(participant.id)}">Reset link</button>
                                     </div>
                                   `
                                   : ""
                               }
                             </div>
-                            <details class="compact-card-disclosure portal-link-details">
-                              <summary class="compact-card-summary">View link and message preview</summary>
-                              <a class="token-link" href="${escapeHtml(
-                                privateLink,
-                              )}" target="_blank" rel="noreferrer">${escapeHtml(privateLink)}</a>
-                              <p class="fine-print">${escapeHtml(preview)}</p>
-                            </details>
-                          </article>
+                          </details>
                         `;
                       })
                       .join("")}
