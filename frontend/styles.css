@@ -1876,6 +1876,7 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
+        position: static;
         width: min(520px, 76%);
         align-self: center;
         justify-self: center;
@@ -1898,8 +1899,11 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-title-lockup {
+        position: relative;
+        z-index: 2;
         align-items: center;
         gap: clamp(8px, 1.4vw, 12px);
+        transform: translateY(clamp(-56px, -5.5vh, -28px));
       }
 
       .public-hero-brand-stack {
@@ -1998,7 +2002,7 @@
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
         position: absolute;
         left: clamp(18px, 3vw, 42px);
-        bottom: clamp(18px, 4vh, 44px);
+        bottom: clamp(18px, 3.4vh, 38px);
         z-index: 2;
         width: min(258px, 28vw);
         grid-template-columns: 1fr;
@@ -2007,35 +2011,32 @@
         justify-content: stretch;
         justify-items: stretch;
         margin: 0;
-        padding: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.22);
-        border-radius: 18px;
-        background:
-          linear-gradient(140deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.05) 54%, rgba(255, 255, 255, 0.1)),
-          rgba(5, 24, 16, 0.18);
-        -webkit-backdrop-filter: blur(18px) saturate(1.22);
-        backdrop-filter: blur(18px) saturate(1.22);
-        box-shadow:
-          0 18px 42px rgba(3, 13, 8, 0.2),
-          inset 0 1px 0 rgba(255, 255, 255, 0.28),
-          inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        box-shadow: none;
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
-        --btn-bg: rgba(255, 255, 255, 0.16);
+        --btn-bg: rgba(255, 255, 255, 0.18);
         --btn-color: #f8fff9;
-        --btn-border: rgba(255, 255, 255, 0.28);
-        --btn-bg-hover: rgba(255, 255, 255, 0.24);
+        --btn-border: rgba(255, 255, 255, 0.34);
+        --btn-bg-hover: rgba(255, 255, 255, 0.28);
         --btn-color-hover: #ffffff;
-        --btn-border-hover: rgba(255, 255, 255, 0.42);
-        --btn-shadow: 0 10px 24px rgba(4, 18, 12, 0.16);
-        --btn-shadow-hover: 0 14px 30px rgba(4, 18, 12, 0.22);
+        --btn-border-hover: rgba(255, 255, 255, 0.52);
+        --btn-shadow: 0 12px 28px rgba(4, 18, 12, 0.2);
+        --btn-shadow-hover: 0 16px 34px rgba(4, 18, 12, 0.26);
         --btn-font-size: var(--btn-font-size-md);
         min-height: 40px;
         padding-inline: 13px;
         width: 100%;
         min-width: 0;
         align-self: stretch;
+        -webkit-backdrop-filter: blur(16px) saturate(1.18);
+        backdrop-filter: blur(16px) saturate(1.18);
         text-shadow: 0 1px 14px rgba(0, 0, 0, 0.34);
       }
 
@@ -7967,6 +7968,7 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
+          position: static;
           align-self: center;
           justify-self: center;
           width: min(84vw, 390px);
@@ -7980,8 +7982,11 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-title-lockup {
+          position: relative;
+          z-index: 2;
           gap: 10px;
           justify-content: center;
+          transform: translateY(clamp(-38px, -5vh, -22px));
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-jade-logo {
@@ -8017,31 +8022,28 @@
           gap: 8px;
           justify-self: start;
           margin: 0;
-          padding: 10px;
-          border: 1px solid rgba(255, 255, 255, 0.22);
-          border-radius: 16px;
-          background:
-            linear-gradient(140deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.05) 54%, rgba(255, 255, 255, 0.1)),
-            rgba(5, 24, 16, 0.18);
-          -webkit-backdrop-filter: blur(18px) saturate(1.22);
-          backdrop-filter: blur(18px) saturate(1.22);
-          box-shadow:
-            0 18px 42px rgba(3, 13, 8, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.28),
-            inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+          padding: 0;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+          box-shadow: none;
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
-          --btn-bg: rgba(255, 255, 255, 0.16);
+          --btn-bg: rgba(255, 255, 255, 0.18);
           --btn-color: #f8fff9;
-          --btn-border: rgba(255, 255, 255, 0.28);
-          --btn-bg-hover: rgba(255, 255, 255, 0.24);
+          --btn-border: rgba(255, 255, 255, 0.34);
+          --btn-bg-hover: rgba(255, 255, 255, 0.28);
           --btn-color-hover: #ffffff;
-          --btn-border-hover: rgba(255, 255, 255, 0.42);
+          --btn-border-hover: rgba(255, 255, 255, 0.52);
           --btn-font-size: var(--btn-font-size-md);
           min-height: 40px;
           padding-inline: 12px;
           width: 100%;
+          -webkit-backdrop-filter: blur(16px) saturate(1.18);
+          backdrop-filter: blur(16px) saturate(1.18);
           text-shadow: 0 1px 14px rgba(0, 0, 0, 0.34);
         }
 
