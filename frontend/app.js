@@ -14276,7 +14276,11 @@
                 .map(
                   ([groupLabel, groupItems]) => `
                     <div class="menu-side-section">
-                      <span class="theme-section-label">${escapeHtml(groupLabel)}</span>
+                      ${
+                        String(groupLabel || "").trim().toLowerCase() === "tournament"
+                          ? `<span class="theme-section-label">${escapeHtml(groupLabel)}</span>`
+                          : ""
+                      }
                       <div class="menu-nav-list" role="list">
                         ${groupItems
                           .map(
@@ -14287,11 +14291,6 @@
                                 <span class="menu-nav-copy">
                                   <strong>${escapeHtml(item.label)}</strong>
                                 </span>
-                                ${
-                                  item.count === null || item.count === undefined || item.count === ""
-                                    ? ""
-                                    : `<span class="menu-nav-count">${escapeHtml(item.count)}</span>`
-                                }
                               </button>
                             `,
                           )
@@ -14346,9 +14345,6 @@
                     <div class="menu-side-section">
                       <div class="menu-shortcut-head">
                         <span class="theme-section-label">Recent tournaments</span>
-                        <span class="mini-pill success">${escapeHtml(
-                          menuRecentTournaments.length + menuPinnedTournaments.length,
-                        )}</span>
                       </div>
                       <div class="menu-shortcut-list">
                         ${menuRecentTournaments
