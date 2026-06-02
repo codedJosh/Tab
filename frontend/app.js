@@ -13592,12 +13592,8 @@
                       <img class="public-hero-jade-logo" src="jade-landing-logo.png" alt="JADE logo" />
                       <div class="public-hero-title-copy">
                         <h1>Hummingbird</h1>
-                        <p class="eyebrow">Tab System</p>
                       </div>
                     </div>
-                    <p class="hero-copy premium-hero-copy">
-                      Premium tournament infrastructure for tabbing, judging, registration, motions, and results.
-                    </p>
                     <div class="button-row wrap-row public-hero-actions">
                       <button type="button" data-action="set-public-view" data-view="register-debater">Register for a tournament</button>
                       <a class="button-primary" href="${escapeHtml(
@@ -14098,12 +14094,8 @@
                       <img class="public-hero-jade-logo" src="jade-landing-logo.png" alt="JADE logo" />
                       <div class="public-hero-title-copy">
                         <h1>Hummingbird</h1>
-                        <p class="eyebrow">Regional Operations</p>
                       </div>
                     </div>
-                    <p class="hero-copy premium-hero-copy">
-                      Sign in to file reports, manage requests, access workshops, and support regional debate development.
-                    </p>
                     <div class="button-row wrap-row public-hero-actions regional-hero-actions">
                       <a class="button-primary" href="${escapeHtml(getDashboardLink())}">Back to main sign in</a>
                     </div>

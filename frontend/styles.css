@@ -1711,11 +1711,10 @@
       .public-front-page:not(.auth-flow-page) > .premium-home-hero {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
-        align-items: end;
+        align-items: center;
         justify-items: center;
         gap: 0;
         padding: clamp(30px, 4vw, 54px);
-        padding-bottom: clamp(34px, 8vh, 76px);
       }
 
       .premium-home-hero::before {
@@ -1735,41 +1734,40 @@
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero {
-        align-items: end;
-        justify-items: start;
+        align-items: center;
+        justify-items: center;
         padding: clamp(30px, 4vw, 54px);
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
-        align-self: end;
-        justify-self: start;
-        width: clamp(300px, 39vw, 440px);
-        max-width: 45%;
-        justify-items: start;
-        text-align: left;
-        padding: clamp(14px, 2vw, 22px);
-        border: 1px solid rgba(255, 255, 255, 0.34);
-        background: rgba(255, 255, 255, 0.16);
-        -webkit-backdrop-filter: blur(14px) saturate(1.14);
-        backdrop-filter: blur(14px) saturate(1.14);
-        box-shadow:
-          0 24px 54px rgba(0, 0, 0, 0.24),
-          inset 0 1px 0 rgba(255, 255, 255, 0.34);
+        align-self: center;
+        justify-self: center;
+        width: min(420px, 70%);
+        max-width: none;
+        justify-items: center;
+        text-align: center;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        box-shadow: none;
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-brand-stack,
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-title-copy {
-        justify-items: start;
-        text-align: left;
+        justify-items: center;
+        text-align: center;
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-jade-logo {
-        width: min(270px, 88%);
+        width: min(315px, 86%);
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero::before {
         background:
-          linear-gradient(106deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.36) 28%, rgba(0, 0, 0, 0.12) 55%, transparent 66%),
+          linear-gradient(42deg, rgba(0, 0, 0, 0.48) 0%, rgba(0, 0, 0, 0.24) 28%, transparent 62%),
+          radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.18), transparent 42%),
           radial-gradient(circle at 14% 88%, rgba(255, 255, 255, 0.1), transparent 26%);
       }
 
@@ -1878,26 +1876,18 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
-        width: min(460px, 90%);
-        align-self: end;
+        width: min(420px, 70%);
+        align-self: center;
+        justify-self: center;
         justify-items: center;
         gap: clamp(4px, 0.8vw, 8px);
-        padding: clamp(10px, 1.45vw, 14px) clamp(12px, 1.7vw, 18px);
+        padding: 0;
         text-align: center;
-        border-radius: 24px;
-        border-color: rgba(223, 255, 219, 0.36);
-        background:
-          linear-gradient(118deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.04) 24%, transparent 42%),
-          linear-gradient(135deg, rgba(5, 25, 17, 0.52), rgba(15, 72, 45, 0.32) 50%, rgba(115, 135, 68, 0.18)),
-          radial-gradient(circle at 18% 8%, rgba(231, 255, 226, 0.26), transparent 34%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 48%);
-        -webkit-backdrop-filter: blur(22px) saturate(1.38);
-        backdrop-filter: blur(22px) saturate(1.38);
-        box-shadow:
-          0 28px 62px rgba(4, 18, 12, 0.28),
-          inset 0 1px 0 rgba(255, 255, 255, 0.42),
-          inset 0 0 34px rgba(231, 255, 226, 0.08),
-          inset 0 -1px 0 rgba(178, 228, 160, 0.1);
+        border: 0;
+        background: transparent;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        box-shadow: none;
         animation: heroPanelReveal 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
       }
 
@@ -2006,11 +1996,28 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
-        width: min(100%, 420px);
-        gap: 9px;
-        justify-self: center;
-        justify-content: center;
+        position: absolute;
+        left: clamp(24px, 4vw, 56px);
+        bottom: clamp(24px, 5vh, 58px);
+        z-index: 2;
+        width: min(280px, 34vw);
+        grid-template-columns: 1fr;
+        gap: 8px;
+        justify-self: start;
+        justify-content: stretch;
         justify-items: stretch;
+        margin: 0;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.26);
+        border-radius: 18px;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07)),
+          rgba(6, 28, 19, 0.14);
+        -webkit-backdrop-filter: blur(14px) saturate(1.12);
+        backdrop-filter: blur(14px) saturate(1.12);
+        box-shadow:
+          0 20px 46px rgba(3, 13, 8, 0.24),
+          inset 0 1px 0 rgba(255, 255, 255, 0.24);
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
@@ -7914,7 +7921,7 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero {
-          align-items: end;
+          align-items: center;
           justify-items: center;
           min-height: min(72vh, 560px);
           padding: 12px;
@@ -7924,7 +7931,8 @@
 
         .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero::before {
           background:
-            linear-gradient(180deg, transparent 0%, transparent 44%, rgba(0, 0, 0, 0.5) 100%);
+            linear-gradient(42deg, rgba(0, 0, 0, 0.46) 0%, rgba(0, 0, 0, 0.18) 36%, transparent 70%),
+            radial-gradient(circle at 50% 48%, rgba(0, 0, 0, 0.18), transparent 44%);
         }
 
         .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero::after {
@@ -7934,17 +7942,18 @@
         }
 
         .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
-          align-self: end;
+          align-self: center;
           justify-self: center;
-          width: min(92vw, 360px);
+          width: min(78vw, 340px);
           max-width: none;
           justify-items: center;
           text-align: center;
-          padding: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.34);
-          background: rgba(255, 255, 255, 0.16);
-          -webkit-backdrop-filter: blur(14px) saturate(1.14);
-          backdrop-filter: blur(14px) saturate(1.14);
+          padding: 0;
+          border: 0;
+          background: transparent;
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+          box-shadow: none;
         }
 
         .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-brand-stack,
@@ -7955,10 +7964,15 @@
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
           align-self: center;
-          width: min(92vw, 380px);
+          justify-self: center;
+          width: min(78vw, 340px);
           gap: 10px;
-          padding: 15px;
-          border-radius: 20px;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+          box-shadow: none;
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-title-lockup {
@@ -7991,10 +8005,24 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
+          position: absolute;
+          inset: auto 12px 12px 12px;
           grid-template-columns: 1fr;
-          width: min(100%, 300px);
+          width: auto;
           gap: 8px;
           justify-self: center;
+          margin: 0;
+          padding: 10px;
+          border: 1px solid rgba(255, 255, 255, 0.26);
+          border-radius: 16px;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07)),
+            rgba(6, 28, 19, 0.14);
+          -webkit-backdrop-filter: blur(14px) saturate(1.12);
+          backdrop-filter: blur(14px) saturate(1.12);
+          box-shadow:
+            0 18px 42px rgba(3, 13, 8, 0.24),
+            inset 0 1px 0 rgba(255, 255, 255, 0.24);
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
