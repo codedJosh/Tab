@@ -1835,17 +1835,19 @@
         padding: clamp(10px, 1.45vw, 14px) clamp(12px, 1.7vw, 18px);
         text-align: center;
         border-radius: 24px;
-        border-color: rgba(209, 249, 202, 0.28);
+        border-color: rgba(223, 255, 219, 0.36);
         background:
-          linear-gradient(135deg, rgba(5, 25, 17, 0.76), rgba(15, 72, 45, 0.52) 50%, rgba(97, 115, 58, 0.3)),
-          radial-gradient(circle at 18% 8%, rgba(207, 255, 202, 0.18), transparent 34%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 42%);
-        -webkit-backdrop-filter: blur(18px) saturate(1.28);
-        backdrop-filter: blur(18px) saturate(1.28);
+          linear-gradient(118deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.04) 24%, transparent 42%),
+          linear-gradient(135deg, rgba(5, 25, 17, 0.52), rgba(15, 72, 45, 0.32) 50%, rgba(115, 135, 68, 0.18)),
+          radial-gradient(circle at 18% 8%, rgba(231, 255, 226, 0.26), transparent 34%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 48%);
+        -webkit-backdrop-filter: blur(22px) saturate(1.38);
+        backdrop-filter: blur(22px) saturate(1.38);
         box-shadow:
-          0 28px 62px rgba(4, 18, 12, 0.34),
-          inset 0 1px 0 rgba(255, 255, 255, 0.22),
-          inset 0 -1px 0 rgba(178, 228, 160, 0.08);
+          0 28px 62px rgba(4, 18, 12, 0.28),
+          inset 0 1px 0 rgba(255, 255, 255, 0.42),
+          inset 0 0 34px rgba(231, 255, 226, 0.08),
+          inset 0 -1px 0 rgba(178, 228, 160, 0.1);
         animation: heroPanelReveal 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
       }
 
