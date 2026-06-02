@@ -1847,13 +1847,23 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
-        width: min(100%, 460px);
-        gap: 8px;
+        width: min(100%, 500px);
+        gap: 10px;
+        justify-self: center;
+        justify-content: center;
+        justify-items: stretch;
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
+        --btn-bg: #0f3f2b;
+        --btn-border: #0f3f2b;
+        --btn-bg-hover: #092d1e;
+        --btn-border-hover: #092d1e;
         min-height: var(--btn-height-md);
         padding-inline: 14px;
+        width: 100%;
+        min-width: 0;
+        align-self: stretch;
       }
 
       .public-hero-actions > :is(button, a) {
@@ -1891,6 +1901,8 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
         align-items: stretch;
+        width: min(100%, 560px);
+        justify-self: center;
       }
 
       .auth-create-account-button {
@@ -1900,11 +1912,12 @@
       .auth-login-actions > button,
       .auth-create-account-button {
         min-height: var(--btn-height-lg);
+        width: 100%;
       }
 
       .auth-create-account-row {
         display: grid;
-        width: 50%;
+        width: min(50%, 275px);
         min-width: min(100%, 220px);
         justify-self: center;
       }
@@ -7606,14 +7619,29 @@
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
           grid-template-columns: 1fr;
-          width: min(100%, 280px);
+          width: min(100%, 320px);
           gap: 6px;
+          justify-self: center;
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
+          --btn-bg: #0f3f2b;
+          --btn-border: #0f3f2b;
+          --btn-bg-hover: #092d1e;
+          --btn-border-hover: #092d1e;
           min-height: 40px;
           padding-inline: 12px;
           font-size: 0.82rem;
+          width: 100%;
+        }
+
+        .auth-login-actions,
+        .auth-create-account-row {
+          width: 100%;
+        }
+
+        .auth-login-actions {
+          grid-template-columns: 1fr;
         }
 
         .hero-panel .hero-copy,
