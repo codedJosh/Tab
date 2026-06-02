@@ -2505,7 +2505,7 @@
 
       .menu-welcome-card {
         display: grid;
-        gap: 12px;
+        gap: 7px;
       }
 
       .menu-welcome-card .section-heading {
@@ -2759,7 +2759,24 @@
 
       .menu-side-section {
         display: grid;
-        gap: 10px;
+        gap: 6px;
+      }
+
+      .menu-side-section.is-unlabeled {
+        gap: 0;
+      }
+
+      .menu-side-section.is-unlabeled + .menu-side-section.is-unlabeled {
+        margin-top: -1px;
+      }
+
+      .menu-side-section.has-section-label {
+        gap: 9px;
+        margin-top: 8px;
+      }
+
+      .menu-side-section.has-section-label:first-of-type {
+        margin-top: 0;
       }
 
       .menu-shortcut-head {

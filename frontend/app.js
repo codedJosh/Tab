@@ -14234,7 +14234,11 @@
               ${orderedGroups
                 .map(
                   ([groupLabel, groupItems]) => `
-                    <div class="menu-side-section">
+                    <div class="menu-side-section ${
+                      String(groupLabel || "").trim().toLowerCase() === "tournament"
+                        ? "has-section-label"
+                        : "is-unlabeled"
+                    }">
                       ${
                         String(groupLabel || "").trim().toLowerCase() === "tournament"
                           ? `<span class="theme-section-label">${escapeHtml(groupLabel)}</span>`
@@ -14273,7 +14277,7 @@
               ${
                 managerOpsButtons.length
                   ? `
-                    <div class="menu-side-section">
+                    <div class="menu-side-section has-section-label">
                       <div class="menu-shortcut-head">
                         <span class="theme-section-label">Tournament operations</span>
                         <span class="mini-pill success">${escapeHtml(
