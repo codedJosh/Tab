@@ -1901,7 +1901,7 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
         align-items: stretch;
-        width: min(100%, 560px);
+        width: min(100%, 520px);
         justify-self: center;
       }
 
@@ -1911,14 +1911,13 @@
 
       .auth-login-actions > button,
       .auth-create-account-button {
-        min-height: var(--btn-height-lg);
+        min-height: var(--btn-height-md);
         width: 100%;
       }
 
       .auth-create-account-row {
         display: grid;
-        width: min(50%, 275px);
-        min-width: min(100%, 220px);
+        width: min(100%, 520px);
         justify-self: center;
       }
 
