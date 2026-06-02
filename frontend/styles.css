@@ -1828,11 +1828,11 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
-        width: min(500px, 92%);
+        width: min(460px, 90%);
         align-self: end;
         justify-items: center;
-        gap: clamp(6px, 1.1vw, 10px);
-        padding: clamp(12px, 1.8vw, 18px);
+        gap: clamp(4px, 0.8vw, 8px);
+        padding: clamp(10px, 1.45vw, 14px) clamp(12px, 1.7vw, 18px);
         text-align: center;
         border-radius: 24px;
         border-color: rgba(209, 249, 202, 0.28);
@@ -1869,10 +1869,11 @@
 
       .public-hero-jade-logo {
         display: block;
-        width: min(330px, 88%);
-        height: auto;
-        margin-bottom: clamp(-18px, -2vw, -10px);
-        object-fit: contain;
+        width: min(315px, 86%);
+        height: clamp(112px, 12.5vw, 138px);
+        margin-bottom: clamp(-12px, -1.4vw, -8px);
+        object-fit: cover;
+        object-position: center 48%;
         filter:
           drop-shadow(0 18px 34px rgba(0, 0, 0, 0.34))
           drop-shadow(0 2px 0 rgba(255, 255, 255, 0.08));
@@ -1882,7 +1883,7 @@
         min-width: 0;
         display: grid;
         justify-items: center;
-        gap: 2px;
+        gap: 0;
       }
 
       .hero-logo-wrap {
