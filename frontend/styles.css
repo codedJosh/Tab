@@ -3776,20 +3776,23 @@
       .manager-home-panel {
         position: relative;
         overflow: hidden;
+        display: grid;
+        align-content: start;
+        gap: 14px;
       }
 
       .manager-home-control {
-        padding: clamp(18px, 2.4vw, 28px);
-        border-radius: 26px;
-        border-color: rgba(220, 239, 222, 0.42);
-        color: #f8fff9;
+        padding: clamp(16px, 2vw, 22px);
+        border-radius: 22px;
+        border-color: rgba(18, 63, 47, 0.1);
+        color: var(--ink);
         background:
-          linear-gradient(120deg, rgba(9, 39, 27, 0.96), rgba(20, 83, 54, 0.82) 48%, rgba(225, 191, 67, 0.24)),
-          radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.2), transparent 34%),
-          radial-gradient(circle at 86% 18%, rgba(216, 181, 74, 0.18), transparent 28%);
+          radial-gradient(circle at 92% 12%, rgba(216, 181, 74, 0.1), transparent 28%),
+          radial-gradient(circle at 8% 88%, rgba(31, 106, 78, 0.1), transparent 34%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 248, 0.82));
         box-shadow:
-          0 28px 70px rgba(5, 24, 16, 0.26),
-          inset 0 1px 0 rgba(255, 255, 255, 0.2);
+          0 18px 44px rgba(9, 39, 27, 0.09),
+          inset 0 1px 0 rgba(255, 255, 255, 0.84);
       }
 
       .manager-home-control::before,
@@ -3802,8 +3805,7 @@
 
       .manager-home-control::before {
         background:
-          linear-gradient(100deg, rgba(255, 255, 255, 0.14), transparent 24%, transparent 72%, rgba(255, 255, 255, 0.08)),
-          radial-gradient(circle at 8% 85%, rgba(255, 255, 255, 0.16), transparent 34%);
+          linear-gradient(120deg, rgba(255, 255, 255, 0.46), transparent 28%, transparent 76%, rgba(255, 255, 255, 0.22));
       }
 
       .manager-home-control > *,
@@ -3816,64 +3818,64 @@
       .manager-home-control .section-heading h3,
       .manager-home-control .eyebrow,
       .manager-home-control .muted {
-        color: #f8fff9;
+        color: inherit;
       }
 
       .manager-home-control .eyebrow {
-        color: rgba(233, 251, 235, 0.78);
+        color: var(--accent-deep);
       }
 
       .manager-home-control .role-pill {
-        border-color: rgba(255, 255, 255, 0.28);
-        background: rgba(255, 255, 255, 0.16);
-        color: #f8fff9;
-        -webkit-backdrop-filter: blur(12px) saturate(1.1);
-        backdrop-filter: blur(12px) saturate(1.1);
+        border-color: rgba(18, 63, 47, 0.1);
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--accent-deep);
       }
 
       .manager-home-control .section-heading {
         align-items: flex-start;
-        margin-bottom: clamp(16px, 2.2vw, 24px);
+        min-height: 64px;
+        margin-bottom: 0;
       }
 
       .manager-home-control .section-heading h2 {
-        max-width: 900px;
-        font-size: clamp(2.2rem, 4.8vw, 4.9rem);
-        line-height: 0.94;
-        letter-spacing: -0.065em;
-        text-shadow: 0 22px 48px rgba(0, 0, 0, 0.26);
+        max-width: 780px;
+        font-size: clamp(1.85rem, 2.8vw, 2.7rem);
+        line-height: 1.02;
+        letter-spacing: -0.045em;
+        text-shadow: none;
       }
 
       .manager-home-empty-callout {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        gap: 16px;
+        gap: 12px;
         align-items: center;
-        padding: clamp(14px, 2vw, 20px);
-        border-radius: 22px;
-        border: 1px solid rgba(255, 255, 255, 0.24);
+        min-height: 96px;
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(18, 63, 47, 0.08);
         background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07)),
-          rgba(5, 24, 16, 0.18);
-        -webkit-backdrop-filter: blur(18px) saturate(1.18);
-        backdrop-filter: blur(18px) saturate(1.18);
+          linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(244, 249, 246, 0.72)),
+          radial-gradient(circle at top left, rgba(31, 106, 78, 0.08), transparent 30%);
+        -webkit-backdrop-filter: blur(16px) saturate(1.08);
+        backdrop-filter: blur(16px) saturate(1.08);
         box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.24),
-          0 18px 48px rgba(5, 24, 16, 0.18);
+          0 12px 28px rgba(11, 45, 30, 0.07),
+          inset 0 1px 0 rgba(255, 255, 255, 0.74);
       }
 
       .manager-home-empty-callout strong {
         display: block;
         margin-bottom: 6px;
-        font-size: clamp(1.08rem, 1.7vw, 1.38rem);
-        line-height: 1.12;
+        font-size: clamp(1.02rem, 1.3vw, 1.18rem);
+        line-height: 1.18;
         color: inherit;
       }
 
       .manager-home-empty-callout span:not(.role-pill) {
         display: block;
         max-width: 70ch;
-        color: rgba(246, 255, 248, 0.78);
+        color: var(--muted);
         font-weight: var(--weight-medium);
         line-height: 1.46;
       }
@@ -3884,22 +3886,22 @@
       }
 
       .manager-home-control .manager-home-empty-callout button:not(.secondary-button) {
-        --btn-bg: #f8fff9;
-        --btn-color: #0f3f2b;
-        --btn-border: rgba(255, 255, 255, 0.52);
-        --btn-bg-hover: #ffffff;
-        --btn-color-hover: #092d1e;
-        --btn-border-hover: rgba(255, 255, 255, 0.78);
-        --btn-shadow: 0 14px 34px rgba(4, 18, 12, 0.2);
+        --btn-bg: #123f2f;
+        --btn-color: #ffffff;
+        --btn-border: #123f2f;
+        --btn-bg-hover: #0b2d20;
+        --btn-color-hover: #ffffff;
+        --btn-border-hover: #0b2d20;
+        --btn-shadow: 0 12px 28px rgba(4, 18, 12, 0.14);
       }
 
       .manager-home-control .manager-home-empty-callout .secondary-button {
-        --btn-bg: rgba(255, 255, 255, 0.14);
-        --btn-color: #f8fff9;
-        --btn-border: rgba(255, 255, 255, 0.28);
-        --btn-bg-hover: rgba(255, 255, 255, 0.22);
-        --btn-color-hover: #ffffff;
-        --btn-border-hover: rgba(255, 255, 255, 0.42);
+        --btn-bg: rgba(255, 255, 255, 0.78);
+        --btn-color: var(--accent-deep);
+        --btn-border: rgba(18, 63, 47, 0.12);
+        --btn-bg-hover: #ffffff;
+        --btn-color-hover: var(--accent-deep);
+        --btn-border-hover: rgba(18, 63, 47, 0.2);
       }
 
       .manager-home-empty-callout-light {
@@ -3919,15 +3921,16 @@
       }
 
       .manager-home-panel {
-        padding: clamp(16px, 2vw, 22px);
-        border-radius: 26px;
+        min-height: 100%;
+        padding: clamp(16px, 1.8vw, 20px);
+        border-radius: 22px;
         border-color: rgba(18, 63, 47, 0.08);
         background:
-          radial-gradient(circle at 92% 8%, rgba(216, 181, 74, 0.09), transparent 30%),
-          radial-gradient(circle at 8% 92%, rgba(31, 106, 78, 0.08), transparent 34%),
+          radial-gradient(circle at 92% 8%, rgba(216, 181, 74, 0.06), transparent 30%),
+          radial-gradient(circle at 8% 92%, rgba(31, 106, 78, 0.06), transparent 34%),
           linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 252, 249, 0.78));
         box-shadow:
-          0 22px 54px rgba(9, 39, 27, 0.09),
+          0 16px 40px rgba(9, 39, 27, 0.075),
           inset 0 1px 0 rgba(255, 255, 255, 0.84);
       }
 
@@ -3936,16 +3939,17 @@
       }
 
       .manager-home-panel .section-heading {
-        margin-bottom: 14px;
+        min-height: 58px;
+        margin-bottom: 2px;
       }
 
       .manager-home-panel .section-heading h3 {
-        font-size: clamp(1.5rem, 2.15vw, 2.15rem);
-        letter-spacing: -0.045em;
+        font-size: clamp(1.28rem, 1.75vw, 1.65rem);
+        letter-spacing: -0.035em;
       }
 
       .manager-home-bottom-grid {
-        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 14px;
       }
 
@@ -3954,9 +3958,11 @@
       }
 
       .manager-home-stat {
-        min-height: 132px;
-        padding: 18px;
-        border-radius: 22px;
+        min-height: 112px;
+        display: grid;
+        align-content: space-between;
+        padding: 14px;
+        border-radius: 18px;
         border-color: rgba(18, 63, 47, 0.08);
         background:
           linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(243, 249, 245, 0.74)),
@@ -3967,8 +3973,8 @@
       }
 
       .manager-home-stat strong {
-        margin-top: 12px;
-        font-size: clamp(2.25rem, 4vw, 3.35rem);
+        margin-top: 8px;
+        font-size: clamp(2rem, 3.2vw, 2.55rem);
         line-height: 0.9;
         letter-spacing: -0.05em;
       }
@@ -7883,11 +7889,11 @@
         }
 
         .manager-home-control {
-          padding: 18px;
+          padding: 16px;
         }
 
         .manager-home-control .section-heading h2 {
-          font-size: clamp(2.1rem, 9vw, 3.4rem);
+          font-size: clamp(1.8rem, 8vw, 2.5rem);
         }
 
         .manager-home-empty-callout,
@@ -8084,7 +8090,7 @@
         }
 
         .manager-home-stat {
-          min-height: 112px;
+          min-height: 104px;
         }
       }
 

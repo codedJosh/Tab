@@ -14776,7 +14776,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Next Required Actions</p>
-                <h3>Tournaments requiring tab room attention</h3>
+                <h3>Tournament attention queue</h3>
               </div>
               <span class="role-pill">${escapeHtml(managedQueue.length)} tournaments</span>
             </div>
@@ -14831,7 +14831,7 @@
               <div class="section-heading">
                 <div>
                   <p class="eyebrow">Operations Queue</p>
-                  <h3>Administrative items that block operations</h3>
+                  <h3>Administrative review queue</h3>
                 </div>
               </div>
               <div class="manager-grid">
