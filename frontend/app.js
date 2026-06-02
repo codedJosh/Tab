@@ -13581,12 +13581,17 @@
             <div class="page-shell">
               <div class="stack public-front-page">
                 <section class="hero-panel auth-hero public-hero-panel premium-home-hero">
+                  <div class="public-hero-light-field" aria-hidden="true">
+                    <span class="public-hero-light public-hero-light-one"></span>
+                    <span class="public-hero-light public-hero-light-two"></span>
+                    <span class="public-hero-light public-hero-light-three"></span>
+                  </div>
                   <div class="public-hero-content">
                     <div class="public-hero-title-lockup">
                       <div class="jade-logo-wrap hero-logo-wrap">
                         <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird logo" />
                       </div>
-                      <div>
+                      <div class="public-hero-title-copy">
                         <p class="eyebrow">Hummingbird Tab System</p>
                         <h1>JADE Hummingbird</h1>
                       </div>
@@ -13601,6 +13606,11 @@
                       )}">Regional operations</a>
                     </div>
                   </div>
+                  <aside class="public-hero-float-card" aria-hidden="true">
+                    <span class="eyebrow">Live tournament operations</span>
+                    <strong>Tabbing / Judging / Results</strong>
+                    <p>Draws, ballots, standings, and registration in one calmer system.</p>
+                  </aside>
                 </section>
 
                 <section class="auth-card premium-auth-card">

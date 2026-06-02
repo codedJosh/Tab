@@ -1693,24 +1693,27 @@
       }
 
       .premium-home-hero {
-        min-height: clamp(430px, 58vh, 620px);
+        min-height: clamp(560px, 72vh, 760px);
         padding: clamp(22px, 4vw, 44px);
         justify-content: flex-end;
         color: #f8fff9;
         border-color: rgba(126, 174, 137, 0.32);
         background:
-          linear-gradient(180deg, rgba(17, 75, 49, 0.28) 0%, rgba(38, 94, 58, 0.1) 34%, rgba(7, 34, 22, 0.62) 100%),
-          radial-gradient(ellipse at 50% 83%, rgba(8, 38, 25, 0.62) 0%, rgba(43, 93, 55, 0.34) 31%, rgba(86, 91, 49, 0.08) 64%),
-          radial-gradient(circle at 18% 16%, rgba(151, 196, 134, 0.16), transparent 29%),
+          linear-gradient(112deg, rgba(4, 18, 12, 0.82) 0%, rgba(10, 45, 29, 0.5) 39%, rgba(12, 43, 29, 0.12) 68%, rgba(6, 24, 16, 0.64) 100%),
+          radial-gradient(ellipse at 22% 76%, rgba(5, 24, 16, 0.74) 0%, rgba(20, 74, 45, 0.38) 38%, transparent 67%),
+          radial-gradient(circle at 82% 22%, rgba(186, 232, 163, 0.24), transparent 28%),
           url("hummingbird-home-bg.jpg") center 34% / cover no-repeat;
         box-shadow:
-          0 24px 70px rgba(9, 28, 19, 0.24),
-          inset 0 1px 0 rgba(154, 208, 158, 0.18);
+          0 28px 78px rgba(9, 28, 19, 0.28),
+          inset 0 1px 0 rgba(206, 245, 198, 0.22);
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero {
-        align-items: center;
-        padding-bottom: clamp(20px, 7vh, 58px);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
+        align-items: end;
+        gap: clamp(18px, 4vw, 52px);
+        padding: clamp(34px, 5vw, 68px);
       }
 
       .premium-home-hero::before {
@@ -1718,9 +1721,9 @@
         position: absolute;
         inset: 0;
         background:
-          linear-gradient(180deg, rgba(33, 96, 59, 0.26), rgba(17, 64, 41, 0.04) 34%, rgba(7, 31, 21, 0.26)),
-          radial-gradient(ellipse at 50% 82%, rgba(7, 33, 22, 0.38), transparent 43%),
-          radial-gradient(circle at 82% 78%, rgba(110, 146, 72, 0.18), transparent 34%);
+          linear-gradient(180deg, rgba(230, 255, 226, 0.12), transparent 28%, rgba(5, 20, 13, 0.32)),
+          radial-gradient(ellipse at 26% 74%, rgba(5, 22, 15, 0.44), transparent 46%),
+          radial-gradient(circle at 88% 18%, rgba(202, 245, 182, 0.22), transparent 34%);
         pointer-events: none;
       }
 
@@ -1728,14 +1731,60 @@
         content: "";
         position: absolute;
         inset: auto 0 0;
-        height: 58%;
-        background: linear-gradient(180deg, transparent 0%, rgba(31, 86, 54, 0.18) 38%, rgba(12, 45, 30, 0.58) 100%);
+        height: 68%;
+        background:
+          linear-gradient(180deg, transparent 0%, rgba(14, 57, 36, 0.2) 34%, rgba(5, 23, 15, 0.72) 100%),
+          linear-gradient(92deg, rgba(255, 255, 255, 0.12), transparent 18%, transparent 78%, rgba(255, 255, 255, 0.08));
         pointer-events: none;
       }
 
       .premium-home-hero > * {
         position: relative;
         z-index: 1;
+      }
+
+      .public-hero-light-field {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .public-hero-light {
+        position: absolute;
+        display: block;
+        border-radius: 999px;
+        filter: blur(18px);
+        opacity: 0.72;
+        mix-blend-mode: screen;
+        animation: heroAmbientDrift 12s ease-in-out infinite;
+      }
+
+      .public-hero-light-one {
+        width: clamp(180px, 24vw, 360px);
+        height: clamp(180px, 24vw, 360px);
+        left: 8%;
+        top: 8%;
+        background: radial-gradient(circle, rgba(216, 255, 202, 0.28), transparent 66%);
+      }
+
+      .public-hero-light-two {
+        width: clamp(220px, 30vw, 460px);
+        height: clamp(220px, 30vw, 460px);
+        right: -4%;
+        top: 22%;
+        background: radial-gradient(circle, rgba(50, 154, 93, 0.32), transparent 70%);
+        animation-delay: -4s;
+      }
+
+      .public-hero-light-three {
+        width: clamp(220px, 28vw, 440px);
+        height: clamp(220px, 28vw, 440px);
+        left: 32%;
+        bottom: -16%;
+        background: radial-gradient(circle, rgba(188, 166, 82, 0.22), transparent 72%);
+        animation-delay: -8s;
       }
 
       .premium-home-hero h1,
@@ -1777,23 +1826,42 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
-        width: min(590px, 94%);
-        justify-items: center;
-        gap: 12px;
-        padding: clamp(16px, 2.6vw, 24px);
-        text-align: center;
-        border-radius: 18px;
+        width: min(820px, 100%);
+        align-self: end;
+        justify-items: start;
+        gap: clamp(16px, 2vw, 22px);
+        padding: clamp(22px, 3.2vw, 38px);
+        text-align: left;
+        border-radius: 28px;
+        border-color: rgba(209, 249, 202, 0.28);
         background:
-          linear-gradient(135deg, rgba(6, 35, 23, 0.64), rgba(22, 83, 54, 0.38) 52%, rgba(83, 101, 52, 0.26)),
-          radial-gradient(circle at 20% 10%, rgba(142, 202, 145, 0.16), transparent 36%);
-        -webkit-backdrop-filter: blur(13px) saturate(1.2);
-        backdrop-filter: blur(13px) saturate(1.2);
+          linear-gradient(135deg, rgba(5, 25, 17, 0.76), rgba(15, 72, 45, 0.52) 50%, rgba(97, 115, 58, 0.3)),
+          radial-gradient(circle at 18% 8%, rgba(207, 255, 202, 0.18), transparent 34%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 42%);
+        -webkit-backdrop-filter: blur(18px) saturate(1.28);
+        backdrop-filter: blur(18px) saturate(1.28);
+        box-shadow:
+          0 30px 70px rgba(4, 18, 12, 0.32),
+          inset 0 1px 0 rgba(255, 255, 255, 0.22),
+          inset 0 -1px 0 rgba(178, 228, 160, 0.08);
+        animation: heroPanelReveal 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
       }
 
       .public-hero-title-lockup {
         display: flex;
         align-items: center;
         gap: 18px;
+      }
+
+      .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-title-lockup {
+        align-items: flex-start;
+        gap: clamp(14px, 2vw, 22px);
+      }
+
+      .public-hero-title-copy {
+        min-width: 0;
+        display: grid;
+        gap: 7px;
       }
 
       .hero-logo-wrap {
@@ -1810,19 +1878,22 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .hero-logo-wrap {
-        width: clamp(64px, 8.5vw, 92px);
-        height: clamp(64px, 8.5vw, 92px);
+        width: clamp(68px, 7vw, 98px);
+        height: clamp(68px, 7vw, 98px);
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .eyebrow {
-        font-size: clamp(0.66rem, 1.35vw, 0.78rem);
-        letter-spacing: 0.16em;
+        font-size: clamp(0.68rem, 0.95vw, 0.82rem);
+        letter-spacing: 0.18em;
+        color: rgba(223, 251, 221, 0.76);
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero h1 {
         max-width: none;
-        font-size: clamp(1.82rem, 4.35vw, 2.75rem);
-        line-height: 0.98;
+        font-size: clamp(3rem, 7.6vw, 6.5rem);
+        line-height: 0.88;
+        letter-spacing: -0.075em;
+        text-shadow: 0 18px 42px rgba(3, 12, 8, 0.34);
       }
 
       .premium-hero-copy {
@@ -1831,10 +1902,11 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .premium-hero-copy {
-        max-width: 46ch;
+        max-width: 54ch;
         margin: 0;
-        font-size: clamp(0.9rem, 1.42vw, 1.04rem);
-        line-height: 1.38;
+        font-size: clamp(1rem, 1.35vw, 1.22rem);
+        line-height: 1.48;
+        color: rgba(237, 252, 236, 0.84);
       }
 
       .public-hero-actions {
@@ -1847,9 +1919,9 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
-        width: min(100%, 500px);
-        gap: 10px;
-        justify-self: center;
+        width: min(100%, 540px);
+        gap: 12px;
+        justify-self: start;
         justify-content: center;
         justify-items: stretch;
       }
@@ -1859,11 +1931,120 @@
         --btn-border: #0f3f2b;
         --btn-bg-hover: #092d1e;
         --btn-border-hover: #092d1e;
-        min-height: var(--btn-height-md);
-        padding-inline: 14px;
+        --btn-shadow: 0 14px 34px rgba(4, 18, 12, 0.28);
+        --btn-shadow-hover: 0 18px 42px rgba(4, 18, 12, 0.36);
+        min-height: 48px;
+        padding-inline: 18px;
         width: 100%;
         min-width: 0;
         align-self: stretch;
+      }
+
+      .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a):hover {
+        transform: translateY(-2px) scale(1.012);
+        filter: saturate(1.08);
+      }
+
+      .public-hero-float-card {
+        align-self: end;
+        justify-self: end;
+        width: min(100%, 320px);
+        display: grid;
+        gap: 9px;
+        padding: 18px;
+        border-radius: 24px;
+        border: 1px solid rgba(218, 255, 209, 0.22);
+        color: #f8fff9;
+        background:
+          linear-gradient(155deg, rgba(7, 28, 19, 0.56), rgba(24, 82, 52, 0.32)),
+          radial-gradient(circle at 82% 8%, rgba(202, 245, 182, 0.16), transparent 38%);
+        -webkit-backdrop-filter: blur(16px) saturate(1.25);
+        backdrop-filter: blur(16px) saturate(1.25);
+        box-shadow:
+          0 24px 52px rgba(4, 18, 12, 0.24),
+          inset 0 1px 0 rgba(255, 255, 255, 0.14);
+        animation: heroFloatCardReveal 900ms 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      .public-hero-float-card strong {
+        display: block;
+        font-size: clamp(1.05rem, 1.6vw, 1.28rem);
+        line-height: 1.05;
+      }
+
+      .public-hero-float-card p {
+        margin: 0;
+        color: rgba(237, 252, 236, 0.76);
+        font-size: var(--text-body-sm);
+        line-height: 1.5;
+      }
+
+      @keyframes heroPanelReveal {
+        from {
+          opacity: 0;
+          filter: blur(16px);
+          transform: translate3d(-14px, 18px, 0) scale(0.985);
+        }
+        to {
+          opacity: 1;
+          filter: blur(0);
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+      }
+
+      @keyframes heroFloatCardReveal {
+        from {
+          opacity: 0;
+          filter: blur(14px);
+          transform: translate3d(18px, 22px, 0) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          filter: blur(0);
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+      }
+
+      @keyframes heroAmbientDrift {
+        0%,
+        100% {
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+        50% {
+          transform: translate3d(18px, -16px, 0) scale(1.08);
+        }
+      }
+
+      @supports (animation-timeline: view()) {
+        .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
+          animation:
+            heroPanelReveal 760ms cubic-bezier(0.22, 1, 0.36, 1) both,
+            heroScrollLift linear both;
+          animation-timeline: auto, view();
+          animation-range: normal, exit 0% exit 90%;
+        }
+
+        .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-float-card {
+          animation:
+            heroFloatCardReveal 900ms 140ms cubic-bezier(0.22, 1, 0.36, 1) both,
+            heroScrollFade linear both;
+          animation-timeline: auto, view();
+          animation-range: normal, exit 0% exit 85%;
+        }
+      }
+
+      @keyframes heroScrollLift {
+        to {
+          transform: translate3d(0, -28px, 0);
+          opacity: 0.72;
+        }
+      }
+
+      @keyframes heroScrollFade {
+        to {
+          transform: translate3d(0, -44px, 0);
+          opacity: 0.28;
+        }
       }
 
       .public-hero-actions > :is(button, a) {
@@ -7574,8 +7755,10 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero {
-          min-height: min(74vh, 560px);
-          padding: 14px 12px clamp(18px, 5vh, 34px);
+          grid-template-columns: 1fr;
+          justify-items: center;
+          min-height: min(78vh, 620px);
+          padding: 18px 12px clamp(22px, 5vh, 38px);
           background:
             linear-gradient(180deg, rgba(26, 90, 57, 0.22) 0%, rgba(11, 50, 32, 0.08) 44%, rgba(7, 31, 21, 0.68) 100%),
             radial-gradient(ellipse at 50% 82%, rgba(7, 34, 22, 0.5) 0%, rgba(44, 95, 56, 0.28) 34%, transparent 64%),
@@ -7584,15 +7767,15 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
-          width: min(94vw, 390px);
-          gap: 9px;
-          padding: 14px;
-          border-radius: 16px;
+          width: min(94vw, 440px);
+          gap: 12px;
+          padding: 18px;
+          border-radius: 20px;
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-title-lockup {
           gap: 10px;
-          justify-content: center;
+          justify-content: flex-start;
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .hero-logo-wrap {
@@ -7606,21 +7789,25 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero h1 {
-          font-size: clamp(1.5rem, 8.6vw, 2rem);
-          line-height: 0.98;
+          font-size: clamp(2.2rem, 12vw, 3.25rem);
+          line-height: 0.9;
           white-space: normal;
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .premium-hero-copy {
-          font-size: 0.82rem;
-          line-height: 1.3;
+          font-size: 0.9rem;
+          line-height: 1.42;
+        }
+
+        .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-float-card {
+          display: none;
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
           grid-template-columns: 1fr;
-          width: min(100%, 320px);
-          gap: 6px;
-          justify-self: center;
+          width: min(100%, 340px);
+          gap: 8px;
+          justify-self: start;
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
