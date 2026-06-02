@@ -14216,21 +14216,6 @@
               </div>
             </div>
             <div class="inline-card menu-welcome-card">
-              <div class="section-heading">
-                <strong>${escapeHtml(displayName)}</strong>
-                <span class="role-pill">${escapeHtml(
-                  toTitleLabel(getCurrentRole()),
-                )}</span>
-              </div>
-              ${
-                capabilities.regionalPortalMode
-                  ? `<p class="fine-print">Assigned region: ${escapeHtml(regionalAssignment)}</p>`
-                  : activeManagedTournament
-                    ? `<p class="fine-print">Current tournament: ${escapeHtml(
-                        activeManagedTournament.code || activeManagedTournament.name,
-                      )}</p>`
-                    : ""
-              }
               ${orderedGroups
                 .map(
                   ([groupLabel, groupItems]) => `
