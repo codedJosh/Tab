@@ -1710,10 +1710,11 @@
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero {
         display: grid;
+        grid-template-rows: minmax(0, 1fr) auto;
         grid-template-columns: minmax(0, 1fr);
-        align-items: center;
+        align-items: stretch;
         justify-items: center;
-        gap: 0;
+        gap: clamp(16px, 3vh, 28px);
         padding: clamp(30px, 4vw, 54px);
       }
 
@@ -1740,6 +1741,8 @@
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
+        grid-row: 1;
+        grid-column: 1;
         align-self: center;
         justify-self: center;
         width: min(520px, 76%);
@@ -1877,6 +1880,8 @@
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
         position: static;
+        grid-row: 1;
+        grid-column: 1;
         width: min(520px, 76%);
         align-self: center;
         justify-self: center;
@@ -1903,7 +1908,7 @@
         z-index: 2;
         align-items: center;
         gap: clamp(8px, 1.4vw, 12px);
-        transform: translateY(clamp(-56px, -5.5vh, -28px));
+        transform: translateY(clamp(-96px, -9vh, -56px));
       }
 
       .public-hero-brand-stack {
@@ -1999,14 +2004,17 @@
         align-items: stretch;
       }
 
+      .public-front-page:not(.auth-flow-page) > .premium-home-hero > .public-hero-actions,
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
-        position: absolute;
-        left: clamp(18px, 3vw, 42px);
-        bottom: clamp(18px, 3.4vh, 38px);
+        position: relative;
+        inset: auto;
+        grid-row: 2;
+        grid-column: 1;
         z-index: 2;
         width: min(258px, 28vw);
         grid-template-columns: 1fr;
         gap: 8px;
+        align-self: end;
         justify-self: start;
         justify-content: stretch;
         justify-items: stretch;
@@ -2020,6 +2028,7 @@
         box-shadow: none;
       }
 
+      .public-front-page:not(.auth-flow-page) > .premium-home-hero > .public-hero-actions > :is(button, a),
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
         --btn-bg: rgba(255, 255, 255, 0.18);
         --btn-color: #f8fff9;
@@ -2040,6 +2049,7 @@
         text-shadow: 0 1px 14px rgba(0, 0, 0, 0.34);
       }
 
+      .public-front-page:not(.auth-flow-page) > .premium-home-hero > .public-hero-actions > :is(button, a):hover,
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a):hover {
         transform: translateY(-2px) scale(1.012);
         filter: saturate(1.08);
@@ -7914,8 +7924,10 @@
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero {
           align-items: center;
+          grid-template-rows: minmax(0, 1fr) auto;
           grid-template-columns: 1fr;
           justify-items: center;
+          gap: 14px;
           min-height: min(78vh, 620px);
           padding: 18px 12px;
           background:
@@ -7947,6 +7959,8 @@
         }
 
         .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
+          grid-row: 1;
+          grid-column: 1;
           align-self: center;
           justify-self: center;
           width: min(84vw, 390px);
@@ -7969,6 +7983,8 @@
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
           position: static;
+          grid-row: 1;
+          grid-column: 1;
           align-self: center;
           justify-self: center;
           width: min(84vw, 390px);
@@ -7986,7 +8002,7 @@
           z-index: 2;
           gap: 10px;
           justify-content: center;
-          transform: translateY(clamp(-38px, -5vh, -22px));
+          transform: translateY(clamp(-62px, -7vh, -34px));
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-jade-logo {
@@ -8014,12 +8030,16 @@
           display: none;
         }
 
+        .public-front-page:not(.auth-flow-page) > .premium-home-hero > .public-hero-actions,
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
-          position: absolute;
-          inset: auto auto 12px 12px;
+          position: relative;
+          inset: auto;
+          grid-row: 2;
+          grid-column: 1;
           grid-template-columns: 1fr;
           width: min(248px, calc(100% - 24px));
           gap: 8px;
+          align-self: end;
           justify-self: start;
           margin: 0;
           padding: 0;
@@ -8031,6 +8051,7 @@
           box-shadow: none;
         }
 
+        .public-front-page:not(.auth-flow-page) > .premium-home-hero > .public-hero-actions > :is(button, a),
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
           --btn-bg: rgba(255, 255, 255, 0.18);
           --btn-color: #f8fff9;
