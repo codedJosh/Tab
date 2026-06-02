@@ -1699,8 +1699,9 @@
         color: #f8fff9;
         border-color: rgba(255, 255, 255, 0.28);
         background:
-          linear-gradient(90deg, rgba(8, 28, 19, 0.9) 0%, rgba(12, 52, 33, 0.72) 42%, rgba(244, 249, 245, 0.1) 100%),
-          radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.26), transparent 28%),
+          linear-gradient(180deg, rgba(244, 249, 245, 0.22) 0%, rgba(244, 249, 245, 0.05) 34%, rgba(8, 28, 19, 0.52) 100%),
+          radial-gradient(ellipse at 50% 83%, rgba(8, 28, 19, 0.54) 0%, rgba(8, 28, 19, 0.3) 28%, rgba(244, 249, 245, 0.04) 62%),
+          radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.18), transparent 28%),
           url("hummingbird-home-bg.jpg") center 34% / cover no-repeat;
         box-shadow:
           0 24px 70px rgba(9, 28, 19, 0.2),
@@ -1717,8 +1718,9 @@
         position: absolute;
         inset: 0;
         background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.18)),
-          radial-gradient(circle at 82% 78%, rgba(235, 255, 241, 0.32), transparent 34%);
+          linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.02) 34%, rgba(12, 52, 33, 0.18)),
+          radial-gradient(ellipse at 50% 82%, rgba(7, 29, 19, 0.32), transparent 42%),
+          radial-gradient(circle at 82% 78%, rgba(235, 255, 241, 0.18), transparent 34%);
         pointer-events: none;
       }
 
@@ -1726,8 +1728,8 @@
         content: "";
         position: absolute;
         inset: auto 0 0;
-        height: 42%;
-        background: linear-gradient(180deg, transparent, rgba(243, 245, 243, 0.78));
+        height: 58%;
+        background: linear-gradient(180deg, transparent 0%, rgba(243, 245, 243, 0.12) 38%, rgba(243, 245, 243, 0.54) 100%);
         pointer-events: none;
       }
 
@@ -7554,8 +7556,9 @@
           min-height: min(74vh, 560px);
           padding: 14px 12px clamp(18px, 5vh, 34px);
           background:
-            linear-gradient(180deg, rgba(8, 28, 19, 0.18) 0%, rgba(10, 40, 26, 0.14) 46%, rgba(8, 28, 19, 0.58) 100%),
-            radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.14), transparent 34%),
+            linear-gradient(180deg, rgba(244, 249, 245, 0.18) 0%, rgba(10, 40, 26, 0.08) 44%, rgba(8, 28, 19, 0.62) 100%),
+            radial-gradient(ellipse at 50% 82%, rgba(8, 28, 19, 0.46) 0%, rgba(8, 28, 19, 0.24) 34%, transparent 64%),
+            radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.12), transparent 34%),
             url("hummingbird-home-bg.jpg") center 38% / cover no-repeat;
         }
 
