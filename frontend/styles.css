@@ -1742,7 +1742,7 @@
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
         align-self: center;
         justify-self: center;
-        width: min(420px, 70%);
+        width: min(520px, 76%);
         max-width: none;
         justify-items: center;
         text-align: center;
@@ -1761,7 +1761,7 @@
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-jade-logo {
-        width: min(315px, 86%);
+        width: min(405px, 92%);
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero::before {
@@ -1876,7 +1876,7 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
-        width: min(420px, 70%);
+        width: min(520px, 76%);
         align-self: center;
         justify-self: center;
         justify-items: center;
@@ -1913,9 +1913,9 @@
         position: relative;
         z-index: 1;
         display: block;
-        width: min(315px, 86%);
-        height: clamp(112px, 12.5vw, 138px);
-        margin-bottom: clamp(-17px, -1.9vw, -12px);
+        width: min(405px, 92%);
+        height: clamp(142px, 15.5vw, 184px);
+        margin-bottom: clamp(-23px, -2.25vw, -15px);
         object-fit: cover;
         object-position: center 38%;
         transform: translateY(8px);
@@ -1967,7 +1967,7 @@
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero h1 {
         max-width: none;
-        font-size: clamp(2rem, 4.8vw, 3.35rem);
+        font-size: clamp(2.35rem, 5.6vw, 4.15rem);
         line-height: 0.96;
         letter-spacing: -0.055em;
         text-shadow: 0 18px 42px rgba(3, 12, 8, 0.34);
@@ -1997,10 +1997,10 @@
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
         position: absolute;
-        left: clamp(24px, 4vw, 56px);
-        bottom: clamp(24px, 5vh, 58px);
+        left: clamp(18px, 3vw, 42px);
+        bottom: clamp(18px, 4vh, 44px);
         z-index: 2;
-        width: min(280px, 34vw);
+        width: min(258px, 28vw);
         grid-template-columns: 1fr;
         gap: 8px;
         justify-self: start;
@@ -2008,31 +2008,35 @@
         justify-items: stretch;
         margin: 0;
         padding: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.26);
+        border: 1px solid rgba(255, 255, 255, 0.22);
         border-radius: 18px;
         background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07)),
-          rgba(6, 28, 19, 0.14);
-        -webkit-backdrop-filter: blur(14px) saturate(1.12);
-        backdrop-filter: blur(14px) saturate(1.12);
+          linear-gradient(140deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.05) 54%, rgba(255, 255, 255, 0.1)),
+          rgba(5, 24, 16, 0.18);
+        -webkit-backdrop-filter: blur(18px) saturate(1.22);
+        backdrop-filter: blur(18px) saturate(1.22);
         box-shadow:
-          0 20px 46px rgba(3, 13, 8, 0.24),
-          inset 0 1px 0 rgba(255, 255, 255, 0.24);
+          0 18px 42px rgba(3, 13, 8, 0.2),
+          inset 0 1px 0 rgba(255, 255, 255, 0.28),
+          inset 0 -1px 0 rgba(255, 255, 255, 0.08);
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
-        --btn-bg: #0f3f2b;
-        --btn-border: #0f3f2b;
-        --btn-bg-hover: #092d1e;
-        --btn-border-hover: #092d1e;
-        --btn-shadow: 0 14px 34px rgba(4, 18, 12, 0.28);
-        --btn-shadow-hover: 0 18px 42px rgba(4, 18, 12, 0.36);
+        --btn-bg: rgba(255, 255, 255, 0.16);
+        --btn-color: #f8fff9;
+        --btn-border: rgba(255, 255, 255, 0.28);
+        --btn-bg-hover: rgba(255, 255, 255, 0.24);
+        --btn-color-hover: #ffffff;
+        --btn-border-hover: rgba(255, 255, 255, 0.42);
+        --btn-shadow: 0 10px 24px rgba(4, 18, 12, 0.16);
+        --btn-shadow-hover: 0 14px 30px rgba(4, 18, 12, 0.22);
         --btn-font-size: var(--btn-font-size-md);
-        min-height: 42px;
-        padding-inline: 14px;
+        min-height: 40px;
+        padding-inline: 13px;
         width: 100%;
         min-width: 0;
         align-self: stretch;
+        text-shadow: 0 1px 14px rgba(0, 0, 0, 0.34);
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a):hover {
@@ -7944,7 +7948,7 @@
         .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
           align-self: center;
           justify-self: center;
-          width: min(78vw, 340px);
+          width: min(84vw, 390px);
           max-width: none;
           justify-items: center;
           text-align: center;
@@ -7965,7 +7969,7 @@
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
           align-self: center;
           justify-self: center;
-          width: min(78vw, 340px);
+          width: min(84vw, 390px);
           gap: 10px;
           padding: 0;
           border: 0;
@@ -7981,7 +7985,8 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-jade-logo {
-          width: min(260px, 88%);
+          width: min(320px, 94%);
+          height: clamp(122px, 29vw, 158px);
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .eyebrow {
@@ -7990,7 +7995,7 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero h1 {
-          font-size: clamp(1.75rem, 9vw, 2.55rem);
+          font-size: clamp(2rem, 10vw, 3.05rem);
           line-height: 0.96;
           white-space: normal;
         }
@@ -8006,34 +8011,38 @@
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
           position: absolute;
-          inset: auto 12px 12px 12px;
+          inset: auto auto 12px 12px;
           grid-template-columns: 1fr;
-          width: auto;
+          width: min(248px, calc(100% - 24px));
           gap: 8px;
-          justify-self: center;
+          justify-self: start;
           margin: 0;
           padding: 10px;
-          border: 1px solid rgba(255, 255, 255, 0.26);
+          border: 1px solid rgba(255, 255, 255, 0.22);
           border-radius: 16px;
           background:
-            linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07)),
-            rgba(6, 28, 19, 0.14);
-          -webkit-backdrop-filter: blur(14px) saturate(1.12);
-          backdrop-filter: blur(14px) saturate(1.12);
+            linear-gradient(140deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.05) 54%, rgba(255, 255, 255, 0.1)),
+            rgba(5, 24, 16, 0.18);
+          -webkit-backdrop-filter: blur(18px) saturate(1.22);
+          backdrop-filter: blur(18px) saturate(1.22);
           box-shadow:
-            0 18px 42px rgba(3, 13, 8, 0.24),
-            inset 0 1px 0 rgba(255, 255, 255, 0.24);
+            0 18px 42px rgba(3, 13, 8, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.28),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.08);
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
-          --btn-bg: #0f3f2b;
-          --btn-border: #0f3f2b;
-          --btn-bg-hover: #092d1e;
-          --btn-border-hover: #092d1e;
+          --btn-bg: rgba(255, 255, 255, 0.16);
+          --btn-color: #f8fff9;
+          --btn-border: rgba(255, 255, 255, 0.28);
+          --btn-bg-hover: rgba(255, 255, 255, 0.24);
+          --btn-color-hover: #ffffff;
+          --btn-border-hover: rgba(255, 255, 255, 0.42);
           --btn-font-size: var(--btn-font-size-md);
           min-height: 40px;
           padding-inline: 12px;
           width: 100%;
+          text-shadow: 0 1px 14px rgba(0, 0, 0, 0.34);
         }
 
         .auth-login-actions,
