@@ -1736,14 +1736,14 @@
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero {
         align-items: end;
-        justify-items: center;
+        justify-items: start;
         padding: clamp(30px, 4vw, 54px);
         padding-bottom: clamp(34px, 8vh, 76px);
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
         align-self: end;
-        justify-self: center;
+        justify-self: start;
         width: min(460px, 90%);
         max-width: none;
         justify-items: center;
@@ -1938,10 +1938,10 @@
         display: block;
         width: min(405px, 92%);
         height: clamp(142px, 15.5vw, 184px);
-        margin-bottom: clamp(-23px, -2.25vw, -15px);
+        margin-bottom: clamp(-34px, -3.15vw, -23px);
         object-fit: cover;
         object-position: center 38%;
-        transform: translateY(8px);
+        transform: translateY(14px);
         filter:
           drop-shadow(0 18px 34px rgba(0, 0, 0, 0.34))
           drop-shadow(0 2px 0 rgba(255, 255, 255, 0.08));
@@ -7935,8 +7935,8 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero {
-          align-items: center;
-          justify-items: center;
+          align-items: end;
+          justify-items: start;
           min-height: min(72vh, 560px);
           padding: 12px;
           background:
@@ -7956,8 +7956,8 @@
         }
 
         .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
-          align-self: center;
-          justify-self: center;
+          align-self: end;
+          justify-self: start;
           width: min(92vw, 380px);
           max-width: none;
           justify-items: center;
@@ -8014,6 +8014,8 @@
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-jade-logo {
           width: min(320px, 94%);
           height: clamp(122px, 29vw, 158px);
+          margin-bottom: clamp(-28px, -6vw, -18px);
+          transform: translateY(12px);
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .eyebrow {
