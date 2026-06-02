@@ -1710,12 +1710,12 @@
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero {
         display: grid;
-        grid-template-rows: minmax(0, 1fr) auto;
         grid-template-columns: minmax(0, 1fr);
-        align-items: stretch;
+        align-items: end;
         justify-items: center;
-        gap: clamp(16px, 3vh, 28px);
+        gap: 0;
         padding: clamp(30px, 4vw, 54px);
+        padding-bottom: clamp(34px, 8vh, 76px);
       }
 
       .premium-home-hero::before {
@@ -1735,26 +1735,34 @@
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero {
-        align-items: center;
+        align-items: end;
         justify-items: center;
         padding: clamp(30px, 4vw, 54px);
+        padding-bottom: clamp(34px, 8vh, 76px);
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
-        grid-row: 1;
-        grid-column: 1;
-        align-self: center;
+        align-self: end;
         justify-self: center;
-        width: min(520px, 76%);
+        width: min(460px, 90%);
         max-width: none;
         justify-items: center;
         text-align: center;
-        padding: 0;
-        border: 0;
-        background: transparent;
-        -webkit-backdrop-filter: none;
-        backdrop-filter: none;
-        box-shadow: none;
+        padding: clamp(10px, 1.45vw, 14px) clamp(12px, 1.7vw, 18px);
+        border: 1px solid rgba(223, 255, 219, 0.36);
+        border-radius: 24px;
+        background:
+          linear-gradient(118deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.04) 24%, transparent 42%),
+          linear-gradient(135deg, rgba(5, 25, 17, 0.52), rgba(15, 72, 45, 0.32) 50%, rgba(115, 135, 68, 0.18)),
+          radial-gradient(circle at 18% 8%, rgba(231, 255, 226, 0.26), transparent 34%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 48%);
+        -webkit-backdrop-filter: blur(22px) saturate(1.38);
+        backdrop-filter: blur(22px) saturate(1.38);
+        box-shadow:
+          0 28px 62px rgba(4, 18, 12, 0.28),
+          inset 0 1px 0 rgba(255, 255, 255, 0.42),
+          inset 0 0 34px rgba(231, 255, 226, 0.08),
+          inset 0 -1px 0 rgba(178, 228, 160, 0.1);
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-brand-stack,
@@ -1879,21 +1887,27 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
-        position: static;
-        grid-row: 1;
-        grid-column: 1;
-        width: min(520px, 76%);
-        align-self: center;
+        width: min(460px, 90%);
+        align-self: end;
         justify-self: center;
         justify-items: center;
         gap: clamp(4px, 0.8vw, 8px);
-        padding: 0;
+        padding: clamp(10px, 1.45vw, 14px) clamp(12px, 1.7vw, 18px);
         text-align: center;
-        border: 0;
-        background: transparent;
-        -webkit-backdrop-filter: none;
-        backdrop-filter: none;
-        box-shadow: none;
+        border: 1px solid rgba(223, 255, 219, 0.36);
+        border-radius: 24px;
+        background:
+          linear-gradient(118deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.04) 24%, transparent 42%),
+          linear-gradient(135deg, rgba(5, 25, 17, 0.52), rgba(15, 72, 45, 0.32) 50%, rgba(115, 135, 68, 0.18)),
+          radial-gradient(circle at 18% 8%, rgba(231, 255, 226, 0.26), transparent 34%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 48%);
+        -webkit-backdrop-filter: blur(22px) saturate(1.38);
+        backdrop-filter: blur(22px) saturate(1.38);
+        box-shadow:
+          0 28px 62px rgba(4, 18, 12, 0.28),
+          inset 0 1px 0 rgba(255, 255, 255, 0.42),
+          inset 0 0 34px rgba(231, 255, 226, 0.08),
+          inset 0 -1px 0 rgba(178, 228, 160, 0.1);
         animation: heroPanelReveal 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
       }
 
@@ -1908,7 +1922,7 @@
         z-index: 2;
         align-items: center;
         gap: clamp(8px, 1.4vw, 12px);
-        transform: translateY(clamp(-42px, -4vh, -22px));
+        transform: none;
       }
 
       .public-hero-brand-stack {
@@ -2004,29 +2018,17 @@
         align-items: stretch;
       }
 
-      .public-front-page:not(.auth-flow-page) > .premium-home-hero > .public-hero-actions {
-        position: absolute;
-        left: clamp(16px, 2.4vw, 34px);
-        bottom: clamp(16px, 2.4vw, 34px);
-        z-index: 2;
-        width: min(260px, 30vw);
-        grid-template-columns: 1fr;
+      .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
+        width: min(100%, 420px);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
-        align-self: auto;
-        justify-self: start;
-        justify-content: stretch;
+        justify-self: center;
+        justify-content: center;
         justify-items: stretch;
-        margin: 0;
-        padding: 0;
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-        -webkit-backdrop-filter: none;
-        backdrop-filter: none;
-        box-shadow: none;
+        margin-top: 4px;
       }
 
-      .public-front-page:not(.auth-flow-page) > .premium-home-hero > .public-hero-actions > :is(button, a) {
+      .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
         --btn-bg: rgba(255, 255, 255, 0.18);
         --btn-color: #f8fff9;
         --btn-border: rgba(255, 255, 255, 0.34);
@@ -2046,7 +2048,7 @@
         text-shadow: 0 1px 14px rgba(0, 0, 0, 0.34);
       }
 
-      .public-front-page:not(.auth-flow-page) > .premium-home-hero > .public-hero-actions > :is(button, a):hover {
+      .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a):hover {
         transform: translateY(-2px) scale(1.012);
         filter: saturate(1.08);
       }
@@ -7920,10 +7922,9 @@
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero {
           align-items: center;
-          grid-template-rows: minmax(0, 1fr) auto;
           grid-template-columns: 1fr;
           justify-items: center;
-          gap: 14px;
+          gap: 0;
           min-height: min(78vh, 620px);
           padding: 18px 12px;
           background:
@@ -7955,20 +7956,25 @@
         }
 
         .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
-          grid-row: 1;
-          grid-column: 1;
           align-self: center;
           justify-self: center;
-          width: min(84vw, 390px);
+          width: min(92vw, 380px);
           max-width: none;
           justify-items: center;
           text-align: center;
-          padding: 0;
-          border: 0;
-          background: transparent;
-          -webkit-backdrop-filter: none;
-          backdrop-filter: none;
-          box-shadow: none;
+          padding: 15px;
+          border: 1px solid rgba(223, 255, 219, 0.36);
+          border-radius: 20px;
+          background:
+            linear-gradient(118deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.04) 24%, transparent 42%),
+            linear-gradient(135deg, rgba(5, 25, 17, 0.52), rgba(15, 72, 45, 0.32) 50%, rgba(115, 135, 68, 0.18)),
+            radial-gradient(circle at 18% 8%, rgba(231, 255, 226, 0.26), transparent 34%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 48%);
+          -webkit-backdrop-filter: blur(22px) saturate(1.38);
+          backdrop-filter: blur(22px) saturate(1.38);
+          box-shadow:
+            0 24px 52px rgba(4, 18, 12, 0.28),
+            inset 0 1px 0 rgba(255, 255, 255, 0.42);
         }
 
         .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-brand-stack,
@@ -7978,19 +7984,23 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
-          position: static;
-          grid-row: 1;
-          grid-column: 1;
           align-self: center;
           justify-self: center;
-          width: min(84vw, 390px);
+          width: min(92vw, 380px);
           gap: 10px;
-          padding: 0;
-          border: 0;
-          background: transparent;
-          -webkit-backdrop-filter: none;
-          backdrop-filter: none;
-          box-shadow: none;
+          padding: 15px;
+          border: 1px solid rgba(223, 255, 219, 0.36);
+          border-radius: 20px;
+          background:
+            linear-gradient(118deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.04) 24%, transparent 42%),
+            linear-gradient(135deg, rgba(5, 25, 17, 0.52), rgba(15, 72, 45, 0.32) 50%, rgba(115, 135, 68, 0.18)),
+            radial-gradient(circle at 18% 8%, rgba(231, 255, 226, 0.26), transparent 34%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 48%);
+          -webkit-backdrop-filter: blur(22px) saturate(1.38);
+          backdrop-filter: blur(22px) saturate(1.38);
+          box-shadow:
+            0 24px 52px rgba(4, 18, 12, 0.28),
+            inset 0 1px 0 rgba(255, 255, 255, 0.42);
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-title-lockup {
@@ -7998,7 +8008,7 @@
           z-index: 2;
           gap: 10px;
           justify-content: center;
-          transform: translateY(clamp(-28px, -3.5vh, -14px));
+          transform: none;
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-jade-logo {
@@ -8026,25 +8036,15 @@
           display: none;
         }
 
-        .public-front-page:not(.auth-flow-page) > .premium-home-hero > .public-hero-actions {
-          position: absolute;
-          inset: auto auto 12px 12px;
+        .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
           grid-template-columns: 1fr;
-          width: min(248px, calc(100% - 24px));
+          width: min(100%, 300px);
           gap: 8px;
-          align-self: auto;
-          justify-self: start;
+          justify-self: center;
           margin: 0;
-          padding: 0;
-          border: 0;
-          border-radius: 0;
-          background: transparent;
-          -webkit-backdrop-filter: none;
-          backdrop-filter: none;
-          box-shadow: none;
         }
 
-        .public-front-page:not(.auth-flow-page) > .premium-home-hero > .public-hero-actions > :is(button, a) {
+        .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
           --btn-bg: rgba(255, 255, 255, 0.18);
           --btn-color: #f8fff9;
           --btn-border: rgba(255, 255, 255, 0.34);

@@ -13594,12 +13594,12 @@
                         <h1>Hummingbird</h1>
                       </div>
                     </div>
-                  </div>
-                  <div class="button-row wrap-row public-hero-actions">
-                    <button type="button" data-action="set-public-view" data-view="register-debater">Register for a tournament</button>
-                    <a class="button-primary" href="${escapeHtml(
-                      getRegionalOperationsLandingLink(),
-                    )}">Regional operations</a>
+                    <div class="button-row wrap-row public-hero-actions">
+                      <button type="button" data-action="set-public-view" data-view="register-debater">Register for a tournament</button>
+                      <a class="button-primary" href="${escapeHtml(
+                        getRegionalOperationsLandingLink(),
+                      )}">Regional operations</a>
+                    </div>
                   </div>
                 </section>
 
@@ -14096,9 +14096,9 @@
                         <h1>Hummingbird</h1>
                       </div>
                     </div>
-                  </div>
-                  <div class="button-row wrap-row public-hero-actions regional-hero-actions">
-                    <a class="button-primary" href="${escapeHtml(getDashboardLink())}">Back to main sign in</a>
+                    <div class="button-row wrap-row public-hero-actions regional-hero-actions">
+                      <a class="button-primary" href="${escapeHtml(getDashboardLink())}">Back to main sign in</a>
+                    </div>
                   </div>
                 </section>
 
