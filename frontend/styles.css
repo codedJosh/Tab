@@ -10453,6 +10453,184 @@
         border-top: 1px solid rgba(20, 49, 38, 0.08);
       }
 
+      .judge-studio-compact {
+        display: grid;
+        gap: 10px;
+      }
+
+      .judge-ops-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1px;
+        overflow: hidden;
+        border: 1px solid rgba(20, 49, 38, 0.07);
+        border-radius: 10px;
+        background: rgba(20, 49, 38, 0.07);
+      }
+
+      .judge-ops-strip > div {
+        min-height: 42px;
+        padding: 7px 9px;
+        background: rgba(255, 255, 255, 0.46);
+      }
+
+      .judge-ops-strip span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.64rem;
+        font-weight: 520;
+      }
+
+      .judge-ops-strip strong {
+        display: block;
+        margin-top: 2px;
+        color: var(--ink);
+        font-size: 0.84rem;
+        font-weight: 650;
+      }
+
+      .judge-workbench {
+        display: grid;
+        grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr);
+        gap: 10px;
+        align-items: start;
+      }
+
+      .judge-studio-compact .flat-panel {
+        padding: 9px;
+        border-radius: 10px;
+        border-color: rgba(20, 49, 38, 0.055);
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      .judge-allocation-panel {
+        display: grid;
+        gap: 10px;
+      }
+
+      .judge-auto-inline {
+        padding-top: 9px;
+        border-top: 1px solid rgba(20, 49, 38, 0.08);
+      }
+
+      .judge-directory-stack {
+        display: grid;
+        gap: 7px;
+      }
+
+      .directory-accordion {
+        overflow: hidden;
+        border: 1px solid rgba(20, 49, 38, 0.07);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.26);
+      }
+
+      .directory-accordion summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 34px;
+        padding: 8px 10px;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .directory-accordion summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .directory-accordion summary strong {
+        font-size: 0.74rem;
+        font-weight: 620;
+      }
+
+      .directory-accordion summary span {
+        color: var(--muted);
+        font-size: 0.64rem;
+        font-weight: 560;
+      }
+
+      .directory-accordion > .leaderboard-list,
+      .directory-accordion > .empty-state {
+        margin: 0 10px 10px;
+      }
+
+      .draw-studio-shell {
+        gap: 10px;
+      }
+
+      .draw-studio-layout {
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid rgba(20, 49, 38, 0.07);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.24);
+      }
+
+      .draw-studio-layout > .surface,
+      .draw-studio-layout > .draw-conflict-panel {
+        padding: 2px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .draw-studio-layout > .surface + .surface,
+      .draw-studio-layout > .draw-conflict-panel {
+        padding-left: 10px;
+        border-left: 1px solid rgba(20, 49, 38, 0.07);
+      }
+
+      .draw-publish-grid {
+        grid-template-columns: 1fr;
+        gap: 7px;
+      }
+
+      .draw-danger-form {
+        padding-top: 7px;
+      }
+
+      .draw-conflict-panel-compact .notice-list.compact {
+        gap: 5px;
+      }
+
+      .draw-conflict-panel-compact .notice-item {
+        padding: 7px 8px;
+        border-radius: 8px;
+        border-color: rgba(20, 49, 38, 0.06);
+        background: rgba(255, 250, 238, 0.48);
+        box-shadow: none;
+      }
+
+      .draw-conflict-panel-compact .notice-item .section-heading {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .draw-conflict-panel-compact .notice-item .mini-pill {
+        display: none;
+      }
+
+      .draw-conflict-panel-compact .notice-item strong {
+        font-size: 0.69rem;
+        font-weight: 620;
+      }
+
+      .draw-conflict-panel-compact .notice-item .muted {
+        font-size: 0.65rem;
+      }
+
+      .round-board-shell {
+        gap: 8px;
+      }
+
+      .round-board-table th,
+      .round-board-table td {
+        padding: 6px 7px;
+      }
+
       .collection-toolbar {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
@@ -10840,8 +11018,17 @@
         .control-room-compact-head,
         .control-room-compact-grid,
         .roster-entry-grid,
-        .judge-studio > .stack > .flat-grid:first-of-type {
+        .draw-studio-layout,
+        .judge-workbench {
           grid-template-columns: 1fr;
+        }
+
+        .draw-studio-layout > .surface + .surface,
+        .draw-studio-layout > .draw-conflict-panel {
+          padding-left: 2px;
+          border-left: 0;
+          border-top: 1px solid rgba(20, 49, 38, 0.07);
+          padding-top: 10px;
         }
       }
 

@@ -677,7 +677,7 @@
           managedTournamentId: "",
           selectedTournamentId: "",
           selectedTournamentBoardTab: "overview",
-          focusedTournamentSection: "control",
+          focusedTournamentSection: "draw",
           resultsStudioView: "overview",
           recentTournamentIds: [],
           recentViewKeys: [],
@@ -891,8 +891,7 @@
             String(record.selectedTournamentBoardTab || "overview").trim().toLowerCase() ||
             "overview",
           focusedTournamentSection:
-            String(record.focusedTournamentSection || "control").trim().toLowerCase() ||
-            "control",
+            String(record.focusedTournamentSection || "draw").trim().toLowerCase() || "draw",
           resultsStudioView: normalizeResultsStudioView(record.resultsStudioView),
           recentTournamentIds: normalizeStringList(record.recentTournamentIds, 8),
           recentViewKeys: normalizeStringList(record.recentViewKeys, 8),
@@ -3417,7 +3416,7 @@
         session.managedTournamentId = "";
         session.selectedTournamentId = "";
         session.selectedTournamentBoardTab = "overview";
-        session.focusedTournamentSection = "control";
+        session.focusedTournamentSection = "draw";
         session.resultsStudioView = "wins";
         session.selectedParticipantKey = "";
         session.peopleSection = "hub";
@@ -11889,7 +11888,7 @@
           if (session.focusedTournamentSection) {
             url.searchParams.set(
               "section",
-              String(session.focusedTournamentSection || "control").trim().toLowerCase(),
+              String(session.focusedTournamentSection || "draw").trim().toLowerCase(),
             );
           }
         } else if (normalizedView === "search" && session.selectedParticipantKey) {
@@ -11928,7 +11927,7 @@
             session.managedTournamentId = "";
             session.selectedTournamentId = "";
             session.selectedTournamentBoardTab = "overview";
-            session.focusedTournamentSection = "control";
+            session.focusedTournamentSection = "draw";
             session.resultsStudioView = "wins";
             session.selectedParticipantKey = "";
           }
@@ -11962,14 +11961,13 @@
           session.selectedTournamentBoardTab =
             String(url.searchParams.get("tab") || "overview").trim().toLowerCase() || "overview";
           session.focusedTournamentSection =
-            String(url.searchParams.get("section") || "control").trim().toLowerCase() ||
-            "control";
+            String(url.searchParams.get("section") || "draw").trim().toLowerCase() || "draw";
           session.resultsStudioView = normalizeResultsStudioView(session.resultsStudioView);
         } else {
           session.managedTournamentId = "";
           session.selectedTournamentId = "";
           session.selectedTournamentBoardTab = "overview";
-          session.focusedTournamentSection = "control";
+          session.focusedTournamentSection = "draw";
           session.resultsStudioView = "wins";
         }
 
@@ -14399,7 +14397,6 @@
         });
         const managerOpsButtons = capabilities.canManageAny && !capabilities.regionalPortalMode && activeManagedTournament
           ? [
-              { section: "control", label: "Overview" },
               { section: "draw", label: "Round Draw" },
               { section: "results", label: "Standings" },
               hasReleasedBreakBoard(activeManagedTournament)
@@ -16151,9 +16148,10 @@
       function renderJudgeManagementStudio(tournament) {
         const judges = getTournamentJudges(tournament);
         const allocations = getJudgeAllocationsForTournament(tournament);
+        const analytics = getJudgeAnalytics(tournament);
 
         return `
-          <section class="flat-panel judge-studio">
+          <section class="flat-panel judge-studio judge-studio-compact">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Judges</p>
@@ -16161,62 +16159,77 @@
               </div>
               <span class="role-pill">${escapeHtml(judges.length)} judges</span>
             </div>
-            <div class="stack">
-              ${renderJudgeAnalyticsPanel(tournament)}
-              <div class="flat-grid">
-                <form class="stack flat-panel judge-add-panel" data-form="add-judge" data-id="${escapeHtml(
-                  tournament.id,
-                )}">
-                  <div class="section-heading">
-                    <div>
-                      <h3>Add Judge</h3>
-                    </div>
+            <div class="judge-ops-strip" aria-label="Judge allocation summary">
+              <div>
+                <span>Ballots submitted</span>
+                <strong>${escapeHtml(analytics.submittedBallots)}</strong>
+              </div>
+              <div>
+                <span>Judge check-ins</span>
+                <strong>${escapeHtml(analytics.checkedInJudges)}</strong>
+              </div>
+              <div>
+                <span>Average turnaround</span>
+                <strong>${escapeHtml(
+                  analytics.averageTurnaround ? analytics.averageTurnaround + " mins" : "—",
+                )}</strong>
+              </div>
+            </div>
+            <div class="judge-workbench">
+              <form class="stack flat-panel judge-add-panel" data-form="add-judge" data-id="${escapeHtml(
+                tournament.id,
+              )}">
+                <div class="section-heading">
+                  <div>
+                    <h3>Add Judge</h3>
                   </div>
-                  <div class="field-grid three">
-                    <label>
-                      Judge Name
-                      <input type="text" name="name" placeholder="Judge name" required />
-                    </label>
-                    <label>
-                      Email
-                      <input type="email" name="email" placeholder="judge@example.com" required />
-                    </label>
-                    <label>
-                      Institution
-                      <input type="text" name="institution" placeholder="Optional institution" />
-                    </label>
-                  </div>
-                  <div class="field-grid three">
-                    <label>
-                      Affiliation
-                      <select name="affiliationType">${getJudgeAffiliationOptionsMarkup(
-                        "institutional",
-                      )}</select>
-                    </label>
-                    <label>
-                      Judge Quality
-                      <select name="panelQuality">${getJudgePanelQualityOptionsMarkup("wing")}</select>
-                    </label>
-                    <label>
-                      Ranking Tier
-                      <select name="qualityTier">${getJudgeQualityOptionsMarkup("solid")}</select>
-                    </label>
-                  </div>
+                </div>
+                <div class="field-grid three">
                   <label>
-                    Notes
-                    <textarea name="notes" rows="2" placeholder="Optional note, specialization, or adjudication history"></textarea>
+                    Judge Name
+                    <input type="text" name="name" placeholder="Judge name" required />
                   </label>
-                  <button type="submit">Add Judge</button>
-                </form>
+                  <label>
+                    Email
+                    <input type="email" name="email" placeholder="judge@example.com" required />
+                  </label>
+                  <label>
+                    Institution
+                    <input type="text" name="institution" placeholder="Optional institution" />
+                  </label>
+                </div>
+                <div class="field-grid three">
+                  <label>
+                    Affiliation
+                    <select name="affiliationType">${getJudgeAffiliationOptionsMarkup(
+                      "institutional",
+                    )}</select>
+                  </label>
+                  <label>
+                    Judge Quality
+                    <select name="panelQuality">${getJudgePanelQualityOptionsMarkup("wing")}</select>
+                  </label>
+                  <label>
+                    Ranking Tier
+                    <select name="qualityTier">${getJudgeQualityOptionsMarkup("solid")}</select>
+                  </label>
+                </div>
+                <label>
+                  Notes
+                  <textarea name="notes" rows="2" placeholder="Optional note, specialization, or adjudication history"></textarea>
+                </label>
+                <button type="submit">Add Judge</button>
+              </form>
 
-                <form class="stack flat-panel judge-assign-panel" data-form="assign-judge" data-id="${escapeHtml(
+              <div class="flat-panel judge-allocation-panel">
+                <div class="section-heading">
+                  <div>
+                    <h3>Allocate Judges</h3>
+                  </div>
+                </div>
+                <form class="stack" data-form="assign-judge" data-id="${escapeHtml(
                   tournament.id,
                 )}">
-                  <div class="section-heading">
-                    <div>
-                      <h3>Assign Judge To Room</h3>
-                    </div>
-                  </div>
                   <div class="field-grid three">
                     <label>
                       Judge
@@ -16227,21 +16240,15 @@
                       <select name="drawId">${getDrawEntryOptionsMarkup(tournament)}</select>
                     </label>
                     <label>
-                      Assignment Role
+                      Role
                       <select name="panelRole">${getJudgeAssignmentRoleOptionsMarkup("auto")}</select>
                     </label>
                   </div>
                   <button type="submit">Assign Judge</button>
                 </form>
-
-                <form class="stack flat-panel judge-auto-panel" data-form="auto-allocate-judges" data-id="${escapeHtml(
+                <form class="stack judge-auto-inline" data-form="auto-allocate-judges" data-id="${escapeHtml(
                   tournament.id,
                 )}">
-                  <div class="section-heading">
-                    <div>
-                      <h3>Auto-Allocate Round Judges</h3>
-                    </div>
-                  </div>
                   <div class="field-grid three">
                     <label>
                       Round
@@ -16253,116 +16260,111 @@
                     </label>
                     <label class="checkbox-row">
                       <input type="checkbox" name="replaceExisting" checked />
-                      <span>Replace existing round allocations</span>
+                      <span>Replace existing allocations</span>
                     </label>
                   </div>
                   <button type="submit">Auto-Allocate</button>
                 </form>
               </div>
+            </div>
 
-              <div class="flat-grid">
-                <div class="flat-panel">
-                  <div class="section-heading">
-                    <div>
-                      <h3>Judge Roster</h3>
-                    </div>
-                    <span class="role-pill">${escapeHtml(judges.length)} active</span>
-                  </div>
-                  ${
-                    judges.length
-                      ? `<div class="leaderboard-list">
-                          ${judges
-                            .map(
-                              (judge) => `
-                                <div class="leaderboard-row">
-                                  <div class="stack">
-                                    <strong>${escapeHtml(judge.name || judge.email)}</strong>
-                                    <span class="muted">${escapeHtml(getJudgeMetadataLine(judge))}</span>
-                                  </div>
-                                  <button class="ghost-button" type="button" data-action="remove-judge" data-id="${escapeHtml(
+            <div class="judge-directory-stack">
+              <details class="directory-accordion" open>
+                <summary>
+                  <strong>Judge Roster</strong>
+                  <span>${escapeHtml(judges.length)} active</span>
+                </summary>
+                ${
+                  judges.length
+                    ? `<div class="leaderboard-list">
+                        ${judges
+                          .map(
+                            (judge) => `
+                              <div class="leaderboard-row">
+                                <div class="stack">
+                                  <strong>${escapeHtml(judge.name || judge.email)}</strong>
+                                  <span class="muted">${escapeHtml(getJudgeMetadataLine(judge))}</span>
+                                </div>
+                                <button class="ghost-button" type="button" data-action="remove-judge" data-id="${escapeHtml(
+                                  tournament.id,
+                                )}" data-judge-email="${escapeHtml(judge.email)}"><span>Remove</span></button>
+                              </div>
+                            `,
+                          )
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">No judges have been added to this tournament yet.</div>`
+                }
+              </details>
+
+              <details class="directory-accordion">
+                <summary>
+                  <strong>Room Allocations</strong>
+                  <span>${escapeHtml(allocations.length)} allocations</span>
+                </summary>
+                ${
+                  allocations.length
+                    ? `<div class="leaderboard-list">
+                        ${allocations
+                          .map(
+                            (allocation) => {
+                              const judge = getJudgeByEmail(tournament, allocation.judgeEmail);
+                              return `
+                              <div class="leaderboard-row">
+                                <div class="stack">
+                                  <strong>${escapeHtml(
+                                    "Round " + allocation.round + " • " + allocation.room,
+                                  )}</strong>
+                                  <span class="muted">${escapeHtml(
+                                    (judge?.name || allocation.judgeEmail) +
+                                      " • " +
+                                      getJudgeAllocationRoleLabel(allocation.panelRole) +
+                                      " • " +
+                                      allocation.matchup,
+                                  )}</span>
+                                  <span class="fine-print">${escapeHtml(
+                                    "Check-in " +
+                                      (allocation.checkedIn ? "recorded" : "pending") +
+                                      " • Priority " +
+                                      getRoomPriorityLabel(
+                                        getDrawEntryById(tournament, allocation.drawId)?.priority || 3,
+                                      ),
+                                  )}</span>
+                                </div>
+                                <div class="button-row">
+                                  <span class="judge-status-pill">${escapeHtml(
+                                    getJudgeAllocationRoleLabel(allocation.panelRole),
+                                  )}</span>
+                                  <span class="judge-status-pill">${escapeHtml(
+                                    toTitleLabel(allocation.status || "assigned"),
+                                  )}</span>
+                                  ${
+                                    allocation.submittedAt
+                                      ? `<button class="secondary-button" type="button" data-action="reopen-ballot" data-id="${escapeHtml(
+                                          tournament.id,
+                                        )}" data-allocation-id="${escapeHtml(
+                                          allocation.id,
+                                        )}"><span>Reopen Ballot</span></button>`
+                                      : ""
+                                  }
+                                  <button class="ghost-button" type="button" data-action="toggle-allocation-checkin" data-id="${escapeHtml(
                                     tournament.id,
-                                  )}" data-judge-email="${escapeHtml(judge.email)}"><span>Remove</span></button>
+                                  )}" data-allocation-id="${escapeHtml(allocation.id)}"><span>${escapeHtml(
+                                    allocation.checkedIn ? "Undo Check-In" : "Check In",
+                                  )}</span></button>
+                                  <button class="ghost-button" type="button" data-action="delete-allocation" data-id="${escapeHtml(
+                                    tournament.id,
+                                  )}" data-allocation-id="${escapeHtml(allocation.id)}"><span>Remove</span></button>
                                 </div>
-                              `,
-                            )
-                            .join("")}
-                        </div>`
-                      : `<div class="empty-state">No judges have been added to this tournament yet.</div>`
-                  }
-                </div>
-
-                <div class="flat-panel">
-                  <div class="section-heading">
-                    <div>
-                      <h3>Room Allocations</h3>
-                    </div>
-                    <span class="role-pill">${escapeHtml(allocations.length)} allocations</span>
-                  </div>
-                  ${
-                    allocations.length
-                      ? `<div class="leaderboard-list">
-                          ${allocations
-                            .map(
-                              (allocation) => {
-                                const judge = getJudgeByEmail(tournament, allocation.judgeEmail);
-                                return `
-                                <div class="leaderboard-row">
-                                  <div class="stack">
-                                    <strong>${escapeHtml(
-                                      "Round " + allocation.round + " • " + allocation.room,
-                                    )}</strong>
-                                    <span class="muted">${escapeHtml(
-                                      (judge?.name || allocation.judgeEmail) +
-                                        " • " +
-                                        getJudgeAllocationRoleLabel(allocation.panelRole) +
-                                        " • " +
-                                        allocation.matchup,
-                                    )}</span>
-                                    <span class="fine-print">${escapeHtml(
-                                      "Check-in " +
-                                        (allocation.checkedIn ? "recorded" : "pending") +
-                                        " • " +
-                                        "Priority " +
-                                        getRoomPriorityLabel(
-                                          getDrawEntryById(tournament, allocation.drawId)?.priority || 3,
-                                        ),
-                                    )}</span>
-                                  </div>
-                                  <div class="button-row">
-                                    <span class="judge-status-pill">${escapeHtml(
-                                      getJudgeAllocationRoleLabel(allocation.panelRole),
-                                    )}</span>
-                                    <span class="judge-status-pill">${escapeHtml(
-                                      toTitleLabel(allocation.status || "assigned"),
-                                    )}</span>
-                                    ${
-                                      allocation.submittedAt
-                                        ? `<button class="secondary-button" type="button" data-action="reopen-ballot" data-id="${escapeHtml(
-                                            tournament.id,
-                                          )}" data-allocation-id="${escapeHtml(
-                                            allocation.id,
-                                          )}"><span>Reopen Ballot</span></button>`
-                                        : ""
-                                    }
-                                    <button class="ghost-button" type="button" data-action="toggle-allocation-checkin" data-id="${escapeHtml(
-                                      tournament.id,
-                                    )}" data-allocation-id="${escapeHtml(allocation.id)}"><span>${escapeHtml(
-                                      allocation.checkedIn ? "Undo Check-In" : "Check In",
-                                    )}</span></button>
-                                    <button class="ghost-button" type="button" data-action="delete-allocation" data-id="${escapeHtml(
-                                      tournament.id,
-                                    )}" data-allocation-id="${escapeHtml(allocation.id)}"><span>Remove</span></button>
-                                  </div>
-                                </div>
-                              `;
-                              },
-                            )
-                            .join("")}
-                        </div>`
-                      : `<div class="empty-state">No judge allocations have been created yet.</div>`
-                  }
-                </div>
-              </div>
+                              </div>
+                            `;
+                            },
+                          )
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">No judge allocations have been created yet.</div>`
+                }
+              </details>
             </div>
           </section>
         `;
@@ -17294,15 +17296,6 @@
 
         const sections = [
           {
-            key: "control",
-            label: "Control Room",
-            note: "Live round state, ballot progress, publication state, and required actions.",
-            badge: snapshot.attentionCount
-              ? snapshot.attentionCount + " warning" + (snapshot.attentionCount === 1 ? "" : "s")
-              : "Stable",
-            render: () => renderTournamentControlRoomPanel(tournament),
-          },
-          {
             key: "roster",
             label: "Team Registration",
             note: "Participants, institutions, teams, and linked entry records.",
@@ -17310,23 +17303,6 @@
               ? tournament.participants.length + " entries"
               : "No entries",
             render: () => renderTournamentRosterStudio(tournament),
-          },
-          {
-            key: "registration",
-            label: "Public Registration",
-            note: "Public debater and judge intake, quick links, and live registration status.",
-            badge: (
-              getTournamentRegistrationSettings(tournament).debaterOpen ||
-              getTournamentRegistrationSettings(tournament).judgeOpen
-            )
-              ? [
-                  getTournamentRegistrationSettings(tournament).debaterOpen ? "Debaters" : "",
-                  getTournamentRegistrationSettings(tournament).judgeOpen ? "Judges" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" • ")
-              : "Closed",
-            render: () => renderTournamentRegistrationStudio(tournament),
           },
           {
             key: "draw",
@@ -17443,7 +17419,7 @@
               ),
           },
         ].filter(Boolean);
-        const allowedKeys = new Set(["control", "results", "notices"]);
+        const allowedKeys = new Set(["results", "notices"]);
         if (breakReleased) {
           allowedKeys.add("breaks");
         }
@@ -17456,7 +17432,6 @@
           allowedKeys.add("motions");
         }
         if (operations) {
-          allowedKeys.add("registration");
           allowedKeys.add("draw");
         }
         if (fullAdmin) {
@@ -17477,10 +17452,10 @@
           feedbackCategories,
           scoringProfile,
         );
-        const preferredRaw = String(session.focusedTournamentSection || "control")
+        const preferredRaw = String(session.focusedTournamentSection || "draw")
           .trim()
           .toLowerCase();
-        const preferred = preferredRaw === "spotlight" ? "control" : preferredRaw;
+        const preferred = preferredRaw === "spotlight" ? "draw" : preferredRaw;
         const active = sections.find((section) => section.key === preferred) || sections[0];
         if (session.focusedTournamentSection !== active.key) {
           session.focusedTournamentSection = active.key;
@@ -29871,8 +29846,7 @@
 
       function queueFocusedTournamentSectionJump(tournamentId, sectionKey) {
         const normalizedTournamentId = String(tournamentId || "").trim();
-        const normalizedSectionKey =
-          String(sectionKey || "control").trim().toLowerCase() || "control";
+        const normalizedSectionKey = String(sectionKey || "draw").trim().toLowerCase() || "draw";
         if (!normalizedTournamentId) {
           pendingTournamentSectionJumpId = "";
           return;
@@ -30314,7 +30288,7 @@
             if (String(session.view || "").startsWith("regional-")) {
               session.managedTournamentId = "";
               session.selectedTournamentId = "";
-              session.focusedTournamentSection = "control";
+              session.focusedTournamentSection = "draw";
               session.selectedTournamentBoardTab = "overview";
               session.resultsStudioView = "wins";
             }
@@ -30338,7 +30312,7 @@
           }
 
           if (action === "open-managed-section") {
-            const section = String(button.dataset.section || "control").trim().toLowerCase() || "control";
+            const section = String(button.dataset.section || "draw").trim().toLowerCase() || "draw";
             const capabilities = getWorkspaceCapabilities();
             const managedTournaments = capabilities.managedTournaments || [];
             let managedTournament = getManagedTournamentForSession();
@@ -30368,7 +30342,7 @@
             const sameTournament = session.managedTournamentId === managedTournament.id;
             session.managedTournamentId = managedTournament.id;
             session.selectedTournamentId = "";
-            session.focusedTournamentSection = section === "spotlight" ? "control" : section;
+            session.focusedTournamentSection = section === "spotlight" ? "draw" : section;
             session.resultsStudioView = sameTournament
               ? normalizeResultsStudioView(session.resultsStudioView)
               : "wins";
@@ -30413,7 +30387,7 @@
             session.focusedTournamentSection =
               sameTournament && session.focusedTournamentSection
                 ? session.focusedTournamentSection
-                : "control";
+                : "draw";
             session.resultsStudioView = sameTournament
               ? normalizeResultsStudioView(session.resultsStudioView)
               : "wins";
@@ -30429,7 +30403,7 @@
           if (action === "open-tournament-section") {
             const tournamentId = String(button.dataset.id || "").trim();
             const section =
-              String(button.dataset.section || "control").trim().toLowerCase() || "control";
+              String(button.dataset.section || "draw").trim().toLowerCase() || "draw";
             if (!tournamentId) {
               setFlash("error", "Select a tournament before opening that section.");
               renderApp();
@@ -30485,7 +30459,7 @@
 
           if (action === "set-focused-tournament-section") {
             session.focusedTournamentSection =
-              String(button.dataset.section || "control").trim().toLowerCase() || "control";
+              String(button.dataset.section || "draw").trim().toLowerCase() || "draw";
             queueFocusedTournamentSectionJump(
               session.managedTournamentId,
               session.focusedTournamentSection,
