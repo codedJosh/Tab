@@ -22907,16 +22907,11 @@
 
         return `
           <section class="surface">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Search</p>
-                <h2>Find people, teams, and tournaments</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(query ? "Results" : "Directory")}</span>
+            <div class="section-heading search-page-heading">
+              <h2>Search</h2>
             </div>
             <form class="workspace-search-form" data-form="workspace-search" role="search" aria-label="Advanced workspace search">
-              <label class="workspace-search-field">
-                Search
+              <label class="workspace-search-field search-field-plain">
                 <input type="search" name="query" value="${escapeHtml(
                   query,
                 )}" list="search-view-suggestions" autocomplete="off" placeholder="Search by name, team, institution, or tournament" />

@@ -4248,6 +4248,18 @@
         gap: 8px;
       }
 
+      .search-page-heading {
+        margin-bottom: 12px;
+      }
+
+      .search-page-heading h2 {
+        font-size: clamp(1.8rem, 3vw, 2.45rem);
+      }
+
+      .search-field-plain {
+        gap: 0;
+      }
+
       .compact-top-search {
         margin-top: 4px;
       }
