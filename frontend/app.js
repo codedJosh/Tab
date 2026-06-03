@@ -14694,20 +14694,8 @@
                     <button type="button" data-action="focus-tournament" data-id="${escapeHtml(
                       activeManagedTournament.id,
                     )}">Open Tab Room</button>
-                    <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
-                      activeManagedTournament.id,
-                    )}" data-section="draw">Open Round Draw</button>
-                    <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
-                      activeManagedTournament.id,
-                    )}" data-section="results">Open Standings</button>
-                    <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
-                      activeManagedTournament.id,
-                    )}" data-section="roster">Open Registration</button>
-                    <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
-                      activeManagedTournament.id,
-                    )}" data-section="judges">Open Judges</button>
-                    <button class="secondary-button" type="button" data-action="set-view" data-view="search">Open Search</button>
-                    <button class="secondary-button" type="button" data-action="set-view" data-view="people">Open Teams & People</button>
+                    <button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">All tournaments</button>
+                    <button class="secondary-button" type="button" data-action="set-view" data-view="launch">Create tournament</button>
                   </div>`
                 : `<div class="manager-home-empty-callout">
                     <div>
@@ -14734,8 +14722,7 @@
           <section class="surface manager-home-panel manager-home-attention">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Next Required Actions</p>
-                <h3>Your tournament queue</h3>
+                <h3>Tournament queue</h3>
               </div>
             </div>
             ${
@@ -14745,6 +14732,11 @@
                       .slice(0, 8)
                       .map((tournament) => {
                         const control = getTournamentControlRoomState(tournament);
+                        const warningLabel = control.snapshot.attentionCount
+                          ? control.snapshot.attentionCount +
+                            " warning" +
+                            (control.snapshot.attentionCount === 1 ? "" : "s")
+                          : "No warnings";
                         return `
                           <div class="leaderboard-row">
                             <div class="stack">
@@ -14760,12 +14752,12 @@
                               <span class="muted">${escapeHtml(control.nextRequiredAction)}</span>
                             </div>
                             <div class="button-row wrap-row">
-                              <span class="mini-pill ${control.snapshot.attentionCount ? "warning" : "success"}">${escapeHtml(
+                              ${
                                 control.snapshot.attentionCount
-                                  ? control.snapshot.attentionCount + " warning" + (control.snapshot.attentionCount === 1 ? "" : "s")
-                                  : "Stable",
-                              )}</span>
-                              <button type="button" data-action="focus-tournament" data-id="${escapeHtml(
+                                  ? `<span class="queue-status warning">${escapeHtml(warningLabel)}</span>`
+                                  : ""
+                              }
+                              <button class="secondary-button" type="button" data-action="focus-tournament" data-id="${escapeHtml(
                                 tournament.id,
                               )}">Open Tab Room</button>
                             </div>
@@ -14776,9 +14768,8 @@
                   </div>`
                 : `<div class="manager-home-empty-callout manager-home-empty-callout-light">
                     <div>
-                      <p class="eyebrow">Nothing urgent yet</p>
-                      <strong>No tournaments need tab room attention.</strong>
-                      <span>Create a tournament or open one you already manage to start building rounds, draws, ballots, and results.</span>
+                      <strong>No tournaments need attention.</strong>
+                      <span>Create or open a tournament to start building rounds, draws, ballots, and results.</span>
                     </div>
                     <button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View tournaments</button>
                   </div>`
@@ -14793,27 +14784,14 @@
             <section class="surface manager-home-panel manager-home-ops">
               <div class="section-heading">
                 <div>
-                  <p class="eyebrow">Account history</p>
                   <h3>Your tournament roles</h3>
                 </div>
               </div>
-              <div class="manager-grid">
-                <div class="stat-card manager-home-stat">
-                  <span class="muted">Managed tournaments</span>
-                  <strong>${escapeHtml(managedTournaments.length)}</strong>
-                </div>
-                <div class="stat-card manager-home-stat">
-                  <span class="muted">Judge assignments</span>
-                  <strong>${escapeHtml(judgeAssignments.length)}</strong>
-                </div>
-                <div class="stat-card manager-home-stat">
-                  <span class="muted">Speaker records</span>
-                  <strong>${escapeHtml(speakerRecords.length)}</strong>
-                </div>
-                <div class="stat-card manager-home-stat">
-                  <span class="muted">Private links</span>
-                  <strong>${escapeHtml(stats.privateLinks)}</strong>
-                </div>
+              <div class="history-summary-list">
+                <div><span>Managed tournaments</span><strong>${escapeHtml(managedTournaments.length)}</strong></div>
+                <div><span>Judge assignments</span><strong>${escapeHtml(judgeAssignments.length)}</strong></div>
+                <div><span>Speaker records</span><strong>${escapeHtml(speakerRecords.length)}</strong></div>
+                <div><span>Private links</span><strong>${escapeHtml(stats.privateLinks)}</strong></div>
               </div>
               <div class="button-row wrap-row compact-actions">
                 ${
@@ -14832,13 +14810,12 @@
             <section class="surface manager-home-panel manager-home-audit">
               <div class="section-heading">
                 <div>
-                  <p class="eyebrow">Audit Trail</p>
                   <h3>Latest tournament actions</h3>
                 </div>
               </div>
               ${
                 recentLogs.length
-                  ? `<ul class="audit-list">
+                  ? `<ul class="audit-list audit-list-clean">
                       ${recentLogs
                         .map(
                           (item) =>
@@ -14850,9 +14827,8 @@
                     </ul>`
                   : `<div class="manager-home-empty-callout manager-home-empty-callout-light">
                       <div>
-                        <p class="eyebrow">Quiet log</p>
-                        <strong>No recent audit events yet.</strong>
-                        <span>Tournament updates, published draws, ballot changes, and tab room actions will appear here.</span>
+                        <strong>No recent tournament actions.</strong>
+                        <span>Published draws, ballot changes, and tab room updates will appear here.</span>
                       </div>
                     </div>`
               }
@@ -17618,35 +17594,16 @@
           );
 
         return `
-          <section class="surface focus-nav-shell">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Tournament Operations</p>
-                <h3>Manage registration, draw, motions, standings, and access.</h3>
-              </div>
-              <span class="role-pill">${escapeHtml(active.label)}</span>
-            </div>
-            <div class="focus-nav-overview">
-              <div>
-                <p class="eyebrow">Current Work Area</p>
-                <h3>${escapeHtml(active.label)}</h3>
-                <p class="muted">${escapeHtml(active.note)}</p>
-              </div>
-              <span class="mini-pill success">${escapeHtml(active.badge)}</span>
-            </div>
-            <div class="focus-nav-grid">
+          <section class="surface focus-nav-shell focus-nav-shell-compact" aria-label="Tournament tools">
+            <div class="focus-nav-grid focus-nav-grid-compact">
               ${sections
                 .map(
                   (section) => {
-                    const actionLabel = getFocusedSectionActionLabel(section.key, section.label);
                     return `
                     <button class="focus-nav-button ${section.key === active.key ? "is-active" : ""}" type="button" data-action="set-focused-tournament-section" data-section="${escapeHtml(
                       section.key,
                     )}">
                       <strong>${escapeHtml(section.label)}</strong>
-                      <span class="muted">${escapeHtml(section.note)}</span>
-                      <span class="focus-nav-badge">Status: ${escapeHtml(section.badge)}</span>
-                      <span class="focus-nav-cta">${escapeHtml(actionLabel)}</span>
                     </button>
                   `;
                   },
@@ -17655,24 +17612,6 @@
             </div>
           </section>
         `;
-      }
-
-      function getFocusedSectionActionLabel(sectionKey = "", fallbackLabel = "Open Section") {
-        const map = {
-          control: "Open Control Room",
-          roster: "Open Team Registration",
-          registration: "Open Public Registration",
-          draw: "Open Draw Lab",
-          motions: "Open Motions",
-          results: "Open Standings",
-          directory: "Open Teams",
-          judges: "Open Judges",
-          setup: "Open Setup",
-          access: "Open Permissions",
-          notices: "Open Notices",
-          history: "Open History",
-        };
-        return map[String(sectionKey || "").trim().toLowerCase()] || ("Open " + fallbackLabel);
       }
 
       function getFocusedSectionShortcutKeys(activeKey = "") {
@@ -17689,21 +17628,8 @@
           <section class="focus-stage-banner">
             <div class="focus-stage-banner-top">
               <div>
-                <p class="eyebrow">Current Section</p>
                 <h3>${escapeHtml(active.label)}</h3>
                 <p class="muted">${escapeHtml(active.note)}</p>
-              </div>
-              <div class="focus-stage-meta">
-                <span class="role-pill">${escapeHtml(active.badge)}</span>
-                <span class="mini-pill success">${escapeHtml(tournament.code)}</span>
-                <span class="mini-pill success">${escapeHtml(getFormatLabel(tournament))}</span>
-                ${
-                  usesFlexibleTournamentSetup(tournament)
-                    ? `<span class="mini-pill warning">${escapeHtml(
-                        getTournamentFlexibleSummary(tournament, 1),
-                      )}</span>`
-                    : ""
-                }
               </div>
             </div>
             ${
@@ -17728,24 +17654,21 @@
       function renderTournamentControlRoomPanel(tournament) {
         const control = getTournamentControlRoomState(tournament);
         const snapshot = control.snapshot;
-        const validationLines = [
-          {
-            label: "Institution clashes",
-            value: snapshot.conflictFlags,
-          },
-          {
-            label: "Rooms missing chairs",
-            value: snapshot.chairlessRooms,
-          },
-          {
-            label: "Published rooms missing ballots",
-            value: snapshot.pendingBallotRooms,
-          },
-          {
-            label: "Draft rooms",
-            value: snapshot.draftRooms,
-          },
-        ];
+        const watchpoints = [
+          ...snapshot.attention,
+          snapshot.conflictFlags
+            ? snapshot.conflictFlags + " institution clash" + (snapshot.conflictFlags === 1 ? "" : "es")
+            : "",
+          snapshot.chairlessRooms
+            ? snapshot.chairlessRooms + " room" + (snapshot.chairlessRooms === 1 ? "" : "s") + " missing chairs"
+            : "",
+          snapshot.pendingBallotRooms
+            ? snapshot.pendingBallotRooms +
+              " published room" +
+              (snapshot.pendingBallotRooms === 1 ? "" : "s") +
+              " missing ballots"
+            : "",
+        ].filter(Boolean);
 
         return `
           <section class="surface spotlight-shell">
@@ -17754,9 +17677,6 @@
                 <p class="eyebrow">Tournament Control Room</p>
                 <h2>${escapeHtml("Round " + control.activeRound + " • " + control.lifecycle)}</h2>
               </div>
-              <span class="role-pill">${escapeHtml(snapshot.attentionCount)} warning${
-                snapshot.attentionCount === 1 ? "" : "s"
-              }</span>
             </div>
             <div class="spotlight-grid">
               <article class="spotlight-card">
@@ -17829,35 +17749,22 @@
                 </div>
               </article>
             </div>
-            <div class="spotlight-watchlist">
-              ${validationLines
-                .map(
-                  (line) => `
-                    <div class="spotlight-note">
-                      <span class="mini-pill ${line.value ? "warning" : "success"}">${escapeHtml(
-                        line.value ? "Warning" : "Clear",
-                      )}</span>
-                      <span>${escapeHtml(line.label + ": " + line.value)}</span>
-                    </div>
-                  `,
-                )
-                .join("")}
-              ${
-                snapshot.attention.length
-                  ? snapshot.attention
-                      .slice(0, 3)
+            ${
+              watchpoints.length
+                ? `<div class="spotlight-watchlist compact-watchlist">
+                    ${watchpoints
+                      .slice(0, 4)
                       .map(
                         (item) => `
-                          <div class="spotlight-note">
-                            <span class="mini-pill warning">Attention</span>
+                          <div class="spotlight-note spotlight-note-warning">
                             <span>${escapeHtml(item)}</span>
                           </div>
                         `,
                       )
-                      .join("")
-                  : `<div class="spotlight-note"><span class="mini-pill success">Stable</span><span>No urgent operational blockers detected.</span></div>`
-              }
-            </div>
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state compact-empty-state">No urgent operational blockers detected.</div>`
+            }
           </section>
         `;
       }
@@ -19467,14 +19374,6 @@
         const scoringProfile = getScoringProfile(tournament);
         const pinned = isTournamentPinned(tournament.id);
         const control = getTournamentControlRoomState(tournament);
-        const registration = getTournamentRegistrationSettings(tournament);
-        const registrationLive =
-          tournament.status === "open" && (registration.debaterOpen || registration.judgeOpen);
-        const registrationStatusLabel = registrationLive
-          ? [registration.debaterOpen ? "Debaters" : "", registration.judgeOpen ? "Judges" : ""]
-              .filter(Boolean)
-              .join(" + ") + " open"
-          : "Closed";
         const drawStatusLabel = control.snapshot.nextDraftRound
           ? "Round " + control.snapshot.nextDraftRound + " draft"
           : control.snapshot.latestPublishedRound
@@ -19488,6 +19387,20 @@
         const primaryActionLabel = control.snapshot.nextUnbuiltRound
           ? "Generate draw for Round " + primaryRound
           : "Open round draw";
+        const stateLine = [
+          getFormatLabel(tournament),
+          "Round " + control.activeRound,
+          control.lifecycle,
+          drawStatusLabel,
+        ]
+          .filter(Boolean)
+          .join(" • ");
+        const standingsActionLabel = tournament.publication.showPublicStandings
+          ? "Hide standings"
+          : "Publish standings";
+        const standingsAction = tournament.publication.showPublicStandings
+          ? "hide-public-standings"
+          : "publish-public-standings";
         const sectionState = getFocusedTournamentSectionState(
           tournament,
           feedbackCategories,
@@ -19500,20 +19413,13 @@
               <div>
                 <p class="eyebrow">Tournament Control Room</p>
                 <h2>${escapeHtml(tournament.name)}</h2>
-                <p class="hero-copy">Live operations for rounds, draws, ballots, standings, judges, and publication.</p>
-              </div>
-              <div class="workspace-chip-row">
-                <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
-                  toTitleLabel(tournament.status),
-                )}</span>
-                <span class="role-pill">${escapeHtml(tournament.code)}</span>
-                <span class="role-pill">${escapeHtml(getFormatLabel(tournament))}</span>
+                <p class="workspace-state-line">${escapeHtml(stateLine)}</p>
               </div>
             </div>
             <div class="workspace-control-room-grid">
               <div class="workspace-control-room-main">
                 <div class="workspace-control-room-next">
-                  <p class="eyebrow">Next Required Action</p>
+                  <p class="eyebrow">Next action</p>
                   <h3>${escapeHtml(control.nextRequiredAction)}</h3>
                   <div class="button-row wrap-row">
                     <button class="button-primary workspace-control-room-primary button-size-large" type="button" data-action="set-focused-tournament-section" data-section="draw">${escapeHtml(
@@ -19538,32 +19444,29 @@
                     <span class="muted">Draw status</span>
                     <strong>${escapeHtml(drawStatusLabel)}</strong>
                   </div>
-                  <div class="workspace-stat">
-                    <span class="muted">Public registration</span>
-                    <strong>${escapeHtml(registrationStatusLabel)}</strong>
-                  </div>
-                  <div class="workspace-stat">
-                    <span class="muted">Warnings</span>
-                    <strong>${escapeHtml(control.snapshot.attentionCount)}</strong>
-                  </div>
                 </div>
               </div>
               <div class="workspace-control-room-actions">
-                <p class="eyebrow">Quick Actions</p>
+                <p class="eyebrow">Actions</p>
                 <div class="workspace-action-row workspace-action-row-secondary">
-                  <button class="button-primary workspace-secondary-action" type="button" data-action="clear-focused-tournament">Overview</button>
-                  <button class="button-primary workspace-secondary-action" type="button" data-action="close-tournament" data-id="${escapeHtml(
-                    tournament.id,
-                  )}" ${tournament.status === "closed" || tournament.status === "archived" ? "disabled" : ""}>Close tournament</button>
-                  <button class="button-primary workspace-secondary-action" type="button" data-action="hide-public-standings" data-id="${escapeHtml(
-                    tournament.id,
-                  )}" ${!tournament.publication.showPublicStandings ? "disabled" : ""}>Hide standings</button>
-                  <button class="button-primary workspace-secondary-action" type="button" data-action="publish-public-standings" data-id="${escapeHtml(
-                    tournament.id,
-                  )}" ${tournament.publication.showPublicStandings ? "disabled" : ""}>Publish standings</button>
-                  <button class="button-primary workspace-secondary-action" type="button" data-action="pin-tournament" data-id="${escapeHtml(
-                    tournament.id,
-                  )}" ${pinned ? "disabled" : ""}>Pin tournament</button>
+                  <button class="secondary-button workspace-utility-action" type="button" data-action="clear-focused-tournament">Overview</button>
+                  ${
+                    tournament.status !== "closed" && tournament.status !== "archived"
+                      ? `<button class="secondary-button workspace-utility-action" type="button" data-action="close-tournament" data-id="${escapeHtml(
+                          tournament.id,
+                        )}">Close tournament</button>`
+                      : ""
+                  }
+                  <button class="secondary-button workspace-utility-action" type="button" data-action="${escapeHtml(
+                    standingsAction,
+                  )}" data-id="${escapeHtml(tournament.id)}">${escapeHtml(standingsActionLabel)}</button>
+                  ${
+                    pinned
+                      ? ""
+                      : `<button class="secondary-button workspace-utility-action" type="button" data-action="pin-tournament" data-id="${escapeHtml(
+                          tournament.id,
+                        )}">Pin tournament</button>`
+                  }
                   <button class="danger-button button-size-small" type="button" data-action="archive-tournament" data-id="${escapeHtml(
                     tournament.id,
                   )}" ${tournament.status === "archived" ? "disabled" : ""}>Archive tournament</button>
@@ -19572,31 +19475,29 @@
             </div>
           </section>
 
-          <section class="surface spotlight-shell">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Operational Summary</p>
-                <h3>Current watchpoints and validation checks</h3>
-              </div>
-            </div>
-            <div class="spotlight-watchlist">
-              ${
-                control.snapshot.attention.length
-                  ? control.snapshot.attention
+          ${
+            control.snapshot.attention.length
+              ? `<section class="surface spotlight-shell compact-watchlist-shell">
+                  <div class="section-heading">
+                    <div>
+                      <h3>Watchpoints</h3>
+                    </div>
+                  </div>
+                  <div class="spotlight-watchlist compact-watchlist">
+                    ${control.snapshot.attention
                       .slice(0, 4)
                       .map(
                         (item) => `
-                          <div class="spotlight-note">
-                            <span class="mini-pill warning">Attention</span>
+                          <div class="spotlight-note spotlight-note-warning">
                             <span>${escapeHtml(item)}</span>
                           </div>
                         `,
                       )
-                      .join("")
-                  : `<div class="spotlight-note"><span class="mini-pill success">Stable</span><span>No urgent operational blockers detected.</span></div>`
-              }
-            </div>
-          </section>
+                      .join("")}
+                  </div>
+                </section>`
+              : ""
+          }
 
           ${renderFocusedTournamentNavigator(
             tournament,
