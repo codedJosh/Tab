@@ -10017,4 +10017,390 @@
           min-height: 36px;
         }
       }
+
+      /* Dashboard geometry refactor: consistent grids, compact status, quieter cards. */
+      @media (min-width: 940px) {
+        .workspace-shell {
+          width: min(calc(100vw - 24px), 1540px) !important;
+          margin-left: 8px !important;
+          margin-right: auto !important;
+          grid-template-columns: minmax(206px, 238px) minmax(0, 1fr) !important;
+          gap: 12px !important;
+        }
+
+        .content-panel {
+          width: 100%;
+          max-width: 1280px;
+          justify-self: start;
+        }
+      }
+
+      .content-panel,
+      .focus-stage-shell,
+      .focus-stage-body,
+      .roster-studio,
+      .public-registration-studio,
+      .judges-studio {
+        gap: 16px;
+      }
+
+      .section-card {
+        display: grid;
+        gap: 12px;
+        min-width: 0;
+        padding: 16px;
+        border: 1px solid rgba(15, 57, 42, 0.12);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow:
+          0 10px 30px rgba(15, 57, 42, 0.05),
+          inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      }
+
+      .section-card .section-heading {
+        margin-bottom: 0;
+      }
+
+      .two-column-grid,
+      .public-intake-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        align-items: stretch;
+      }
+
+      .public-intake-card {
+        align-content: start;
+      }
+
+      .copy-link-field {
+        display: block;
+        max-width: 100%;
+        padding: 10px 12px;
+        border: 1px solid rgba(15, 57, 42, 0.12);
+        border-radius: 12px;
+        background: rgba(246, 251, 248, 0.8);
+        color: var(--ink);
+        font-size: 11px;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+      }
+
+      .compact-disclosure {
+        padding: 10px 12px;
+        border: 1px solid rgba(15, 57, 42, 0.1);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.62);
+      }
+
+      .compact-disclosure > summary {
+        cursor: pointer;
+        list-style: none;
+        font-size: 11px;
+        font-weight: 650;
+        color: var(--ink);
+      }
+
+      .compact-disclosure > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .compact-disclosure > summary::after {
+        content: "Show";
+        float: right;
+        color: var(--muted);
+        font-size: var(--text-overline);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .compact-disclosure[open] > summary::after {
+        content: "Hide";
+      }
+
+      .status-bar.focus-watchpoints-shell {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 12px;
+        border: 1px solid rgba(176, 132, 36, 0.15);
+        border-radius: 14px;
+        background: rgba(255, 250, 237, 0.58);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.78),
+          0 8px 18px rgba(77, 59, 17, 0.04);
+      }
+
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        padding: 0 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .status-chip-warning {
+        border: 1px solid rgba(176, 132, 36, 0.2);
+        background: rgba(255, 255, 255, 0.72);
+        color: #6f4f12;
+      }
+
+      .focus-nav-shell {
+        padding: 10px;
+      }
+
+      .focus-nav-grid {
+        grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)) !important;
+        gap: 8px !important;
+      }
+
+      .focus-nav-button {
+        min-height: 48px !important;
+        height: 48px;
+        padding: 8px 12px !important;
+        border-radius: 12px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+
+      .focus-nav-button strong {
+        font-size: 12px !important;
+        line-height: 1.15;
+      }
+
+      .control-room-compact {
+        display: grid;
+        gap: 12px;
+        align-content: start;
+      }
+
+      .control-room-compact-head {
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        padding-bottom: 2px;
+      }
+
+      .control-room-round-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 14px;
+        border: 1px solid rgba(15, 57, 42, 0.1);
+        border-radius: 16px;
+        background: linear-gradient(135deg, rgba(246, 251, 248, 0.9), rgba(255, 255, 255, 0.68));
+      }
+
+      .control-room-round-header h3,
+      .control-room-round-header p {
+        margin: 0;
+      }
+
+      .control-room-primary {
+        white-space: nowrap;
+      }
+
+      .control-room-compact-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+      }
+
+      .control-room-next,
+      .control-room-metric {
+        min-height: auto !important;
+        padding: 12px !important;
+        border-radius: 14px !important;
+        background: rgba(255, 255, 255, 0.74) !important;
+      }
+
+      .control-room-next {
+        align-items: start;
+      }
+
+      .control-room-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-start;
+      }
+
+      .registration-grid {
+        display: grid;
+        grid-template-columns: minmax(300px, 0.9fr) minmax(460px, 1.4fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .participant-entry-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px;
+      }
+
+      .span-2 {
+        grid-column: span 2;
+      }
+
+      .roster-form-panel > button,
+      .participant-entry-form > button,
+      .judge-add-panel > button,
+      .judge-assign-panel > button,
+      .judge-auto-panel > button {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .judges-grid {
+        display: grid;
+        grid-template-columns: minmax(500px, 1.2fr) minmax(340px, 0.8fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .judge-side-stack,
+      .judge-record-grid {
+        gap: 16px;
+      }
+
+      .judge-analytics-panel .workspace-stat-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .judge-analytics-panel .leaderboard-list:empty {
+        display: none;
+      }
+
+      .tournament-list-shell {
+        gap: 16px;
+      }
+
+      .tournament-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+        gap: 16px;
+      }
+
+      .tournament-list-item {
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.88);
+      }
+
+      .tournament-list-summary {
+        padding: 14px 16px;
+      }
+
+      .tournament-list-summary::after {
+        content: "▾";
+        width: auto;
+        height: auto;
+        background: transparent;
+        border-radius: 0;
+        color: rgba(15, 57, 42, 0.62);
+        font-size: 16px;
+      }
+
+      .tournament-list-item[open] .tournament-list-summary::after {
+        content: "▴";
+      }
+
+      .tournament-list-body {
+        gap: 12px;
+        padding: 0 16px 16px;
+      }
+
+      .tournament-list-body .tournament-switch-stats {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .tournament-list-body .tournament-switch-stat {
+        min-height: 66px;
+        padding: 12px;
+        border: 1px solid rgba(15, 57, 42, 0.08);
+        border-radius: 14px;
+        background: rgba(246, 251, 248, 0.78);
+      }
+
+      .tournament-list-body .tournament-switch-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .tournament-list-body .tournament-switch-actions button {
+        width: auto;
+        min-width: 96px;
+        min-height: 34px;
+      }
+
+      .danger-button.danger-ghost-button {
+        background: rgba(255, 255, 255, 0.8) !important;
+        color: #9f1d1d !important;
+        border-color: rgba(159, 29, 29, 0.22) !important;
+        box-shadow: none !important;
+      }
+
+      .danger-button.danger-ghost-button:hover {
+        background: rgba(159, 29, 29, 0.08) !important;
+        color: #7d1515 !important;
+      }
+
+      .content-panel .empty-state {
+        padding: 18px;
+        border-radius: 14px;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.52);
+        border-style: dashed;
+      }
+
+      @media (max-width: 900px) {
+        .two-column-grid,
+        .public-intake-grid,
+        .registration-grid,
+        .judges-grid,
+        .control-room-round-header,
+        .control-room-compact-grid {
+          grid-template-columns: 1fr !important;
+        }
+
+        .span-2 {
+          grid-column: auto;
+        }
+
+        .control-room-primary,
+        .control-room-round-header button {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .focus-nav-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+
+        .status-chip {
+          white-space: normal;
+        }
+
+        .tournament-list-body .tournament-switch-stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .tournament-list-body .tournament-switch-actions {
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+
+        .tournament-list-body .tournament-switch-actions button {
+          width: 100%;
+        }
+      }
     
