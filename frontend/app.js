@@ -914,11 +914,29 @@
       }
 
       function normalizeResultsStudioView(value = "") {
-        const normalized = String(value || "overview").trim().toLowerCase();
-        if (["overview", "teams", "speakers", "institutions", "breaks"].includes(normalized)) {
+        const normalized = String(value || "wins").trim().toLowerCase();
+        const legacyMap = {
+          overview: "wins",
+          teams: "wins",
+          institutions: "points",
+          breaks: "wins",
+        };
+        const mapped = legacyMap[normalized] || normalized;
+        if (["wins", "speakers", "points"].includes(mapped)) {
+          return mapped;
+        }
+        if (["overview", "teams", "institutions", "breaks"].includes(normalized)) {
+          return legacyMap[normalized] || "wins";
+        }
+        return "wins";
+      }
+
+      function normalizeBreakStudioView(value = "") {
+        const normalized = String(value || "break").trim().toLowerCase();
+        if (["break", "projection"].includes(normalized)) {
           return normalized;
         }
-        return "overview";
+        return "break";
       }
 
       function normalizePeopleDirectoryFilter(value = "") {
@@ -3400,7 +3418,7 @@
         session.selectedTournamentId = "";
         session.selectedTournamentBoardTab = "overview";
         session.focusedTournamentSection = "control";
-        session.resultsStudioView = "overview";
+        session.resultsStudioView = "wins";
         session.selectedParticipantKey = "";
         session.peopleSection = "hub";
         session.selectedPeopleEmail = "";
@@ -5953,6 +5971,17 @@
           cutStanding: standings[cut - 1] || null,
           nextStanding: standings[cut] || null,
         };
+      }
+
+      function hasReleasedBreakBoard(tournament) {
+        const board = getBreakBoard(tournament);
+        return Boolean(
+          tournament?.publication?.showPublicStandings &&
+            board &&
+            Number(board.breakSize || 0) > 0 &&
+            Array.isArray(board.breaking) &&
+            board.breaking.length > 0,
+        );
       }
 
       function getOutroundEligibleEntryCatalog(tournament, roundProfile = {}) {
@@ -10521,6 +10550,7 @@
             dashboardListed: payload.dashboardListed,
             showPublicStandings: payload.publicStandings,
             showPublicDraw: payload.publicDraw,
+            showTeamPointsBoard: Boolean(payload.showTeamPointsBoard),
             usePublicTeamAliases: Boolean(payload.usePublicTeamAliases),
             showStandingsInPrivatePortal: true,
             showDrawInPrivatePortal: true,
@@ -11094,6 +11124,7 @@
               dashboardListed: true,
               showPublicStandings: true,
               showPublicDraw: true,
+              showTeamPointsBoard: false,
               usePublicTeamAliases: false,
               showStandingsInPrivatePortal: true,
               showDrawInPrivatePortal: true,
@@ -11898,7 +11929,7 @@
             session.selectedTournamentId = "";
             session.selectedTournamentBoardTab = "overview";
             session.focusedTournamentSection = "control";
-            session.resultsStudioView = "overview";
+            session.resultsStudioView = "wins";
             session.selectedParticipantKey = "";
           }
           return false;
@@ -11939,7 +11970,7 @@
           session.selectedTournamentId = "";
           session.selectedTournamentBoardTab = "overview";
           session.focusedTournamentSection = "control";
-          session.resultsStudioView = "overview";
+          session.resultsStudioView = "wins";
         }
 
         if (session.view === "search") {
@@ -14348,7 +14379,7 @@
         const activeManagedTournament = capabilities.regionalPortalMode
           ? null
           : capabilities.canManageAny
-          ? getManagedTournamentForSession() || (capabilities.managedTournaments || [])[0] || null
+          ? getManagedTournamentForSession()
           : null;
         const regionalAssignment = getRegionalAssignmentForEmail() || "Manager-wide";
         const menuVisibleTournaments = getVisibleTournaments();
@@ -14376,11 +14407,14 @@
           ? [
               { section: "control", label: "Overview" },
               { section: "draw", label: "Round Draw" },
-              { section: "results", label: "Standings" },
+              activeManagedTournament ? { section: "results", label: "Standings" } : null,
+              activeManagedTournament && hasReleasedBreakBoard(activeManagedTournament)
+                ? { section: "breaks", label: "Break" }
+                : null,
               { section: "judges", label: "Judges" },
               { section: "motions", label: "Motions" },
               { section: "roster", label: "Teams" },
-            ]
+            ].filter(Boolean)
           : [];
 
         return `
@@ -15756,6 +15790,12 @@
                   tournament.publication.showPublicDraw,
                 )} />
                 <span>Show draw publicly</span>
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" name="showTeamPointsBoard" ${checked(
+                  tournament.publication.showTeamPointsBoard,
+                )} />
+                <span>Show team points board</span>
               </label>
               <label class="checkbox-row">
                 <input type="checkbox" name="usePublicTeamAliases" ${checked(
@@ -17295,6 +17335,7 @@
         const teams = getTournamentTeams(tournament).length;
         const standings = getComputedStandings(tournament);
         const noticeCount = Array.isArray(tournament.notices) ? tournament.notices.length : 0;
+        const breakReleased = hasReleasedBreakBoard(tournament);
         const access = getTournamentAccess(tournament);
         const fullAdmin = hasFullTournamentAdminAccess(access);
         const operations = hasTournamentOperationsAccess(access);
@@ -17358,7 +17399,7 @@
           {
             key: "results",
             label: "Standings",
-            note: "Standings, speaker rankings, breaks, and institution performance.",
+            note: "Team win points, public speaker scores, and optional team point totals.",
             badge: snapshot.pendingBallotRooms
               ? snapshot.pendingBallotRooms + " pending"
               : standings.length
@@ -17366,6 +17407,17 @@
                 : "Awaiting ballots",
             render: () => renderTournamentResultsStudio(tournament),
           },
+          breakReleased
+            ? {
+                key: "breaks",
+                label: "Break",
+                note: "Released break board and qualification line.",
+                badge: getBreakBoard(tournament)?.breaking?.length
+                  ? getBreakBoard(tournament).breaking.length + " breaking"
+                  : "Released",
+                render: () => renderTournamentBreakStudio(tournament),
+              }
+            : null,
           {
             key: "directory",
             label: "Teams",
@@ -17441,8 +17493,11 @@
                 { eyebrow: "History", open: true },
               ),
           },
-        ];
+        ].filter(Boolean);
         const allowedKeys = new Set(["control", "results", "notices"]);
+        if (breakReleased) {
+          allowedKeys.add("breaks");
+        }
         if (peopleAccess || judgeAccess) {
           allowedKeys.add("roster");
           allowedKeys.add("directory");
@@ -17504,15 +17559,12 @@
               ${sections
                 .map(
                   (section) => {
-                    const actionLabel = getFocusedSectionActionLabel(section.key, section.label);
                     return `
                     <button class="focus-nav-button ${section.key === active.key ? "is-active" : ""}" type="button" data-action="set-focused-tournament-section" data-section="${escapeHtml(
                       section.key,
                     )}">
                       <strong>${escapeHtml(section.label)}</strong>
                       <span class="muted">${escapeHtml(section.note)}</span>
-                      <span class="focus-nav-badge">Status: ${escapeHtml(section.badge)}</span>
-                      <span class="focus-nav-cta">${escapeHtml(actionLabel)}</span>
                     </button>
                   `;
                   },
@@ -17523,65 +17575,9 @@
         `;
       }
 
-      function getFocusedSectionActionLabel(sectionKey = "", fallbackLabel = "Open Section") {
-        const map = {
-          control: "Open Control Room",
-          roster: "Open Team Registration",
-          registration: "Open Public Registration",
-          draw: "Open Draw Lab",
-          motions: "Open Motions",
-          results: "Open Standings",
-          directory: "Open Teams",
-          judges: "Open Judges",
-          setup: "Open Setup",
-          access: "Open Permissions",
-          notices: "Open Notices",
-          history: "Open History",
-        };
-        return map[String(sectionKey || "").trim().toLowerCase()] || ("Open " + fallbackLabel);
-      }
-
-      function getFocusedSectionShortcutKeys(activeKey = "") {
-        const ordered = ["control", "roster", "draw", "motions", "results", "judges", "setup"];
-        return ordered.filter((key) => key !== activeKey).slice(0, 3);
-      }
-
-      function renderFocusedSectionStageBanner(tournament, active, sections = []) {
-        const shortcuts = getFocusedSectionShortcutKeys(active.key)
-          .map((key) => sections.find((section) => section.key === key))
-          .filter(Boolean);
-
-        return `
-          <section class="focus-stage-banner">
-            <div class="focus-stage-banner-top">
-              <div>
-                <h3>${escapeHtml(active.label)}</h3>
-                <p class="muted">${escapeHtml(active.note)}</p>
-              </div>
-            </div>
-            ${
-              shortcuts.length
-                ? `<div class="focus-stage-links">
-                    ${shortcuts
-                      .map(
-                        (section) => `
-                          <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="${escapeHtml(
-                            section.key,
-                          )}">${escapeHtml(section.label)}</button>
-                        `,
-                      )
-                      .join("")}
-                  </div>`
-                : ""
-            }
-          </section>
-        `;
-      }
-
-      function renderTournamentControlRoomPanel(tournament) {
-        const control = getTournamentControlRoomState(tournament);
-        const snapshot = control.snapshot;
-        const watchpoints = [
+      function getTournamentWatchpoints(tournament) {
+        const snapshot = getTournamentOpsSnapshot(tournament);
+        return [
           ...snapshot.attention,
           snapshot.conflictFlags
             ? snapshot.conflictFlags + " institution clash" + (snapshot.conflictFlags === 1 ? "" : "es")
@@ -17596,6 +17592,39 @@
               " missing ballots"
             : "",
         ].filter(Boolean);
+      }
+
+      function renderFocusedTournamentWatchpoints(tournament) {
+        const watchpoints = getTournamentWatchpoints(tournament);
+        if (!watchpoints.length) {
+          return "";
+        }
+
+        return `
+          <section class="surface focus-watchpoints-shell">
+            <div class="section-heading">
+              <h3>Watchpoints</h3>
+            </div>
+            <div class="focus-watchpoints-list">
+              ${watchpoints
+                .slice(0, 5)
+                .map(
+                  (item) => `
+                    <div class="focus-watchpoint-item">
+                      <span></span>
+                      <strong>${escapeHtml(item)}</strong>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>
+          </section>
+        `;
+      }
+
+      function renderTournamentControlRoomPanel(tournament) {
+        const control = getTournamentControlRoomState(tournament);
+        const snapshot = control.snapshot;
 
         return `
           <section class="surface spotlight-shell">
@@ -17676,22 +17705,6 @@
                 </div>
               </article>
             </div>
-            ${
-              watchpoints.length
-                ? `<div class="spotlight-watchlist compact-watchlist">
-                    ${watchpoints
-                      .slice(0, 4)
-                      .map(
-                        (item) => `
-                          <div class="spotlight-note spotlight-note-warning">
-                            <span>${escapeHtml(item)}</span>
-                          </div>
-                        `,
-                      )
-                      .join("")}
-                  </div>`
-                : `<div class="empty-state compact-empty-state">No urgent operational blockers detected.</div>`
-            }
           </section>
         `;
       }
@@ -19014,196 +19027,150 @@
         `;
       }
 
-      function renderTournamentResultsStudio(tournament) {
+      function renderTeamPointsTotalsTable(tournament) {
         const standings = getComputedStandings(tournament);
-        const speakerStandings = getSpeakerStandings(tournament);
+        if (!standings.length) {
+          return `<div class="empty-state">Team point totals will appear once judge ballots are submitted.</div>`;
+        }
+
+        const rows = standings
+          .map((standing) => ({
+            name: getStandingDisplayName(tournament, standing, { forcePrivate: true }),
+            institution: standing.institution || standing.school || "",
+            speaks: Number(standing.speaks || standing.cumulativeSpeakerScore || 0),
+            points: Number(standing.points || 0),
+          }))
+          .sort(
+            (left, right) =>
+              Number(right.speaks || 0) - Number(left.speaks || 0) ||
+              Number(right.points || 0) - Number(left.points || 0) ||
+              String(left.name || "").localeCompare(String(right.name || "")),
+          );
+
+        return `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Team</th>
+                  <th>Institution</th>
+                  <th>Total speaker points</th>
+                  <th>Team win points</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows
+                  .map(
+                    (row, index) => `
+                      <tr>
+                        <td>${escapeHtml(index + 1)}</td>
+                        <td>${escapeHtml(row.name)}</td>
+                        <td>${escapeHtml(row.institution || "Independent")}</td>
+                        <td>${escapeHtml(formatScoreValue(row.speaks))}</td>
+                        <td>${escapeHtml(formatScoreValue(row.points))}</td>
+                      </tr>
+                    `,
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function renderTournamentBreakStudio(tournament) {
+        return `
+          <section class="surface break-studio-shell">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Break</p>
+                <h2>Released break board</h2>
+              </div>
+            </div>
+            <div class="standings-board-card">
+              ${renderBreakBoardPanel(tournament, {
+                showEmpty: false,
+              })}
+            </div>
+          </section>
+        `;
+      }
+
+      function renderTournamentResultsStudio(tournament) {
         const teamPointStandings = usesTeamPointStandings(tournament);
-        const resultsView = normalizeResultsStudioView(session.resultsStudioView);
+        const canShowSpeakers = canManageTournament(tournament) || tournament.publication.showPublicStandings;
+        const canShowTeamPointTotals = Boolean(tournament.publication.showTeamPointsBoard);
+        const resultsViewOptions = [
+          {
+            key: "wins",
+            label: "Team win points",
+          },
+          canShowSpeakers
+            ? {
+            key: "speakers",
+            label: "Speaker scores",
+              }
+            : null,
+          canShowTeamPointTotals
+            ? {
+                key: "points",
+                label: "Team points",
+              }
+            : null,
+        ].filter(Boolean);
+        let resultsView = normalizeResultsStudioView(session.resultsStudioView);
+        if (!resultsViewOptions.some((option) => option.key === resultsView)) {
+          resultsView = "wins";
+        }
         if (session.resultsStudioView !== resultsView) {
           session.resultsStudioView = resultsView;
         }
 
-        const resultsViewOptions = [
-          {
-            key: "overview",
-            label: "Overview",
-            badge: "Summary",
-          },
-          {
-            key: "teams",
-            label: teamPointStandings ? "Team board" : "Standings board",
-            badge: standings.length + " ranked",
-          },
-          {
-            key: "speakers",
-            label: "Speaker board",
-            badge: speakerStandings.length + " speakers",
-          },
-          {
-            key: "institutions",
-            label: "Institution board",
-            badge: "Breakdown",
-          },
-          {
-            key: "breaks",
-            label: "Break board",
-            badge: "Projection",
-          },
-        ];
-
-        const overviewPanelMarkup = `
-          <div class="stack">
-            <div class="alert info">
-              These boards now update automatically from judge ballots. Judges submit speaker scores by room, and the app recalculates standings and speaker rankings for you.
-            </div>
-            ${renderBreakProjectionPanel(tournament, {
-              showEmpty: true,
-            })}
-            ${renderBreakBoardPanel(tournament, {
-              showEmpty: true,
-            })}
-            <div class="leaderboard-grid">
-              <div class="leaderboard-card">
-                <div class="section-heading">
-                  <h3>${escapeHtml(
-                    teamPointStandings ? "Top Team Board" : "Top Standings",
-                  )}</h3>
-                </div>
-                ${
-                  standings.length
-                    ? `<div class="leaderboard-list">
-                        ${standings
-                          .slice(0, 5)
-                          .map(
-                            (standing) => `
-                              <div class="leaderboard-row">
-                                <div class="button-row">
-                                  <span class="leaderboard-rank">${escapeHtml(
-                                    standing.rank || "",
-                                  )}</span>
-                                  <strong>${escapeHtml(
-                                    getStandingDisplayName(tournament, standing, {
-                                      forcePrivate: true,
-                                    }),
-                                  )}</strong>
-                                </div>
-                                <span class="muted">${escapeHtml(getStandingSummaryText(tournament, standing))}</span>
-                              </div>
-                            `,
-                          )
-                          .join("")}
-                      </div>`
-                    : `<div class="empty-state">Team standings will appear once judge ballots are submitted.</div>`
-                }
-              </div>
-              <div class="leaderboard-card">
-                <div class="section-heading">
-                  <h3>Top Speaker Board</h3>
-                </div>
-                ${
-                  speakerStandings.length
-                    ? `<div class="leaderboard-list">
-                        ${speakerStandings
-                          .slice(0, 5)
-                          .map(
-                            (participant) => `
-                              <div class="leaderboard-row">
-                                <div class="speaker-score-cell">
-                                  <div class="button-row">
-                                    <span class="leaderboard-rank">${escapeHtml(
-                                      participant.speakerRank || "",
-                                    )}</span>
-                                    <strong>${escapeHtml(participant.name)}</strong>
-                                  </div>
-                                  <span class="muted">${escapeHtml(
-                                    participant.teamName
-                                      ? participant.teamName +
-                                          (participant.institution
-                                            ? " • " + participant.institution
-                                            : "")
-                                      : participant.institution || "Individual",
-                                  )}</span>
-                                  ${renderSpeakerScoreBreakdownMarkup(participant)}
-                                </div>
-                                <div class="speaker-score-cell">
-                                  ${renderSpeakerScoreSummaryMarkup(participant)}
-                                  ${renderParticipantProfileButton(
-                                    participant,
-                                    "Open Profile",
-                                    true,
-                                  )}
-                                </div>
-                              </div>
-                            `,
-                          )
-                          .join("")}
-                      </div>`
-                    : `<div class="empty-state">Speaker rankings will appear once judge ballots are submitted.</div>`
-                }
-              </div>
-            </div>
-          </div>
-        `;
-
-        const teamsPanelMarkup = `
-          <section class="flat-panel stack">
+        const winsPanelMarkup = `
+          <div class="standings-board-card">
             <div class="section-heading">
               <h3>${escapeHtml(
-                teamPointStandings ? "Team Standings" : "Standings Board",
+                teamPointStandings ? "Team win points standings" : "Team standings",
               )}</h3>
             </div>
             ${renderStandingsTable(tournament, true, true)}
-          </section>
+          </div>
         `;
 
         const speakersPanelMarkup = `
-          <section class="flat-panel stack">
+          <div class="standings-board-card">
             <div class="section-heading">
-              <h3>Speaker Rankings</h3>
+              <h3>Speaker scores</h3>
             </div>
             ${renderSpeakerStandingsTable(tournament)}
-          </section>
+          </div>
         `;
 
-        const institutionsPanelMarkup = `
-          ${renderInstitutionDashboardPanel(tournament)}
-        `;
-
-        const breaksPanelMarkup = `
-          <div class="stack">
-            ${renderBreakProjectionPanel(tournament, {
-              showEmpty: true,
-            })}
-            ${renderBreakBoardPanel(tournament, {
-              showEmpty: true,
-            })}
+        const pointsPanelMarkup = `
+          <div class="standings-board-card">
+            <div class="section-heading">
+              <h3>Team points</h3>
+            </div>
+            ${renderTeamPointsTotalsTable(tournament)}
           </div>
         `;
 
         const resultsViewContent = {
-          overview: overviewPanelMarkup,
-          teams: teamsPanelMarkup,
+          wins: winsPanelMarkup,
           speakers: speakersPanelMarkup,
-          institutions: institutionsPanelMarkup,
-          breaks: breaksPanelMarkup,
+          points: pointsPanelMarkup,
         };
 
         return `
-          <section class="surface">
+          <section class="surface standings-studio-shell">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Standings</p>
-                <h2>Team and speaker boards</h2>
+                <h2>Choose one standings board</h2>
               </div>
-              <span class="role-pill">${escapeHtml(
-                teamPointStandings
-                  ? "Teams and speakers"
-                  : tournament.participantModel === "hybrid"
-                    ? "Hybrid standings"
-                  : "Individual standings",
-              )}</span>
             </div>
-            <div class="button-row wrap-row">
+            <div class="button-row wrap-row standings-subnav">
               ${resultsViewOptions
                 .map(
                   (option) => `
@@ -19219,19 +19186,7 @@
                 )
                 .join("")}
             </div>
-            <div class="section-heading">
-              <h3>${escapeHtml(
-                resultsViewOptions.find((option) => option.key === resultsView)?.label ||
-                  "Overview",
-              )}</h3>
-              <span class="role-pill">${escapeHtml(
-                resultsViewOptions.find((option) => option.key === resultsView)?.badge ||
-                  "Summary",
-              )}</span>
-            </div>
-            <div class="stack">
-              ${resultsViewContent[resultsView] || overviewPanelMarkup}
-            </div>
+            ${resultsViewContent[resultsView] || winsPanelMarkup}
           </section>
         `;
       }
@@ -19261,21 +19216,20 @@
           feedbackCategories,
           scoringProfile,
         );
-        const { sections, active } = sectionState;
+        const { active } = sectionState;
         return `
-          ${renderTournamentBanner(tournament)}
-
           ${renderFocusedTournamentNavigator(
             tournament,
             feedbackCategories,
             scoringProfile,
             sectionState,
           )}
+          ${renderFocusedTournamentWatchpoints(tournament)}
+          ${renderTournamentBanner(tournament)}
           <div
             id="${escapeHtml(getFocusedTournamentSectionId(tournament, active.key))}"
             class="focus-anchor focus-stage-shell"
           >
-            ${renderFocusedSectionStageBanner(tournament, active, sections)}
             <div class="focus-stage-body">
               ${active.render()}
             </div>
@@ -22616,31 +22570,25 @@
           return renderParticipantProfilePanel(selectedProfile);
         }
         const results = query ? getWorkspaceSearchResults(query) : null;
-        const featuredProfiles = getParticipantDirectoryRecords()
-          .sort(
-            (left, right) =>
-              Number(right.tournamentsCount) - Number(left.tournamentsCount) ||
-              Number(right.averageSpeakerScore || 0) - Number(left.averageSpeakerScore || 0),
-          )
-          .slice(0, 8);
 
         return `
-          <section class="surface">
-            <div class="section-heading search-page-heading">
-              <h2>Search</h2>
-            </div>
-            <form class="workspace-search-form" data-form="workspace-search" role="search" aria-label="Advanced workspace search">
+          <section class="surface search-simple-shell">
+            <form class="simple-search-form" data-form="workspace-search" role="search" aria-label="Workspace search">
               <label class="workspace-search-field search-field-plain">
+                <span>Search</span>
                 <input type="search" name="query" value="${escapeHtml(
                   query,
-                )}" list="search-view-suggestions" autocomplete="off" placeholder="Search by name, team, institution, or tournament" />
+                )}" autocomplete="off" placeholder="Search by name, team, institution, or tournament" />
               </label>
-              <div class="button-row wrap-row">
+              <div class="simple-search-actions">
                 <button type="submit">Search</button>
-                <button class="secondary-button" type="button" data-action="clear-workspace-search">Clear Search</button>
+                ${
+                  query
+                    ? `<button class="secondary-button" type="button" data-action="clear-workspace-search">Clear</button>`
+                    : ""
+                }
               </div>
             </form>
-            ${renderSearchAssist(query, "search-view-suggestions")}
           </section>
 
           ${
@@ -22697,20 +22645,7 @@
                   </div>
                 </section>
               `
-              : `
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Directory</p>
-                      <h2>People with tournament history</h2>
-                    </div>
-                    <span class="role-pill">${escapeHtml(featuredProfiles.length)} featured</span>
-                  </div>
-                  ${renderParticipantSearchCards(featuredProfiles, {
-                    emptyMessage: "Profile history will appear here as tournaments are populated.",
-                  })}
-                </section>
-              `
+              : ""
           }
         `;
       }
@@ -27254,6 +27189,10 @@
             tournament.publication.dashboardListed = boolFromForm(formData, "dashboardListed");
             tournament.publication.showPublicStandings = boolFromForm(formData, "publicStandings");
             tournament.publication.showPublicDraw = boolFromForm(formData, "publicDraw");
+            tournament.publication.showTeamPointsBoard = boolFromForm(
+              formData,
+              "showTeamPointsBoard",
+            );
             tournament.publication.usePublicTeamAliases = boolFromForm(
               formData,
               "usePublicTeamAliases",
@@ -30437,7 +30376,7 @@
               session.selectedTournamentId = "";
               session.focusedTournamentSection = "control";
               session.selectedTournamentBoardTab = "overview";
-              session.resultsStudioView = "overview";
+              session.resultsStudioView = "wins";
             }
             if (session.view === "people") {
               session.peopleSection = "hub";
@@ -30492,7 +30431,7 @@
             session.focusedTournamentSection = section === "spotlight" ? "control" : section;
             session.resultsStudioView = sameTournament
               ? normalizeResultsStudioView(session.resultsStudioView)
-              : "overview";
+              : "wins";
             queueFocusedTournamentSectionJump(
               session.managedTournamentId,
               session.focusedTournamentSection,
@@ -30537,7 +30476,7 @@
                 : "control";
             session.resultsStudioView = sameTournament
               ? normalizeResultsStudioView(session.resultsStudioView)
-              : "overview";
+              : "wins";
             recordRecentTournament(session.managedTournamentId);
             recordRecentView(session.view);
             clearFlash();
@@ -30563,7 +30502,7 @@
             session.focusedTournamentSection = section;
             session.resultsStudioView = sameTournament
               ? normalizeResultsStudioView(session.resultsStudioView)
-              : "overview";
+              : "wins";
             queueFocusedTournamentSectionJump(tournamentId, section);
             recordRecentTournament(session.managedTournamentId);
             recordRecentView(session.view);
@@ -30583,7 +30522,7 @@
             session.selectedTournamentBoardTab =
               sameTournament && session.selectedTournamentBoardTab
                 ? session.selectedTournamentBoardTab
-                : "overview";
+                : "wins";
             recordRecentTournament(session.selectedTournamentId);
             recordRecentView(session.view);
             clearFlash();
@@ -30612,7 +30551,7 @@
               session.focusedTournamentSection,
             );
             if (session.focusedTournamentSection !== "results") {
-              session.resultsStudioView = "overview";
+              session.resultsStudioView = "wins";
             }
             clearFlash();
             saveSession();
