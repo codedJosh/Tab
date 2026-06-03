@@ -15955,12 +15955,11 @@
         ).length;
 
         return `
-          <section class="surface public-registration-studio">
+          <section class="surface">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Registration</p>
-                <h2>Public intake</h2>
-                <p class="muted">Share live links for debaters and judges.</p>
+                <h2>Public intake and quick roster building</h2>
               </div>
               <span class="role-pill">${escapeHtml(
                 [registration.debaterOpen ? "Debaters open" : "", registration.judgeOpen ? "Judges open" : ""]
@@ -15968,15 +15967,17 @@
                   .join(" • ") || "Closed",
               )}</span>
             </div>
-            <div class="two-column-grid public-intake-grid">
-              <div class="section-card public-intake-card">
+            <div class="leaderboard-grid">
+              <div class="leaderboard-card">
                 <div class="section-heading">
                   <div>
                     <h3>Debater registration</h3>
-                    <p class="fine-print">Public debater intake link.</p>
+                    <p class="fine-print">
+                      Self-registration adds roster records faster and drops the competitor into their private links immediately after signup.
+                    </p>
                   </div>
                   <span class="mini-pill ${debaterAvailability.open ? "success" : "warning"}">${escapeHtml(
-                    debaterAvailability.open ? "Live publicly" : "Not live",
+                    debaterAvailability.open ? "Live Publicly" : "Not Live",
                   )}</span>
                 </div>
                 <div class="workspace-chip-row">
@@ -15995,27 +15996,30 @@
                     ? `<p class="muted">${escapeHtml(registration.debaterNote)}</p>`
                     : ""
                 }
-                <a class="token-link copy-link-field" href="${escapeHtml(links.debater)}" target="_blank" rel="noreferrer">${escapeHtml(
+                <p class="fine-print">${escapeHtml(debaterAvailability.reason)}</p>
+                <a class="token-link" href="${escapeHtml(links.debater)}" target="_blank" rel="noreferrer">${escapeHtml(
                   links.debater,
                 )}</a>
                 <div class="button-row wrap-row">
-                  <button type="button" data-action="copy-public-registration-link" data-url="${escapeAttributeValue(
+                  <button class="secondary-button" type="button" data-action="copy-public-registration-link" data-url="${escapeAttributeValue(
                     links.debater,
-                  )}" data-label="Debater registration link">Copy link</button>
+                  )}" data-label="Debater registration link">Copy Debater Link</button>
                   <a class="secondary-button inline-link" href="${escapeHtml(
                     links.debater,
-                  )}" target="_blank" rel="noreferrer">Open page</a>
-                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="roster">Open roster</button>
+                  )}" target="_blank" rel="noreferrer">Open Page</a>
+                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="roster">Open Roster</button>
                 </div>
               </div>
-              <div class="section-card public-intake-card">
+              <div class="leaderboard-card">
                 <div class="section-heading">
                   <div>
                     <h3>Judge registration</h3>
-                    <p class="fine-print">Public judge intake link.</p>
+                    <p class="fine-print">
+                      Judges can declare whether they are independent or institutionally affiliated, and JADE will enforce institution clashes in allocations.
+                    </p>
                   </div>
                   <span class="mini-pill ${judgeAvailability.open ? "success" : "warning"}">${escapeHtml(
-                    judgeAvailability.open ? "Live publicly" : "Not live",
+                    judgeAvailability.open ? "Live Publicly" : "Not Live",
                   )}</span>
                 </div>
                 <div class="workspace-chip-row">
@@ -16034,40 +16038,34 @@
                     ? `<p class="muted">${escapeHtml(registration.judgeNote)}</p>`
                     : ""
                 }
-                <a class="token-link copy-link-field" href="${escapeHtml(links.judge)}" target="_blank" rel="noreferrer">${escapeHtml(
+                <p class="fine-print">${escapeHtml(judgeAvailability.reason)}</p>
+                <a class="token-link" href="${escapeHtml(links.judge)}" target="_blank" rel="noreferrer">${escapeHtml(
                   links.judge,
                 )}</a>
                 <div class="button-row wrap-row">
-                  <button type="button" data-action="copy-public-registration-link" data-url="${escapeAttributeValue(
+                  <button class="secondary-button" type="button" data-action="copy-public-registration-link" data-url="${escapeAttributeValue(
                     links.judge,
-                  )}" data-label="Judge registration link">Copy link</button>
+                  )}" data-label="Judge registration link">Copy Judge Link</button>
                   <a class="secondary-button inline-link" href="${escapeHtml(
                     links.judge,
-                  )}" target="_blank" rel="noreferrer">Open page</a>
-                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="judges">Open judges</button>
+                  )}" target="_blank" rel="noreferrer">Open Page</a>
+                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="judges">Open Judges</button>
                 </div>
               </div>
             </div>
-            <details class="compact-disclosure visibility-disclosure">
-              <summary>Visibility rules</summary>
-              <p class="fine-print">Registration pages appear when enabled in Setup and the tournament is open and listed.</p>
-              <p class="fine-print">${escapeHtml(
-                [debaterAvailability.reason, judgeAvailability.reason]
-                  .filter(Boolean)
-                  .join(" ")
-                  .trim(),
-              )}</p>
-            </details>
+            <div class="alert info">
+              Public registration only appears when the tournament is <strong>open</strong>, <strong>listed on the dashboard</strong>, and the matching debater or judge toggle is on in <strong>Setup</strong>.
+            </div>
           </section>
         `;
       }
 
       function renderParticipantEntryForm(tournament) {
         return `
-          <form class="stack compact-stack participant-entry-form" data-form="add-participant" data-id="${escapeHtml(
+          <form class="stack compact-stack" data-form="add-participant" data-id="${escapeHtml(
             tournament.id,
           )}">
-            <div class="field-grid two participant-entry-grid">
+            <div class="field-grid four">
               <label>
                 Speaker Name
                 <input type="text" name="name" placeholder="Speaker or participant name" required />
@@ -16086,11 +16084,11 @@
                   ${getTeamOptionsMarkup(tournament)}
                 </select>
               </label>
-              <label class="span-2">
-                Team Name
-                <input type="text" name="teamName" placeholder="Optional manual team name" />
-              </label>
             </div>
+            <label>
+              Team Name
+              <input type="text" name="teamName" placeholder="Optional manual team name" />
+            </label>
             ${renderParticipantScoreFields(tournament)}
             <button type="submit">Add Speaker</button>
           </form>
@@ -16206,19 +16204,18 @@
         const allocations = getJudgeAllocationsForTournament(tournament);
 
         return `
-          <section class="surface judges-studio">
+          <section class="flat-panel">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Judges</p>
                 <h2>Roster and room allocations</h2>
-                <p class="muted">Add judges, assign rooms, or auto-allocate by round.</p>
               </div>
               <span class="role-pill">${escapeHtml(judges.length)} judges</span>
             </div>
             <div class="stack">
               ${renderJudgeAnalyticsPanel(tournament)}
-              <div class="judges-grid">
-                <form class="stack section-card judge-add-panel" data-form="add-judge" data-id="${escapeHtml(
+              <div class="flat-grid">
+                <form class="stack flat-panel" data-form="add-judge" data-id="${escapeHtml(
                   tournament.id,
                 )}">
                   <div class="section-heading">
@@ -16263,8 +16260,7 @@
                   <button type="submit">Add Judge</button>
                 </form>
 
-                <div class="stack judge-side-stack">
-                <form class="stack section-card judge-assign-panel" data-form="assign-judge" data-id="${escapeHtml(
+                <form class="stack flat-panel" data-form="assign-judge" data-id="${escapeHtml(
                   tournament.id,
                 )}">
                   <div class="section-heading">
@@ -16289,7 +16285,7 @@
                   <button type="submit">Assign Judge</button>
                 </form>
 
-                <form class="stack section-card judge-auto-panel" data-form="auto-allocate-judges" data-id="${escapeHtml(
+                <form class="stack flat-panel" data-form="auto-allocate-judges" data-id="${escapeHtml(
                   tournament.id,
                 )}">
                   <div class="section-heading">
@@ -16313,11 +16309,10 @@
                   </div>
                   <button type="submit">Auto-Allocate</button>
                 </form>
-                </div>
               </div>
 
-              <div class="flat-grid judge-record-grid">
-                <div class="section-card">
+              <div class="flat-grid">
+                <div class="flat-panel">
                   <div class="section-heading">
                     <div>
                       <h3>Judge Roster</h3>
@@ -16347,7 +16342,7 @@
                   }
                 </div>
 
-                <div class="section-card">
+                <div class="flat-panel">
                   <div class="section-heading">
                     <div>
                       <h3>Room Allocations</h3>
@@ -17599,17 +17594,6 @@
         ].filter(Boolean);
       }
 
-      function getCompactWatchpointLabel(item) {
-        return String(item || "")
-          .replace(/Registration has not started yet\.?/i, "Registration not started")
-          .replace(/No judges have been added to this tournament\.?/i, "No judges added")
-          .replace(/No draw rooms have been created yet\.?/i, "No draw rooms created")
-          .replace(/published rooms missing ballots/i, "rooms missing ballots")
-          .replace(/\bthis tournament\b/gi, "tournament")
-          .replace(/\.$/, "")
-          .trim();
-      }
-
       function renderFocusedTournamentWatchpoints(tournament) {
         const watchpoints = getTournamentWatchpoints(tournament);
         if (!watchpoints.length) {
@@ -17617,17 +17601,23 @@
         }
 
         return `
-          <section class="status-bar focus-watchpoints-shell" aria-label="Tournament watchpoints">
-            ${watchpoints
-              .slice(0, 6)
-              .map(
-                (item) => `
-                  <span class="status-chip status-chip-warning">
-                    ${escapeHtml(getCompactWatchpointLabel(item))}
-                  </span>
-                `,
-              )
-              .join("")}
+          <section class="surface focus-watchpoints-shell">
+            <div class="section-heading">
+              <h3>Watchpoints</h3>
+            </div>
+            <div class="focus-watchpoints-list">
+              ${watchpoints
+                .slice(0, 5)
+                .map(
+                  (item) => `
+                    <div class="focus-watchpoint-item">
+                      <span></span>
+                      <strong>${escapeHtml(item)}</strong>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>
           </section>
         `;
       }
@@ -17635,16 +17625,6 @@
       function renderTournamentControlRoomPanel(tournament) {
         const control = getTournamentControlRoomState(tournament);
         const snapshot = control.snapshot;
-        const registration = getTournamentRegistrationSettings(tournament);
-        const registrationLabel =
-          registration.debaterOpen || registration.judgeOpen
-            ? [
-                registration.debaterOpen ? "Debaters" : "",
-                registration.judgeOpen ? "Judges" : "",
-              ]
-                .filter(Boolean)
-                .join(" + ") + " open"
-            : "Not started";
         const drawLabel = snapshot.nextDraftRound
           ? "Round " + snapshot.nextDraftRound + " waiting"
           : snapshot.latestPublishedRound
@@ -17657,23 +17637,29 @@
             <div class="control-room-compact-head">
               <div>
                 <h2>${escapeHtml(tournament.name)}</h2>
-                <p class="muted">${escapeHtml(tournament.rounds + " rounds • " + tournament.format)}</p>
+                <p class="muted">${escapeHtml(
+                  "Round " +
+                    control.activeRound +
+                    " • " +
+                    control.lifecycle +
+                    " • " +
+                    tournament.format,
+                )}</p>
               </div>
-              <span class="role-pill">${escapeHtml(control.lifecycle)}</span>
-            </div>
-            <div class="control-room-round-header">
-              <div>
-                <h3>${escapeHtml("Round " + control.activeRound)}</h3>
-                <p class="muted">${escapeHtml(control.lifecycle + " round · " + tournament.format)}</p>
-              </div>
-              <button class="control-room-primary" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+              <button type="button" data-action="open-tournament-section" data-id="${escapeHtml(
                 tournament.id,
-              )}" data-section="${escapeHtml(control.nextSection)}">${escapeHtml(control.nextRequiredAction)}</button>
+              )}" data-section="${escapeHtml(control.nextSection)}">${escapeHtml(
+                control.nextRequiredAction,
+              )}</button>
             </div>
             <div class="control-room-compact-grid">
-              <div class="control-room-metric">
-                <span>Registration</span>
-                <strong>${escapeHtml(registrationLabel)}</strong>
+              <div class="control-room-next">
+                <span>Next action</span>
+                <strong>${escapeHtml(control.nextRequiredAction)}</strong>
+                <p>${escapeHtml(
+                  snapshot.attention[0] ||
+                    "No blockers are currently flagged for this tournament.",
+                )}</p>
               </div>
               <div class="control-room-metric">
                 <span>Ballots</span>
@@ -17688,21 +17674,14 @@
                 <strong>${escapeHtml(standingsLabel)}</strong>
               </div>
             </div>
-            <div class="control-room-next">
-              <span>Next action</span>
-              <strong>${escapeHtml(control.nextRequiredAction)}</strong>
-              <p>${escapeHtml(
-                snapshot.attention[0] || "No blockers are currently flagged for this tournament.",
-              )}</p>
-            </div>
             <div class="control-room-actions" aria-label="Control room actions">
               <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
                 tournament.id,
-              )}" data-section="draw">Open round draw</button>
+              )}" data-section="draw">Round draw</button>
               <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
                 tournament.id,
-              )}" data-section="results">View standings</button>
-              <button class="ghost-button" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
+              )}" data-section="standings">Standings</button>
+              <button class="secondary-button" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
                 tournament.id,
               )}">${escapeHtml(
                 tournament.publication.showPublicStandings ? "Hide standings" : "Publish standings",
@@ -17734,18 +17713,7 @@
             <summary class="tournament-list-summary">
               <div class="tournament-switch-title">
                 <strong>${escapeHtml(tournament.name)}</strong>
-                <span>${escapeHtml(
-                  tournament.rounds +
-                    " rounds · " +
-                    tournament.participants.length +
-                    " speakers · " +
-                    teamCount +
-                    " teams · " +
-                    judgeCount +
-                    " judges",
-                )}</span>
               </div>
-              <span>${escapeHtml(tournament.status === "archived" ? "Archived" : "Visible")}</span>
             </summary>
             <div class="tournament-list-body">
               <div class="tournament-switch-stats">
@@ -17773,7 +17741,7 @@
                 <button class="secondary-button" type="button" data-action="${escapeHtml(
                   archiveAction,
                 )}" data-id="${escapeHtml(tournament.id)}">${escapeHtml(archiveLabel)}</button>
-                <button class="danger-button danger-ghost-button" type="button" data-action="${escapeHtml(
+                <button class="danger-button" type="button" data-action="${escapeHtml(
                   deleteAction,
                 )}" data-id="${escapeHtml(tournament.id)}">Delete</button>
               </div>
@@ -17897,18 +17865,17 @@
 
       function renderTournamentRosterStudio(tournament) {
         return `
-          <section class="surface roster-studio">
+          <section class="surface">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Registration</p>
                 <h2>Teams and speakers</h2>
-                <p class="muted">Add teams manually or link speakers to existing teams.</p>
               </div>
-              <span class="role-pill">${escapeHtml(tournament.participants.length)} speakers</span>
+              <span class="role-pill">Efficient entry setup</span>
             </div>
             <div class="stack">
-              <div class="registration-grid roster-entry-grid">
-                <form class="stack section-card roster-form-panel" data-form="add-team" data-id="${escapeHtml(
+              <div class="flat-grid roster-entry-grid">
+                <form class="stack flat-panel roster-form-panel" data-form="add-team" data-id="${escapeHtml(
                   tournament.id,
                 )}">
                   <div class="section-heading">
@@ -17934,7 +17901,7 @@
                   </label>
                   <button type="submit">Add Team</button>
                 </form>
-                <div class="section-card stack roster-speaker-panel roster-speaker-layout">
+                <div class="flat-panel stack roster-speaker-panel roster-speaker-layout">
                   <div class="section-heading">
                     <div>
                       <h3>Add Speaker</h3>
@@ -17946,7 +17913,7 @@
                   })}
                 </div>
               </div>
-              <div class="section-card stack roster-speaker-list-panel roster-speaker-layout">
+              <div class="flat-panel stack roster-speaker-list-panel roster-speaker-layout">
                 <div class="section-heading">
                   <div>
                     <h3>Speaker Roster</h3>
@@ -18259,11 +18226,11 @@
         const analytics = getJudgeAnalytics(tournament);
         const canSeeManagerOnly = canViewManagerOnlyTournamentFeedback(tournament);
         return `
-          <div class="section-card judge-analytics-panel">
+          <div class="flat-panel">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Judge Analytics</p>
-                <h3>Allocation overview</h3>
+                <h3>Allocation quality, feedback, and judge impact</h3>
               </div>
               <span class="role-pill">${escapeHtml(analytics.records.length)} judges</span>
             </div>
@@ -18279,7 +18246,7 @@
               <div class="workspace-stat">
                 <span class="muted">Average turnaround</span>
                 <strong>${escapeHtml(
-                  analytics.averageTurnaround ? analytics.averageTurnaround + " mins" : "—",
+                  analytics.averageTurnaround ? analytics.averageTurnaround + " mins" : "Building",
                 )}</strong>
               </div>
             </div>
