@@ -10482,6 +10482,7 @@
           status: "open",
           notes: payload.notes || "",
           announcement: payload.announcement || "",
+          bannerImage: payload.bannerImage || "",
           config: {
             teamsPerRoom,
             teamSize,
@@ -11064,6 +11065,7 @@
                 MANAGER_EMAIL,
             ),
             participantModel,
+            bannerImage: String(tournament.bannerImage || tournament.bannerUrl || "").trim(),
             config: {
               teamsPerRoom: 2,
               teamSize: 2,
@@ -14648,9 +14650,6 @@
         const stats = getOverviewStats();
         const capabilities = getWorkspaceCapabilities();
         const visibleTournaments = getVisibleTournaments();
-        const publicDraws = visibleTournaments.filter(
-          (tournament) => tournament.publication.showPublicDraw,
-        ).length;
         const judgeAssignments = getJudgeAssignments();
         const speakerRecords = getParticipantDirectoryRecords(session.userEmail, {
           includeHidden: true,
@@ -14666,115 +14665,8 @@
           .slice(0, 8);
 
         const managedTournaments = capabilities.managedTournaments || [];
-        const activeManagedTournament = getManagedTournamentForSession() || managedTournaments[0] || null;
-        const managedQueue = [...managedTournaments].sort((left, right) => {
-          const leftState = getTournamentControlRoomState(left);
-          const rightState = getTournamentControlRoomState(right);
-          return (
-            Number(rightState.snapshot.attentionCount || 0) - Number(leftState.snapshot.attentionCount || 0) ||
-            String(left.name || "").localeCompare(String(right.name || ""))
-          );
-        });
 
         return `
-          <section class="surface manager-home-control">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Tournament workspace</p>
-                <h2>${
-                  activeManagedTournament
-                    ? escapeHtml(activeManagedTournament.name)
-                    : "Create or open a tournament"
-                }</h2>
-              </div>
-            </div>
-            ${
-              activeManagedTournament
-                ? `<div class="button-row wrap-row">
-                    <button type="button" data-action="focus-tournament" data-id="${escapeHtml(
-                      activeManagedTournament.id,
-                    )}">Open Tab Room</button>
-                    <button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">All tournaments</button>
-                    <button class="secondary-button" type="button" data-action="set-view" data-view="launch">Create tournament</button>
-                  </div>`
-                : `<div class="manager-home-empty-callout">
-                    <div>
-                      <p class="eyebrow">Open-use tabbing</p>
-                      <strong>Anyone signed in can create and run a tournament.</strong>
-                      <span>Create a tournament, open an existing one, or use your judge and speaker history when your account is linked to a tournament.</span>
-                    </div>
-                    <div class="button-row wrap-row">
-                      <button type="button" data-action="set-view" data-view="tournaments">Open tournaments</button>
-                      ${
-                        capabilities.canLaunchTournaments
-                          ? `<button class="secondary-button" type="button" data-action="set-view" data-view="launch">Create tournament</button>`
-                          : ""
-                      }
-                    </div>
-                  </div>`
-            }
-          </section>
-          ${
-            activeManagedTournament
-              ? renderTournamentControlRoomPanel(activeManagedTournament)
-              : ""
-          }
-          <section class="surface manager-home-panel manager-home-attention">
-            <div class="section-heading">
-              <div>
-                <h3>Tournament queue</h3>
-              </div>
-            </div>
-            ${
-              managedQueue.length
-                ? `<div class="leaderboard-list">
-                    ${managedQueue
-                      .slice(0, 8)
-                      .map((tournament) => {
-                        const control = getTournamentControlRoomState(tournament);
-                        const warningLabel = control.snapshot.attentionCount
-                          ? control.snapshot.attentionCount +
-                            " warning" +
-                            (control.snapshot.attentionCount === 1 ? "" : "s")
-                          : "No warnings";
-                        return `
-                          <div class="leaderboard-row">
-                            <div class="stack">
-                              <strong>${escapeHtml(tournament.name)}</strong>
-                              <span class="muted">${escapeHtml(
-                                "Round " +
-                                  control.activeRound +
-                                  " • " +
-                                  control.lifecycle +
-                                  " • Ballots " +
-                                  control.ballotProgress.label,
-                              )}</span>
-                              <span class="muted">${escapeHtml(control.nextRequiredAction)}</span>
-                            </div>
-                            <div class="button-row wrap-row">
-                              ${
-                                control.snapshot.attentionCount
-                                  ? `<span class="queue-status warning">${escapeHtml(warningLabel)}</span>`
-                                  : ""
-                              }
-                              <button class="secondary-button" type="button" data-action="focus-tournament" data-id="${escapeHtml(
-                                tournament.id,
-                              )}">Open Tab Room</button>
-                            </div>
-                          </div>
-                        `;
-                      })
-                      .join("")}
-                  </div>`
-                : `<div class="manager-home-empty-callout manager-home-empty-callout-light">
-                    <div>
-                      <strong>No tournaments need attention.</strong>
-                      <span>Create or open a tournament to start building rounds, draws, ballots, and results.</span>
-                    </div>
-                    <button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View tournaments</button>
-                  </div>`
-            }
-          </section>
           ${renderRoleHomeNoticePanel({
             capabilities,
             visibleTournaments,
@@ -15926,6 +15818,19 @@
                 tournament.announcement,
               )}</textarea>
             </label>
+            <label>
+              Tournament banner image
+              <input type="file" name="bannerFile" accept="image/*" />
+              <span class="fine-print">Upload a wide rectangular image for this tournament. If no banner is uploaded, no banner appears above the workspace.</span>
+            </label>
+            ${
+              String(tournament.bannerImage || "").trim()
+                ? `<label class="checkbox-row">
+                    <input type="checkbox" name="removeBannerImage" />
+                    <span>Remove current tournament banner</span>
+                  </label>`
+                : ""
+            }
             <label>
               Custom rules
               <textarea name="customRules" rows="3">${escapeHtml(
@@ -17594,16 +17499,20 @@
           );
 
         return `
-          <section class="surface focus-nav-shell focus-nav-shell-compact" aria-label="Tournament tools">
-            <div class="focus-nav-grid focus-nav-grid-compact">
+          <section class="surface focus-nav-shell" aria-label="Tournament tools">
+            <div class="focus-nav-grid">
               ${sections
                 .map(
                   (section) => {
+                    const actionLabel = getFocusedSectionActionLabel(section.key, section.label);
                     return `
                     <button class="focus-nav-button ${section.key === active.key ? "is-active" : ""}" type="button" data-action="set-focused-tournament-section" data-section="${escapeHtml(
                       section.key,
                     )}">
                       <strong>${escapeHtml(section.label)}</strong>
+                      <span class="muted">${escapeHtml(section.note)}</span>
+                      <span class="focus-nav-badge">Status: ${escapeHtml(section.badge)}</span>
+                      <span class="focus-nav-cta">${escapeHtml(actionLabel)}</span>
                     </button>
                   `;
                   },
@@ -17612,6 +17521,24 @@
             </div>
           </section>
         `;
+      }
+
+      function getFocusedSectionActionLabel(sectionKey = "", fallbackLabel = "Open Section") {
+        const map = {
+          control: "Open Control Room",
+          roster: "Open Team Registration",
+          registration: "Open Public Registration",
+          draw: "Open Draw Lab",
+          motions: "Open Motions",
+          results: "Open Standings",
+          directory: "Open Teams",
+          judges: "Open Judges",
+          setup: "Open Setup",
+          access: "Open Permissions",
+          notices: "Open Notices",
+          history: "Open History",
+        };
+        return map[String(sectionKey || "").trim().toLowerCase()] || ("Open " + fallbackLabel);
       }
 
       function getFocusedSectionShortcutKeys(activeKey = "") {
@@ -17770,121 +17697,61 @@
       }
 
       function renderTournamentSwitchCard(tournament, activeId = "") {
-        const access = toTitleLabel(getTournamentAccess(tournament));
         const canManage = canManageTournament(tournament);
-        const canPin = Boolean(getCurrentUser());
-        const pinned = isTournamentPinned(tournament.id);
         const archivedForUser = isTournamentArchivedForUser(tournament.id);
-        const snapshot = getTournamentOpsSnapshot(tournament);
         const teamCount = getTournamentTeams(tournament).length;
-        const judgeCount = snapshot.judges || 0;
-        const metadataBits = [
-          tournament.code,
-          access,
-          canManage && snapshot.attentionCount
-            ? snapshot.attentionCount + " watchpoint" + (snapshot.attentionCount === 1 ? "" : "s")
-            : "",
-        ].filter(Boolean);
-        const latestPublicDraw = (tournament.draw || [])
-          .filter((entry) => String(entry.status || "").trim().toLowerCase() === "published")
-          .sort((left, right) => Number(right.round || 0) - Number(left.round || 0))[0] || null;
-        const statusSummary = canManage
-          ? snapshot.attention[0] ||
-            (snapshot.latestPublishedRound
-              ? "Latest released round: " + snapshot.latestPublishedRound + "."
-              : "Open the tab room to manage pairings, judges, and publication.")
-          : latestPublicDraw
-            ? "Latest published round: " + latestPublicDraw.round + "."
-            : "Open the tournament for standings, rankings, and any public draw that has been released.";
+        const judgeCount = getTournamentOpsSnapshot(tournament).judges || 0;
+        const openAction = canManage ? "focus-tournament" : "open-tournament-record";
+        const archiveAction =
+          canManage && tournament.status === "archived"
+            ? "restore-tournament"
+            : canManage
+              ? "archive-tournament"
+              : archivedForUser
+                ? "restore-tournament-for-me"
+                : "archive-tournament-for-me";
+        const archiveLabel =
+          tournament.status === "archived" || archivedForUser ? "Restore" : "Archive";
+        const deleteAction = canManage ? "delete-tournament" : "delete-tournament-for-me";
         return `
-          <article class="tournament-switch-card ${activeId === tournament.id ? "is-active" : ""}">
-            <div class="tournament-switch-header">
+          <details class="tournament-switch-card tournament-list-item ${activeId === tournament.id ? "is-active" : ""}">
+            <summary class="tournament-list-summary">
               <div class="tournament-switch-title">
-                <p class="eyebrow">Tournament</p>
                 <strong>${escapeHtml(tournament.name)}</strong>
-                <p class="muted">${escapeHtml(getFormatLabel(tournament))}</p>
-                <p class="tournament-switch-meta-line">${escapeHtml(metadataBits.join(" • "))}</p>
               </div>
-              <div class="button-row wrap-row compact-end-row">
-                <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
-                  toTitleLabel(tournament.status),
-                )}</span>
-                ${
-                  canPin
-                    ? `<button class="pin-toggle-button ${pinned ? "is-active" : ""}" type="button" data-action="toggle-pin-tournament" data-id="${escapeHtml(
-                        tournament.id,
-                      )}">${escapeHtml(pinned ? "Pinned" : "Pin")}</button>`
-                    : ""
-                }
-              </div>
-            </div>
-            <div class="tournament-switch-stats">
-              <div class="tournament-switch-stat">
-                <span class="muted">Rounds</span>
-                <strong>${escapeHtml(tournament.rounds)}</strong>
-              </div>
-              <div class="tournament-switch-stat">
-                <span class="muted">Teams</span>
-                <strong>${escapeHtml(teamCount)}</strong>
-              </div>
-              <div class="tournament-switch-stat">
-                <span class="muted">Speakers</span>
-                <strong>${escapeHtml(tournament.participants.length)}</strong>
-              </div>
-              <div class="tournament-switch-stat">
-                <span class="muted">Judges</span>
-                <strong>${escapeHtml(judgeCount)}</strong>
-              </div>
-            </div>
-            <div class="tournament-switch-note">
-              <span class="tournament-switch-note-label">Current state</span>
-              <p class="fine-print">${escapeHtml(statusSummary)}</p>
-            </div>
-            <div class="tournament-switch-footer">
-              <div class="workspace-chip-row tournament-switch-flags">
-                <span class="mini-pill ${tournament.publication.showPublicStandings ? "success" : "warning"}">${escapeHtml(
-                  tournament.publication.showPublicStandings ? "Standings Public" : "Standings Private",
-                )}</span>
-                <span class="mini-pill ${tournament.publication.showPublicDraw ? "success" : "warning"}">Draw ${escapeHtml(
-                  tournament.publication.showPublicDraw ? "public" : "private",
-                )}</span>
+            </summary>
+            <div class="tournament-list-body">
+              <div class="tournament-switch-stats">
+                <div class="tournament-switch-stat">
+                  <span>Rounds</span>
+                  <strong>${escapeHtml(tournament.rounds)}</strong>
+                </div>
+                <div class="tournament-switch-stat">
+                  <span>Speakers</span>
+                  <strong>${escapeHtml(tournament.participants.length)}</strong>
+                </div>
+                <div class="tournament-switch-stat">
+                  <span>Teams</span>
+                  <strong>${escapeHtml(teamCount)}</strong>
+                </div>
+                <div class="tournament-switch-stat">
+                  <span>Judges</span>
+                  <strong>${escapeHtml(judgeCount)}</strong>
+                </div>
               </div>
               <div class="button-row tournament-switch-actions">
-                ${
-                  canManage
-                    ? `<button type="button" data-action="focus-tournament" data-id="${escapeHtml(
-                        tournament.id,
-                      )}">${escapeHtml(
-                        activeId === tournament.id ? "Managing Now" : "Open Tab Room",
-                      )}</button>`
-                    : `<button type="button" data-action="open-tournament-record" data-id="${escapeHtml(
-                        tournament.id,
-                      )}">${escapeHtml(
-                        activeId === tournament.id ? "Open Now" : "Open Tournament",
-                      )}</button>`
-                }
-                ${
-                  archivedForUser
-                    ? `<button class="secondary-button" type="button" data-action="restore-tournament-for-me" data-id="${escapeHtml(
-                        tournament.id,
-                      )}">Restore for me</button>`
-                    : `<button class="secondary-button" type="button" data-action="archive-tournament-for-me" data-id="${escapeHtml(
-                        tournament.id,
-                      )}">Archive for me</button>`
-                }
-                <button class="secondary-button" type="button" data-action="delete-tournament-for-me" data-id="${escapeHtml(
+                <button type="button" data-action="${escapeHtml(openAction)}" data-id="${escapeHtml(
                   tournament.id,
-                )}">Remove from my view</button>
-                ${
-                  canManage
-                    ? `<button class="danger-button" type="button" data-action="delete-tournament" data-id="${escapeHtml(
-                        tournament.id,
-                      )}">Delete</button>`
-                    : ""
-                }
+                )}">Open</button>
+                <button class="secondary-button" type="button" data-action="${escapeHtml(
+                  archiveAction,
+                )}" data-id="${escapeHtml(tournament.id)}">${escapeHtml(archiveLabel)}</button>
+                <button class="danger-button" type="button" data-action="${escapeHtml(
+                  deleteAction,
+                )}" data-id="${escapeHtml(tournament.id)}">Delete</button>
               </div>
             </div>
-          </article>
+          </details>
         `;
       }
 
@@ -19369,38 +19236,26 @@
         `;
       }
 
+      function getTournamentBannerImage(tournament) {
+        return String(tournament?.bannerImage || tournament?.bannerUrl || "").trim();
+      }
+
+      function renderTournamentBanner(tournament) {
+        const bannerImage = getTournamentBannerImage(tournament);
+        if (!bannerImage) {
+          return "";
+        }
+
+        return `
+          <section class="tournament-banner-shell" aria-label="${escapeHtml(tournament.name)} banner">
+            <img src="${escapeHtml(bannerImage)}" alt="${escapeHtml(tournament.name)} tournament banner" />
+          </section>
+        `;
+      }
+
       function renderFocusedTournamentWorkspace(tournament) {
         const feedbackCategories = tournament.settings.feedbackCategories || [];
         const scoringProfile = getScoringProfile(tournament);
-        const pinned = isTournamentPinned(tournament.id);
-        const control = getTournamentControlRoomState(tournament);
-        const drawStatusLabel = control.snapshot.nextDraftRound
-          ? "Round " + control.snapshot.nextDraftRound + " draft"
-          : control.snapshot.latestPublishedRound
-            ? "Round " + control.snapshot.latestPublishedRound + " published"
-            : "No draw yet";
-        const primaryRound =
-          control.snapshot.nextUnbuiltRound ||
-          control.snapshot.nextDraftRound ||
-          control.activeRound ||
-          1;
-        const primaryActionLabel = control.snapshot.nextUnbuiltRound
-          ? "Generate draw for Round " + primaryRound
-          : "Open round draw";
-        const stateLine = [
-          getFormatLabel(tournament),
-          "Round " + control.activeRound,
-          control.lifecycle,
-          drawStatusLabel,
-        ]
-          .filter(Boolean)
-          .join(" • ");
-        const standingsActionLabel = tournament.publication.showPublicStandings
-          ? "Hide standings"
-          : "Publish standings";
-        const standingsAction = tournament.publication.showPublicStandings
-          ? "hide-public-standings"
-          : "publish-public-standings";
         const sectionState = getFocusedTournamentSectionState(
           tournament,
           feedbackCategories,
@@ -19408,96 +19263,7 @@
         );
         const { sections, active } = sectionState;
         return `
-          <section class="surface focus-workspace workspace-control-room-shell">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Tournament Control Room</p>
-                <h2>${escapeHtml(tournament.name)}</h2>
-                <p class="workspace-state-line">${escapeHtml(stateLine)}</p>
-              </div>
-            </div>
-            <div class="workspace-control-room-grid">
-              <div class="workspace-control-room-main">
-                <div class="workspace-control-room-next">
-                  <p class="eyebrow">Next action</p>
-                  <h3>${escapeHtml(control.nextRequiredAction)}</h3>
-                  <div class="button-row wrap-row">
-                    <button class="button-primary workspace-control-room-primary button-size-large" type="button" data-action="set-focused-tournament-section" data-section="draw">${escapeHtml(
-                      primaryActionLabel,
-                    )}</button>
-                  </div>
-                </div>
-                <div class="workspace-stat-grid workspace-control-room-metrics">
-                  <div class="workspace-stat">
-                    <span class="muted">Current round</span>
-                    <strong>${escapeHtml("Round " + control.activeRound)}</strong>
-                  </div>
-                  <div class="workspace-stat">
-                    <span class="muted">Round state</span>
-                    <strong>${escapeHtml(control.lifecycle)}</strong>
-                  </div>
-                  <div class="workspace-stat">
-                    <span class="muted">Ballot progress</span>
-                    <strong>${escapeHtml(control.ballotProgress.label)}</strong>
-                  </div>
-                  <div class="workspace-stat">
-                    <span class="muted">Draw status</span>
-                    <strong>${escapeHtml(drawStatusLabel)}</strong>
-                  </div>
-                </div>
-              </div>
-              <div class="workspace-control-room-actions">
-                <p class="eyebrow">Actions</p>
-                <div class="workspace-action-row workspace-action-row-secondary">
-                  <button class="secondary-button workspace-utility-action" type="button" data-action="clear-focused-tournament">Overview</button>
-                  ${
-                    tournament.status !== "closed" && tournament.status !== "archived"
-                      ? `<button class="secondary-button workspace-utility-action" type="button" data-action="close-tournament" data-id="${escapeHtml(
-                          tournament.id,
-                        )}">Close tournament</button>`
-                      : ""
-                  }
-                  <button class="secondary-button workspace-utility-action" type="button" data-action="${escapeHtml(
-                    standingsAction,
-                  )}" data-id="${escapeHtml(tournament.id)}">${escapeHtml(standingsActionLabel)}</button>
-                  ${
-                    pinned
-                      ? ""
-                      : `<button class="secondary-button workspace-utility-action" type="button" data-action="pin-tournament" data-id="${escapeHtml(
-                          tournament.id,
-                        )}">Pin tournament</button>`
-                  }
-                  <button class="danger-button button-size-small" type="button" data-action="archive-tournament" data-id="${escapeHtml(
-                    tournament.id,
-                  )}" ${tournament.status === "archived" ? "disabled" : ""}>Archive tournament</button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          ${
-            control.snapshot.attention.length
-              ? `<section class="surface spotlight-shell compact-watchlist-shell">
-                  <div class="section-heading">
-                    <div>
-                      <h3>Watchpoints</h3>
-                    </div>
-                  </div>
-                  <div class="spotlight-watchlist compact-watchlist">
-                    ${control.snapshot.attention
-                      .slice(0, 4)
-                      .map(
-                        (item) => `
-                          <div class="spotlight-note spotlight-note-warning">
-                            <span>${escapeHtml(item)}</span>
-                          </div>
-                        `,
-                      )
-                      .join("")}
-                  </div>
-                </section>`
-              : ""
-          }
+          ${renderTournamentBanner(tournament)}
 
           ${renderFocusedTournamentNavigator(
             tournament,
@@ -20109,7 +19875,7 @@
               )}</span>
             </summary>
             <div class="details-content">
-              <div class="tournament-switch-grid">
+              <div class="tournament-list">
                 ${archivedTournaments
                   .map((tournament) =>
                     renderTournamentSwitchCard(tournament, activeId),
@@ -20126,34 +19892,16 @@
         options = {},
       ) {
         const activeId = String(options.activeId || "").trim();
-        const initialCount = Math.max(1, Number.parseInt(options.initialCount, 10) || 12);
-        const featured = (Array.isArray(tournaments) ? tournaments : []).slice(0, initialCount);
-        const overflow = (Array.isArray(tournaments) ? tournaments : []).slice(initialCount);
-        if (!featured.length) {
+        const safeTournaments = Array.isArray(tournaments) ? tournaments : [];
+        if (!safeTournaments.length) {
           return options.emptyMarkup || `<div class="empty-state">No tournaments are visible yet.</div>`;
         }
         return `
-          <div class="tournament-switch-grid">
-            ${featured
+          <div class="tournament-list">
+            ${safeTournaments
               .map((tournament) => renderTournamentSwitchCard(tournament, activeId))
               .join("")}
           </div>
-          ${
-            overflow.length
-              ? `<details class="surface compact-list-drawer">
-                  <summary>
-                    <strong>${escapeHtml("Show " + overflow.length + " more tournaments")}</strong>
-                  </summary>
-                  <div class="details-content">
-                    <div class="tournament-switch-grid">
-                      ${overflow
-                        .map((tournament) => renderTournamentSwitchCard(tournament, activeId))
-                        .join("")}
-                    </div>
-                  </div>
-                </details>`
-              : ""
-          }
         `;
       }
 
@@ -20166,23 +19914,18 @@
           return options.emptyMarkup || `<div class="empty-state">No tournaments are visible yet.</div>`;
         }
         return `
-          <details class="surface compact-list-drawer tournament-picker-drawer">
-            <summary>
-              <div class="summary-main">
-                <strong>${escapeHtml(options.summaryLabel || "Open tournament list")}</strong>
-                <p class="muted">${escapeHtml(
-                  options.summaryNote || "Choose a tournament to open its workspace.",
-                )}</p>
+          <section class="surface tournament-picker-drawer tournament-list-shell">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Tournaments</p>
+                <h2>${escapeHtml(options.title || "Choose a tournament")}</h2>
               </div>
               <span class="role-pill">${escapeHtml(safeTournaments.length + " visible")}</span>
-            </summary>
-            <div class="details-content">
-              ${renderTournamentSwitchCollection(safeTournaments, {
-                activeId: options.activeId || "",
-                initialCount: safeTournaments.length,
-              })}
             </div>
-          </details>
+            ${renderTournamentSwitchCollection(safeTournaments, {
+              activeId: options.activeId || "",
+            })}
+          </section>
         `;
       }
 
@@ -20214,23 +19957,12 @@
                   ${renderTournamentCard(selectedTournament)}
                 `
                 : `
-                  <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Tournaments</p>
-                      <h2>Choose a tournament</h2>
-                      </div>
-                    <span class="role-pill">${escapeHtml(activeVisible.length)} visible</span>
-                  </div>
                   ${
                     renderTournamentChooserDropdown(activeVisible, {
-                      summaryLabel: "Choose from visible tournaments",
-                      summaryNote: "Tournament cards are grouped in this dropdown for a cleaner list.",
                       emptyMarkup:
                         '<div class="empty-state">No tournaments are visible yet. Public tournaments will appear here.</div>',
                     })
                   }
-                </section>
                   ${renderArchivedTournamentListSection(archivedVisible)}
                 `
             }
@@ -20247,24 +19979,11 @@
             focusedTournament
               ? ""
               : `
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Tournaments</p>
-                      <h2>Choose a tournament</h2>
-                    </div>
-                    <span class="role-pill">${escapeHtml(activeVisible.length)} visible</span>
-                  </div>
-                  ${
-                    renderTournamentChooserDropdown(activeVisible, {
-                      summaryLabel: "Choose from visible tournaments",
-                      summaryNote: "Tournament cards are grouped in this dropdown for a cleaner list.",
-                      activeId: focusedTournament?.id || "",
-                      emptyMarkup:
-                        '<div class="empty-state">No tournaments are visible yet. Create one to get started.</div>',
-                    })
-                  }
-                </section>
+                ${renderTournamentChooserDropdown(activeVisible, {
+                  activeId: focusedTournament?.id || "",
+                  emptyMarkup:
+                    '<div class="empty-state">No tournaments are visible yet. Create one to get started.</div>',
+                })}
                 ${renderArchivedTournamentListSection(
                   archivedVisible,
                   { activeId: focusedTournament?.id || "" },
@@ -23265,7 +22984,7 @@
       }
 
       async function readFileAsDataUrl(file) {
-        if (!file) {
+        if (!file || typeof file !== "object" || !file.size) {
           return null;
         }
         return await new Promise((resolve, reject) => {
@@ -27470,8 +27189,17 @@
         );
       }
 
-      function saveTournamentSettings(tournamentId, formData) {
+      async function saveTournamentSettings(tournamentId, formData) {
         if (!ensureTournamentManagerById(tournamentId)) return;
+        let uploadedBannerImage = "";
+        try {
+          uploadedBannerImage = await readFileAsDataUrl(formData.get("bannerFile"));
+        } catch (error) {
+          console.error("Tournament banner upload failed", error);
+          setFlash("error", "The tournament banner image could not be read. Try a smaller image or a different file.");
+          renderApp();
+          return;
+        }
 
         updateTournament(
           tournamentId,
@@ -27489,6 +27217,9 @@
             tournament.rounds = normalizeRoundCount(formData.get("rounds"), tournament.rounds);
             tournament.notes = String(formData.get("notes") || "").trim();
             tournament.announcement = String(formData.get("announcement") || "").trim();
+            tournament.bannerImage = boolFromForm(formData, "removeBannerImage")
+              ? ""
+              : uploadedBannerImage || String(tournament.bannerImage || "").trim();
             tournament.config.teamsPerRoom = normalizeOptionalCount(
               optionalNumberFromForm(formData, "teamsPerRoom", null),
               null,
@@ -31635,7 +31366,7 @@
           }
 
           if (form.dataset.form === "tournament-settings") {
-            saveTournamentSettings(form.dataset.id, formData);
+            await saveTournamentSettings(form.dataset.id, formData);
             return;
           }
 
