@@ -9656,4 +9656,365 @@
           min-height: 68px;
         }
       }
+
+      /* Final compact operations pass: smaller type, cleaner controls, less nested noise. */
+      @media (min-width: 940px) {
+        .workspace-shell {
+          width: calc(100vw - 24px);
+          max-width: none;
+          margin-left: 8px;
+          margin-right: 16px;
+          grid-template-columns: minmax(214px, 246px) minmax(0, 1fr);
+          gap: 10px;
+        }
+      }
+
+      .workspace-shell .menu-panel {
+        top: 12px;
+        max-height: calc(100vh - 24px);
+        padding: 8px;
+        border-radius: 14px;
+      }
+
+      .menu-brand {
+        margin-bottom: 7px;
+      }
+
+      .menu-brand-jade-logo {
+        width: min(142px, 76%);
+        height: 56px;
+      }
+
+      .menu-brand-name {
+        font-size: 1.24rem;
+        line-height: 0.94;
+      }
+
+      .menu-nav-list,
+      .menu-shortcut-list {
+        gap: 4px;
+      }
+
+      .menu-nav-link,
+      .menu-room-button {
+        min-height: 31px;
+        padding: 5px 8px;
+        border-radius: 10px;
+      }
+
+      .menu-nav-copy strong {
+        font-size: 0.72rem;
+        font-weight: 650;
+      }
+
+      .menu-nav-copy span {
+        font-size: 0.64rem;
+        line-height: 1.14;
+      }
+
+      .content-panel {
+        gap: 8px;
+        font-size: 11px;
+      }
+
+      .content-panel :is(
+          .surface,
+          .subsurface,
+          .inline-card,
+          .directory-card,
+          .link-card,
+          .manager-home-control,
+          .manager-home-panel,
+          .standings-board-card
+        ) {
+        padding: 10px;
+        border-radius: 12px;
+        box-shadow:
+          0 7px 18px rgba(20, 31, 25, 0.045),
+          inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      }
+
+      .content-panel :is(h1, h2, h3, h4),
+      .content-panel :is(.surface, .subsurface, .inline-card) :is(h1, h2, h3, h4),
+      .content-panel .section-heading :is(h1, h2, h3, h4) {
+        font-size: 14px !important;
+        line-height: 1.16;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+
+      .content-panel :is(p, li, label, input, select, textarea, td, th, .muted, .fine-print, .empty-state) {
+        font-size: 11px !important;
+        line-height: 1.32;
+        font-weight: 500;
+      }
+
+      .content-panel :is(strong, b) {
+        font-weight: 650;
+      }
+
+      .content-panel .eyebrow {
+        margin-bottom: 3px;
+        font-size: var(--text-overline);
+        font-weight: 700;
+        letter-spacing: 0.13em;
+      }
+
+      .content-panel .section-heading {
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+
+      .content-panel .button-row,
+      .content-panel .wrap-row {
+        gap: 6px;
+      }
+
+      .workspace-shell :is(
+          button:not([class]),
+          button.secondary-button,
+          button.ghost-button,
+          button.danger-button,
+          a.secondary-button,
+          a.ghost-button,
+          a.danger-button,
+          .button-primary,
+          .button-secondary,
+          .button-outline,
+          .button-danger
+        ) {
+        --btn-height: 30px;
+        --btn-pad-x: 10px;
+        --btn-pad-y: 5px;
+        --btn-font-size: 11px;
+        --btn-font-weight: 650;
+        min-height: var(--btn-height);
+        border-radius: 10px;
+        line-height: 1.12;
+        letter-spacing: -0.005em;
+      }
+
+      .focus-nav-shell {
+        order: -20;
+        padding: 8px;
+      }
+
+      .focus-nav-grid {
+        grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+        gap: 6px;
+      }
+
+      .focus-nav-button {
+        min-height: 38px;
+        padding: 7px 8px;
+        border-radius: 10px;
+        align-items: center;
+        text-align: center;
+      }
+
+      .focus-nav-button strong {
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .focus-nav-button .muted {
+        display: none;
+      }
+
+      .search-simple-shell {
+        max-width: 760px;
+        margin-inline: auto;
+        padding: 10px;
+      }
+
+      .simple-search-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .search-pill-field {
+        position: relative;
+        display: block;
+      }
+
+      .search-pill-icon {
+        position: absolute;
+        top: 50%;
+        left: 14px;
+        display: inline-flex;
+        width: 18px;
+        height: 18px;
+        color: #213249;
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+
+      .search-pill-icon svg {
+        width: 100%;
+        height: 100%;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+      }
+
+      .simple-search-form .search-pill-field input[type="search"] {
+        width: 100%;
+        min-height: 42px;
+        padding: 10px 14px 10px 42px;
+        border-radius: 17px;
+        border: 1px solid #d7deeb;
+        background: #f7f9fe;
+        color: #18233a;
+        font-size: 14px !important;
+        line-height: 1.2;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+        transition:
+          border-color 160ms ease,
+          background 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .simple-search-form .search-pill-field input[type="search"]:hover {
+        background: #f1f4fb;
+        border-color: #cbd5e6;
+      }
+
+      .simple-search-form .search-pill-field input[type="search"]:focus {
+        outline: none;
+        background: #ffffff;
+        border-color: #5e7be7;
+        box-shadow:
+          0 0 0 3px rgba(94, 123, 231, 0.16),
+          inset 0 1px 0 rgba(255, 255, 255, 0.86);
+      }
+
+      .simple-search-actions {
+        display: flex;
+        gap: 6px;
+      }
+
+      .simple-search-actions button {
+        min-height: 42px;
+        padding-inline: 12px;
+      }
+
+      .control-room-compact {
+        display: grid;
+        gap: 8px;
+      }
+
+      .control-room-compact-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .control-room-compact-grid {
+        display: grid;
+        grid-template-columns: minmax(220px, 1.35fr) repeat(3, minmax(104px, 0.8fr));
+        gap: 7px;
+      }
+
+      .control-room-next,
+      .control-room-metric {
+        min-height: 56px;
+        padding: 8px;
+        border: 1px solid rgba(20, 49, 38, 0.1);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.68);
+      }
+
+      .control-room-next {
+        display: grid;
+        gap: 3px;
+      }
+
+      .control-room-next span,
+      .control-room-metric span {
+        display: block;
+        color: var(--muted);
+        font-size: var(--text-overline);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .control-room-next strong,
+      .control-room-metric strong {
+        display: block;
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 650;
+        line-height: 1.18;
+      }
+
+      .control-room-next p {
+        margin: 0;
+      }
+
+      .control-room-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .focus-watchpoints-shell {
+        padding: 9px 10px;
+      }
+
+      .focus-watchpoints-list {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 6px;
+      }
+
+      .focus-watchpoint-item {
+        min-height: 32px;
+        padding: 7px 9px;
+        border-radius: 10px;
+      }
+
+      .focus-watchpoint-item strong {
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .standings-subnav button {
+        min-height: 31px;
+        padding-inline: 10px;
+        font-size: 11px;
+      }
+
+      .standings-board-card table th,
+      .standings-board-card table td {
+        padding-block: 6px;
+        font-size: 11px;
+      }
+
+      @media (max-width: 940px) {
+        .control-room-compact-head,
+        .control-room-compact-grid,
+        .simple-search-form {
+          grid-template-columns: 1fr;
+        }
+
+        .simple-search-actions,
+        .simple-search-actions button,
+        .control-room-compact-head button {
+          width: 100%;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .focus-nav-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .focus-nav-button {
+          min-height: 36px;
+        }
+      }
     

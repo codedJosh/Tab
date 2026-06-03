@@ -17625,85 +17625,67 @@
       function renderTournamentControlRoomPanel(tournament) {
         const control = getTournamentControlRoomState(tournament);
         const snapshot = control.snapshot;
+        const drawLabel = snapshot.nextDraftRound
+          ? "Round " + snapshot.nextDraftRound + " waiting"
+          : snapshot.latestPublishedRound
+            ? "Round " + snapshot.latestPublishedRound + " published"
+            : "No draw";
+        const standingsLabel = tournament.publication.showPublicStandings ? "Visible" : "Hidden";
 
         return `
-          <section class="surface spotlight-shell">
-            <div class="section-heading">
+          <section class="surface control-room-compact">
+            <div class="control-room-compact-head">
               <div>
-                <p class="eyebrow">Tournament Control Room</p>
-                <h2>${escapeHtml("Round " + control.activeRound + " • " + control.lifecycle)}</h2>
+                <h2>${escapeHtml(tournament.name)}</h2>
+                <p class="muted">${escapeHtml(
+                  "Round " +
+                    control.activeRound +
+                    " • " +
+                    control.lifecycle +
+                    " • " +
+                    tournament.format,
+                )}</p>
+              </div>
+              <button type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+                tournament.id,
+              )}" data-section="${escapeHtml(control.nextSection)}">${escapeHtml(
+                control.nextRequiredAction,
+              )}</button>
+            </div>
+            <div class="control-room-compact-grid">
+              <div class="control-room-next">
+                <span>Next action</span>
+                <strong>${escapeHtml(control.nextRequiredAction)}</strong>
+                <p>${escapeHtml(
+                  snapshot.attention[0] ||
+                    "No blockers are currently flagged for this tournament.",
+                )}</p>
+              </div>
+              <div class="control-room-metric">
+                <span>Ballots</span>
+                <strong>${escapeHtml(control.ballotProgress.label)}</strong>
+              </div>
+              <div class="control-room-metric">
+                <span>Draw</span>
+                <strong>${escapeHtml(drawLabel)}</strong>
+              </div>
+              <div class="control-room-metric">
+                <span>Standings</span>
+                <strong>${escapeHtml(standingsLabel)}</strong>
               </div>
             </div>
-            <div class="spotlight-grid">
-              <article class="spotlight-card">
-                <p class="eyebrow">Ballot Submission Progress</p>
-                <h3>${escapeHtml(control.ballotProgress.label)}</h3>
-                <p class="muted">${escapeHtml(
-                  control.ballotProgress.missing
-                    ? control.ballotProgress.missing + " ballot(s) still missing."
-                    : "All published ballots are submitted for this round.",
-                )}</p>
-                <div class="button-row">
-                  <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
-                    tournament.id,
-                  )}" data-section="results">View Missing Ballots</button>
-                </div>
-              </article>
-              <article class="spotlight-card">
-                <p class="eyebrow">Draw Publication State</p>
-                <h3>${escapeHtml(
-                  snapshot.nextDraftRound
-                    ? "Round " + snapshot.nextDraftRound + " waiting to publish"
-                    : snapshot.latestPublishedRound
-                      ? "Round " + snapshot.latestPublishedRound + " published"
-                      : "No draw published yet",
-                )}</h3>
-                <p class="muted">${escapeHtml(
-                  snapshot.nextDraftRound
-                    ? "Review pairings, room assignments, and conflicts before release."
-                    : "Published draw visibility is tied to tournament publication settings.",
-                )}</p>
-                <div class="button-row">
-                  <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
-                    tournament.id,
-                  )}" data-section="draw">Open Round Draw</button>
-                </div>
-              </article>
-              <article class="spotlight-card">
-                <p class="eyebrow">Standings Publication State</p>
-                <h3>${escapeHtml(
-                  tournament.publication.showPublicStandings ? "Public results visible" : "Public results hidden",
-                )}</h3>
-                <p class="muted">${escapeHtml(
-                  tournament.publication.showPublicStandings
-                    ? "Public standings are currently visible to competitors and viewers."
-                    : "Standings are currently private until you publish them.",
-                )}</p>
-                <div class="button-row">
-                  <button type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
-                    tournament.id,
-                  )}">${escapeHtml(
-                    tournament.publication.showPublicStandings
-                      ? "Hide Public Standings"
-                      : "Publish Standings",
-                  )}</button>
-                </div>
-              </article>
-              <article class="spotlight-card">
-                <p class="eyebrow">Next Required Action</p>
-                <h3>${escapeHtml(control.nextRequiredAction)}</h3>
-                <p class="muted">${escapeHtml(
-                  snapshot.attention[0] ||
-                    "No immediate blocking issues. Continue with the next round workflow.",
-                )}</p>
-                <div class="button-row">
-                  <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
-                    tournament.id,
-                  )}" data-section="${escapeHtml(
-                    control.nextSection,
-                  )}">Open ${escapeHtml(toTitleLabel(control.nextSection))}</button>
-                </div>
-              </article>
+            <div class="control-room-actions" aria-label="Control room actions">
+              <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+                tournament.id,
+              )}" data-section="draw">Round draw</button>
+              <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
+                tournament.id,
+              )}" data-section="standings">Standings</button>
+              <button class="secondary-button" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
+                tournament.id,
+              )}">${escapeHtml(
+                tournament.publication.showPublicStandings ? "Hide standings" : "Publish standings",
+              )}</button>
             </div>
           </section>
         `;
@@ -22574,11 +22556,16 @@
         return `
           <section class="surface search-simple-shell">
             <form class="simple-search-form" data-form="workspace-search" role="search" aria-label="Workspace search">
-              <label class="workspace-search-field search-field-plain">
-                <span>Search</span>
+              <label class="search-pill-field">
+                <span class="search-pill-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="11" cy="11" r="6.5"></circle>
+                    <path d="M16 16l4.2 4.2"></path>
+                  </svg>
+                </span>
                 <input type="search" name="query" value="${escapeHtml(
                   query,
-                )}" autocomplete="off" placeholder="Search by name, team, institution, or tournament" />
+                )}" autocomplete="off" placeholder="Search" />
               </label>
               <div class="simple-search-actions">
                 <button type="submit">Search</button>
