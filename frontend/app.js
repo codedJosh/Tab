@@ -17641,6 +17641,24 @@
         const archivedForUser = isTournamentArchivedForUser(tournament.id);
         const teamCount = getTournamentTeams(tournament).length;
         const judgeCount = getTournamentOpsSnapshot(tournament).judges || 0;
+        const formatLabel = getFormatLabel(tournament);
+        const registrationSettings = getTournamentRegistrationSettings(tournament);
+        const isRegistrationOpen =
+          Boolean(registrationSettings.debaterOpen) || Boolean(registrationSettings.judgeOpen);
+        const registrationStatus = isRegistrationOpen
+          ? [
+              registrationSettings.debaterOpen ? "Debater registration open" : "",
+              registrationSettings.judgeOpen ? "Judge registration open" : "",
+            ]
+              .filter(Boolean)
+              .join(" • ")
+          : "Registration has not started yet.";
+        const tournamentMeta = [
+          formatLabel,
+          tournament.status === "archived" ? "Archived" : "Visible",
+        ]
+          .filter(Boolean)
+          .join(" • ");
         const openAction = canManage ? "focus-tournament" : "open-tournament-record";
         const archiveAction =
           canManage && tournament.status === "archived"
@@ -17654,38 +17672,22 @@
           tournament.status === "archived" || archivedForUser ? "Restore" : "Archive";
         const deleteAction = canManage ? "delete-tournament" : "delete-tournament-for-me";
         return `
-          <details class="tournament-switch-card tournament-list-item ${activeId === tournament.id ? "is-active" : ""}">
+          <details class="tournament-switch-card tournament-list-item tournament-row-item ${activeId === tournament.id ? "is-active" : ""}">
             <summary class="tournament-list-summary">
               <div class="tournament-switch-title">
                 <strong>${escapeHtml(tournament.name)}</strong>
-                <span>${escapeHtml(
-                  [
-                    tournament.rounds + " rounds",
-                    tournament.participants.length + " speakers",
-                    teamCount + " teams",
-                    judgeCount + " judges",
-                  ].join(" • "),
-                )}</span>
+                <span>${escapeHtml(tournamentMeta)}</span>
+              </div>
+              <div class="tournament-inline-stats" aria-label="Tournament totals">
+                <span><strong>${escapeHtml(tournament.rounds)}</strong> rounds</span>
+                <span><strong>${escapeHtml(tournament.participants.length)}</strong> speakers</span>
+                <span><strong>${escapeHtml(teamCount)}</strong> teams</span>
+                <span><strong>${escapeHtml(judgeCount)}</strong> judges</span>
               </div>
             </summary>
             <div class="tournament-list-body">
-              <div class="tournament-switch-stats">
-                <div class="tournament-switch-stat">
-                  <span>Rounds</span>
-                  <strong>${escapeHtml(tournament.rounds)}</strong>
-                </div>
-                <div class="tournament-switch-stat">
-                  <span>Speakers</span>
-                  <strong>${escapeHtml(tournament.participants.length)}</strong>
-                </div>
-                <div class="tournament-switch-stat">
-                  <span>Teams</span>
-                  <strong>${escapeHtml(teamCount)}</strong>
-                </div>
-                <div class="tournament-switch-stat">
-                  <span>Judges</span>
-                  <strong>${escapeHtml(judgeCount)}</strong>
-                </div>
+              <div class="tournament-row-status">
+                <span>${escapeHtml(registrationStatus)}</span>
               </div>
               <div class="button-row tournament-switch-actions">
                 <button type="button" data-action="${escapeHtml(openAction)}" data-id="${escapeHtml(
