@@ -2164,6 +2164,8 @@
           privateAccessIssuedAt: String(user.privateAccessIssuedAt || createdAt).trim(),
           lastPrivateAccessAt: String(user.lastPrivateAccessAt || "").trim(),
           pinnedTournamentIds: normalizeStringList(user.pinnedTournamentIds, 12),
+          archivedTournamentIds: normalizeStringList(user.archivedTournamentIds, 200),
+          deletedTournamentIds: normalizeStringList(user.deletedTournamentIds, 200),
           registeredTournamentIds: normalizeStringList(user.registeredTournamentIds, 200),
           regionalRole: normalizeRegionalOperationsRole(user.regionalRole),
           regionalRegion: normalizeRegionalRegion(user.regionalRegion),
@@ -2348,23 +2350,32 @@
       }
 
       function canCreateTournaments() {
-        return isSystemAdmin();
+        return Boolean(normalizeEmail(session.userEmail));
       }
 
       function canAccessGlobalSettings() {
-        return isSystemAdmin();
+        return false;
+      }
+
+      function isTournamentOwner(tournament, email = session.userEmail) {
+        const target = normalizeEmail(email);
+        if (!target || !tournament) return false;
+        return (
+          normalizeEmail(tournament.ownerEmail) === target ||
+          normalizeEmail(tournament.createdBy) === target
+        );
       }
 
       function getTournamentAccess(tournament, email = session.userEmail) {
         const target = normalizeEmail(email);
         if (!target) return "viewer";
-        if (isManager(target)) return "manager";
-        if (isSystemAdmin(target)) return "system_admin";
         const permissions = normalizeTournamentPermissions(tournament?.permissions || {});
+        if (isTournamentOwner(tournament, target) || permissions.managerEmails.includes(target)) {
+          return "tab_director";
+        }
         if (permissions.caTeamEmails.includes(target)) return "ca_team";
         if (
           permissions.tabDirectorEmails.includes(target) ||
-          permissions.managerEmails.includes(target) ||
           permissions.tabManagerEmails.includes(target)
         ) {
           return "tab_director";
@@ -2411,7 +2422,7 @@
       function canSeeTournament(tournament, email = session.userEmail) {
         const access = getTournamentAccess(tournament, email);
         const archived = isTournamentArchived(tournament);
-        if (archived && !isSystemAdmin(email)) {
+        if (archived && !hasTournamentBackstageAccess(access)) {
           return false;
         }
         return (
@@ -2427,8 +2438,30 @@
         return String(tournament?.status || "").trim().toLowerCase() === "archived";
       }
 
+      function getUserTournamentPreferenceIds(field, email = session.userEmail) {
+        const user = getUserByEmail(email) || getCurrentUser();
+        return normalizeStringList(user?.[field] || [], 200);
+      }
+
+      function isTournamentArchivedForUser(tournamentId, email = session.userEmail) {
+        return getUserTournamentPreferenceIds("archivedTournamentIds", email).includes(
+          String(tournamentId || "").trim(),
+        );
+      }
+
+      function isTournamentDeletedForUser(tournamentId, email = session.userEmail) {
+        return getUserTournamentPreferenceIds("deletedTournamentIds", email).includes(
+          String(tournamentId || "").trim(),
+        );
+      }
+
       function getVisibleTournaments(email = session.userEmail) {
-        return state.tournaments.filter((tournament) => canSeeTournament(tournament, email));
+        return state.tournaments.filter(
+          (tournament) =>
+            canSeeTournament(tournament, email) &&
+            !isTournamentArchivedForUser(tournament.id, email) &&
+            !isTournamentDeletedForUser(tournament.id, email),
+        );
       }
 
       function getActiveVisibleTournaments(email = session.userEmail) {
@@ -2436,7 +2469,12 @@
       }
 
       function getArchivedVisibleTournaments(email = session.userEmail) {
-        return getVisibleTournaments(email).filter((tournament) => isTournamentArchived(tournament));
+        return state.tournaments.filter(
+          (tournament) =>
+            canSeeTournament(tournament, email) &&
+            !isTournamentDeletedForUser(tournament.id, email) &&
+            (isTournamentArchived(tournament) || isTournamentArchivedForUser(tournament.id, email)),
+        );
       }
 
       function getParticipantForUser(tournament, email = session.userEmail) {
@@ -2478,13 +2516,32 @@
         );
       }
 
-      function getParticipantHistoryRecords(identityKey, email = session.userEmail) {
+      function getHistoryTournamentsForEmail(email = session.userEmail, options = {}) {
+        const target = normalizeEmail(email);
+        return state.tournaments.filter((tournament) => {
+          if (isTournamentDeletedForUser(tournament.id, target)) {
+            return false;
+          }
+          if (!options.includeHidden) {
+            return getVisibleTournaments(target).includes(tournament);
+          }
+          const access = getTournamentAccess(tournament, target);
+          return (
+            hasTournamentBackstageAccess(access) ||
+            access === "judge" ||
+            access === "debater" ||
+            access === "registered_member"
+          );
+        });
+      }
+
+      function getParticipantHistoryRecords(identityKey, email = session.userEmail, options = {}) {
         const targetKey = String(identityKey || "").trim();
         if (!targetKey) {
           return [];
         }
 
-        return getVisibleTournaments(email)
+        return getHistoryTournamentsForEmail(email, options)
           .flatMap((tournament, orderIndex) =>
             (tournament.participants || [])
               .filter((participant) => getParticipantIdentityKey(participant) === targetKey)
@@ -2539,10 +2596,10 @@
           .sort((left, right) => Number(left.orderIndex) - Number(right.orderIndex));
       }
 
-      function getParticipantDirectoryRecords(email = session.userEmail) {
+      function getParticipantDirectoryRecords(email = session.userEmail, options = {}) {
         const catalog = new Map();
 
-        getVisibleTournaments(email).forEach((tournament) => {
+        getHistoryTournamentsForEmail(email, options).forEach((tournament) => {
           (tournament.participants || []).forEach((participant) => {
             const identityKey = getParticipantIdentityKey(participant);
             if (!catalog.has(identityKey)) {
@@ -2566,7 +2623,7 @@
 
         return Array.from(catalog.values())
           .map((record) => {
-            const history = getParticipantHistoryRecords(record.identityKey, email);
+            const history = getParticipantHistoryRecords(record.identityKey, email, options);
             const latest = history[0] || null;
             const bestSpeakerRank = history.reduce((best, entry) => {
               if (!entry.speakerStanding?.speakerRank) {
@@ -2948,15 +3005,18 @@
         const debaterTournaments = accessRecords
           .filter((record) => record.access === "debater")
           .map((record) => record.tournament);
-        const globalManager = isManager(target);
-        const systemAdmin = isSystemAdmin(target);
+        const globalManager = false;
+        const systemAdmin = false;
         const regionalRole = getRegionalOperationsRoleForEmail(target);
-        const regionalAccess = Boolean(globalManager || systemAdmin || regionalRole);
+        const regionalAccess = Boolean(regionalRole || isSystemAdmin(target));
         const regionalPortalMode = Boolean(isRegionalOperationsPortalPage() && regionalAccess);
-        const canManageAny = globalManager || systemAdmin || managedTournaments.length > 0;
+        const canManageAny = Boolean(target);
         const canJudgeAny = judgedTournaments.length > 0;
-        const competitorOnly = debaterTournaments.length > 0 && !canManageAny && !canJudgeAny;
-        const judgeOnly = canJudgeAny && !canManageAny && debaterTournaments.length === 0;
+        const speakerHistoryCount = getParticipantDirectoryRecords(target, {
+          includeHidden: true,
+        }).length;
+        const competitorOnly = false;
+        const judgeOnly = false;
         const regionalOnly = regionalPortalMode;
 
         return {
@@ -2974,12 +3034,11 @@
           judgeOnly,
           regionalPortalMode,
           regionalOnly,
-          canViewPeople:
-            globalManager ||
-            systemAdmin ||
-            accessRecords.some((record) => hasTournamentPeopleAccess(record.access)),
+          canViewPeople: Boolean(target),
           canViewLinks: Boolean(target),
           canViewJudging: canJudgeAny,
+          canViewJudgeHistory: canJudgeAny,
+          canViewSpeakerHistory: speakerHistoryCount > 0,
           canViewRegionalOperations: regionalPortalMode,
           canViewSearch: Boolean(target),
           canViewSettings: Boolean(target),
@@ -3182,8 +3241,26 @@
           });
         }
 
+        if (capabilities.canViewJudgeHistory) {
+          items.push({
+            key: "judge-history",
+            label: "Judge History",
+            count: getJudgeAssignments(email).length,
+            group: "History",
+          });
+        }
+
+        if (capabilities.canViewSpeakerHistory) {
+          items.push({
+            key: "speaker-history",
+            label: "Speaker History",
+            count: getParticipantDirectoryRecords(email, { includeHidden: true }).length,
+            group: "History",
+          });
+        }
+
         if (capabilities.canViewPeople) {
-          items.push({ key: "people", label: "Teams & People", count: state.users.length, group: "People" });
+          items.push({ key: "people", label: "People", count: state.users.length, group: "People" });
         }
 
         if (capabilities.canViewLinks) {
@@ -3246,6 +3323,71 @@
 
       function isTournamentPinned(tournamentId, email = session.userEmail) {
         return getPinnedTournamentIds(email).includes(String(tournamentId || "").trim());
+      }
+
+      function updateCurrentUserTournamentPreference(tournamentId, field, shouldInclude) {
+        const currentUser = getCurrentUser();
+        const targetId = String(tournamentId || "").trim();
+        if (!currentUser || !targetId) {
+          setFlash("error", "That tournament could not be found for your account.");
+          renderApp();
+          return false;
+        }
+
+        state.users = state.users.map((user) => {
+          if (normalizeEmail(user.email) !== normalizeEmail(currentUser.email)) {
+            return user;
+          }
+          const currentIds = normalizeStringList(user[field] || [], 200).filter(
+            (id) => id !== targetId,
+          );
+          return {
+            ...user,
+            [field]: shouldInclude ? [targetId, ...currentIds].slice(0, 200) : currentIds,
+          };
+        });
+        return true;
+      }
+
+      function archiveTournamentForCurrentUser(tournamentId) {
+        const tournament = getTournamentById(tournamentId);
+        if (!tournament) {
+          setFlash("error", "That tournament could not be found.");
+          renderApp();
+          return;
+        }
+        if (!updateCurrentUserTournamentPreference(tournamentId, "archivedTournamentIds", true)) {
+          return;
+        }
+        updateCurrentUserTournamentPreference(tournamentId, "deletedTournamentIds", false);
+        persist("success", tournament.name + " was archived for your account.");
+      }
+
+      function restoreTournamentForCurrentUser(tournamentId) {
+        const tournament = getTournamentById(tournamentId);
+        if (!tournament) {
+          setFlash("error", "That tournament could not be found.");
+          renderApp();
+          return;
+        }
+        if (!updateCurrentUserTournamentPreference(tournamentId, "archivedTournamentIds", false)) {
+          return;
+        }
+        persist("success", tournament.name + " was restored to your account.");
+      }
+
+      function deleteTournamentForCurrentUser(tournamentId) {
+        const tournament = getTournamentById(tournamentId);
+        if (!tournament) {
+          setFlash("error", "That tournament could not be found.");
+          renderApp();
+          return;
+        }
+        if (!updateCurrentUserTournamentPreference(tournamentId, "deletedTournamentIds", true)) {
+          return;
+        }
+        updateCurrentUserTournamentPreference(tournamentId, "archivedTournamentIds", false);
+        persist("success", tournament.name + " was removed from your account view.");
       }
 
       function getRecentTournamentIds() {
@@ -10331,6 +10473,8 @@
           code: payload.code || "TBD-" + Math.floor(Math.random() * 900 + 100),
           name: payload.name,
           createdAt: payload.createdAt || timestamp(),
+          createdBy: normalizeEmail(payload.createdBy) || normalizeEmail(session.userEmail),
+          ownerEmail: normalizeEmail(payload.ownerEmail) || normalizeEmail(session.userEmail),
           format: payload.format,
           customFormatName: payload.customFormatName || "",
           participantModel,
@@ -10382,7 +10526,11 @@
             showFeedbackInPrivatePortal: state.appSettings.portal.showFeedbackInPrivatePortal,
           },
           permissions: normalizeTournamentPermissions({
-            managerEmails: [normalizeEmail(MANAGER_EMAIL)],
+            managerEmails: [
+              normalizeEmail(payload.ownerEmail) ||
+                normalizeEmail(payload.createdBy) ||
+                normalizeEmail(session.userEmail),
+            ].filter(Boolean),
           }),
           settings: {
             feedbackCategories: clone(state.appSettings.feedback.categories),
@@ -10908,6 +11056,13 @@
                 tournament.auditLog?.[tournament.auditLog.length - 1]?.at ||
                 timestamp(),
             ).trim(),
+            createdBy: normalizeEmail(tournament.createdBy || tournament.ownerEmail || ""),
+            ownerEmail: normalizeEmail(
+              tournament.ownerEmail ||
+                tournament.createdBy ||
+                tournament.permissions?.managerEmails?.[0] ||
+                MANAGER_EMAIL,
+            ),
             participantModel,
             config: {
               teamsPerRoom: 2,
@@ -10944,8 +11099,17 @@
               ...(tournament.publication || {}),
             },
             permissions: normalizeTournamentPermissions({
-              managerEmails: [normalizeEmail(MANAGER_EMAIL)],
               ...(tournament.permissions || {}),
+              managerEmails:
+                tournament.permissions?.managerEmails?.length
+                  ? tournament.permissions.managerEmails
+                  : [
+                      normalizeEmail(
+                        tournament.ownerEmail ||
+                          tournament.createdBy ||
+                          MANAGER_EMAIL,
+                      ),
+                    ],
             }),
             settings: {
               feedbackCategories: clone(DEFAULT_SETTINGS.feedback.categories),
@@ -11128,6 +11292,18 @@
               (tournament ? '"' + tournament.name + '"' : "this tournament") +
               " permanently from the local database? This also removes its draw, standings, links, ballots, and roster data.",
             confirmLabel: "Delete Tournament",
+          };
+        }
+
+        if (action === "delete-tournament-for-me") {
+          return {
+            tone: "warning",
+            title: "Remove Tournament From Your View?",
+            message:
+              "Remove " +
+              (tournament ? '"' + tournament.name + '"' : "this tournament") +
+              " from your account view? The shared tournament, ballots, standings, and other users' access will not be deleted.",
+            confirmLabel: "Remove From My View",
           };
         }
 
@@ -11395,6 +11571,10 @@
         }
         if (intent.action === "delete-tournament") {
           await deleteTournament(intent.id);
+          return;
+        }
+        if (intent.action === "delete-tournament-for-me") {
+          deleteTournamentForCurrentUser(intent.id);
           return;
         }
         if (intent.action === "delete-participant") {
@@ -12029,7 +12209,7 @@
           return "";
         }
         if (entries.some((entry) => entry?.status === "failed")) {
-          return "A private URL email could not be delivered. The account and private URL still work, and managers can resend from Private links.";
+          return "A private URL email could not be delivered. The account and private URL still work, and tournament organizers can resend from Private Links.";
         }
         if (entries.some((entry) => entry?.status === "skipped_cooldown")) {
           return "A private URL email was sent recently, so another send was skipped.";
@@ -13592,7 +13772,6 @@
 
       function renderAuthView() {
         const signupDisabled = !state.appSettings.auth.allowSelfSignup;
-        const needsBootstrapManager = needsLocalBootstrapManagerSetup();
         const preferredEmail = String(authPrefs?.rememberedEmail || "").trim();
         const preferredPassword =
           normalizeEmail(authAutofill?.email) === normalizeEmail(preferredEmail)
@@ -13693,7 +13872,7 @@
                       </div>
                     </div>
                     <p class="hero-copy premium-hero-copy">
-                      Send a reset request to the tournament manager linked to your account.
+                      Send a reset request for the account linked to your email.
                     </p>
                     <div class="button-row wrap-row">
                       <button class="button-primary" type="button" data-action="set-public-view" data-view="auth">Back to sign in</button>
@@ -13718,13 +13897,13 @@
                               <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
                             </label>
                             <label>
-                              Note for the manager
+                              Note for the organizer
                               <textarea name="note" rows="3" placeholder="Optional context, such as the tournament you need to access."></textarea>
                             </label>
                             <button type="submit">Send reset request</button>
                           </form>
                         `
-                        : `<div class="alert info">Password reset is currently turned off. Please contact a tournament manager.</div>`
+                        : `<div class="alert info">Password reset is currently turned off. Please contact your tournament organizer.</div>`
                     }
                   </div>
                 </section>
@@ -13736,7 +13915,6 @@
 
       function renderCreateAccountPublicView() {
         const signupDisabled = !state.appSettings.auth.allowSelfSignup;
-        const needsBootstrapManager = needsLocalBootstrapManagerSetup();
         const savePasswordChecked = authPrefs?.savePasswordOnDevice !== false;
         return `
           <div class="auth-page">
@@ -13749,16 +13927,12 @@
                         <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird logo" />
                       </div>
                       <div>
-                        <p class="eyebrow">${escapeHtml(
-                          needsBootstrapManager ? "First-Time Setup" : "Create Account",
-                        )}</p>
-                        <h1>${escapeHtml(
-                          needsBootstrapManager ? "Create system manager" : "Create account",
-                        )}</h1>
+                        <p class="eyebrow">Create Account</p>
+                        <h1>Create account</h1>
                       </div>
                     </div>
                     <p class="hero-copy premium-hero-copy">
-                      Create your password, then return to sign in with your assigned tournament access.
+                      Create your password, then sign in to create tournaments or access linked tournament roles.
                     </p>
                     <div class="button-row wrap-row">
                       <button class="button-primary" type="button" data-action="set-public-view" data-view="auth">Back to sign in</button>
@@ -13769,22 +13943,11 @@
                   <div class="form-shell">
                     <div class="section-heading">
                       <div>
-                        <p class="eyebrow">${escapeHtml(
-                          needsBootstrapManager ? "System Manager" : "Account setup",
-                        )}</p>
-                        <h2>${escapeHtml(
-                          needsBootstrapManager
-                            ? "Create the first manager account"
-                            : "Create your password",
-                        )}</h2>
+                        <p class="eyebrow">Account setup</p>
+                        <h2>Create your password</h2>
                       </div>
                     </div>
                     ${renderFlash()}
-                    ${
-                      needsBootstrapManager
-                        ? `<div class="alert info">No system manager exists yet. The first account created here becomes the first system manager.</div>`
-                        : ""
-                    }
                     ${
                       signupDisabled
                         ? `<div class="alert warning">Self sign-up is turned off right now.</div>`
@@ -13814,9 +13977,7 @@
                               )} />
                               <span>Save password on this device</span>
                             </label>
-                            <button type="submit">${escapeHtml(
-                              needsBootstrapManager ? "Create system manager" : "Create account",
-                            )}</button>
+                            <button type="submit">Create account</button>
                           </form>
                         `
                     }
@@ -14438,7 +14599,7 @@
                   <div class="inline-card">
                     <h3>Efficient management</h3>
                     <p class="muted">
-                      The staff workspace is organized around tournament-by-tournament control so registration, pairing, publishing, and permissions can happen quickly from one focused dashboard.
+                      The tab room workspace is organized around tournament-by-tournament control so registration, pairing, publishing, and permissions can happen quickly from one focused dashboard.
                     </p>
                   </div>
                 </div>
@@ -14485,14 +14646,15 @@
 
       function renderOverviewView() {
         const stats = getOverviewStats();
-        const managerMetrics = getManagerMetrics();
         const capabilities = getWorkspaceCapabilities();
         const visibleTournaments = getVisibleTournaments();
         const publicDraws = visibleTournaments.filter(
           (tournament) => tournament.publication.showPublicDraw,
         ).length;
-        const judgeAssignments = capabilities.canJudgeAny ? getJudgeAssignments() : [];
-        const openRecoveryRequests = getOpenRecoveryRequests();
+        const judgeAssignments = getJudgeAssignments();
+        const speakerRecords = getParticipantDirectoryRecords(session.userEmail, {
+          includeHidden: true,
+        });
         const recentLogs = getVisibleTournaments()
           .flatMap((tournament) =>
             (tournament.auditLog || []).map((entry) => ({
@@ -14502,232 +14664,6 @@
           )
           .sort((left, right) => (left.entry.at < right.entry.at ? 1 : -1))
           .slice(0, 8);
-        if (!capabilities.canManageAny) {
-          return `
-            <section class="surface overview-panel">
-              <div class="overview-quick-row">
-                <div class="summary-main">
-                  <p class="eyebrow">${
-                    capabilities.canJudgeAny ? "Judge home" : "Choose your next step"
-                  }</p>
-                  <h2>${
-                    capabilities.canJudgeAny
-                      ? "See your rooms, ballots, and public results"
-                      : "Open the tournament or result you need"
-                  }</h2>
-                  <p class="muted">${
-                    capabilities.canJudgeAny
-                      ? "Use this page to jump into a ballot, open a tournament, or use your private link."
-                      : "Use this page to open a tournament, search names, or go straight to public results."
-                  }</p>
-                </div>
-                ${renderOverviewLaunchDeck([
-                  {
-                    eyebrow: "Tournaments",
-                    title: "Open a tournament",
-                    body: "View the draw, standings, notices, and published round information.",
-                    badge: stats.openTournaments + " open",
-                    tone: stats.openTournaments ? "success" : "warning",
-                    actionMarkup:
-                      '<button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournament</button>',
-                  },
-                  {
-                    eyebrow: "Search",
-                    title: "Search records",
-                    body: "Find tournaments, teams, speakers, institutions, and accounts quickly.",
-                    badge: "Fast find",
-                    tone: "success",
-                    actionMarkup:
-                      '<button class="secondary-button" data-action="set-view" data-view="search">Open Search</button>',
-                  },
-                  capabilities.canViewJudging
-                    ? {
-                        eyebrow: "Ballots",
-                        title: "Submit a ballot",
-                        body: "Open your assigned room, enter scores, and submit the result.",
-                        badge: judgeAssignments.length + " rooms",
-                        tone: judgeAssignments.length ? "warning" : "success",
-                        actionMarkup:
-                          '<button class="secondary-button" data-action="set-view" data-view="judging">Open Ballots</button>',
-                      }
-                    : {
-                        eyebrow: "Results",
-                        title: "View results",
-                        body: "See the published standings and draws already visible to you.",
-                        badge: publicDraws + " draws",
-                        tone: publicDraws ? "success" : "warning",
-                        actionMarkup:
-                          '<button class="secondary-button" data-action="set-view" data-view="tournaments">View Results</button>',
-                      },
-                  {
-                    eyebrow: "Private access",
-                    title: "Open your private link",
-                    body: "Use a saved private link when you need the focused debater view.",
-                    badge: getUserAccessLinkRecords().length + " links",
-                    tone: "success",
-                    actionMarkup:
-                      '<button class="secondary-button" data-action="set-view" data-view="links">Open Private Link</button>',
-                  },
-                ])}
-              </div>
-              <div class="spotlight-grid overview-spotlight-grid">
-                <article class="spotlight-card">
-                  <p class="eyebrow">Tournaments</p>
-                  <h3>${escapeHtml(stats.visibleTournaments)}</h3>
-                  <p class="muted">Tournaments currently visible to this account.</p>
-                </article>
-                <article class="spotlight-card">
-                  <p class="eyebrow">Open now</p>
-                  <h3>${escapeHtml(stats.openTournaments)}</h3>
-                  <p class="muted">Events that are currently open.</p>
-                </article>
-                <article class="spotlight-card">
-                  <p class="eyebrow">Results</p>
-                  <h3>${escapeHtml(stats.publicStandings)}</h3>
-                  <p class="muted">Published standings now visible to you.</p>
-                </article>
-                <article class="spotlight-card">
-                  <p class="eyebrow">${
-                    capabilities.canJudgeAny ? "Ballots" : "Draws"
-                  }</p>
-                  <h3>${escapeHtml(
-                    capabilities.canJudgeAny ? judgeAssignments.length : publicDraws,
-                  )}</h3>
-                  <p class="muted">${
-                    capabilities.canJudgeAny
-                      ? "Rooms currently assigned to you."
-                      : "Published draws currently visible to you."
-                  }</p>
-                </article>
-              </div>
-            </section>
-            ${renderRoleHomeNoticePanel({
-              capabilities,
-              visibleTournaments,
-              judgeAssignments,
-            })}
-            ${renderUserAccessLinksSection({
-              title: "Your Private Access URL",
-              eyebrow: "Private Access",
-              records: getUserAccessLinkRecords(),
-              compact: true,
-            })}
-            <section class="surface-grid">
-              <section class="surface">
-                <div class="section-heading">
-                  <div>
-                    <p class="eyebrow">Tournaments</p>
-                    <h3>Available tournaments</h3>
-                  </div>
-                  <span class="role-pill">${escapeHtml(visibleTournaments.length)} visible</span>
-                </div>
-                ${
-                  visibleTournaments.length
-                    ? `<div class="leaderboard-list">
-                        ${visibleTournaments
-                          .slice(0, 6)
-                          .map((tournament) => `
-                            <div class="leaderboard-row">
-                              <div class="stack">
-                                <strong>${escapeHtml(tournament.name)}</strong>
-                                <span class="muted">${escapeHtml(getFormatLabel(tournament))}</span>
-                              </div>
-                              <div class="button-row wrap-row">
-                                ${renderTournamentNavigationButton(
-                                  tournament,
-                                  canManageTournament(tournament) ? "Open" : "View",
-                                  !canManageTournament(tournament),
-                                )}
-                                <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
-                                  toTitleLabel(tournament.status),
-                                )}</span>
-                              </div>
-                            </div>
-                          `)
-                          .join("")}
-                      </div>`
-                    : `<div class="empty-state">No tournaments are visible yet. Published tournaments will appear here.</div>`
-                }
-              </section>
-              ${
-                capabilities.canJudgeAny
-                  ? `
-                    <section class="surface">
-                      <div class="section-heading">
-                        <div>
-                          <p class="eyebrow">Judge assignments</p>
-                          <h3>Your current rooms</h3>
-                        </div>
-                        <span class="role-pill">${escapeHtml(judgeAssignments.length)} rooms</span>
-                      </div>
-                      ${
-                        judgeAssignments.length
-                          ? `<div class="leaderboard-list">
-                              ${judgeAssignments
-                                .slice(0, 6)
-                                .map(
-                                  (assignment) => `
-                                    <div class="leaderboard-row">
-                                      <div class="stack">
-                                        <strong>${escapeHtml(
-                                          assignment.tournament.name +
-                                            " • Round " +
-                                            assignment.allocation.round +
-                                            " • " +
-                                            assignment.allocation.room,
-                                        )}</strong>
-                                        <span class="muted">${escapeHtml(
-                                          (assignment.drawEntry
-                                            ? getDrawMatchupForDisplay(
-                                                assignment.tournament,
-                                                assignment.drawEntry,
-                                                { forcePrivate: true },
-                                              )
-                                            : "") ||
-                                            assignment.allocation.matchup ||
-                                            "Matchup pending",
-                                        )}</span>
-                                      </div>
-                                      <span class="judge-status-pill">${escapeHtml(
-                                        getJudgeAllocationRoleLabel(assignment.allocation.panelRole),
-                                      )}</span>
-                                    </div>
-                                  `,
-                                )
-                                .join("")}
-                            </div>`
-                          : `<div class="empty-state">No rooms are assigned to you yet. Your ballots will appear here once judges are allocated.</div>`
-                      }
-                    </section>
-                  `
-                  : `
-                    <section class="surface">
-                      <div class="section-heading">
-                        <div>
-                          <p class="eyebrow">Recent changes</p>
-                          <h3>Latest updates</h3>
-                        </div>
-                      </div>
-                      ${
-                        recentLogs.length
-                          ? `<ul class="audit-list">
-                              ${recentLogs
-                                .map(
-                                  (item) =>
-                                    `<li><strong>${escapeHtml(item.tournament)}</strong>: ${escapeHtml(
-                                      item.entry.message,
-                                    )} <span class="muted">(${escapeHtml(item.entry.at)})</span></li>`,
-                                )
-                                .join("")}
-                            </ul>`
-                          : `<div class="empty-state">No recent updates yet.</div>`
-                      }
-                    </section>
-                  `
-              }
-            </section>
-          `;
-        }
 
         const managedTournaments = capabilities.managedTournaments || [];
         const activeManagedTournament = getManagedTournamentForSession() || managedTournaments[0] || null;
@@ -14744,11 +14680,11 @@
           <section class="surface manager-home-control">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Tournament Control Room</p>
+                <p class="eyebrow">Tournament workspace</p>
                 <h2>${
                   activeManagedTournament
                     ? escapeHtml(activeManagedTournament.name)
-                    : "Open a tournament to begin operations"
+                    : "Create or open a tournament"
                 }</h2>
               </div>
             </div>
@@ -14775,9 +14711,9 @@
                   </div>`
                 : `<div class="manager-home-empty-callout">
                     <div>
-                      <p class="eyebrow">No active tab room</p>
-                      <strong>No manageable tournament is currently selected.</strong>
-                      <span>Open a tournament to see live round state, ballot progress, draw status, and publication controls.</span>
+                      <p class="eyebrow">Open-use tabbing</p>
+                      <strong>Anyone signed in can create and run a tournament.</strong>
+                      <span>Create a tournament, open an existing one, or use your judge and speaker history when your account is linked to a tournament.</span>
                     </div>
                     <div class="button-row wrap-row">
                       <button type="button" data-action="set-view" data-view="tournaments">Open tournaments</button>
@@ -14799,7 +14735,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Next Required Actions</p>
-                <h3>Tournament attention queue</h3>
+                <h3>Your tournament queue</h3>
               </div>
             </div>
             ${
@@ -14840,39 +14776,57 @@
                   </div>`
                 : `<div class="manager-home-empty-callout manager-home-empty-callout-light">
                     <div>
-                      <p class="eyebrow">Clear queue</p>
-                      <strong>No tournaments need manager attention yet.</strong>
-                      <span>When a tournament is assigned to you, warnings and next actions will appear here.</span>
+                      <p class="eyebrow">Nothing urgent yet</p>
+                      <strong>No tournaments need tab room attention.</strong>
+                      <span>Create a tournament or open one you already manage to start building rounds, draws, ballots, and results.</span>
                     </div>
                     <button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">View tournaments</button>
                   </div>`
             }
           </section>
+          ${renderRoleHomeNoticePanel({
+            capabilities,
+            visibleTournaments,
+            judgeAssignments,
+          })}
           <section class="surface-grid manager-home-bottom-grid">
             <section class="surface manager-home-panel manager-home-ops">
               <div class="section-heading">
                 <div>
-                  <p class="eyebrow">Operations Queue</p>
-                  <h3>Administrative review queue</h3>
+                  <p class="eyebrow">Account history</p>
+                  <h3>Your tournament roles</h3>
                 </div>
               </div>
               <div class="manager-grid">
                 <div class="stat-card manager-home-stat">
-                  <span class="muted">Pending sign-ups</span>
-                  <strong>${escapeHtml(managerMetrics.pendingAccounts)}</strong>
+                  <span class="muted">Managed tournaments</span>
+                  <strong>${escapeHtml(managedTournaments.length)}</strong>
                 </div>
                 <div class="stat-card manager-home-stat">
-                  <span class="muted">Password reset requests</span>
-                  <strong>${escapeHtml(managerMetrics.passwordResetRequests)}</strong>
+                  <span class="muted">Judge assignments</span>
+                  <strong>${escapeHtml(judgeAssignments.length)}</strong>
                 </div>
                 <div class="stat-card manager-home-stat">
-                  <span class="muted">Hidden standings boards</span>
-                  <strong>${escapeHtml(managerMetrics.hiddenStandings)}</strong>
+                  <span class="muted">Speaker records</span>
+                  <strong>${escapeHtml(speakerRecords.length)}</strong>
                 </div>
                 <div class="stat-card manager-home-stat">
-                  <span class="muted">Inactive accounts</span>
-                  <strong>${escapeHtml(managerMetrics.inactiveUsers)}</strong>
+                  <span class="muted">Private links</span>
+                  <strong>${escapeHtml(stats.privateLinks)}</strong>
                 </div>
+              </div>
+              <div class="button-row wrap-row compact-actions">
+                ${
+                  judgeAssignments.length
+                    ? `<button class="secondary-button" type="button" data-action="set-view" data-view="judge-history">Open judge history</button>`
+                    : ""
+                }
+                ${
+                  speakerRecords.length
+                    ? `<button class="secondary-button" type="button" data-action="set-view" data-view="speaker-history">Open speaker history</button>`
+                    : ""
+                }
+                <button class="secondary-button" type="button" data-action="set-view" data-view="links">Open private links</button>
               </div>
             </section>
             <section class="surface manager-home-panel manager-home-audit">
@@ -14898,336 +14852,12 @@
                       <div>
                         <p class="eyebrow">Quiet log</p>
                         <strong>No recent audit events yet.</strong>
-                        <span>Tournament updates, published draws, ballot changes, and admin actions will appear here.</span>
+                        <span>Tournament updates, published draws, ballot changes, and tab room actions will appear here.</span>
                       </div>
                     </div>`
               }
             </section>
           </section>
-        `;
-
-        return `
-          <section class="surface overview-panel">
-            <div class="overview-quick-row">
-              <div class="summary-main">
-                <p class="eyebrow">Operations overview</p>
-                <h2>Run your tournament from one place.</h2>
-                <p class="muted">Choose the next task, open the right tournament, and keep rounds moving.</p>
-              </div>
-              ${renderOverviewLaunchDeck([
-                {
-                  eyebrow: "Tournament",
-                  title: "Open a tournament",
-                  body: "Go straight to rounds, teams, judges, and results.",
-                  badge: stats.openTournaments + " open",
-                  tone: stats.openTournaments ? "success" : "warning",
-                  actionMarkup:
-                    '<button class="secondary-button" data-action="set-view" data-view="tournaments">Open Tournament</button>',
-                },
-                capabilities.canLaunchTournaments
-                  ? {
-                      eyebrow: "Tournament",
-                      title: "Create a tournament",
-                      body: "Start a new event with format, rounds, and public settings.",
-                      badge: "New",
-                      tone: "success",
-                      actionMarkup:
-                        '<button class="secondary-button" data-action="set-view" data-view="launch">Create Tournament</button>',
-                    }
-                  : null,
-                capabilities.canViewPeople
-                  ? {
-                      eyebrow: "Teams",
-                      title: "Review teams and people",
-                      body: "Edit accounts, registrations, and tournament appointments.",
-                      badge: state.users.length + " accounts",
-                      tone: "success",
-                      actionMarkup:
-                        '<button class="secondary-button" data-action="set-view" data-view="people">Open Teams & People</button>',
-                    }
-                  : null,
-                capabilities.canViewLinks
-                  ? {
-                      eyebrow: "Results",
-                      title: "Open private links",
-                      body: "Copy or reset private links for judges, debaters, and staff.",
-                      badge: stats.privateLinks + " links",
-                      tone: stats.privateLinks ? "success" : "warning",
-                      actionMarkup:
-                        '<button class="secondary-button" data-action="set-view" data-view="links">Open Private Links</button>',
-                    }
-                  : null,
-                capabilities.canViewSettings
-                  ? {
-                      eyebrow: "Settings",
-                      title: "Open settings",
-                      body: "Change workspace defaults, passwords, and tournament admin tools.",
-                      badge:
-                        managerMetrics.pendingAccounts || openRecoveryRequests.length
-                          ? managerMetrics.pendingAccounts + openRecoveryRequests.length + " to review"
-                          : "",
-                      tone:
-                        managerMetrics.pendingAccounts || openRecoveryRequests.length ? "warning" : "success",
-                      actionMarkup:
-                        '<button class="secondary-button" data-action="set-view" data-view="settings">Open Settings</button>',
-                    }
-                  : null,
-              ])}
-            </div>
-            <div class="spotlight-grid overview-spotlight-grid">
-              <article class="spotlight-card">
-                <p class="eyebrow">Tournaments</p>
-                <h3>${escapeHtml(stats.visibleTournaments)}</h3>
-                <p class="muted">Tournaments currently visible in this workspace.</p>
-              </article>
-              <article class="spotlight-card">
-                <p class="eyebrow">Open now</p>
-                <h3>${escapeHtml(stats.openTournaments)}</h3>
-                <p class="muted">Events that are currently open.</p>
-              </article>
-              <article class="spotlight-card">
-                <p class="eyebrow">Accounts</p>
-                <h3>${escapeHtml(stats.registeredUsers)}</h3>
-                <p class="muted">Accounts stored in the shared workspace.</p>
-              </article>
-              <article class="spotlight-card">
-                <p class="eyebrow">Private links</p>
-                <h3>${escapeHtml(stats.privateLinks)}</h3>
-                <p class="muted">Private links currently available.</p>
-              </article>
-            </div>
-          </section>
-          ${
-            canAccessGlobalSettings()
-              ? `
-                <section class="surface-grid">
-                  <section class="surface">
-                    <div class="section-heading">
-                      <div>
-                        <p class="eyebrow">Tournaments</p>
-                        <h3>Open a tournament</h3>
-                      </div>
-                      <span class="role-pill">${escapeHtml(visibleTournaments.length)} visible</span>
-                    </div>
-                    ${
-                      visibleTournaments.length
-                        ? `<div class="leaderboard-list">
-                            ${visibleTournaments
-                              .map(
-                                (tournament) => `
-                                  <div class="leaderboard-row">
-                                    <div class="stack">
-                                      <strong>${escapeHtml(tournament.name)}</strong>
-                                      <span class="muted">${escapeHtml(getFormatLabel(tournament))}</span>
-                                    </div>
-                                    <div class="button-row wrap-row">
-                                      ${renderTournamentNavigationButton(
-                                        tournament,
-                                        canManageTournament(tournament) ? "Open" : "View",
-                                        !canManageTournament(tournament),
-                                      )}
-                                      <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
-                                        toTitleLabel(tournament.status),
-                                      )}</span>
-                                    </div>
-                                  </div>
-                                `,
-                              )
-                              .join("")}
-                          </div>`
-                        : `<div class="empty-state">No tournaments are visible yet. Create one or wait for a public event to open.</div>`
-                    }
-                  </section>
-                  <section class="surface">
-                    <div class="section-heading">
-                      <div>
-                        <p class="eyebrow">Needs review</p>
-                        <h3>Items to check next</h3>
-                      </div>
-                      <span class="role-pill">Staff</span>
-                    </div>
-                      ${
-                        managerMetrics.pendingAccounts ||
-                        managerMetrics.passwordResetRequests ||
-                        managerMetrics.hiddenStandings ||
-                        managerMetrics.inactiveUsers ||
-                        managerMetrics.archivedTournaments
-                        ? `<div class="overview-queue-grid">
-                            <article class="overview-queue-card">
-                              <p class="eyebrow">Accounts</p>
-                              <strong>${escapeHtml(managerMetrics.pendingAccounts)}</strong>
-                              <p class="muted">Pending sign-ups still waiting to be claimed.</p>
-                            </article>
-                            <article class="overview-queue-card">
-                              <p class="eyebrow">Recovery</p>
-                              <strong>${escapeHtml(openRecoveryRequests.length)}</strong>
-                              <p class="muted">Password reset requests still waiting on manager action.</p>
-                            </article>
-                            <article class="overview-queue-card">
-                              <p class="eyebrow">Standings</p>
-                              <strong>${escapeHtml(managerMetrics.hiddenStandings)}</strong>
-                              <p class="muted">Tournaments where the standings are still private.</p>
-                            </article>
-                            <article class="overview-queue-card">
-                              <p class="eyebrow">Accounts disabled</p>
-                              <strong>${escapeHtml(managerMetrics.inactiveUsers)}</strong>
-                              <p class="muted">Accounts currently disabled in the workspace.</p>
-                            </article>
-                            <article class="overview-queue-card">
-                              <p class="eyebrow">Archived</p>
-                              <strong>${escapeHtml(managerMetrics.archivedTournaments)}</strong>
-                              <p class="muted">Tournaments moved out of the live rotation.</p>
-                            </article>
-                          </div>`
-                        : `<div class="alert success">Nothing urgent is waiting right now.</div>`
-                    }
-                    <div class="button-row wrap-row">
-                      <button class="secondary-button" data-action="set-view" data-view="people">Open Teams & People</button>
-                      <button class="secondary-button" data-action="set-view" data-view="settings">Open Settings</button>
-                      <button class="secondary-button" data-action="set-view" data-view="links">Open Private Links</button>
-                    </div>
-                  </section>
-                </section>
-                <section class="surface">
-                  <div class="section-heading">
-                    <div>
-                      <p class="eyebrow">Recent changes</p>
-                      <h3>Latest tournament activity</h3>
-                    </div>
-                  </div>
-                  ${
-                    recentLogs.length
-                      ? `<ul class="audit-list">
-                          ${recentLogs
-                            .map(
-                              (item) =>
-                                `<li><strong>${escapeHtml(item.tournament)}</strong>: ${escapeHtml(
-                                  item.entry.message,
-                                )} <span class="muted">(${escapeHtml(item.entry.at)})</span></li>`,
-                            )
-                            .join("")}
-                        </ul>`
-                      : `<div class="empty-state">No recent changes yet.</div>`
-                  }
-                </section>
-                <details class="surface overview-admin-details">
-                  <summary>
-                    <div class="summary-main">
-                      <p class="eyebrow">Tournament admin tools</p>
-                      <h3>Open account and recovery tools</h3>
-                      <p class="muted">Use these tools when you need to create accounts or fix access.</p>
-                    </div>
-                  </summary>
-                  <div class="details-content">
-                    <div class="manager-tools">
-                      <section class="flat-panel">
-                        <div class="section-heading">
-                          <div>
-                            <h3>Create an account</h3>
-                            <p class="fine-print">Create staff accounts directly from the manager console.</p>
-                          </div>
-                        </div>
-                        <form class="stack" data-form="create-managed-user">
-                          <div class="field-grid two">
-                            <label>
-                              Full name
-                              <input type="text" name="name" placeholder="Staff member name" required />
-                            </label>
-                            <label>
-                              Email address
-                              <input type="email" name="email" placeholder="staff@example.com" required />
-                            </label>
-                          </div>
-                          <div class="field-grid two">
-                            <label>
-                              Global role
-                              <select name="globalRole">${getGlobalRoleOptions("member")}</select>
-                            </label>
-                            <label>
-                              Temporary password
-                              <input type="password" name="password" placeholder="Create a temporary password" required />
-                            </label>
-                          </div>
-                          <button type="submit">Create Account</button>
-                        </form>
-                      </section>
-                      <section class="flat-panel">
-                        <div class="section-heading">
-                          <div>
-                            <h3>Reset a password</h3>
-                            <p class="fine-print">Issue a fresh password for any non-manager account.</p>
-                          </div>
-                        </div>
-                        <form class="stack" data-form="manager-reset-password">
-                          <label>
-                            Account
-                            <select name="email">${getNonManagerUserOptionsMarkup()}</select>
-                          </label>
-                          <label>
-                            New password
-                            <input type="password" name="password" placeholder="Enter a new password" required />
-                          </label>
-                          <button type="submit">Reset password</button>
-                        </form>
-                      </section>
-                      <section class="flat-panel">
-                        <div class="section-heading">
-                          <div>
-                            <h3>Password reset requests</h3>
-                            <p class="fine-print">Review forgot-password requests and resolve them without leaving the dashboard.</p>
-                          </div>
-                        </div>
-                        ${
-                          openRecoveryRequests.length
-                            ? `<div class="request-list">
-                                ${openRecoveryRequests
-                                  .map(
-                                    (request) => `
-                                      <div class="flat-panel">
-                                        <div class="section-heading">
-                                          <strong>${escapeHtml(request.email)}</strong>
-                                          <span class="mini-pill ${
-                                            request.knownAccount ? "success" : "warning"
-                                          }">${escapeHtml(
-                                            request.knownAccount ? "Known account" : "Unknown account",
-                                          )}</span>
-                                        </div>
-                                        <p class="fine-print">Submitted ${escapeHtml(request.submittedAt)}</p>
-                                        <p class="muted">${escapeHtml(
-                                          request.note || "No note was added.",
-                                        )}</p>
-                                        ${
-                                          request.knownAccount
-                                            ? `
-                                              <form class="stack" data-form="resolve-recovery-request" data-request-id="${escapeHtml(
-                                                request.id,
-                                              )}">
-                                                <label>
-                                                  Temporary password
-                                                  <input type="password" name="password" placeholder="Set a temporary password" required />
-                                                </label>
-                                                <button type="submit">Resolve and set password</button>
-                                              </form>
-                                            `
-                                            : `<div class="alert info">No account currently matches this email address. You can create an account or dismiss the request.</div>`
-                                        }
-                                        <button class="secondary-button" type="button" data-action="dismiss-recovery-request" data-request-id="${escapeHtml(
-                                          request.id,
-                                        )}">Dismiss request</button>
-                                      </div>
-                                    `,
-                                  )
-                                  .join("")}
-                              </div>`
-                            : `<div class="empty-state">There are no open password reset requests.</div>`
-                        }
-                      </section>
-                    </div>
-                  </div>
-                </details>
-              `
-              : ""
-          }
         `;
       }
 
@@ -15471,7 +15101,7 @@
                 </div>
               </div>
               <div class="empty-state">
-                Your account is active, but no tournament has been linked to this email yet. Ask a manager for access or a private link.
+                Your account is active, but no tournament has been linked to this email yet. Register for a tournament, open a public tournament, or create your own tournament workspace.
               </div>
             </section>
           `;
@@ -18237,6 +17867,7 @@
         const canManage = canManageTournament(tournament);
         const canPin = Boolean(getCurrentUser());
         const pinned = isTournamentPinned(tournament.id);
+        const archivedForUser = isTournamentArchivedForUser(tournament.id);
         const snapshot = getTournamentOpsSnapshot(tournament);
         const teamCount = getTournamentTeams(tournament).length;
         const judgeCount = snapshot.judges || 0;
@@ -18325,6 +17956,18 @@
                         activeId === tournament.id ? "Open Now" : "Open Tournament",
                       )}</button>`
                 }
+                ${
+                  archivedForUser
+                    ? `<button class="secondary-button" type="button" data-action="restore-tournament-for-me" data-id="${escapeHtml(
+                        tournament.id,
+                      )}">Restore for me</button>`
+                    : `<button class="secondary-button" type="button" data-action="archive-tournament-for-me" data-id="${escapeHtml(
+                        tournament.id,
+                      )}">Archive for me</button>`
+                }
+                <button class="secondary-button" type="button" data-action="delete-tournament-for-me" data-id="${escapeHtml(
+                  tournament.id,
+                )}">Remove from my view</button>
                 ${
                   canManage
                     ? `<button class="danger-button" type="button" data-action="delete-tournament" data-id="${escapeHtml(
@@ -19980,11 +19623,11 @@
               <div class="section-heading">
                 <div>
                   <p class="eyebrow">Create Tournament</p>
-                  <h2>Only tournament staff can create tournaments</h2>
+                  <h2>Sign in to create a tournament</h2>
                 </div>
               </div>
               <div class="alert info">
-                You can still open any tournament where your email has staff access.
+                Hummingbird is open-use. Once signed in, you can create and manage your own tournament workspace.
               </div>
             </section>
           `;
@@ -21683,7 +21326,7 @@
           ? `${getRegionalOperationsRoleLabel(user.regionalRole)}${
               user.regionalRegion ? " • " + user.regionalRegion : ""
             }`
-          : toTitleLabel(user.globalRole);
+          : "Account";
         const linkedProfile = getLinkedParticipantProfileForUser(user);
 
         return `
@@ -21692,7 +21335,7 @@
               <div class="stack">
                 <p class="eyebrow">People Profile</p>
                 <h2>${escapeHtml(user.name)}</h2>
-                <p class="muted">Account details, access history, and management controls in one focused view.</p>
+                <p class="muted">Account details, tournament history, and linked participation in one focused view.</p>
               </div>
               <div class="button-row wrap-row people-account-profile-actions">
                 <button class="secondary-button" type="button" data-action="clear-people-account-focus">Back To Directory</button>
@@ -21741,8 +21384,8 @@
                   <strong>${escapeHtml(user.email)}</strong>
                 </div>
                 <div class="people-account-profile-detail">
-                  <span>Global role</span>
-                  <strong>${escapeHtml(toTitleLabel(user.globalRole))}</strong>
+                  <span>Account type</span>
+                  <strong>General account</strong>
                 </div>
                 <div class="people-account-profile-detail">
                   <span>Joined</span>
@@ -21846,7 +21489,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">People</p>
-                <h2>People control hub</h2>
+                <h2>People database</h2>
               </div>
               <span class="role-pill">${escapeHtml(state.users.length)} accounts</span>
             </div>
@@ -24339,8 +23982,164 @@
           }
         `;
       }
+
+      function groupJudgeAssignmentsByTournament(assignments = []) {
+        const groups = new Map();
+        assignments.forEach((assignment) => {
+          const tournamentId = String(assignment.tournament?.id || "").trim();
+          if (!tournamentId || isTournamentDeletedForUser(tournamentId)) return;
+          if (!groups.has(tournamentId)) {
+            groups.set(tournamentId, {
+              tournament: assignment.tournament,
+              assignments: [],
+            });
+          }
+          groups.get(tournamentId).assignments.push(assignment);
+        });
+        return Array.from(groups.values()).sort((left, right) =>
+          String(left.tournament.name || "").localeCompare(String(right.tournament.name || "")),
+        );
+      }
+
+      function renderJudgeHistoryView() {
+        const groups = groupJudgeAssignmentsByTournament(getJudgeAssignments(session.userEmail));
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Judge History</p>
+                <h2>Your judging record</h2>
+              </div>
+            </div>
+            ${
+              groups.length
+                ? `<div class="leaderboard-list">
+                    ${groups
+                      .map(
+                        (group) => `
+                          <details class="compact-card-disclosure surface">
+                            <summary>
+                              <div class="stack">
+                                <strong>${escapeHtml(group.tournament.name)}</strong>
+                                <span class="muted">${escapeHtml(
+                                  getFormatLabel(group.tournament) +
+                                    " • " +
+                                    group.assignments.length +
+                                    " room" +
+                                    (group.assignments.length === 1 ? "" : "s"),
+                                )}</span>
+                              </div>
+                            </summary>
+                            <div class="details-content stack">
+                              ${group.assignments
+                                .map(
+                                  (assignment) => `
+                                    <div class="leaderboard-row">
+                                      <div class="stack">
+                                        <strong>${escapeHtml(
+                                          "Round " +
+                                            assignment.allocation.round +
+                                            " • " +
+                                            assignment.allocation.room,
+                                        )}</strong>
+                                        <span class="muted">${escapeHtml(
+                                          getJudgeAllocationRoleLabel(assignment.allocation.panelRole),
+                                        )}</span>
+                                      </div>
+                                      <button class="secondary-button" type="button" data-action="open-tournament-record" data-id="${escapeHtml(
+                                        group.tournament.id,
+                                      )}">Open tournament</button>
+                                    </div>
+                                  `,
+                                )
+                                .join("")}
+                            </div>
+                          </details>
+                        `,
+                      )
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state">No judging history is linked to this email yet.</div>`
+            }
+          </section>
+        `;
+      }
+
+      function renderSpeakerHistoryView() {
+        const profiles = getParticipantDirectoryRecords(session.userEmail, {
+          includeHidden: true,
+        });
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Speaker History</p>
+                <h2>Your speaking record</h2>
+              </div>
+            </div>
+            ${
+              profiles.length
+                ? `<div class="leaderboard-list">
+                    ${profiles
+                      .map(
+                        (profile) => `
+                          <details class="compact-card-disclosure surface">
+                            <summary>
+                              <div class="stack">
+                                <strong>${escapeHtml(profile.name || profile.email || "Speaker")}</strong>
+                                <span class="muted">${escapeHtml(
+                                  profile.tournamentsCount +
+                                    " tournament" +
+                                    (profile.tournamentsCount === 1 ? "" : "s") +
+                                    " • Avg " +
+                                    profile.averageSpeakerScore +
+                                    " speaker points",
+                                )}</span>
+                              </div>
+                            </summary>
+                            <div class="details-content stack">
+                              ${profile.history
+                                .map(
+                                  (entry) => `
+                                    <div class="leaderboard-row">
+                                      <div class="stack">
+                                        <strong>${escapeHtml(entry.tournamentName)}</strong>
+                                        <span class="muted">${escapeHtml(
+                                          [
+                                            entry.teamName,
+                                            entry.institution,
+                                            entry.speakerStanding?.speakerRank
+                                              ? "#" + entry.speakerStanding.speakerRank
+                                              : "",
+                                            entry.speakerScore
+                                              ? entry.speakerScore + " speaker points"
+                                              : "",
+                                          ]
+                                            .filter(Boolean)
+                                            .join(" • "),
+                                        )}</span>
+                                      </div>
+                                      <button class="secondary-button" type="button" data-action="open-tournament-record" data-id="${escapeHtml(
+                                        entry.tournamentId,
+                                      )}">Open tournament</button>
+                                    </div>
+                                  `,
+                                )
+                                .join("")}
+                            </div>
+                          </details>
+                        `,
+                      )
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state">No speaker history is linked to this email yet.</div>`
+            }
+          </section>
+        `;
+      }
+
       function renderSettingsView() {
-        const settingsLocked = !canAccessGlobalSettings();
+        const settingsLocked = true;
         const settings = state.appSettings;
         const currentUser = getCurrentUser();
         const devicePasswordSavingSupported = supportsDevicePasswordSaving();
@@ -24352,17 +24151,10 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Settings</p>
-                <h2>Workspace and tournament defaults</h2>
+                <h2>General account settings</h2>
               </div>
-              <span class="role-pill">${escapeHtml(
-                settingsLocked ? "System Managers" : "System Manager Access",
-              )}</span>
             </div>
-            ${
-              settingsLocked
-                ? `<div class="alert warning">Only System Managers can change global settings. Your personal workspace settings below are still editable.</div>`
-                : ""
-            }
+            <p class="muted">Manage your personal workspace preferences. Tournament controls live inside each tournament workspace.</p>
           </section>
           <section class="surface">
             <div class="section-heading">
@@ -24452,9 +24244,8 @@
             </form>
           </section>
           ${
-            settingsLocked
-              ? `<section class="surface"><div class="alert info">Admin settings are hidden for this account.</div></section>`
-              : `
+            !settingsLocked
+              ? `
                 <section class="tournament-grid">
                   <section class="surface">
                     <div class="section-heading">
@@ -24588,6 +24379,7 @@
                   </section>
                 </section>
               `
+              : ""
           }
         `;
       }
@@ -24781,6 +24573,10 @@
               ? renderSearchView()
             : currentView === "judging"
               ? renderJudgingView()
+            : currentView === "judge-history"
+              ? renderJudgeHistoryView()
+            : currentView === "speaker-history"
+              ? renderSpeakerHistoryView()
             : currentView === "people"
                 ? renderPeopleView()
                 : currentView === "links"
@@ -24862,7 +24658,7 @@
                       <h2>Invalid access link</h2>
                     </div>
                   </div>
-                  <div class="empty-state">This private token is not valid. Ask a manager to send a fresh debater link.</div>
+                  <div class="empty-state">This private token is not valid. Ask the tournament organizer to send a fresh debater link.</div>
                   <p><a class="inline-link" href="${escapeHtml(getDashboardLink())}">Back to login</a></p>
                 </section>
               </div>
@@ -25552,7 +25348,7 @@
         }
 
         const existingUser = state.users.find((user) => user.email === email) || null;
-        const shouldBootstrapManager = needsLocalBootstrapManagerSetup();
+        const shouldBootstrapManager = false;
         const cloudAvailable = await probeCloudBackend(true);
         let workspaceNeedsInitialization = false;
 
@@ -25596,7 +25392,7 @@
               if (requiresSharedBackend()) {
                 setFlash(
                   "error",
-                  "The shared backend workspace has not been initialized yet. A System Manager should sign in from the original setup device first.",
+                  "The shared backend workspace has not been initialized yet. Sign in from the original setup device first.",
                 );
                 renderApp();
                 return;
@@ -25625,7 +25421,7 @@
         if (existingUser && canClaimRegisteredUser(existingUser)) {
           Object.assign(existingUser, await buildSecurePasswordRecord(password), {
             name: name || existingUser.name,
-            globalRole: shouldBootstrapManager ? "manager" : existingUser.globalRole,
+            globalRole: existingUser.globalRole,
             createdSource: "self_signup",
             createdBy: normalizeEmail(email),
             lastLoginAt: timestamp(),
@@ -25634,7 +25430,7 @@
           const user = await buildUser(
             name,
             email,
-            shouldBootstrapManager ? "manager" : "member",
+            "member",
             password,
             {
             createdSource: "self_signup",
@@ -25674,7 +25470,7 @@
             setFlash(
               "error",
               error.message ||
-                "The local manager account was created, but the shared backend could not be initialized yet.",
+                "The local account was created, but the shared backend could not be initialized yet.",
             );
             renderApp();
             return;
@@ -25682,11 +25478,7 @@
         }
         persist(
           "success",
-          shouldBootstrapManager
-            ? workspaceNeedsInitialization
-              ? "System Manager account created, signed in, and published to the shared backend."
-              : "System Manager account created and signed in. This workspace can now be published safely from this device."
-            : "Account created and signed in. Your private access URL is now ready.",
+          "Account created and signed in. Your private access URL is now ready.",
         );
       }
 
@@ -27462,6 +27254,12 @@
           pinnedTournamentIds: (user.pinnedTournamentIds || []).filter(
             (id) => String(id || "").trim() !== String(tournamentId || "").trim(),
           ),
+          archivedTournamentIds: (user.archivedTournamentIds || []).filter(
+            (id) => String(id || "").trim() !== String(tournamentId || "").trim(),
+          ),
+          deletedTournamentIds: (user.deletedTournamentIds || []).filter(
+            (id) => String(id || "").trim() !== String(tournamentId || "").trim(),
+          ),
         }));
         session.recentTournamentIds = getRecentTournamentIds().filter(
           (id) => String(id || "").trim() !== String(tournamentId || "").trim(),
@@ -27547,7 +27345,7 @@
           return null;
         }
         if (!canManageTournament(tournament)) {
-          setFlash("error", "You do not have manager access for that tournament.");
+          setFlash("error", "You do not have tab room access for that tournament.");
           renderApp();
           return null;
         }
@@ -27576,7 +27374,7 @@
 
       function createTournament(formData) {
         if (!canCreateTournaments()) {
-          setFlash("error", "Only the manager or a system administrator can create tournaments.");
+          setFlash("error", "Sign in before creating a tournament.");
           renderApp();
           return;
         }
@@ -27604,6 +27402,8 @@
         const payload = {
           name: String(formData.get("name") || "").trim(),
           code: String(formData.get("code") || "").trim(),
+          createdBy: normalizeEmail(session.userEmail),
+          ownerEmail: normalizeEmail(session.userEmail),
           format,
           customFormatName: String(formData.get("customFormatName") || "").trim(),
           participantModel,
@@ -27661,11 +27461,6 @@
         const targetEmail = normalizeEmail(email);
         if (!targetEmail) return;
         if (!ensureTournamentManagerById(tournamentId)) return;
-        if (targetEmail === normalizeEmail(MANAGER_EMAIL) && roleKey !== "managerEmails") {
-          setFlash("error", "The primary manager account must remain a tournament manager.");
-          renderApp();
-          return;
-        }
 
         updateTournament(
           tournamentId,
@@ -27697,11 +27492,6 @@
         const targetEmail = normalizeEmail(email);
         if (!targetEmail || !roleKey) return;
         if (!ensureTournamentManagerById(tournamentId)) return;
-        if (targetEmail === normalizeEmail(MANAGER_EMAIL) && roleKey !== "managerEmails") {
-          setFlash("error", "The primary manager account must remain a tournament manager.");
-          renderApp();
-          return;
-        }
 
         updateTournament(
           tournamentId,
@@ -27733,11 +27523,6 @@
         if (!targetEmail) return;
         const tournament = ensureTournamentManagerById(tournamentId);
         if (!tournament) return;
-        if (targetEmail === normalizeEmail(MANAGER_EMAIL)) {
-          setFlash("error", "The primary manager account cannot be removed from tournament appointments.");
-          renderApp();
-          return;
-        }
 
         rememberTournamentHistoryForEmail(targetEmail, tournament.id);
 
@@ -31320,6 +31105,24 @@
 
           if (action === "restore-tournament") {
             restoreTournament(button.dataset.id);
+            return;
+          }
+
+          if (action === "archive-tournament-for-me") {
+            archiveTournamentForCurrentUser(button.dataset.id);
+            return;
+          }
+
+          if (action === "restore-tournament-for-me") {
+            restoreTournamentForCurrentUser(button.dataset.id);
+            return;
+          }
+
+          if (action === "delete-tournament-for-me") {
+            requestActionConfirmation({
+              action: "delete-tournament-for-me",
+              id: button.dataset.id,
+            });
             return;
           }
 
