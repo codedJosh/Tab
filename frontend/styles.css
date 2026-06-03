@@ -8590,4 +8590,425 @@
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
       }
+
+      /* Workspace polish pass: compact, proportional operating surfaces. */
+      .workspace-shell {
+        grid-template-columns: minmax(236px, 274px) minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .content-panel {
+        gap: 10px;
+      }
+
+      .content-panel .surface,
+      .content-panel .subsurface,
+      .content-panel .inline-card,
+      .content-panel .directory-card,
+      .content-panel .link-card,
+      .content-panel .manager-home-control,
+      .content-panel .manager-home-panel {
+        border-radius: 17px;
+        box-shadow:
+          0 9px 24px rgba(20, 31, 25, 0.055),
+          inset 0 1px 0 rgba(255, 255, 255, 0.74);
+      }
+
+      .content-panel .surface,
+      .content-panel .subsurface,
+      .content-panel .inline-card,
+      .content-panel .directory-card,
+      .content-panel .link-card {
+        padding: 11px;
+      }
+
+      .content-panel .section-heading {
+        min-height: 0;
+        margin-bottom: 0;
+        gap: 8px;
+        align-items: flex-start;
+      }
+
+      .content-panel .section-heading > div {
+        gap: 3px;
+      }
+
+      .content-panel .eyebrow {
+        margin-bottom: 5px;
+        font-size: 0.64rem;
+        letter-spacing: 0.15em;
+      }
+
+      .content-panel h1 {
+        font-size: clamp(1.86rem, 3vw, 2.66rem);
+      }
+
+      .content-panel h2 {
+        font-size: clamp(1.34rem, 2.1vw, 1.94rem);
+        line-height: 1.04;
+      }
+
+      .content-panel h3 {
+        font-size: clamp(1rem, 1.35vw, 1.24rem);
+        line-height: 1.12;
+      }
+
+      .content-panel .muted,
+      .content-panel .fine-print,
+      .content-panel p,
+      .content-panel li {
+        line-height: 1.42;
+      }
+
+      .role-pill,
+      .status-pill,
+      .mini-pill,
+      .judge-status-pill,
+      .competitor-pill {
+        min-height: 24px;
+        padding: 4px 8px;
+        border-radius: 9px;
+        font-size: 0.66rem;
+        line-height: 1.1;
+        letter-spacing: 0.01em;
+        box-shadow: none;
+      }
+
+      .section-heading > .role-pill,
+      .topbar > .role-pill,
+      .section-heading > .mini-pill,
+      .section-heading > .status-pill {
+        border-color: transparent;
+        background: transparent;
+        color: var(--muted);
+        padding-inline: 0;
+        font-size: 0.68rem;
+      }
+
+      .menu-panel {
+        padding: 10px;
+      }
+
+      .menu-welcome-card {
+        gap: 5px;
+      }
+
+      .menu-nav-list,
+      .menu-shortcut-list {
+        gap: 5px;
+      }
+
+      .menu-nav-link,
+      .menu-room-button {
+        min-height: 38px;
+        padding: 7px 10px;
+        border-radius: 12px;
+      }
+
+      .menu-nav-copy {
+        gap: 2px;
+      }
+
+      .menu-nav-copy strong {
+        font-size: 0.82rem;
+      }
+
+      .menu-nav-copy span {
+        font-size: 0.72rem;
+        line-height: 1.22;
+      }
+
+      .menu-nav-count {
+        display: none;
+      }
+
+      .surface-grid,
+      .two-column,
+      .three-column,
+      .tournament-grid,
+      .directory-grid,
+      .links-grid,
+      .manager-grid,
+      .workspace-stat-grid,
+      .tournament-switch-grid,
+      .quick-admin-grid {
+        gap: 9px;
+      }
+
+      .workspace-stat-grid,
+      .tournament-switch-grid,
+      .manager-grid,
+      .directory-grid,
+      .links-grid {
+        grid-auto-rows: 1fr;
+      }
+
+      .workspace-stat-grid {
+        grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+      }
+
+      .stat-card,
+      .workspace-stat,
+      .quick-admin-card,
+      .tournament-switch-stat,
+      .directory-card,
+      .link-card,
+      .team-card,
+      .leaderboard-card,
+      .judge-card,
+      .ballot-card,
+      .ballot-speaker-card,
+      .portal-round-card,
+      .portal-quick-card {
+        padding: 10px 11px;
+        border-radius: 14px;
+        gap: 4px;
+        min-height: 0;
+      }
+
+      .stat-card strong,
+      .workspace-stat strong,
+      .quick-admin-card strong,
+      .tournament-switch-stat strong,
+      .competitor-stat strong {
+        margin-top: 2px;
+        font-size: clamp(1.04rem, 1.35vw, 1.28rem);
+        line-height: 1.05;
+        letter-spacing: -0.035em;
+      }
+
+      .stat-card .muted,
+      .workspace-stat .muted,
+      .quick-admin-card .muted,
+      .tournament-switch-stat .muted {
+        font-size: 0.72rem;
+        line-height: 1.28;
+      }
+
+      .manager-home-control,
+      .manager-home-panel {
+        gap: 10px;
+        padding: 14px;
+        border-radius: 18px;
+      }
+
+      .manager-home-control .section-heading {
+        min-height: 0;
+      }
+
+      .manager-home-control .section-heading h2 {
+        max-width: 850px;
+        font-size: clamp(1.55rem, 2.25vw, 2.18rem);
+        line-height: 1.05;
+      }
+
+      .manager-home-panel .section-heading {
+        min-height: 0;
+        margin-bottom: 0;
+      }
+
+      .manager-home-panel .section-heading h3 {
+        font-size: clamp(1.04rem, 1.45vw, 1.32rem);
+      }
+
+      .manager-home-empty-callout {
+        min-height: 0;
+        padding: 11px 12px;
+        border-radius: 15px;
+      }
+
+      .manager-home-empty-callout strong {
+        margin-bottom: 3px;
+        font-size: 0.98rem;
+      }
+
+      .manager-home-empty-callout span:not(.role-pill) {
+        font-size: 0.84rem;
+        line-height: 1.36;
+      }
+
+      .manager-home-bottom-grid {
+        gap: 10px;
+      }
+
+      .manager-home-ops .manager-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .manager-home-stat {
+        min-height: 82px;
+        padding: 11px;
+        border-radius: 14px;
+        align-content: space-between;
+      }
+
+      .manager-home-stat strong {
+        font-size: clamp(1.42rem, 2vw, 1.78rem);
+        line-height: 0.98;
+      }
+
+      .overview-launch-card,
+      .spotlight-card,
+      .leaderboard-row {
+        border-radius: 14px;
+      }
+
+      .overview-launch-card {
+        padding: 11px 12px;
+        gap: 7px;
+      }
+
+      .overview-launch-card h3 {
+        font-size: 0.98rem;
+      }
+
+      .overview-launch-card .muted,
+      .leaderboard-row .muted {
+        font-size: 0.8rem;
+        line-height: 1.32;
+      }
+
+      .leaderboard-row {
+        padding: 9px 10px;
+        gap: 10px;
+      }
+
+      .leaderboard-row strong {
+        font-size: 0.92rem;
+        line-height: 1.18;
+      }
+
+      .tournament-switch-grid {
+        grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      }
+
+      .tournament-switch-card {
+        padding: 12px;
+        border-radius: 16px;
+        gap: 9px;
+        grid-template-rows: auto auto auto 1fr auto;
+      }
+
+      .tournament-switch-header {
+        gap: 10px;
+      }
+
+      .tournament-switch-header strong {
+        font-size: 0.98rem;
+        line-height: 1.16;
+      }
+
+      .tournament-switch-meta-line,
+      .tournament-switch-card .fine-print {
+        font-size: 0.76rem;
+        line-height: 1.32;
+      }
+
+      .tournament-switch-stats {
+        gap: 6px;
+      }
+
+      .tournament-switch-stat {
+        padding: 8px;
+        border-radius: 12px;
+      }
+
+      .tournament-switch-actions {
+        gap: 6px;
+        grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+      }
+
+      .private-link-compact-list,
+      .portal-link-list {
+        gap: 6px;
+      }
+
+      .private-link-card,
+      .portal-link-item {
+        border-radius: 13px;
+      }
+
+      .private-link-summary,
+      .portal-link-summary {
+        min-height: 46px;
+        padding: 8px 10px;
+        gap: 8px;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+      }
+
+      .private-link-summary::after,
+      .portal-link-summary::after {
+        min-height: 26px;
+        padding: 5px 8px;
+        font-size: 0.7rem;
+      }
+
+      .private-link-person strong,
+      .portal-link-main strong,
+      .portal-link-context strong {
+        font-size: 0.82rem;
+      }
+
+      .private-link-person span,
+      .portal-link-main span,
+      .portal-link-context span,
+      .private-link-panel .fine-print,
+      .portal-link-panel .fine-print {
+        font-size: 0.72rem;
+      }
+
+      .private-link-panel,
+      .portal-link-panel {
+        gap: 6px;
+        padding: 0 10px 10px;
+      }
+
+      @media (max-width: 980px) {
+        .manager-home-ops .manager-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .manager-home-bottom-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .workspace-shell {
+          grid-template-columns: 1fr;
+        }
+
+        .content-panel .surface,
+        .content-panel .subsurface,
+        .content-panel .inline-card,
+        .content-panel .directory-card,
+        .content-panel .link-card {
+          padding: 10px;
+        }
+
+        .manager-home-control,
+        .manager-home-panel {
+          padding: 12px;
+        }
+
+        .manager-home-empty-callout {
+          grid-template-columns: 1fr;
+        }
+
+        .manager-home-ops .manager-grid,
+        .workspace-stat-grid,
+        .tournament-switch-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .private-link-summary,
+        .portal-link-summary {
+          grid-template-columns: minmax(0, 1fr) auto;
+        }
+
+        .private-link-meta,
+        .portal-link-meta {
+          display: none;
+        }
+      }
     

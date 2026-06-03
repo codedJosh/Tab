@@ -14751,7 +14751,6 @@
                     : "Open a tournament to begin operations"
                 }</h2>
               </div>
-              <span class="role-pill">${escapeHtml(managedQueue.length)} managed</span>
             </div>
             ${
               activeManagedTournament
@@ -14802,7 +14801,6 @@
                 <p class="eyebrow">Next Required Actions</p>
                 <h3>Tournament attention queue</h3>
               </div>
-              <span class="role-pill">${escapeHtml(managedQueue.length)} tournaments</span>
             </div>
             ${
               managedQueue.length
