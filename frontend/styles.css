@@ -10635,6 +10635,57 @@
         gap: 10px;
       }
 
+      .draw-operations-panel {
+        padding: 10px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.46);
+        box-shadow: none;
+      }
+
+      .draw-operations-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .draw-operation-column {
+        gap: 7px;
+      }
+
+      .draw-operation-column:not(:last-child) {
+        padding-right: 10px;
+        border-right: 1px solid rgba(20, 49, 38, 0.07);
+      }
+
+      .draw-operation-column .section-heading {
+        gap: 8px;
+        min-height: 0;
+      }
+
+      .draw-operation-column h3 {
+        font-size: 0.78rem;
+        line-height: 1.2;
+      }
+
+      .draw-operation-column .stack {
+        gap: 7px;
+      }
+
+      .draw-operation-column .field-grid.two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+      }
+
+      .draw-operation-column .button-row {
+        gap: 6px;
+      }
+
+      .draw-operation-column button,
+      .draw-publish-grid button {
+        min-height: 30px;
+        padding-inline: 11px;
+        box-shadow: none;
+      }
+
       .draw-studio-layout {
         gap: 8px;
         padding: 8px;
@@ -10695,6 +10746,51 @@
 
       .draw-conflict-panel-compact .notice-item .muted {
         font-size: 0.65rem;
+      }
+
+      .draw-conflict-panel-compact {
+        padding: 0;
+        border: 1px solid rgba(20, 49, 38, 0.09);
+        border-radius: 13px;
+        background: rgba(255, 255, 255, 0.42);
+        box-shadow: none;
+      }
+
+      .draw-conflict-details summary {
+        min-height: 36px;
+        padding: 8px 10px;
+      }
+
+      .draw-conflict-details summary strong {
+        font-size: 0.72rem;
+        font-weight: 650;
+      }
+
+      .draw-conflict-details summary span span {
+        font-size: 0.66rem;
+      }
+
+      .draw-conflict-compact-list {
+        gap: 5px;
+        padding: 0 10px 10px;
+      }
+
+      .draw-conflict-compact-item {
+        grid-template-columns: minmax(105px, 0.28fr) minmax(0, 1fr);
+        padding: 6px 8px;
+        border: 1px solid rgba(168, 119, 34, 0.14);
+        border-radius: 9px;
+        background: rgba(255, 250, 238, 0.44);
+      }
+
+      .draw-conflict-compact-item strong,
+      .draw-conflict-compact-item span {
+        font-size: 0.66rem;
+        line-height: 1.35;
+      }
+
+      .draw-conflict-compact-item strong {
+        font-weight: 650;
       }
 
       .round-board-shell {
@@ -11094,7 +11190,19 @@
         .control-room-compact-grid,
         .roster-entry-grid,
         .draw-studio-layout,
+        .draw-operations-grid,
         .judge-workbench {
+          grid-template-columns: 1fr;
+        }
+
+        .draw-operation-column:not(:last-child) {
+          padding-right: 0;
+          padding-bottom: 10px;
+          border-right: 0;
+          border-bottom: 1px solid rgba(20, 49, 38, 0.07);
+        }
+
+        .draw-operation-column .field-grid.two {
           grid-template-columns: 1fr;
         }
 
@@ -11177,6 +11285,8 @@
       .flat-panel,
       .field-grid,
       .flat-grid,
+      .draw-operations-grid,
+      .draw-operation-column,
       .draw-studio-layout,
       .judge-workbench,
       .registration-studio,
