@@ -11982,4 +11982,39 @@
         gap: 6px;
         margin-top: 6px;
       }
+
+      @media (min-width: 940px) {
+        .workspace-shell {
+          grid-template-columns: minmax(260px, 286px) minmax(0, 1fr);
+        }
+      }
+
+      .workspace-shell .menu-brand-name {
+        font-family:
+          "SF Pro Display",
+          "Avenir Next",
+          "Segoe UI Variable Display",
+          "Segoe UI",
+          system-ui,
+          sans-serif;
+        font-size: clamp(1.64rem, 2.2vw, 1.96rem);
+        font-weight: 900;
+        letter-spacing: -0.055em;
+        line-height: 0.95;
+        color: #f4f9ff;
+      }
+
+      .workspace-shell .menu-nav-link,
+      .workspace-shell .menu-room-button,
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link {
+        min-height: 36px;
+        padding: 6px 10px;
+        border-radius: 12px;
+      }
+
+      .workspace-shell .menu-nav-copy strong,
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link strong {
+        font-size: 0.82rem;
+        line-height: 1.12;
+      }
     
