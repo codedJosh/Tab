@@ -17662,6 +17662,7 @@
         ]
           .filter(Boolean)
           .join(" • ");
+        const bannerImage = getTournamentBannerImage(tournament);
         const openAction = canManage ? "focus-tournament" : "open-tournament-record";
         const archiveAction =
           canManage && tournament.status === "archived"
@@ -17677,6 +17678,11 @@
         return `
           <details class="tournament-switch-card tournament-list-item tournament-row-item ${activeId === tournament.id ? "is-active" : ""}">
             <summary class="tournament-list-summary">
+              ${
+                bannerImage
+                  ? `<img class="tournament-row-banner" src="${escapeHtml(bannerImage)}" alt="${escapeHtml(tournament.name)} banner" />`
+                  : ""
+              }
               <div class="tournament-switch-title">
                 <strong>${escapeHtml(tournament.name)}</strong>
                 <span>${escapeHtml(tournamentMeta)}</span>
