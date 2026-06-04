@@ -2254,18 +2254,24 @@
           });
         });
 
-        return (users || []).map((user) =>
-          normalizeUserRecord({
+        return (users || []).map((user) => {
+          const deletedIds = new Set(normalizeStringList(user?.deletedTournamentIds || [], 200));
+          const visibleExistingHistory = normalizeStringList(
+            user?.registeredTournamentIds || [],
+            200,
+          ).filter((id) => !deletedIds.has(id));
+          const visibleSyncedHistory = Array.from(
+            historyByEmail.get(normalizeEmail(user?.email)) || [],
+          ).filter((id) => !deletedIds.has(id));
+
+          return normalizeUserRecord({
             ...user,
             registeredTournamentIds: normalizeStringList(
-              [
-                ...(user?.registeredTournamentIds || []),
-                ...Array.from(historyByEmail.get(normalizeEmail(user?.email)) || []),
-              ],
+              [...visibleExistingHistory, ...visibleSyncedHistory],
               200,
             ),
-          }),
-        );
+          });
+        });
       }
 
       function rememberTournamentHistoryForEmail(email, tournamentId) {
@@ -2275,17 +2281,30 @@
           return;
         }
 
-        state.users = state.users.map((user) =>
-          normalizeEmail(user.email) === target
-            ? normalizeUserRecord({
-                ...user,
-                registeredTournamentIds: normalizeStringList(
-                  [...(user.registeredTournamentIds || []), normalizedTournamentId],
-                  200,
-                ),
-              })
-            : normalizeUserRecord(user),
-        );
+        state.users = state.users.map((user) => {
+          if (normalizeEmail(user.email) !== target) {
+            return normalizeUserRecord(user);
+          }
+
+          const deletedIds = normalizeStringList(user.deletedTournamentIds || [], 200);
+          if (deletedIds.includes(normalizedTournamentId)) {
+            return normalizeUserRecord({
+              ...user,
+              registeredTournamentIds: normalizeStringList(
+                user.registeredTournamentIds || [],
+                200,
+              ).filter((id) => id !== normalizedTournamentId),
+            });
+          }
+
+          return normalizeUserRecord({
+            ...user,
+            registeredTournamentIds: normalizeStringList(
+              [...(user.registeredTournamentIds || []), normalizedTournamentId],
+              200,
+            ),
+          });
+        });
       }
 
       function rememberTournamentHistoryForEmails(emails = [], tournamentId) {
@@ -2298,6 +2317,9 @@
         const user = getUserByEmail(email);
         const tournamentId = String(tournament?.id || "").trim();
         if (!user || !tournamentId) {
+          return false;
+        }
+        if (isTournamentDeletedForUser(tournamentId, email)) {
           return false;
         }
         return normalizeStringList(user.registeredTournamentIds, 200).includes(tournamentId);
@@ -2437,6 +2459,9 @@
       }
 
       function canSeeTournament(tournament, email = session.userEmail) {
+        if (isTournamentDeletedForUser(tournament?.id, email)) {
+          return false;
+        }
         const access = getTournamentAccess(tournament, email);
         const archived = isTournamentArchived(tournament);
         if (archived && !hasTournamentBackstageAccess(access)) {
@@ -2675,6 +2700,46 @@
               String(left.name || left.email).localeCompare(String(right.name || right.email)) ||
               String(left.email).localeCompare(String(right.email)),
           );
+      }
+
+      function getAccountSpeakerHistoryProfiles(email = session.userEmail, options = {}) {
+        const target = normalizeEmail(email);
+        if (!target) {
+          return [];
+        }
+
+        return getParticipantDirectoryRecords(target, options)
+          .map((profile) => {
+            const history = (profile.history || []).filter(
+              (entry) => normalizeEmail(entry.participant?.email) === target,
+            );
+            const latest = history[0] || null;
+            const bestSpeakerRank = history.reduce((best, entry) => {
+              if (!entry.speakerStanding?.speakerRank) {
+                return best;
+              }
+              return best === null || entry.speakerStanding.speakerRank < best
+                ? entry.speakerStanding.speakerRank
+                : best;
+            }, null);
+            const averageSpeakerScore = history.length
+              ? roundScoreValue(
+                  history.reduce((sum, entry) => sum + Number(entry.speakerScore || 0), 0) /
+                    history.length,
+                )
+              : 0;
+
+            return {
+              ...profile,
+              email: target,
+              history,
+              latest,
+              tournamentsCount: history.length,
+              bestSpeakerRank,
+              averageSpeakerScore,
+            };
+          })
+          .filter((profile) => profile.history.length);
       }
 
       function getParticipantProfileByKey(identityKey, email = session.userEmail) {
@@ -3028,8 +3093,9 @@
         const regionalAccess = Boolean(regionalRole || isSystemAdmin(target));
         const regionalPortalMode = Boolean(isRegionalOperationsPortalPage() && regionalAccess);
         const canManageAny = Boolean(target);
-        const canJudgeAny = judgedTournaments.length > 0;
-        const speakerHistoryCount = getParticipantDirectoryRecords(target, {
+        const judgeAssignmentCount = getJudgeAssignments(target).length;
+        const canJudgeAny = judgeAssignmentCount > 0;
+        const speakerHistoryCount = getAccountSpeakerHistoryProfiles(target, {
           includeHidden: true,
         }).length;
         const competitorOnly = false;
@@ -3261,7 +3327,7 @@
         if (capabilities.canViewJudgeHistory) {
           items.push({
             key: "judge-history",
-            label: "Judge History",
+            label: "Your Judge History",
             count: getJudgeAssignments(email).length,
             group: "History",
           });
@@ -3270,8 +3336,8 @@
         if (capabilities.canViewSpeakerHistory) {
           items.push({
             key: "speaker-history",
-            label: "Speaker History",
-            count: getParticipantDirectoryRecords(email, { includeHidden: true }).length,
+            label: "Your Speaker History",
+            count: getAccountSpeakerHistoryProfiles(email, { includeHidden: true }).length,
             group: "History",
           });
         }
@@ -3353,15 +3419,15 @@
 
         state.users = state.users.map((user) => {
           if (normalizeEmail(user.email) !== normalizeEmail(currentUser.email)) {
-            return user;
+            return normalizeUserRecord(user);
           }
           const currentIds = normalizeStringList(user[field] || [], 200).filter(
             (id) => id !== targetId,
           );
-          return {
+          return normalizeUserRecord({
             ...user,
             [field]: shouldInclude ? [targetId, ...currentIds].slice(0, 200) : currentIds,
-          };
+          });
         });
         return true;
       }
@@ -3404,7 +3470,18 @@
           return;
         }
         updateCurrentUserTournamentPreference(tournamentId, "archivedTournamentIds", false);
-        persist("success", tournament.name + " was removed from your account view.");
+        updateCurrentUserTournamentPreference(tournamentId, "registeredTournamentIds", false);
+        updateCurrentUserTournamentPreference(tournamentId, "pinnedTournamentIds", false);
+        if (String(session.selectedTournamentId || "").trim() === String(tournamentId || "").trim()) {
+          session.selectedTournamentId = "";
+        }
+        if (
+          String(session.managedTournamentId || "").trim() === String(tournamentId || "").trim() &&
+          !canManageTournament(tournament)
+        ) {
+          session.managedTournamentId = "";
+        }
+        persist("success", tournament.name + " was removed from your tournament history.");
       }
 
       function getRecentTournamentIds() {
@@ -10229,6 +10306,9 @@
         const target = normalizeEmail(email);
         const assignments = [];
         state.tournaments.forEach((tournament) => {
+          if (isTournamentDeletedForUser(tournament?.id, target)) {
+            return;
+          }
           getJudgeAllocationsForTournament(tournament).forEach((allocation) => {
             if (normalizeEmail(allocation.judgeEmail) !== target) {
               return;
@@ -11330,12 +11410,12 @@
         if (action === "delete-tournament-for-me") {
           return {
             tone: "warning",
-            title: "Remove Tournament From Your View?",
+            title: "Remove Tournament From Your History?",
             message:
               "Remove " +
               (tournament ? '"' + tournament.name + '"' : "this tournament") +
-              " from your account view? The shared tournament, ballots, standings, and other users' access will not be deleted.",
-            confirmLabel: "Remove From My View",
+              " from your tournament history and personal tournament view? The shared tournament, ballots, standings, and other users' access will not be deleted.",
+            confirmLabel: "Remove From My History",
           };
         }
 
@@ -14646,7 +14726,7 @@
         const capabilities = getWorkspaceCapabilities();
         const visibleTournaments = getVisibleTournaments();
         const judgeAssignments = getJudgeAssignments();
-        const speakerRecords = getParticipantDirectoryRecords(session.userEmail, {
+        const speakerRecords = getAccountSpeakerHistoryProfiles(session.userEmail, {
           includeHidden: true,
         });
         const recentLogs = getVisibleTournaments()
@@ -14676,19 +14756,19 @@
               </div>
               <div class="history-summary-list">
                 <div><span>Managed tournaments</span><strong>${escapeHtml(managedTournaments.length)}</strong></div>
-                <div><span>Judge assignments</span><strong>${escapeHtml(judgeAssignments.length)}</strong></div>
-                <div><span>Speaker records</span><strong>${escapeHtml(speakerRecords.length)}</strong></div>
+                <div><span>Your judge assignments</span><strong>${escapeHtml(judgeAssignments.length)}</strong></div>
+                <div><span>Your speaker records</span><strong>${escapeHtml(speakerRecords.length)}</strong></div>
                 <div><span>Private links</span><strong>${escapeHtml(stats.privateLinks)}</strong></div>
               </div>
               <div class="button-row wrap-row compact-actions">
                 ${
                   judgeAssignments.length
-                    ? `<button class="secondary-button" type="button" data-action="set-view" data-view="judge-history">Open judge history</button>`
+                    ? `<button class="secondary-button" type="button" data-action="set-view" data-view="judge-history">Open your judge history</button>`
                     : ""
                 }
                 ${
                   speakerRecords.length
-                    ? `<button class="secondary-button" type="button" data-action="set-view" data-view="speaker-history">Open speaker history</button>`
+                    ? `<button class="secondary-button" type="button" data-action="set-view" data-view="speaker-history">Open your speaker history</button>`
                     : ""
                 }
                 <button class="secondary-button" type="button" data-action="set-view" data-view="links">Open private links</button>
@@ -18432,8 +18512,51 @@
           ).values(),
         );
 
-        const visibleItems = compact ? dedupedItems.slice(0, 4) : dedupedItems;
+        const visibleItems = compact ? dedupedItems.slice(0, 3) : dedupedItems;
         const remainingCount = Math.max(0, dedupedItems.length - visibleItems.length);
+
+        if (compact) {
+          return `
+            <section class="draw-conflict-panel draw-conflict-panel-compact">
+              <details class="draw-conflict-details">
+                <summary>
+                  <span>
+                    <strong>Draw conflict check</strong>
+                    <span>${escapeHtml(
+                      dedupedItems.length
+                        ? dedupedItems.length + " issue" + (dedupedItems.length === 1 ? "" : "s") + " to review"
+                        : "No conflicts found",
+                    )}</span>
+                  </span>
+                  <span class="role-pill">${escapeHtml(dedupedItems.length)} issues</span>
+                </summary>
+                ${
+                  dedupedItems.length
+                    ? `<div class="draw-conflict-compact-list">
+                        ${visibleItems
+                          .map(
+                            (item) => `
+                              <div class="draw-conflict-compact-item">
+                                <strong>${escapeHtml(item.label)}</strong>
+                                <span>${escapeHtml(item.detail)}</span>
+                              </div>
+                            `,
+                          )
+                          .join("")}
+                        ${
+                          remainingCount
+                            ? `<p class="fine-print">+${escapeHtml(remainingCount)} more issue${
+                                remainingCount === 1 ? "" : "s"
+                              } detected.</p>`
+                            : ""
+                        }
+                      </div>`
+                    : `<div class="empty-state compact-empty">No conflicts found.</div>`
+                }
+              </details>
+            </section>
+          `;
+        }
 
         return `
           <section class="surface draw-conflict-panel ${compact ? "draw-conflict-panel-compact" : ""}">
@@ -18759,152 +18882,155 @@
               </div>
               <span class="role-pill">${escapeHtml(getRoundStructureSummary(tournament))}</span>
             </div>
-            <div class="draw-studio-layout draw-studio-layout-primary">
-              <section class="surface">
-                <div class="section-heading">
-                  <div>
-                    <p class="eyebrow">Draw Builder</p>
-                    <h3>Build pairings for the selected round</h3>
+            <section class="surface draw-operations-panel">
+              <div class="draw-operations-grid">
+                <div class="draw-operation-column draw-builder-panel">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Draw Builder</p>
+                      <h3>Build pairings</h3>
+                    </div>
+                    <span class="mini-pill ${escapeHtml(
+                      isOutroundProfile(suggestedRoundProfile) ? "warning" : "success",
+                    )}">${escapeHtml(getRoundStageLabel(suggestedRoundProfile.stage))}</span>
                   </div>
-                  <span class="mini-pill ${escapeHtml(
-                    isOutroundProfile(suggestedRoundProfile) ? "warning" : "success",
-                  )}">${escapeHtml(getRoundStageLabel(suggestedRoundProfile.stage))}</span>
-                </div>
-                <form class="stack" data-form="generate-draw" data-id="${escapeHtml(
-                  tournament.id,
-                )}">
-                  <div class="field-grid three">
-                    <label>
-                      Selected Round
-                      <select name="round">${getRoundOptionMarkup(
-                        tournament,
-                        suggestedRound,
-                      )}</select>
-                    </label>
-                    <label>
-                      Draw Method
-                      <select name="method">${getDrawMethodOptionMarkup(suggestedMethod, {
-                        autoMethod: getResolvedDrawMethod(
+                  <form class="stack" data-form="generate-draw" data-id="${escapeHtml(
+                    tournament.id,
+                  )}">
+                    <div class="field-grid two">
+                      <label>
+                        Selected Round
+                        <select name="round">${getRoundOptionMarkup(
                           tournament,
-                          suggestedRoundProfile,
-                          "auto",
-                        ),
-                      })}</select>
-                    </label>
-                    <label>
-                      Teams Per Room
-                      <input type="number" min="1" max="8" name="teamsPerRoom" placeholder="Use round default" />
-                    </label>
-                  </div>
-                  <div class="field-grid three">
-                    <label>
-                      Room Prefix
-                      <input type="text" name="roomPrefix" value="Room" />
-                    </label>
-                    <label>
-                      Starting Room Number
-                      <input type="number" min="1" name="roomStart" value="1" />
-                    </label>
-                    <label class="checkbox-row">
-                      <input type="checkbox" name="releaseNow" checked />
-                      <span>Publish immediately</span>
-                    </label>
-                  </div>
-                  <p class="fine-print" data-draw-round-stage-note>${escapeHtml(
-                    getDrawGenerationFormStageNote(
-                      tournament,
-                      suggestedRoundProfile,
-                      "auto",
-                    ),
-                  )}</p>
-                  <div class="button-row wrap-row">
-                    <button type="submit">Generate Draw</button>
-                    <button class="secondary-button" type="submit" name="intent" value="preview">Preview Draw</button>
-                  </div>
-                </form>
-              </section>
-
-              <section class="surface draw-publish-shell">
-                <div class="section-heading">
-                  <div>
-                    <p class="eyebrow">Publish Controls</p>
-                    <h3>Release or reset selected rounds</h3>
-                  </div>
-                </div>
-                <div class="draw-publish-grid">
-                  <form class="stack" data-form="release-draw-round" data-id="${escapeHtml(
-                    tournament.id,
-                  )}">
-                    <label>
-                      Round
-                      <select name="round">${getRoundOptionMarkup(
+                          suggestedRound,
+                        )}</select>
+                      </label>
+                      <label>
+                        Draw Method
+                        <select name="method">${getDrawMethodOptionMarkup(suggestedMethod, {
+                          autoMethod: getResolvedDrawMethod(
+                            tournament,
+                            suggestedRoundProfile,
+                            "auto",
+                          ),
+                        })}</select>
+                      </label>
+                    </div>
+                    <div class="field-grid two">
+                      <label>
+                        Teams Per Room
+                        <input type="number" min="1" max="8" name="teamsPerRoom" placeholder="Use round default" />
+                      </label>
+                      <label>
+                        Room Prefix
+                        <input type="text" name="roomPrefix" value="Room" />
+                      </label>
+                    </div>
+                    <div class="field-grid two">
+                      <label>
+                        Starting Room Number
+                        <input type="number" min="1" name="roomStart" value="1" />
+                      </label>
+                      <label class="checkbox-row">
+                        <input type="checkbox" name="releaseNow" checked />
+                        <span>Publish immediately</span>
+                      </label>
+                    </div>
+                    <p class="fine-print" data-draw-round-stage-note>${escapeHtml(
+                      getDrawGenerationFormStageNote(
                         tournament,
-                        latestRound || 1,
-                      )}</select>
-                    </label>
-                    <button type="submit">Publish Selected Round</button>
-                  </form>
-
-                  <form class="stack draw-danger-form" data-form="clear-draw-round" data-id="${escapeHtml(
-                    tournament.id,
-                  )}">
-                    <label>
-                      Round
-                      <select name="round">${getRoundOptionMarkup(
-                        tournament,
-                        latestRound || 1,
-                      )}</select>
-                    </label>
-                    <button class="danger-button" type="submit">Reset Selected Round</button>
+                        suggestedRoundProfile,
+                        "auto",
+                      ),
+                    )}</p>
+                    <div class="button-row wrap-row">
+                      <button type="submit">Generate Draw</button>
+                      <button class="secondary-button" type="submit" name="intent" value="preview">Preview Draw</button>
+                    </div>
                   </form>
                 </div>
-              </section>
-            </div>
 
-            <div class="draw-studio-layout draw-studio-layout-secondary">
-              <section class="surface">
-                <div class="section-heading">
-                  <div>
-                    <p class="eyebrow">Manual Room Editor</p>
-                    <h3>Add or adjust a single room</h3>
+                <div class="draw-operation-column draw-publish-shell">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Publish Controls</p>
+                      <h3>Release or reset</h3>
+                    </div>
+                  </div>
+                  <div class="draw-publish-grid">
+                    <form class="stack" data-form="release-draw-round" data-id="${escapeHtml(
+                      tournament.id,
+                    )}">
+                      <label>
+                        Round
+                        <select name="round">${getRoundOptionMarkup(
+                          tournament,
+                          latestRound || 1,
+                        )}</select>
+                      </label>
+                      <button type="submit">Publish Round</button>
+                    </form>
+
+                    <form class="stack draw-danger-form" data-form="clear-draw-round" data-id="${escapeHtml(
+                      tournament.id,
+                    )}">
+                      <label>
+                        Round
+                        <select name="round">${getRoundOptionMarkup(
+                          tournament,
+                          latestRound || 1,
+                        )}</select>
+                      </label>
+                      <button class="danger-button" type="submit">Reset Round</button>
+                    </form>
                   </div>
                 </div>
-                <form class="stack" data-form="add-draw" data-id="${escapeHtml(
-                  tournament.id,
-                )}">
-                  <div class="field-grid three">
-                    <label>
-                      Round
-                      <select name="round">${getRoundOptionMarkup(
-                        tournament,
-                        latestRound || 1,
-                      )}</select>
-                    </label>
-                    <label>
-                      Room
-                      <input type="text" name="room" placeholder="Room or venue" required />
-                    </label>
-                    <label>
-                      Status
-                      <input type="text" name="status" value="Draft" required />
-                    </label>
-                    <label>
-                      Priority
-                      <select name="priority">${getRoomPriorityOptionsMarkup(3)}</select>
-                    </label>
-                  </div>
-                  <label>
-                    Matchup
-                    <input type="text" name="matchup" placeholder="Team A vs Team B" required />
-                  </label>
-                  <button type="submit">Add Manual Room</button>
-                </form>
-              </section>
 
-              ${renderConflictReviewPanel(tournament, { compact: true })}
-            </div>
+                <div class="draw-operation-column draw-manual-room-panel">
+                  <div class="section-heading">
+                    <div>
+                      <p class="eyebrow">Manual Room Editor</p>
+                      <h3>Add or adjust a room</h3>
+                    </div>
+                  </div>
+                  <form class="stack" data-form="add-draw" data-id="${escapeHtml(
+                    tournament.id,
+                  )}">
+                    <div class="field-grid two">
+                      <label>
+                        Round
+                        <select name="round">${getRoundOptionMarkup(
+                          tournament,
+                          latestRound || 1,
+                        )}</select>
+                      </label>
+                      <label>
+                        Room
+                        <input type="text" name="room" placeholder="Room or venue" required />
+                      </label>
+                    </div>
+                    <div class="field-grid two">
+                      <label>
+                        Status
+                        <input type="text" name="status" value="Draft" required />
+                      </label>
+                      <label>
+                        Priority
+                        <select name="priority">${getRoomPriorityOptionsMarkup(3)}</select>
+                      </label>
+                    </div>
+                    <label>
+                      Matchup
+                      <input type="text" name="matchup" placeholder="Team A vs Team B" required />
+                    </label>
+                    <button type="submit">Add Manual Room</button>
+                  </form>
+                </div>
+              </div>
+            </section>
 
             ${renderRoundControlBoard(tournament, true, true, true)}
+            ${renderConflictReviewPanel(tournament, { compact: true })}
           </section>
         `;
       }
@@ -23473,13 +23599,16 @@
       }
 
       function renderJudgeHistoryView() {
-        const groups = groupJudgeAssignmentsByTournament(getJudgeAssignments(session.userEmail));
+        const userEmail = normalizeEmail(session.userEmail);
+        const groups = userEmail
+          ? groupJudgeAssignmentsByTournament(getJudgeAssignments(userEmail))
+          : [];
         return `
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Judge History</p>
-                <h2>Your judging record</h2>
+                <p class="eyebrow">Your Judge History</p>
+                <h2>Your judge history</h2>
               </div>
             </div>
             ${
@@ -23530,22 +23659,23 @@
                       )
                       .join("")}
                   </div>`
-                : `<div class="empty-state">No judging history is linked to this email yet.</div>`
+                : `<div class="empty-state">No judge history is linked to your account yet.</div>`
             }
           </section>
         `;
       }
 
       function renderSpeakerHistoryView() {
-        const profiles = getParticipantDirectoryRecords(session.userEmail, {
+        const userEmail = normalizeEmail(session.userEmail);
+        const profiles = getAccountSpeakerHistoryProfiles(userEmail, {
           includeHidden: true,
         });
         return `
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Speaker History</p>
-                <h2>Your speaking record</h2>
+                <p class="eyebrow">Your Speaker History</p>
+                <h2>Your speaker history</h2>
               </div>
             </div>
             ${
@@ -23603,7 +23733,7 @@
                       )
                       .join("")}
                   </div>`
-                : `<div class="empty-state">No speaker history is linked to this email yet.</div>`
+                : `<div class="empty-state">No speaker history is linked to your account yet.</div>`
             }
           </section>
         `;
@@ -26729,6 +26859,9 @@
             (id) => String(id || "").trim() !== String(tournamentId || "").trim(),
           ),
           deletedTournamentIds: (user.deletedTournamentIds || []).filter(
+            (id) => String(id || "").trim() !== String(tournamentId || "").trim(),
+          ),
+          registeredTournamentIds: (user.registeredTournamentIds || []).filter(
             (id) => String(id || "").trim() !== String(tournamentId || "").trim(),
           ),
         }));

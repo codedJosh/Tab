@@ -773,6 +773,8 @@ function normalizeUserRecord(user = {}) {
     pinnedTournamentIds: Array.isArray(user.pinnedTournamentIds)
       ? Array.from(new Set(user.pinnedTournamentIds.map((value) => String(value || "").trim()).filter(Boolean))).slice(0, 12)
       : [],
+    archivedTournamentIds: normalizeStringList(user.archivedTournamentIds, 200),
+    deletedTournamentIds: normalizeStringList(user.deletedTournamentIds, 200),
     registeredTournamentIds: normalizeStringList(user.registeredTournamentIds, 200),
     regionalRole: normalizeRegionalOperationsRole(user.regionalRole),
     regionalRegion: normalizeRegionalRegion(user.regionalRegion),
@@ -783,6 +785,17 @@ function normalizeUserRecord(user = {}) {
     preferredLandingView:
       String(user.preferredLandingView || "overview").trim() || "overview",
   };
+}
+
+function mergeRegisteredTournamentIdsForUser(user = {}, syncedIds = []) {
+  const deletedIds = new Set(normalizeStringList(user.deletedTournamentIds || [], 200));
+  const existingIds = normalizeStringList(user.registeredTournamentIds || [], 200).filter(
+    (id) => !deletedIds.has(id),
+  );
+  const visibleSyncedIds = normalizeStringList(syncedIds || [], 200).filter(
+    (id) => !deletedIds.has(id),
+  );
+  return normalizeStringList([...existingIds, ...visibleSyncedIds], 200);
 }
 
 function buildUser(name, email, globalRole, password, metadata = {}) {
@@ -1058,12 +1071,9 @@ function synchronizeUserTournamentHistory(workspaceState) {
   const nextUsers = users.map((user) =>
     normalizeUserRecord({
       ...user,
-      registeredTournamentIds: normalizeStringList(
-        [
-          ...(user.registeredTournamentIds || []),
-          ...Array.from(historyByEmail.get(user.email) || []),
-        ],
-        200,
+      registeredTournamentIds: mergeRegisteredTournamentIdsForUser(
+        user,
+        Array.from(historyByEmail.get(user.email) || []),
       ),
     }),
   );
@@ -1091,12 +1101,9 @@ function synchronizeUserTournamentHistory(workspaceState) {
   next.users = nextUsers.map((user) =>
     normalizeUserRecord({
       ...user,
-      registeredTournamentIds: normalizeStringList(
-        [
-          ...(user.registeredTournamentIds || []),
-          ...Array.from(historyByEmail.get(user.email) || []),
-        ],
-        200,
+      registeredTournamentIds: mergeRegisteredTournamentIdsForUser(
+        user,
+        Array.from(historyByEmail.get(user.email) || []),
       ),
     }),
   );
@@ -1113,13 +1120,23 @@ function rememberUserTournamentHistory(state, email, tournamentId) {
 
   state.users = (state.users || []).map((user) =>
     normalizeEmail(user.email) === normalizedEmail
-      ? normalizeUserRecord({
-          ...user,
-          registeredTournamentIds: normalizeStringList(
-            [...(user.registeredTournamentIds || []), normalizedTournamentId],
-            200,
-          ),
-        })
+      ? normalizeUserRecord(
+          normalizeStringList(user.deletedTournamentIds || [], 200).includes(normalizedTournamentId)
+            ? {
+                ...user,
+                registeredTournamentIds: normalizeStringList(
+                  user.registeredTournamentIds || [],
+                  200,
+                ).filter((id) => id !== normalizedTournamentId),
+              }
+            : {
+                ...user,
+                registeredTournamentIds: normalizeStringList(
+                  [...(user.registeredTournamentIds || []), normalizedTournamentId],
+                  200,
+                ),
+              },
+        )
       : normalizeUserRecord(user),
   );
 }
@@ -1685,8 +1702,13 @@ function listRecipientTournamentNames(state, user, tournamentId = "") {
     names.add(tournamentMap.get(explicitTournamentId));
   }
 
+  const deletedIds = new Set(normalizeStringList(user?.deletedTournamentIds || [], 200));
   (user?.registeredTournamentIds || []).forEach((id) => {
-    const name = tournamentMap.get(String(id || "").trim());
+    const tournamentIdKey = String(id || "").trim();
+    if (deletedIds.has(tournamentIdKey)) {
+      return;
+    }
+    const name = tournamentMap.get(tournamentIdKey);
     if (name) {
       names.add(name);
     }

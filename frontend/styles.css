@@ -6626,6 +6626,37 @@
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       }
 
+      .draw-operations-panel {
+        padding: 16px;
+      }
+
+      .draw-operations-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        align-items: start;
+      }
+
+      .draw-operation-column {
+        display: grid;
+        gap: 10px;
+        min-width: 0;
+        align-content: start;
+      }
+
+      .draw-operation-column:not(:last-child) {
+        padding-right: 16px;
+        border-right: 1px solid rgba(20, 49, 38, 0.08);
+      }
+
+      .draw-operation-column .section-heading {
+        margin-bottom: 0;
+      }
+
+      .draw-operation-column h3 {
+        font-size: 0.96rem;
+      }
+
       .draw-danger-form {
         padding-top: 8px;
         border-top: 1px solid rgba(20, 49, 38, 0.08);
@@ -6645,6 +6676,50 @@
 
       .draw-conflict-panel-compact .section-heading {
         margin-bottom: 0;
+      }
+
+      .draw-conflict-details {
+        width: 100%;
+      }
+
+      .draw-conflict-details summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .draw-conflict-details summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .draw-conflict-details summary > span:first-child {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .draw-conflict-details summary strong {
+        color: var(--ink);
+      }
+
+      .draw-conflict-details summary span span {
+        color: var(--muted);
+      }
+
+      .draw-conflict-compact-list {
+        display: grid;
+        gap: 7px;
+      }
+
+      .draw-conflict-compact-item {
+        display: grid;
+        grid-template-columns: minmax(120px, 0.35fr) minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
       }
 
       .smart-insight-shell {
