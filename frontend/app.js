@@ -12916,7 +12916,7 @@
             support:
               "Open the draw lab, inspect the flagged rooms, and resolve conflicts before the next release.",
             actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Review Draw</button>`,
+              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw-review">Review Draw</button>`,
           });
         }
 
@@ -17312,6 +17312,13 @@
             render: () => renderTournamentDrawStudio(tournament),
           },
           {
+            key: "draw-review",
+            label: "Draw Review",
+            note: "Room list, publication state, and draw visibility.",
+            badge: snapshot.totalRooms ? snapshot.totalRooms + " rooms" : "No rooms",
+            render: () => renderTournamentDrawReviewStudio(tournament),
+          },
+          {
             key: "motions",
             label: "Motions",
             note: "Round motions, prep timing, and the released motions board.",
@@ -17433,6 +17440,7 @@
         }
         if (operations) {
           allowedKeys.add("draw");
+          allowedKeys.add("draw-review");
         }
         if (fullAdmin) {
           allowedKeys.add("setup");
@@ -17665,13 +17673,13 @@
                 <span>${escapeHtml(registrationStatus)}</span>
               </div>
               <div class="button-row tournament-switch-actions">
-                <button type="button" data-action="${escapeHtml(openAction)}" data-id="${escapeHtml(
+                <button class="button-primary tournament-card-action" type="button" data-action="${escapeHtml(openAction)}" data-id="${escapeHtml(
                   tournament.id,
                 )}">Open</button>
-                <button class="secondary-button" type="button" data-action="${escapeHtml(
+                <button class="button-secondary tournament-card-action" type="button" data-action="${escapeHtml(
                   archiveAction,
                 )}" data-id="${escapeHtml(tournament.id)}">${escapeHtml(archiveLabel)}</button>
-                <button class="danger-button danger-subtle-button" type="button" data-action="${escapeHtml(
+                <button class="button-danger tournament-card-action" type="button" data-action="${escapeHtml(
                   deleteAction,
                 )}" data-id="${escapeHtml(tournament.id)}">Delete</button>
               </div>
@@ -18897,15 +18905,22 @@
             </div>
 
             ${renderRoundControlBoard(tournament, true, true, true)}
-            <section class="surface">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Draw Preview</p>
-                  <h3>Room list and publication state</h3>
-                </div>
+          </section>
+        `;
+      }
+
+      function renderTournamentDrawReviewStudio(tournament) {
+        const snapshot = getTournamentOpsSnapshot(tournament);
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Draw Review</p>
+                <h2>Room list and publication state</h2>
               </div>
-              ${renderDrawTable(tournament, true, true)}
-            </section>
+              <span class="role-pill">${escapeHtml(snapshot.totalRooms)} rooms</span>
+            </div>
+            ${renderDrawTable(tournament, true, true)}
           </section>
         `;
       }
@@ -19162,16 +19177,6 @@
         const defaultFormatGuidance = getFormatStructureGuidance(defaults.format);
         return `
           <section class="surface">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Create tournament</p>
-                <h2>Set up a new tournament</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(getFormatLabel({ format: defaults.format }))}</span>
-            </div>
-            <p class="muted launch-lead">
-              Start with the basics. You can adjust rounds, judges, motions, and publishing after the tournament is created.
-            </p>
             <form class="stack" data-form="create-tournament">
               <div class="stack launch-form-section">
                 <div class="section-heading">
@@ -19179,6 +19184,7 @@
                     <h3>Basics</h3>
                     <p class="fine-print">Name the tournament, choose the format, and set the number of rounds.</p>
                   </div>
+                  <span class="role-pill">${escapeHtml(getFormatLabel({ format: defaults.format }))}</span>
                 </div>
                 <div class="field-grid three">
                   <label>
