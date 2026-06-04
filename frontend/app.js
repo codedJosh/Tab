@@ -240,12 +240,12 @@
             },
           ]
         : [];
-      const CLOUD_PROBE_TIMEOUT_MS = 6500;
-      const CLOUD_PROBE_RETRY_ATTEMPTS = 2;
-      const CLOUD_PROBE_RETRY_DELAY_MS = 800;
-      const CLOUD_BOOT_REQUEST_TIMEOUT_MS = 25000;
-      const CLOUD_AUTH_BOOT_TIMEOUT_MS = 25000;
-      const CLOUD_REQUEST_TIMEOUT_MS = 18000;
+      const CLOUD_PROBE_TIMEOUT_MS = 12000;
+      const CLOUD_PROBE_RETRY_ATTEMPTS = 3;
+      const CLOUD_PROBE_RETRY_DELAY_MS = 1200;
+      const CLOUD_BOOT_REQUEST_TIMEOUT_MS = 45000;
+      const CLOUD_AUTH_BOOT_TIMEOUT_MS = 45000;
+      const CLOUD_REQUEST_TIMEOUT_MS = 35000;
 
       const FORMAT_PRESETS = {
         "British Parliamentary": {
@@ -16040,13 +16040,13 @@
                 <input type="checkbox" name="showSpeakerBoard" ${checked(
                   tournament.publication.showSpeakerBoard !== false,
                 )} />
-                <span>Show Speaker Board</span>
+                <span>Show Speaker Board to participants and viewers</span>
               </label>
               <label class="checkbox-row">
                 <input type="checkbox" name="showTeamPointsBoard" ${checked(
                   tournament.publication.showTeamPointsBoard !== false,
                 )} />
-                <span>Show Team Board</span>
+                <span>Show Team Board to participants and viewers</span>
               </label>
               <label class="checkbox-row">
                 <input type="checkbox" name="usePublicTeamAliases" ${checked(
@@ -19323,17 +19323,20 @@
             ? {
                 key: "speakers",
                 label: "Speaker Board",
+                description: "Individual speaker scores across matches",
               }
             : null,
           canShowTeamPointTotals
             ? {
                 key: "points",
                 label: "Team Board",
+                description: "Total speaks from team members across matches",
               }
             : null,
           {
             key: "wins",
             label: "Standings",
+            description: "Total team points based on round placement",
           },
         ].filter(Boolean);
         let resultsView = normalizeResultsStudioView(session.resultsStudioView);
@@ -19379,11 +19382,6 @@
 
         return `
           <section class="surface standings-studio-shell">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Standings</p>
-              </div>
-            </div>
             <div class="button-row wrap-row standings-subnav">
               ${resultsViewOptions
                 .map(
@@ -19393,6 +19391,8 @@
                       type="button"
                       data-action="set-results-studio-view"
                       data-view="${escapeHtml(option.key)}"
+                      title="${escapeHtml(option.description)}"
+                      aria-label="${escapeHtml(option.label + ": " + option.description)}"
                     >
                       ${escapeHtml(option.label)}
                     </button>
@@ -19595,13 +19595,13 @@
                     <input type="checkbox" name="showSpeakerBoard" ${checked(
                       defaults.showSpeakerBoard !== false,
                     )} />
-                    <span>Show Speaker Board</span>
+                    <span>Show Speaker Board to participants and viewers</span>
                   </label>
                   <label class="checkbox-row">
                     <input type="checkbox" name="showTeamPointsBoard" ${checked(
                       defaults.showTeamPointsBoard !== false,
                     )} />
-                    <span>Show Team Board</span>
+                    <span>Show Team Board to participants and viewers</span>
                   </label>
                   <label class="checkbox-row">
                     <input type="checkbox" name="registrationDebaterOpen" checked />

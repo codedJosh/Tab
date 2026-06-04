@@ -12059,4 +12059,62 @@
         justify-content: center;
         line-height: 1;
       }
+
+      /* Final workspace polish: keep active tournament tools calmer and more proportional. */
+      .standings-studio-shell {
+        display: grid;
+        gap: 10px;
+      }
+
+      .standings-subnav {
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+      }
+
+      .standings-subnav > button {
+        min-width: 104px;
+        max-width: 148px;
+        min-height: 32px;
+        padding: 6px 12px;
+        border-radius: 10px;
+        box-shadow: none !important;
+      }
+
+      .standings-board-card {
+        border-radius: var(--workspace-inner-radius);
+        border: 1px solid rgba(20, 49, 38, 0.09);
+        background: rgba(255, 255, 255, 0.62);
+        box-shadow: none !important;
+        padding: 12px;
+      }
+
+      .roster-entry-grid {
+        grid-template-columns: repeat(2, minmax(280px, 1fr));
+        align-items: stretch;
+      }
+
+      .roster-entry-grid .participant-entry-form {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .roster-entry-grid .participant-entry-form > label,
+      .roster-entry-grid .participant-entry-form > button {
+        width: 100%;
+      }
+
+      .roster-entry-grid .participant-entry-form :is(input, select) {
+        width: 100%;
+      }
+
+      .roster-entry-grid .participant-entry-form > button {
+        margin-top: auto;
+      }
+
+      @media (max-width: 940px) {
+        .roster-entry-grid {
+          grid-template-columns: 1fr;
+        }
+      }
     
