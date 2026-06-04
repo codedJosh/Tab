@@ -12043,14 +12043,20 @@
 
       .tournament-inline-stats span {
         align-items: center;
+        box-sizing: border-box;
+        display: inline-flex;
+        gap: 5px;
         justify-content: center;
-        line-height: 1.1;
+        min-height: 34px;
+        padding-block: 0;
+        line-height: 1;
         text-align: center;
       }
 
       .tournament-inline-stats strong {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         line-height: 1;
       }
     
