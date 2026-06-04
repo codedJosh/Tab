@@ -11425,7 +11425,7 @@
 
       .tournament-picker-drawer .tournament-list {
         width: min(100%, 720px);
-        max-width: 50%;
+        max-width: 58%;
         gap: 8px;
       }
 
@@ -11818,10 +11818,10 @@
       }
 
       .tournament-row-item .tournament-list-summary {
-        grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1fr) 24px;
-        min-height: 46px;
-        padding: 9px 11px;
-        gap: 10px;
+        grid-template-columns: minmax(210px, 0.85fr) minmax(300px, 1.05fr) 26px;
+        min-height: 56px;
+        padding: 12px 14px;
+        gap: 12px;
       }
 
       .tournament-row-banner {
@@ -11852,10 +11852,15 @@
       }
 
       .tournament-inline-stats span {
-        min-height: 27px;
+        min-height: 31px;
+        padding: 5px 8px;
         border-radius: 9px;
         background: rgba(255, 255, 255, 0.76);
         font-size: 0.65rem;
+      }
+
+      .tournament-inline-stats strong {
+        font-weight: 500;
       }
 
       .tournament-row-item .tournament-list-body {

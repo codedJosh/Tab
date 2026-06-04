@@ -3303,9 +3303,9 @@
           : null;
         if (activeManagedTournament) {
           return [
-            { key: "overview", label: "Home", count: null, group: "Home" },
-            { key: "tournaments", label: "Tournaments", count: null, group: "Tournament" },
-            { key: "settings", label: "Settings", count: null, group: "Settings" },
+            { key: "overview", label: "Home", count: null, group: "User Settings" },
+            { key: "settings", label: "Settings", count: null, group: "User Settings" },
+            { key: "tournaments", label: "Tournaments", count: null, group: "Tournament Settings" },
           ];
         }
 
@@ -14450,7 +14450,20 @@
           : capabilities.canManageAny
           ? getManagedTournamentForSession()
           : null;
-        const groupOrder = ["Home", "Tournament", "People", "Publication", "Regional", "Debater", "Judge", "Tools", "Account", "Settings"];
+        const groupOrder = [
+          "User Settings",
+          "Tournament Settings",
+          "Home",
+          "Tournament",
+          "People",
+          "Publication",
+          "Regional",
+          "Debater",
+          "Judge",
+          "Tools",
+          "Account",
+          "Settings",
+        ];
         const groupedItems = items.reduce((groups, item) => {
           const groupLabel = String(item.group || "Workspace").trim() || "Workspace";
           if (!groups[groupLabel]) {
@@ -14501,12 +14514,16 @@
                 .map(
                   ([groupLabel, groupItems]) => `
                     <div class="menu-side-section ${
-                      String(groupLabel || "").trim().toLowerCase() === "tournament"
+                      ["tournament", "user settings", "tournament settings"].includes(
+                        String(groupLabel || "").trim().toLowerCase(),
+                      )
                         ? "has-section-label"
                         : "is-unlabeled"
                     }">
                       ${
-                        String(groupLabel || "").trim().toLowerCase() === "tournament"
+                        ["tournament", "user settings", "tournament settings"].includes(
+                          String(groupLabel || "").trim().toLowerCase(),
+                        )
                           ? `<span class="theme-section-label">${escapeHtml(groupLabel)}</span>`
                           : ""
                       }
@@ -14551,7 +14568,9 @@
                           )
                           .join("")}
                         ${
-                          String(groupLabel || "").trim().toLowerCase() === "settings"
+                          ["settings", "user settings"].includes(
+                            String(groupLabel || "").trim().toLowerCase(),
+                          )
                             ? `
                                 <button class="menu-nav-link" type="button" data-action="logout">
                                   <span class="menu-nav-copy">
