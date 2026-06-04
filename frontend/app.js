@@ -3298,6 +3298,17 @@
           ];
         }
 
+        const activeManagedTournament = !capabilities.regionalPortalMode && capabilities.canManageAny
+          ? getManagedTournamentForSession()
+          : null;
+        if (activeManagedTournament) {
+          return [
+            { key: "overview", label: "Home", count: null, group: "Home" },
+            { key: "tournaments", label: "Tournaments", count: null, group: "Tournament" },
+            { key: "settings", label: "Settings", count: null, group: "Settings" },
+          ];
+        }
+
         const stats = getOverviewStats();
         const items = [
           { key: "overview", label: "Home", count: stats.visibleTournaments, group: "Home" },
@@ -14457,15 +14468,20 @@
         });
         const managerOpsButtons = capabilities.canManageAny && !capabilities.regionalPortalMode && activeManagedTournament
           ? [
+              { section: "roster", label: "Team Registration" },
               { section: "draw", label: "Round Draw" },
               { section: "draw-review", label: "Draw Review" },
+              { section: "motions", label: "Motions" },
               { section: "results", label: "Standings" },
               hasReleasedBreakBoard(activeManagedTournament)
                 ? { section: "breaks", label: "Break" }
                 : null,
+              { section: "directory", label: "Teams" },
               { section: "judges", label: "Judges" },
-              { section: "motions", label: "Motions" },
-              { section: "roster", label: "Teams" },
+              { section: "setup", label: "Setup" },
+              { section: "access", label: "Permissions" },
+              { section: "notices", label: "Notices" },
+              { section: "history", label: "History" },
             ].filter(Boolean)
           : [];
 
@@ -16220,7 +16236,6 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Judges</p>
-                <h2>Roster and room allocations</h2>
               </div>
               <span class="role-pill">${escapeHtml(judges.length)} judges</span>
             </div>
@@ -17833,7 +17848,6 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Registration</p>
-                <h2>Teams and speakers</h2>
               </div>
               <span class="role-pill">Efficient entry setup</span>
             </div>
@@ -18571,7 +18585,6 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Motion and Prep Control</p>
-                <h2>Manage round release, motion visibility, and prep timing</h2>
               </div>
               <span class="role-pill">${escapeHtml(controls.length)} rounds</span>
             </div>
@@ -18660,7 +18673,6 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">${escapeHtml(canManage ? "Round Control" : "Round Progress")}</p>
-                <h2>${escapeHtml(canManage ? "Round Board" : "Published round progress")}</h2>
               </div>
               <span class="role-pill">${escapeHtml(profiles.length)} rounds</span>
             </div>
@@ -19150,7 +19162,6 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Standings</p>
-                <h2>Choose one standings board</h2>
               </div>
             </div>
             <div class="button-row wrap-row standings-subnav">
@@ -19201,12 +19212,6 @@
         );
         const { active } = sectionState;
         return `
-          ${renderFocusedTournamentNavigator(
-            tournament,
-            feedbackCategories,
-            scoringProfile,
-            sectionState,
-          )}
           ${renderTournamentBanner(tournament)}
           <div
             id="${escapeHtml(getFocusedTournamentSectionId(tournament, active.key))}"
