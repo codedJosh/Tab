@@ -15045,6 +15045,8 @@
           tournament.publication.showPublicStandings ||
           tournament.publication.showStandingsInPrivatePortal ||
           state.appSettings.portal.showStandingsInPrivatePortal;
+        const canShowSpeakerBoard =
+          canShowStandings && canViewSpeakerBoard(tournament);
         const canShowDraw =
           tournament.publication.showPublicDraw ||
           tournament.publication.showDrawInPrivatePortal ||
@@ -15161,14 +15163,18 @@
                   )}</span>
                 </div>
                 <div class="competitor-stat">
-                  <span class="muted">Speaker ranking</span>
+                  <span class="muted">Speaker Board</span>
                   <strong>${escapeHtml(
-                    speakerStanding
+                    canShowSpeakerBoard && speakerStanding
                       ? "#" + speakerStanding.speakerRank
-                      : "Awaiting scores",
+                      : canShowSpeakerBoard
+                        ? "Awaiting scores"
+                        : "Hidden",
                   )}</strong>
                   <span class="portal-summary-copy">${escapeHtml(
-                    formatScoreValue(speakerScore) + " speaker points",
+                    canShowSpeakerBoard
+                      ? formatScoreValue(speakerScore) + " speaker points"
+                      : "Hidden for this tournament",
                   )}</span>
                 </div>
               </div>
@@ -16867,8 +16873,12 @@
         options = {},
       ) {
         const canJudge = Boolean(options.canJudge);
+        const canManage = Boolean(options.canManage);
         const canSeeStandings = Boolean(options.canSeeStandings);
         const canSeeDraw = Boolean(options.canSeeDraw);
+        const canSeeSpeakerBoard =
+          (canSeeStandings || canJudge || canManage) &&
+          canViewSpeakerBoard(tournament, { canManage });
         const participant = options.participant || null;
         const judgeAssignments = Array.isArray(options.judgeAssignments)
           ? options.judgeAssignments
@@ -17043,11 +17053,12 @@
               </div>
             `,
           },
-          {
+          canSeeSpeakerBoard
+            ? {
             key: "rankings",
-            label: "Rankings",
+            label: "Speaker Board",
             badge:
-              canSeeStandings || canJudge
+              canSeeSpeakerBoard
                 ? speakerStandings.length
                   ? speakerStandings.length + " speakers"
                   : "Awaiting"
@@ -17057,21 +17068,22 @@
               <section class="surface">
                 <div class="section-heading">
                   <div>
-                    <p class="eyebrow">Speaker Rankings</p>
+                    <p class="eyebrow">Speaker Board</p>
                     <h2>Individual debater board</h2>
                   </div>
                   <span class="role-pill">${escapeHtml(
-                    canSeeStandings || canJudge ? speakerStandings.length + " speakers" : "Private",
+                    canSeeSpeakerBoard ? speakerStandings.length + " speakers" : "Private",
                   )}</span>
                 </div>
                 ${
-                  canSeeStandings || canJudge
+                  canSeeSpeakerBoard
                     ? renderSpeakerStandingsTable(tournament)
                     : `<div class="empty-state">Speaker rankings are currently private for this tournament.</div>`
                 }
               </section>
             `,
-          },
+              }
+            : null,
           {
             key: "results",
             label: "Results",
@@ -17088,7 +17100,7 @@
               </div>
             `,
           },
-        ];
+        ].filter(Boolean);
       }
 
       function getSelectedTournamentBoardState(tournament, options = {}) {
@@ -17219,6 +17231,7 @@
                 </div>
                 ${renderTournamentViewerHub(tournament, {
                   canJudge,
+                  canManage,
                   canSeeStandings,
                   canSeeDraw,
                   participant,
@@ -24434,6 +24447,10 @@
           tournament.publication.showPublicStandings ||
           tournament.publication.showStandingsInPrivatePortal ||
           state.appSettings.portal.showStandingsInPrivatePortal;
+        const canShowSpeakerBoard =
+          canShowStandings && canViewSpeakerBoard(tournament);
+        const canShowTeamBoard =
+          canShowStandings && canViewTeamBoard(tournament);
         const canShowDraw =
           tournament.publication.showPublicDraw ||
           tournament.publication.showDrawInPrivatePortal ||
@@ -24491,7 +24508,7 @@
         const scoredRoundCount = roundPerformanceRows.filter(
           (row) => row.speakerScore !== null && row.speakerScore !== undefined,
         ).length;
-        const canShowPerformance = canShowStandings;
+        const canShowPerformance = canShowTeamBoard;
         const welcomeNote =
           state.appSettings.portal.welcomeNote ||
           "This private page is designed to show only the essentials for competitors.";
@@ -24514,7 +24531,7 @@
                 ? formatScoreValue(standingRecord.points) + " team points"
                 : "Awaiting team points"
               : "Hidden"
-            : canShowStandings
+            : canShowSpeakerBoard
               ? formatScoreValue(computedSpeakerScore) + " speaker pts"
               : "Hidden";
         const performanceSupport =
@@ -24524,15 +24541,19 @@
                 ? getStandingSummaryText(tournament, standingRecord)
                 : "Team results will appear here when they are published."
               : "Team standings are hidden in this portal."
-            : canShowStandings
+            : canShowSpeakerBoard
               ? speakerStanding
                 ? "Current speaker rank #" + speakerStanding.speakerRank
                 : "Speaker rankings will appear here when scores are entered."
               : "Individual standings are hidden in this portal.";
-        const speakerHeadline = formatScoreValue(computedSpeakerScore) + " speaker pts";
-        const speakerSupport = speakerStanding
-          ? "Speaker rank #" + speakerStanding.speakerRank
-          : "Speaker rankings will appear here when scores are entered.";
+        const speakerHeadline = canShowSpeakerBoard
+          ? formatScoreValue(computedSpeakerScore) + " speaker pts"
+          : "Hidden";
+        const speakerSupport = canShowSpeakerBoard
+          ? speakerStanding
+            ? "Speaker rank #" + speakerStanding.speakerRank
+            : "Speaker rankings will appear here when scores are entered."
+          : "Speaker Board is hidden for this tournament.";
         const drawHeadline = canShowDraw
           ? primaryDrawEntry
             ? "Round " + primaryDrawEntry.round
@@ -24710,7 +24731,7 @@
                   <summary>
                     <strong>Speaker tab</strong>
                     <span class="portal-summary-copy">${escapeHtml(
-                      canShowPerformance
+                      canShowSpeakerBoard
                         ? scoredRoundCount
                           ? scoredRoundCount +
                             " scored round" +
@@ -24721,7 +24742,7 @@
                   </summary>
                   <div class="portal-body">
                     ${
-                      canShowPerformance
+                      canShowSpeakerBoard
                         ? renderPortalSpeakerPerformanceWindow(tournament, participant)
                         : `<div class="empty-state">Speaker performance data is hidden for this portal.</div>`
                     }
@@ -24748,9 +24769,9 @@
                 </details>
                 <details class="portal-accordion" ${compactLayout ? "" : "open"}>
                   <summary>
-                    <strong>Speaker standings</strong>
+                    <strong>Speaker Board</strong>
                     <span class="portal-summary-copy">${escapeHtml(
-                      canShowStandings
+                      canShowSpeakerBoard
                         ? speakerStanding
                           ? "Current speaker rank: #" + speakerStanding.speakerRank
                           : "Awaiting speaker scores"
@@ -24759,9 +24780,9 @@
                   </summary>
                   <div class="portal-body">
                     ${
-                      canShowStandings
+                      canShowSpeakerBoard
                         ? renderPortalSpeakerWindow(tournament, participant)
-                        : `<div class="empty-state">Speaker standings are hidden for this portal.</div>`
+                        : `<div class="empty-state">Speaker Board is hidden for this portal.</div>`
                     }
                   </div>
                 </details>
