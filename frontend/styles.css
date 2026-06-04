@@ -11079,4 +11079,82 @@
           grid-template-columns: 1fr;
         }
       }
+
+      /* Viewport containment: keep the operational workspace left-aligned and inside frame. */
+      .page-shell {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding-inline: 8px;
+      }
+
+      .workspace-shell,
+      .content-panel,
+      .content-panel > *,
+      .focus-stage-shell,
+      .focus-stage-body,
+      .focus-stage-body > *,
+      .surface,
+      .subsurface,
+      .inline-card,
+      .directory-card,
+      .link-card,
+      .flat-panel,
+      .field-grid,
+      .flat-grid,
+      .draw-studio-layout,
+      .judge-workbench,
+      .registration-studio,
+      .access-directory-grid,
+      .tournament-list,
+      .tournament-list-item,
+      .tournament-list-body,
+      .round-board-shell,
+      .round-board-table-wrap {
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      @media (min-width: 940px) {
+        .workspace-shell {
+          width: 100%;
+          max-width: none;
+          margin-left: 0;
+          margin-right: 0;
+          grid-template-columns: minmax(188px, 214px) minmax(0, 1fr);
+          gap: 10px;
+        }
+
+        .workspace-shell .menu-panel {
+          width: 100%;
+        }
+
+        .content-panel {
+          overflow: hidden;
+        }
+      }
+
+      .round-board-table-wrap,
+      .table-wrap {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .round-board-table,
+      .table-wrap table {
+        max-width: 100%;
+      }
+
+      .content-panel input,
+      .content-panel select,
+      .content-panel textarea,
+      .content-panel button,
+      .content-panel a {
+        max-width: 100%;
+      }
+
+      .content-panel :is(.token-link, a, .muted, .empty-state, .fine-print) {
+        overflow-wrap: anywhere;
+      }
     
