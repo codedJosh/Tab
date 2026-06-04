@@ -416,6 +416,8 @@
           rebuttalEnabled: false,
           publicStandings: true,
           publicDraw: true,
+          showSpeakerBoard: true,
+          showTeamPointsBoard: true,
           dashboardListed: true,
           breakSize: 8,
           scoringMethod: "WUDC Team Points",
@@ -921,6 +923,13 @@
           teams: "wins",
           institutions: "points",
           breaks: "wins",
+          standings: "wins",
+          "speaker board": "speakers",
+          "speaker-board": "speakers",
+          speaker: "speakers",
+          "team board": "points",
+          "team-board": "points",
+          team: "points",
         };
         const mapped = legacyMap[normalized] || normalized;
         if (["wins", "speakers", "points"].includes(mapped)) {
@@ -10783,7 +10792,12 @@
             dashboardListed: payload.dashboardListed,
             showPublicStandings: payload.publicStandings,
             showPublicDraw: payload.publicDraw,
-            showTeamPointsBoard: Boolean(payload.showTeamPointsBoard),
+            showSpeakerBoard: Object.prototype.hasOwnProperty.call(payload, "showSpeakerBoard")
+              ? Boolean(payload.showSpeakerBoard)
+              : true,
+            showTeamPointsBoard: Object.prototype.hasOwnProperty.call(payload, "showTeamPointsBoard")
+              ? Boolean(payload.showTeamPointsBoard)
+              : true,
             usePublicTeamAliases: Boolean(payload.usePublicTeamAliases),
             showStandingsInPrivatePortal: true,
             showDrawInPrivatePortal: true,
@@ -11357,7 +11371,8 @@
               dashboardListed: true,
               showPublicStandings: true,
               showPublicDraw: true,
-              showTeamPointsBoard: false,
+              showSpeakerBoard: true,
+              showTeamPointsBoard: true,
               usePublicTeamAliases: false,
               showStandingsInPrivatePortal: true,
               showDrawInPrivatePortal: true,
@@ -16016,10 +16031,16 @@
                 <span>Show draw publicly</span>
               </label>
               <label class="checkbox-row">
-                <input type="checkbox" name="showTeamPointsBoard" ${checked(
-                  tournament.publication.showTeamPointsBoard,
+                <input type="checkbox" name="showSpeakerBoard" ${checked(
+                  tournament.publication.showSpeakerBoard !== false,
                 )} />
-                <span>Show team points board</span>
+                <span>Show Speaker Board</span>
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" name="showTeamPointsBoard" ${checked(
+                  tournament.publication.showTeamPointsBoard !== false,
+                )} />
+                <span>Show Team Board</span>
               </label>
               <label class="checkbox-row">
                 <input type="checkbox" name="usePublicTeamAliases" ${checked(
@@ -16628,6 +16649,9 @@
 
       function renderResultsPanel(tournament, canManage, canJudge, canSeeStandings, canSeeDraw) {
         const noticeScope = canManage ? "manager" : canJudge ? "judge" : "public";
+        const canSeeSpeakerBoard =
+          (canSeeStandings || canManage || canJudge) &&
+          canViewSpeakerBoard(tournament, { canManage });
         return `
           ${
             canManage
@@ -16652,7 +16676,7 @@
           ${renderStandingsTable(tournament, canManage, canSeeStandings)}
           <h4>Speaker rankings</h4>
           ${
-            canSeeStandings || canManage || canJudge
+            canSeeSpeakerBoard
               ? renderSpeakerStandingsTable(tournament)
               : `<div class="empty-state">Speaker rankings are currently hidden publicly for this tournament.</div>`
           }
@@ -17587,7 +17611,7 @@
           {
             key: "results",
             label: "Standings",
-            note: "Team win points, public speaker scores, and optional team point totals.",
+            note: "Speaker Board, Team Board, and placement-based Standings.",
             badge: snapshot.pendingBallotRooms
               ? snapshot.pendingBallotRooms + " pending"
               : standings.length
@@ -19207,7 +19231,7 @@
       function renderTeamPointsTotalsTable(tournament) {
         const standings = getComputedStandings(tournament);
         if (!standings.length) {
-          return `<div class="empty-state">Team point totals will appear once judge ballots are submitted.</div>`;
+          return `<div class="empty-state">Team Board totals will appear once judge ballots include speaker scores.</div>`;
         }
 
         const rows = standings
@@ -19215,12 +19239,10 @@
             name: getStandingDisplayName(tournament, standing, { forcePrivate: true }),
             institution: standing.institution || standing.school || "",
             speaks: Number(standing.speaks || standing.cumulativeSpeakerScore || 0),
-            points: Number(standing.points || 0),
           }))
           .sort(
             (left, right) =>
               Number(right.speaks || 0) - Number(left.speaks || 0) ||
-              Number(right.points || 0) - Number(left.points || 0) ||
               String(left.name || "").localeCompare(String(right.name || "")),
           );
 
@@ -19232,8 +19254,7 @@
                   <th>Rank</th>
                   <th>Team</th>
                   <th>Institution</th>
-                  <th>Total speaker points</th>
-                  <th>Team win points</th>
+                  <th>Total Speaks</th>
                 </tr>
               </thead>
               <tbody>
@@ -19245,7 +19266,6 @@
                         <td>${escapeHtml(row.name)}</td>
                         <td>${escapeHtml(row.institution || "Independent")}</td>
                         <td>${escapeHtml(formatScoreValue(row.speaks))}</td>
-                        <td>${escapeHtml(formatScoreValue(row.points))}</td>
                       </tr>
                     `,
                   )
@@ -19273,31 +19293,39 @@
         `;
       }
 
+      function canViewSpeakerBoard(tournament, options = {}) {
+        return Boolean(options.canManage || tournament?.publication?.showSpeakerBoard !== false);
+      }
+
+      function canViewTeamBoard(tournament, options = {}) {
+        return Boolean(options.canManage || tournament?.publication?.showTeamPointsBoard !== false);
+      }
+
       function renderTournamentResultsStudio(tournament) {
-        const teamPointStandings = usesTeamPointStandings(tournament);
-        const canShowSpeakers = canManageTournament(tournament) || tournament.publication.showPublicStandings;
-        const canShowTeamPointTotals = Boolean(tournament.publication.showTeamPointsBoard);
+        const canManage = canManageTournament(tournament);
+        const canShowSpeakers = canViewSpeakerBoard(tournament, { canManage });
+        const canShowTeamPointTotals = canViewTeamBoard(tournament, { canManage });
         const resultsViewOptions = [
-          {
-            key: "wins",
-            label: "Team win points",
-          },
           canShowSpeakers
             ? {
-            key: "speakers",
-            label: "Speaker scores",
+                key: "speakers",
+                label: "Speaker Board",
               }
             : null,
           canShowTeamPointTotals
             ? {
                 key: "points",
-                label: "Team points",
+                label: "Team Board",
               }
             : null,
+          {
+            key: "wins",
+            label: "Standings",
+          },
         ].filter(Boolean);
         let resultsView = normalizeResultsStudioView(session.resultsStudioView);
         if (!resultsViewOptions.some((option) => option.key === resultsView)) {
-          resultsView = "wins";
+          resultsView = resultsViewOptions[0]?.key || "wins";
         }
         if (session.resultsStudioView !== resultsView) {
           session.resultsStudioView = resultsView;
@@ -19306,9 +19334,7 @@
         const winsPanelMarkup = `
           <div class="standings-board-card">
             <div class="section-heading">
-              <h3>${escapeHtml(
-                teamPointStandings ? "Team win points standings" : "Team standings",
-              )}</h3>
+              <h3>Standings</h3>
             </div>
             ${renderStandingsTable(tournament, true, true)}
           </div>
@@ -19317,7 +19343,7 @@
         const speakersPanelMarkup = `
           <div class="standings-board-card">
             <div class="section-heading">
-              <h3>Speaker scores</h3>
+              <h3>Speaker Board</h3>
             </div>
             ${renderSpeakerStandingsTable(tournament)}
           </div>
@@ -19326,7 +19352,7 @@
         const pointsPanelMarkup = `
           <div class="standings-board-card">
             <div class="section-heading">
-              <h3>Team points</h3>
+              <h3>Team Board</h3>
             </div>
             ${renderTeamPointsTotalsTable(tournament)}
           </div>
@@ -19551,6 +19577,18 @@
                       defaults.publicDraw,
                     )} />
                     <span>Show the public draw</span>
+                  </label>
+                  <label class="checkbox-row">
+                    <input type="checkbox" name="showSpeakerBoard" ${checked(
+                      defaults.showSpeakerBoard !== false,
+                    )} />
+                    <span>Show Speaker Board</span>
+                  </label>
+                  <label class="checkbox-row">
+                    <input type="checkbox" name="showTeamPointsBoard" ${checked(
+                      defaults.showTeamPointsBoard !== false,
+                    )} />
+                    <span>Show Team Board</span>
                   </label>
                   <label class="checkbox-row">
                     <input type="checkbox" name="registrationDebaterOpen" checked />
@@ -27143,6 +27181,8 @@
           rebuttalEnabled: boolFromForm(formData, "rebuttalEnabled"),
           publicStandings: boolFromForm(formData, "publicStandings"),
           publicDraw: boolFromForm(formData, "publicDraw"),
+          showSpeakerBoard: boolFromForm(formData, "showSpeakerBoard"),
+          showTeamPointsBoard: boolFromForm(formData, "showTeamPointsBoard"),
           usePublicTeamAliases: boolFromForm(formData, "usePublicTeamAliases"),
           dashboardListed: boolFromForm(formData, "dashboardListed"),
           registration: {
@@ -27366,6 +27406,10 @@
             tournament.publication.dashboardListed = boolFromForm(formData, "dashboardListed");
             tournament.publication.showPublicStandings = boolFromForm(formData, "publicStandings");
             tournament.publication.showPublicDraw = boolFromForm(formData, "publicDraw");
+            tournament.publication.showSpeakerBoard = boolFromForm(
+              formData,
+              "showSpeakerBoard",
+            );
             tournament.publication.showTeamPointsBoard = boolFromForm(
               formData,
               "showTeamPointsBoard",
