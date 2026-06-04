@@ -11947,15 +11947,15 @@
 
       .workspace-shell .menu-nav-list,
       .workspace-shell .menu-shortcut-list {
-        gap: 6px;
+        gap: 4px;
       }
 
       .workspace-shell .menu-nav-link,
       .workspace-shell .menu-room-button,
       .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link {
-        min-height: 42px;
-        padding: 8px 11px;
-        border-radius: 14px;
+        min-height: 36px;
+        padding: 6px 10px;
+        border-radius: 12px;
         background: rgba(255, 255, 255, 0.06);
         border: 1px solid rgba(255, 255, 255, 0.1);
         color: rgba(244, 249, 247, 0.96) !important;
@@ -11984,8 +11984,21 @@
       }
 
       .workspace-shell .menu-tournament-tools {
+        gap: 3px;
+        margin-top: 2px;
+      }
+
+      .workspace-shell .menu-welcome-card {
         gap: 4px;
-        margin-top: 3px;
+      }
+
+      .workspace-shell .menu-side-section {
+        gap: 4px;
+      }
+
+      .workspace-shell .menu-side-section.has-section-label {
+        gap: 4px;
+        margin-top: 5px;
       }
 
       @media (min-width: 940px) {
@@ -12012,19 +12025,32 @@
       .workspace-shell .menu-nav-link,
       .workspace-shell .menu-room-button,
       .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link {
-        min-height: 36px;
-        padding: 6px 10px;
-        border-radius: 12px;
+        min-height: 34px;
+        padding: 5px 10px;
+        border-radius: 11px;
       }
 
       .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link {
-        min-height: 34px;
-        padding-block: 5px;
+        min-height: 32px;
+        padding-block: 4px;
       }
 
       .workspace-shell .menu-nav-copy strong,
       .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link strong {
         font-size: 0.82rem;
         line-height: 1.12;
+      }
+
+      .tournament-inline-stats span {
+        align-items: center;
+        justify-content: center;
+        line-height: 1.1;
+        text-align: center;
+      }
+
+      .tournament-inline-stats strong {
+        display: inline-flex;
+        align-items: center;
+        line-height: 1;
       }
     

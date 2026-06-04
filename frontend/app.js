@@ -16262,29 +16262,23 @@
           <form class="stack compact-stack participant-entry-form" data-form="add-participant" data-id="${escapeHtml(
             tournament.id,
           )}">
-            <div class="field-grid four">
-              <label>
-                Speaker Name
-                <input type="text" name="name" placeholder="Speaker or participant name" required />
-              </label>
-              <label>
-                Email
-                <input type="email" name="email" placeholder="participant@example.com" required />
-              </label>
-              <label>
-                Institution
-                <input type="text" name="institution" placeholder="Optional institution" />
-              </label>
-              <label>
-                Linked Team
-                <select name="teamId">
-                  ${getTeamOptionsMarkup(tournament)}
-                </select>
-              </label>
-            </div>
             <label>
-              Team Name
-              <input type="text" name="teamName" placeholder="Optional manual team name" />
+              Speaker Name
+              <input type="text" name="name" placeholder="Speaker or participant name" required />
+            </label>
+            <label>
+              Email
+              <input type="email" name="email" placeholder="participant@example.com" required />
+            </label>
+            <label>
+              Institution
+              <input type="text" name="institution" placeholder="Optional institution" />
+            </label>
+            <label>
+              Linked Team
+              <select name="teamId">
+                ${getTeamOptionsMarkup(tournament)}
+              </select>
             </label>
             ${renderParticipantScoreFields(tournament)}
             <button type="submit">Add Speaker</button>
