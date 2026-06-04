@@ -16658,6 +16658,9 @@
         const canSeeSpeakerBoard =
           (canSeeStandings || canManage || canJudge) &&
           canViewSpeakerBoard(tournament, { canManage });
+        const canSeeTeamBoard =
+          (canSeeStandings || canManage || canJudge) &&
+          canViewTeamBoard(tournament, { canManage });
         return `
           ${
             canManage
@@ -16680,11 +16683,17 @@
             <span class="round-plan-badge">${escapeHtml(getRoundStructureSummary(tournament))}</span>
           </div>
           ${renderStandingsTable(tournament, canManage, canSeeStandings)}
-          <h4>Speaker rankings</h4>
+          <h4>Team Board</h4>
+          ${
+            canSeeTeamBoard
+              ? renderTeamPointsTotalsTable(tournament)
+              : `<div class="empty-state">Team Board is currently hidden publicly for this tournament.</div>`
+          }
+          <h4>Speaker Board</h4>
           ${
             canSeeSpeakerBoard
               ? renderSpeakerStandingsTable(tournament)
-              : `<div class="empty-state">Speaker rankings are currently hidden publicly for this tournament.</div>`
+              : `<div class="empty-state">Speaker Board is currently hidden publicly for this tournament.</div>`
           }
           <h4>Draw</h4>
           ${renderDrawTable(tournament, canManage, canSeeDraw)}
@@ -16879,6 +16888,9 @@
         const canSeeSpeakerBoard =
           (canSeeStandings || canJudge || canManage) &&
           canViewSpeakerBoard(tournament, { canManage });
+        const canSeeTeamBoard =
+          (canSeeStandings || canJudge || canManage) &&
+          canViewTeamBoard(tournament, { canManage });
         const participant = options.participant || null;
         const judgeAssignments = Array.isArray(options.judgeAssignments)
           ? options.judgeAssignments
@@ -17024,11 +17036,57 @@
               canJudge,
             }),
           },
+          canSeeSpeakerBoard
+            ? {
+                key: "rankings",
+                label: "Speaker Board",
+                badge: speakerStandings.length
+                  ? speakerStandings.length + " speakers"
+                  : "Awaiting",
+                note: "Individual speaker scores",
+                render: () => `
+                  <section class="surface">
+                    <div class="section-heading">
+                      <div>
+                        <p class="eyebrow">Speaker Board</p>
+                      </div>
+                      <span class="role-pill">${escapeHtml(
+                        speakerStandings.length
+                          ? speakerStandings.length + " speakers"
+                          : "Awaiting scores",
+                      )}</span>
+                    </div>
+                    ${renderSpeakerStandingsTable(tournament)}
+                  </section>
+                `,
+              }
+            : null,
+          canSeeTeamBoard
+            ? {
+                key: "team-board",
+                label: "Team Board",
+                badge: standings.length ? standings.length + " teams" : "Awaiting",
+                note: "Total speaks across team members",
+                render: () => `
+                  <section class="surface">
+                    <div class="section-heading">
+                      <div>
+                        <p class="eyebrow">Team Board</p>
+                      </div>
+                      <span class="role-pill">${escapeHtml(
+                        standings.length ? standings.length + " teams" : "Awaiting scores",
+                      )}</span>
+                    </div>
+                    ${renderTeamPointsTotalsTable(tournament)}
+                  </section>
+                `,
+              }
+            : null,
           {
             key: "leaderboard",
-            label: "Leaderboard",
+            label: "Standings",
             badge: canSeeStandings ? standings.length + " ranked" : "Private",
-            note: "Team or individual standings",
+            note: "Team points by placement",
             render: () => `
               <div class="stack">
                 ${renderBreakProjectionPanel(tournament, {
@@ -17037,12 +17095,7 @@
                 <section class="surface">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Leaderboard</p>
-                      <h2>${escapeHtml(
-                        tournament.participantModel === "teams"
-                          ? "Team standings"
-                          : "Standings board",
-                      )}</h2>
+                      <p class="eyebrow">Standings</p>
                     </div>
                     <span class="role-pill">${escapeHtml(
                       canSeeStandings ? "Published" : "Private",
@@ -17053,37 +17106,6 @@
               </div>
             `,
           },
-          canSeeSpeakerBoard
-            ? {
-            key: "rankings",
-            label: "Speaker Board",
-            badge:
-              canSeeSpeakerBoard
-                ? speakerStandings.length
-                  ? speakerStandings.length + " speakers"
-                  : "Awaiting"
-                : "Private",
-            note: "Speaker board by individual score",
-            render: () => `
-              <section class="surface">
-                <div class="section-heading">
-                  <div>
-                    <p class="eyebrow">Speaker Board</p>
-                    <h2>Individual debater board</h2>
-                  </div>
-                  <span class="role-pill">${escapeHtml(
-                    canSeeSpeakerBoard ? speakerStandings.length + " speakers" : "Private",
-                  )}</span>
-                </div>
-                ${
-                  canSeeSpeakerBoard
-                    ? renderSpeakerStandingsTable(tournament)
-                    : `<div class="empty-state">Speaker rankings are currently private for this tournament.</div>`
-                }
-              </section>
-            `,
-              }
-            : null,
           {
             key: "results",
             label: "Results",

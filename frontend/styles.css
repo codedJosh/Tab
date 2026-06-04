@@ -11367,6 +11367,62 @@
         }
       }
 
+      /* Board controls: compact segmented controls instead of competing cards. */
+      .workspace-shell .standings-subnav,
+      .workspace-shell .tournament-board-tab-row {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        width: fit-content;
+        max-width: 100%;
+        gap: 4px;
+        padding: 4px;
+        border: 1px solid rgba(20, 49, 38, 0.1);
+        border-radius: 13px;
+        background: rgba(255, 255, 255, 0.72);
+        box-shadow: none !important;
+      }
+
+      .workspace-shell .standings-subnav > button,
+      .workspace-shell .tournament-board-tab {
+        min-width: 108px;
+        max-width: 142px;
+        min-height: 30px;
+        padding: 5px 10px;
+        border-radius: 9px;
+        border: 1px solid transparent !important;
+        box-shadow: none !important;
+        font-size: 0.7rem;
+        line-height: 1.1;
+      }
+
+      .workspace-shell .tournament-board-tab {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+      }
+
+      .workspace-shell .tournament-board-tab strong {
+        font-size: 0.7rem;
+        font-weight: 620;
+        line-height: 1.1;
+      }
+
+      .workspace-shell .tournament-board-tab .muted,
+      .workspace-shell .tournament-board-tab .tournament-board-badge {
+        display: none;
+      }
+
+      .workspace-shell .standings-board-card .section-heading {
+        margin-bottom: 6px;
+      }
+
+      .workspace-shell .standings-board-card .section-heading h3 {
+        font-size: 0.82rem;
+        font-weight: 620;
+      }
+
       /* Tournament section nav: compact, average-width buttons without drop shadows. */
       .focus-nav-shell .focus-nav-grid {
         display: flex;
