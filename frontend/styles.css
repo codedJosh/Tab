@@ -11984,8 +11984,8 @@
       }
 
       .workspace-shell .menu-tournament-tools {
-        gap: 6px;
-        margin-top: 6px;
+        gap: 4px;
+        margin-top: 3px;
       }
 
       @media (min-width: 940px) {
@@ -12015,6 +12015,11 @@
         min-height: 36px;
         padding: 6px 10px;
         border-radius: 12px;
+      }
+
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link {
+        min-height: 34px;
+        padding-block: 5px;
       }
 
       .workspace-shell .menu-nav-copy strong,
