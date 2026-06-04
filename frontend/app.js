@@ -9692,6 +9692,157 @@
         };
       }
 
+      function isOverflowDrawEntry(entry) {
+        const room = String(entry?.room || "").trim().toLowerCase();
+        const matchup = String(entry?.matchup || "").trim().toLowerCase();
+        return (
+          room.includes("overflow") ||
+          (Boolean(entry?.disableMatchupInference) && matchup.includes("overflow"))
+        );
+      }
+
+      function getRoundReleaseReadiness(tournament, round) {
+        const targetRound = normalizeRoundCount(round, 1);
+        const summary = getRoundStatusSummary(tournament, targetRound);
+        const rooms = summary.rooms || [];
+        const blockers = [];
+        const warnings = [];
+
+        if (!rooms.length) {
+          blockers.push("Create at least one room for Round " + targetRound + ".");
+        }
+
+        const overflowRooms = rooms.filter(isOverflowDrawEntry);
+        if (overflowRooms.length) {
+          blockers.push(
+            "Resolve " +
+              overflowRooms.length +
+              " overflow room" +
+              (overflowRooms.length === 1 ? "" : "s") +
+              " before publishing.",
+          );
+        }
+
+        const roomNames = new Set();
+        const duplicateRoomNames = new Set();
+        let unnamedRooms = 0;
+        rooms.forEach((entry) => {
+          const roomName = String(entry.room || "").trim();
+          const roomKey = normalizeTextKey(roomName);
+          if (!roomKey) {
+            unnamedRooms += 1;
+            return;
+          }
+          if (roomNames.has(roomKey)) {
+            duplicateRoomNames.add(roomName);
+          }
+          roomNames.add(roomKey);
+        });
+
+        if (unnamedRooms) {
+          blockers.push(
+            "Name " +
+              unnamedRooms +
+              " room" +
+              (unnamedRooms === 1 ? "" : "s") +
+              " before publishing.",
+          );
+        }
+
+        if (duplicateRoomNames.size) {
+          blockers.push("Remove duplicate room names before publishing.");
+        }
+
+        const seenTeamKeys = new Set();
+        const duplicateTeamKeys = new Set();
+        let roomsMissingTeams = 0;
+        rooms.forEach((entry) => {
+          const keys = getDrawEntryIdentityKeys(entry);
+          if (!keys.length) {
+            roomsMissingTeams += 1;
+          }
+          keys.forEach((key) => {
+            if (seenTeamKeys.has(key)) {
+              duplicateTeamKeys.add(key);
+            }
+            seenTeamKeys.add(key);
+          });
+        });
+
+        if (roomsMissingTeams) {
+          blockers.push(
+            "Add teams or speakers to " +
+              roomsMissingTeams +
+              " room" +
+              (roomsMissingTeams === 1 ? "" : "s") +
+              ".",
+          );
+        }
+
+        if (duplicateTeamKeys.size) {
+          blockers.push("Remove duplicate team assignments before publishing.");
+        }
+
+        const chairlessRooms = rooms.filter(
+          (entry) => !getChairAllocationForDrawEntry(tournament, entry.id),
+        );
+        if (chairlessRooms.length) {
+          blockers.push(
+            "Assign chair judges to " +
+              chairlessRooms.length +
+              " room" +
+              (chairlessRooms.length === 1 ? "" : "s") +
+              ".",
+          );
+        }
+
+        const conflictSummary = getRoundConflictSummary(tournament, targetRound);
+        if (conflictSummary.severe) {
+          blockers.push(
+            "Resolve " +
+              conflictSummary.severe +
+              " severe draw conflict" +
+              (conflictSummary.severe === 1 ? "" : "s") +
+              ".",
+          );
+        } else if (conflictSummary.total) {
+          warnings.push(
+            "Review " +
+              conflictSummary.total +
+              " draw conflict flag" +
+              (conflictSummary.total === 1 ? "" : "s") +
+              ".",
+          );
+        }
+
+        const control = getRoundControlForRound(tournament, targetRound);
+        if (!String(control?.motionTitle || control?.motionText || "").trim()) {
+          warnings.push("Motion has not been entered yet.");
+        }
+
+        return {
+          round: targetRound,
+          canPublish: blockers.length === 0,
+          blockers,
+          warnings,
+          summary,
+          conflictSummary,
+        };
+      }
+
+      function getRoundReleaseReadinessText(readiness) {
+        const issues = readiness?.blockers?.length
+          ? readiness.blockers
+          : readiness?.warnings || [];
+        if (!issues.length) {
+          return "Ready to publish: rooms, teams, chairs, and conflicts checked.";
+        }
+        const prefix = readiness.blockers.length ? "Publish blocked: " : "Publish warning: ";
+        const visibleIssues = issues.slice(0, 2).join(" ");
+        const remaining = Math.max(0, issues.length - 2);
+        return prefix + visibleIssues + (remaining ? " +" + remaining + " more." : "");
+      }
+
       function getRoundTimelineStages(tournament, round, options = {}) {
         const summary = getRoundStatusSummary(tournament, round);
         const control = getRoundControlForRound(tournament, round);
@@ -18847,6 +18998,8 @@
           ...(tournament.draw || []).map((entry) => Number(entry.round || 0)),
         );
         const suggestedRound = Math.min(tournament.rounds, latestRound + 1 || 1);
+        const publishRound = latestRound || 1;
+        const publishReadiness = getRoundReleaseReadiness(tournament, publishRound);
         const suggestedRoundProfile = getRoundProfileForRound(tournament, suggestedRound);
         const suggestedMethod = normalizeDrawMethodChoice("auto", "auto");
         return `
@@ -18930,6 +19083,9 @@
                       <p class="eyebrow">Publish Controls</p>
                     </div>
                   </div>
+                  <p class="fine-print">${escapeHtml(
+                    getRoundReleaseReadinessText(publishReadiness),
+                  )}</p>
                   <div class="draw-publish-grid">
                     <form class="stack" data-form="release-draw-round" data-id="${escapeHtml(
                       tournament.id,
@@ -18938,7 +19094,7 @@
                         Round
                         <select name="round">${getRoundOptionMarkup(
                           tournament,
-                          latestRound || 1,
+                          publishRound,
                         )}</select>
                       </label>
                       <button type="submit">Publish Round</button>
@@ -18951,7 +19107,7 @@
                         Round
                         <select name="round">${getRoundOptionMarkup(
                           tournament,
-                          latestRound || 1,
+                          publishRound,
                         )}</select>
                       </label>
                       <button class="danger-button" type="submit">Reset Round</button>
@@ -28688,7 +28844,7 @@
             );
             const roomPrefix = String(formData.get("roomPrefix") || "Room").trim() || "Room";
             const roomStart = Math.max(1, numberFromForm(formData, "roomStart", 1));
-            const releaseNow = previewOnly ? false : boolFromForm(formData, "releaseNow");
+            const requestedReleaseNow = previewOnly ? false : boolFromForm(formData, "releaseNow");
             let entries = generationPlan.entries;
 
             if (method === "random") {
@@ -28719,7 +28875,7 @@
                 createDrawRecord(tournament, {
                   round,
                   room: roomPrefix + " " + (roomStart + index),
-                  status: releaseNow ? "Published" : "Draft",
+                  status: "Draft",
                   priority: getAutoPriorityValue(index, groups.length, method),
                   entries: group,
                 }),
@@ -28757,6 +28913,24 @@
             tournament.draw = tournament.draw.sort(
               (left, right) => Number(left.round) - Number(right.round),
             );
+            const readiness = requestedReleaseNow
+              ? getRoundReleaseReadiness(tournament, round)
+              : null;
+            const releaseNow = Boolean(requestedReleaseNow && readiness?.canPublish);
+            if (releaseNow) {
+              tournament.draw = (tournament.draw || []).map((entry) =>
+                Number(entry.round) === Number(round) && !isOverflowDrawEntry(entry)
+                  ? {
+                      ...entry,
+                      status: "Published",
+                      publishedAt: entry.publishedAt || timestamp(),
+                      publishedAtKey:
+                        normalizeTimestampKey(entry.publishedAtKey, entry.publishedAt) ||
+                        Date.now(),
+                    }
+                  : entry,
+              );
+            }
             return addAudit(
               tournament,
               "Generated a " +
@@ -28766,7 +28940,11 @@
                 (isOutroundProfile(roundProfile) && generationPlan.sourceLabel
                   ? " using the " + generationPlan.sourceLabel.toLowerCase()
                   : "") +
-                (releaseNow ? " and released it." : " as a draft.") +
+                (releaseNow
+                  ? " and released it."
+                  : requestedReleaseNow
+                    ? " as a draft because readiness checks blocked release."
+                    : " as a draft.") +
                 (hasOverflow ? " Overflow entries were left in a separate draft room." : ""),
             );
           },
@@ -28774,9 +28952,11 @@
             ? previewHasOverflow
               ? "Draw preview saved as draft. Overflow entries were left in a separate draft room."
               : "Draw preview saved as draft."
-            : previewHasOverflow
-              ? "Round draw generated. Overflow entries were left in a separate draft room."
-              : "Round draw generated.",
+            : boolFromForm(formData, "releaseNow")
+              ? "Round draw generated. Publish after readiness checks pass."
+              : previewHasOverflow
+                ? "Round draw generated. Overflow entries were left in a separate draft room."
+                : "Round draw generated.",
           {
             forceCloud: true,
             errorMessage: "The generated draw could not be synced to the shared backend.",
@@ -28793,14 +28973,19 @@
           renderApp();
           return;
         }
-        const conflictSummary = getRoundConflictSummary(tournament, round);
+        const readiness = getRoundReleaseReadiness(tournament, round);
+        if (!readiness.canPublish) {
+          setFlash("error", getRoundReleaseReadinessText(readiness));
+          renderApp();
+          return;
+        }
 
         updateTournament(
           tournamentId,
           (tournament) => {
             let changed = false;
             tournament.draw = (tournament.draw || []).map((entry) => {
-              if (Number(entry.round) === Number(round)) {
+              if (Number(entry.round) === Number(round) && !isOverflowDrawEntry(entry)) {
                 changed = true;
                 return {
                   ...entry,
@@ -28817,12 +29002,8 @@
             }
             return addAudit(tournament, "Released the draw for Round " + round + ".");
           },
-          conflictSummary.total
-            ? "Round released with " +
-                conflictSummary.total +
-                " flagged conflict" +
-                (conflictSummary.total === 1 ? "" : "s") +
-                " to review."
+          readiness.warnings.length
+            ? "Round released. " + readiness.warnings.slice(0, 2).join(" ")
             : "Round released.",
           {
             forceCloud: true,
