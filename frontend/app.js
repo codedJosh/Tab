@@ -240,10 +240,12 @@
             },
           ]
         : [];
-      const CLOUD_PROBE_TIMEOUT_MS = 1200;
-      const CLOUD_BOOT_REQUEST_TIMEOUT_MS = 1800;
-      const CLOUD_AUTH_BOOT_TIMEOUT_MS = 2200;
-      const CLOUD_REQUEST_TIMEOUT_MS = 9000;
+      const CLOUD_PROBE_TIMEOUT_MS = 6500;
+      const CLOUD_PROBE_RETRY_ATTEMPTS = 2;
+      const CLOUD_PROBE_RETRY_DELAY_MS = 800;
+      const CLOUD_BOOT_REQUEST_TIMEOUT_MS = 25000;
+      const CLOUD_AUTH_BOOT_TIMEOUT_MS = 25000;
+      const CLOUD_REQUEST_TIMEOUT_MS = 18000;
 
       const FORMAT_PRESETS = {
         "British Parliamentary": {
@@ -8070,6 +8072,10 @@
         }
       }
 
+      function waitForCloudRetry(ms) {
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
+      }
+
       async function probeCloudBackend(force = false) {
         if (cloudRuntime.checked && !force) {
           return cloudRuntime.available;
@@ -8085,42 +8091,48 @@
           ),
         );
 
-        for (const endpoint of endpoints) {
-          try {
-            const response = await fetchWithTimeout(
-              endpoint,
-              {
-              method: "GET",
-              headers: {
-                Accept: "application/json",
-              },
-              },
-              CLOUD_PROBE_TIMEOUT_MS,
-            );
-            if (!response.ok) {
-              continue;
+        for (let attempt = 0; attempt < CLOUD_PROBE_RETRY_ATTEMPTS; attempt += 1) {
+          for (const endpoint of endpoints) {
+            try {
+              const response = await fetchWithTimeout(
+                endpoint,
+                {
+                  method: "GET",
+                  headers: {
+                    Accept: "application/json",
+                  },
+                },
+                CLOUD_PROBE_TIMEOUT_MS,
+              );
+              if (!response.ok) {
+                continue;
+              }
+              const payload = await response.json();
+              if (!payload?.ok) {
+                continue;
+              }
+              if (String(payload?.contractVersion || "").trim() !== WORKSPACE_CONTRACT_VERSION) {
+                contractMismatch = true;
+                continue;
+              }
+              cloudRuntime = {
+                checked: true,
+                available: true,
+                initialized:
+                  typeof payload?.initialized === "boolean" ? payload.initialized : null,
+                endpoint,
+                revision: normalizeWorkspaceRevision(payload?.revision),
+                contractVersion: String(payload?.contractVersion || "").trim(),
+                contractMismatch: false,
+              };
+              return true;
+            } catch (error) {
+              // Try the next candidate endpoint.
             }
-            const payload = await response.json();
-            if (!payload?.ok) {
-              continue;
-            }
-            if (String(payload?.contractVersion || "").trim() !== WORKSPACE_CONTRACT_VERSION) {
-              contractMismatch = true;
-              continue;
-            }
-            cloudRuntime = {
-              checked: true,
-              available: true,
-              initialized:
-                typeof payload?.initialized === "boolean" ? payload.initialized : null,
-              endpoint,
-              revision: normalizeWorkspaceRevision(payload?.revision),
-              contractVersion: String(payload?.contractVersion || "").trim(),
-              contractMismatch: false,
-            };
-            return true;
-          } catch (error) {
-            // Try the next candidate endpoint.
+          }
+
+          if (attempt + 1 < CLOUD_PROBE_RETRY_ATTEMPTS) {
+            await waitForCloudRetry(CLOUD_PROBE_RETRY_DELAY_MS);
           }
         }
 
