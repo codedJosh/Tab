@@ -3305,7 +3305,7 @@
         ];
 
         if (capabilities.canLaunchTournaments) {
-          items.push({ key: "launch", label: "Create tournament", count: "New", group: "Tournament" });
+          items.push({ key: "launch", label: "Create Tournament", count: "New", group: "Tournament" });
         }
 
         if (capabilities.canViewSearch) {
@@ -3639,49 +3639,29 @@
         const attention = [];
 
         if (!teams && !speakers) {
-          attention.push("Registration has not started yet.");
+          attention.push("Registration not started");
         } else if (tournament.participantModel === "teams" && !teams) {
-          attention.push("Teams still need to be built from the roster.");
+          attention.push("Teams not built");
         }
 
         if (!judges) {
-          attention.push("No judges have been added to this tournament.");
+          attention.push("No judges added");
         }
 
         if (!totalRooms) {
-          attention.push("No draw rooms have been created yet.");
+          attention.push("No draw rooms");
         } else {
           if (draftRooms.length) {
-            attention.push(
-              draftRooms.length +
-                " draft room" +
-                (draftRooms.length === 1 ? " is" : "s are") +
-                " waiting to be released.",
-            );
+            attention.push(draftRooms.length + " draft room" + (draftRooms.length === 1 ? "" : "s"));
           }
           if (chairlessRooms.length) {
-            attention.push(
-              chairlessRooms.length +
-                " room" +
-                (chairlessRooms.length === 1 ? " still needs" : "s still need") +
-                " a chair allocation.",
-            );
+            attention.push(chairlessRooms.length + " chair allocation" + (chairlessRooms.length === 1 ? "" : "s"));
           }
           if (pendingBallotRooms.length) {
-            attention.push(
-              pendingBallotRooms.length +
-                " published room" +
-                (pendingBallotRooms.length === 1 ? " is" : "s are") +
-                " awaiting official ballots.",
-            );
+            attention.push(pendingBallotRooms.length + " ballot" + (pendingBallotRooms.length === 1 ? "" : "s") + " pending");
           }
           if (conflictFlags) {
-            attention.push(
-              conflictFlags +
-                " draw conflict flag" +
-                (conflictFlags === 1 ? "" : "s") +
-                " should be reviewed before the next release.",
-            );
+            attention.push(conflictFlags + " conflict" + (conflictFlags === 1 ? "" : "s"));
           }
         }
 
@@ -14478,6 +14458,7 @@
         const managerOpsButtons = capabilities.canManageAny && !capabilities.regionalPortalMode && activeManagedTournament
           ? [
               { section: "draw", label: "Round Draw" },
+              { section: "draw-review", label: "Draw Review" },
               { section: "results", label: "Standings" },
               hasReleasedBreakBoard(activeManagedTournament)
                 ? { section: "breaks", label: "Break" }
@@ -14524,6 +14505,32 @@
                                   <strong>${escapeHtml(item.label)}</strong>
                                 </span>
                               </button>
+                              ${
+                                item.key === "tournaments" && managerOpsButtons.length
+                                  ? `
+                                    <div class="menu-tournament-tools" aria-label="Tournament tools">
+                                      ${managerOpsButtons
+                                        .map(
+                                          (entry) => `
+                                            <button class="menu-nav-link menu-operation-link ${
+                                              currentView === "tournaments" &&
+                                              session.focusedTournamentSection === entry.section
+                                                ? "is-active"
+                                                : ""
+                                            }" type="button" data-action="open-managed-section" data-section="${escapeHtml(
+                                              entry.section,
+                                            )}">
+                                              <span class="menu-nav-copy">
+                                                <strong>${escapeHtml(entry.label)}</strong>
+                                              </span>
+                                            </button>
+                                          `,
+                                        )
+                                        .join("")}
+                                    </div>
+                                  `
+                                  : ""
+                              }
                             `,
                           )
                           .join("")}
@@ -14543,28 +14550,6 @@
                   `,
                 )
                 .join("")}
-              ${
-                managerOpsButtons.length
-                  ? `
-                    <div class="menu-side-section has-section-label">
-                      <div class="menu-shortcut-head">
-                        <span class="theme-section-label">Tournament operations</span>
-                      </div>
-                      <div class="menu-shortcut-list">
-                        ${managerOpsButtons
-                          .map(
-                            (entry) => `
-                              <button class="menu-room-button secondary-button" type="button" data-action="open-managed-section" data-section="${escapeHtml(
-                                entry.section,
-                              )}">${escapeHtml(entry.label)}</button>
-                            `,
-                          )
-                          .join("")}
-                      </div>
-                    </div>
-                  `
-                  : ""
-              }
             </div>
           </aside>
         `;
@@ -16373,7 +16358,7 @@
                           )
                           .join("")}
                       </div>`
-                    : `<div class="empty-state">No judges have been added to this tournament yet.</div>`
+                    : `<div class="empty-state">Judge roster is empty.</div>`
                 }
               </details>
 
@@ -17439,8 +17424,7 @@
               <section class="surface">
                 <div class="section-heading">
                   <div>
-                    <p class="eyebrow">Teams</p>
-                    <h2>Team directory</h2>
+                    <h2>Teams</h2>
                   </div>
                   <span class="role-pill">${escapeHtml(teams)} teams</span>
                 </div>
@@ -17579,50 +17563,6 @@
                     </button>
                   `;
                   },
-                )
-                .join("")}
-            </div>
-          </section>
-        `;
-      }
-
-      function getTournamentWatchpoints(tournament) {
-        const snapshot = getTournamentOpsSnapshot(tournament);
-        return [
-          ...snapshot.attention,
-          snapshot.conflictFlags
-            ? snapshot.conflictFlags + " institution clash" + (snapshot.conflictFlags === 1 ? "" : "es")
-            : "",
-          snapshot.chairlessRooms
-            ? snapshot.chairlessRooms + " room" + (snapshot.chairlessRooms === 1 ? "" : "s") + " missing chairs"
-            : "",
-          snapshot.pendingBallotRooms
-            ? snapshot.pendingBallotRooms +
-              " published room" +
-              (snapshot.pendingBallotRooms === 1 ? "" : "s") +
-              " missing ballots"
-            : "",
-        ].filter(Boolean);
-      }
-
-      function renderFocusedTournamentWatchpoints(tournament) {
-        const watchpoints = getTournamentWatchpoints(tournament);
-        if (!watchpoints.length) {
-          return "";
-        }
-
-        return `
-          <section class="surface focus-watchpoints-shell">
-            <div class="focus-watchpoints-list">
-              ${watchpoints
-                .slice(0, 5)
-                .map(
-                  (item) => `
-                    <div class="focus-watchpoint-item">
-                      <span></span>
-                      <strong>${escapeHtml(item)}</strong>
-                    </div>
-                  `,
                 )
                 .join("")}
             </div>
@@ -18562,8 +18502,7 @@
           <section class="surface draw-conflict-panel ${compact ? "draw-conflict-panel-compact" : ""}">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Conflict Checker</p>
-                <h2>Draw Conflict Check</h2>
+                <h2>Conflict Checker</h2>
               </div>
               <span class="role-pill">${escapeHtml(dedupedItems.length)} issues</span>
             </div>
@@ -18877,8 +18816,7 @@
           <section class="surface draw-studio-shell">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Round Draw</p>
-                <h2>Create, review, and publish pairings</h2>
+                <h2>Round Draw</h2>
               </div>
               <span class="role-pill">${escapeHtml(getRoundStructureSummary(tournament))}</span>
             </div>
@@ -18888,7 +18826,6 @@
                   <div class="section-heading">
                     <div>
                       <p class="eyebrow">Draw Builder</p>
-                      <h3>Build pairings</h3>
                     </div>
                     <span class="mini-pill ${escapeHtml(
                       isOutroundProfile(suggestedRoundProfile) ? "warning" : "success",
@@ -18954,7 +18891,6 @@
                   <div class="section-heading">
                     <div>
                       <p class="eyebrow">Publish Controls</p>
-                      <h3>Release or reset</h3>
                     </div>
                   </div>
                   <div class="draw-publish-grid">
@@ -18990,7 +18926,6 @@
                   <div class="section-heading">
                     <div>
                       <p class="eyebrow">Manual Room Editor</p>
-                      <h3>Add or adjust a room</h3>
                     </div>
                   </div>
                   <form class="stack" data-form="add-draw" data-id="${escapeHtml(
@@ -19041,8 +18976,7 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Draw Review</p>
-                <h2>Room list and publication state</h2>
+                <h2>Draw Review</h2>
               </div>
               <span class="role-pill">${escapeHtml(snapshot.totalRooms)} rooms</span>
             </div>
@@ -19060,8 +18994,7 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Released Motions</p>
-                <h2>Public-facing motion board</h2>
+                <h2>Released Motions</h2>
               </div>
               <span class="role-pill">${escapeHtml(releasedCount)} released</span>
             </div>
@@ -19129,8 +19062,7 @@
           <section class="surface break-studio-shell">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Break</p>
-                <h2>Released break board</h2>
+                <h2>Break</h2>
               </div>
             </div>
             <div class="standings-board-card">
@@ -19269,7 +19201,6 @@
             scoringProfile,
             sectionState,
           )}
-          ${renderFocusedTournamentWatchpoints(tournament)}
           ${renderTournamentBanner(tournament)}
           <div
             id="${escapeHtml(getFocusedTournamentSectionId(tournament, active.key))}"
