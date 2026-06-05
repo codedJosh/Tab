@@ -3503,7 +3503,10 @@
         ) {
           session.managedTournamentId = "";
         }
-        persist("success", tournament.name + " was removed from your tournament history.");
+        persist(
+          "success",
+          tournament.name + " was removed from your tournament view and personal history.",
+        );
       }
 
       function getRecentTournamentIds() {
@@ -11594,12 +11597,12 @@
         if (action === "delete-tournament-for-me") {
           return {
             tone: "warning",
-            title: "Remove Tournament From Your History?",
+            title: "Remove Tournament From Your View?",
             message:
               "Remove " +
               (tournament ? '"' + tournament.name + '"' : "this tournament") +
-              " from your tournament history and personal tournament view? The shared tournament, ballots, standings, and other users' access will not be deleted.",
-            confirmLabel: "Remove From My History",
+              " from your tournament view and personal history? The shared tournament, ballots, standings, and other users' access will not be deleted.",
+            confirmLabel: "Remove From My View",
           };
         }
 
@@ -29583,6 +29586,65 @@
 
         if (missingSpeakerScore) {
           setFlash("error", "Every adjudicated speaker needs a speaker score before the ballot can be submitted.");
+          renderApp();
+          return;
+        }
+
+        const invalidSpeakerScore = participantIds.some((participantId) =>
+          isBallotScoreOutsideRange(
+            formData.get(getJudgeScoreFieldName(participantId, "Speaker Score")),
+            0,
+            null,
+          ),
+        );
+
+        if (invalidSpeakerScore) {
+          setFlash(
+            "error",
+            "Speaker scores must be valid numbers at 0 or above before the ballot can be submitted.",
+          );
+          renderApp();
+          return;
+        }
+
+        if (
+          optionalScoreConfig.crossExaminationEnabled &&
+          participantIds.some(
+            (participantId) =>
+              isBallotScoreOutsideRange(
+                formData.get(getJudgeCrossQuestionFieldName(participantId)),
+                0,
+                20,
+              ) ||
+              isBallotScoreOutsideRange(
+                formData.get(getJudgeCrossResponseFieldName(participantId)),
+                0,
+                40,
+              ),
+          )
+        ) {
+          setFlash(
+            "error",
+            "Cross-examination scores must stay within the score ranges shown on the ballot.",
+          );
+          renderApp();
+          return;
+        }
+
+        if (
+          optionalScoreConfig.rebuttalEnabled &&
+          participantIds.some((participantId) =>
+            isBallotScoreOutsideRange(
+              formData.get(getJudgeRebuttalFieldName(participantId)),
+              0,
+              50,
+            ),
+          )
+        ) {
+          setFlash(
+            "error",
+            "Rebuttal scores must stay within the score range shown on the ballot.",
+          );
           renderApp();
           return;
         }
