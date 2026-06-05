@@ -6588,6 +6588,21 @@
         return Number.isFinite(number) ? number : null;
       }
 
+      function hasEnteredBallotScoreValue(value) {
+        return String(value ?? "").trim() !== "";
+      }
+
+      function isBallotScoreOutsideRange(value, min = 0, max = null) {
+        if (!hasEnteredBallotScoreValue(value)) {
+          return false;
+        }
+        const number = parseBallotScoreValue(value);
+        if (number === null || number < min) {
+          return true;
+        }
+        return max !== null && number > max;
+      }
+
       function parseFeedbackRating(value, fallback = null, min = 1, max = 10) {
         const number = Number(value);
         if (!Number.isFinite(number)) {

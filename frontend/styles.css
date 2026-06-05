@@ -13464,3 +13464,188 @@
       .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link * {
         color: inherit !important;
       }
+
+      /* Absolute button normalization for Hummingbird-specific controls. */
+      :is(
+          .workspace-shell .focus-nav-button,
+          .workspace-shell .tournament-board-tab,
+          .workspace-shell .tournament-card-action,
+          .workspace-shell .menu-room-button,
+          .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link,
+          .workspace-shell .simple-search-actions button,
+          .workspace-shell .portal-link-actions button,
+          .workspace-shell .portal-link-actions a,
+          .workspace-shell .private-link-actions button,
+          .workspace-shell .private-link-actions a,
+          .workspace-shell .round-board-action-cell button,
+          .workspace-shell .round-board-action-cell a,
+          .workspace-shell .people-directory-card .button-row button,
+          .workspace-shell .people-directory-card .button-row a,
+          .public-hero-actions button,
+          .public-hero-actions a,
+          .auth-login-actions button,
+          .auth-create-account-button
+        ) {
+        min-height: var(--hb-button-height) !important;
+        width: auto !important;
+        max-width: 100% !important;
+        padding: var(--hb-button-pad-y) var(--hb-button-pad-x) !important;
+        border-radius: var(--hb-button-radius) !important;
+        border: 1px solid var(--hb-button-secondary-border) !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        font-size: var(--hb-button-font) !important;
+        font-weight: var(--hb-button-weight) !important;
+        line-height: 1.1 !important;
+        letter-spacing: 0 !important;
+        text-align: center !important;
+        text-decoration: none !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        box-shadow: none !important;
+        transform: none !important;
+      }
+
+      :is(
+          .workspace-shell .focus-nav-button,
+          .workspace-shell .tournament-board-tab,
+          .workspace-shell .tournament-card-action.button-secondary,
+          .workspace-shell .menu-room-button,
+          .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link,
+          .workspace-shell .portal-link-actions a,
+          .workspace-shell .private-link-actions a
+        ) {
+        background: var(--hb-button-secondary-bg) !important;
+        border-color: var(--hb-button-secondary-border) !important;
+        color: var(--hb-button-secondary-text) !important;
+      }
+
+      :is(
+          .workspace-shell .focus-nav-button:hover,
+          .workspace-shell .tournament-board-tab:hover,
+          .workspace-shell .tournament-card-action.button-secondary:hover,
+          .workspace-shell .menu-room-button:hover,
+          .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link:hover,
+          .workspace-shell .portal-link-actions a:hover,
+          .workspace-shell .private-link-actions a:hover
+        ) {
+        background: var(--hb-button-secondary-bg-hover) !important;
+        border-color: rgba(20, 49, 38, 0.26) !important;
+        color: var(--hb-button-secondary-text) !important;
+      }
+
+      :is(
+          .workspace-shell .focus-nav-button.is-active,
+          .workspace-shell .tournament-board-tab.is-active,
+          .workspace-shell .tournament-card-action.button-primary,
+          .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link.is-active,
+          .workspace-shell .simple-search-actions button,
+          .workspace-shell .round-board-action-cell button,
+          .public-hero-actions button,
+          .auth-login-actions button:first-child,
+          .auth-create-account-button
+        ) {
+        background: var(--hb-button-primary-bg) !important;
+        border-color: var(--hb-button-primary-bg) !important;
+        color: var(--hb-button-primary-text) !important;
+      }
+
+      :is(
+          .workspace-shell .focus-nav-button.is-active:hover,
+          .workspace-shell .tournament-board-tab.is-active:hover,
+          .workspace-shell .tournament-card-action.button-primary:hover,
+          .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link.is-active:hover,
+          .workspace-shell .simple-search-actions button:hover,
+          .workspace-shell .round-board-action-cell button:hover,
+          .public-hero-actions button:hover,
+          .auth-login-actions button:first-child:hover,
+          .auth-create-account-button:hover
+        ) {
+        background: var(--hb-button-primary-bg-hover) !important;
+        border-color: var(--hb-button-primary-bg-hover) !important;
+        color: var(--hb-button-primary-text) !important;
+      }
+
+      :is(
+          .workspace-shell .tournament-card-action.button-danger,
+          .workspace-shell .danger-button,
+          .workspace-shell .button-danger
+        ) {
+        background: var(--hb-button-danger-bg) !important;
+        border-color: var(--hb-button-danger-bg) !important;
+        color: #ffffff !important;
+      }
+
+      :is(
+          .workspace-shell .tournament-card-action.button-danger:hover,
+          .workspace-shell .danger-button:hover,
+          .workspace-shell .button-danger:hover
+        ) {
+        background: var(--hb-button-danger-bg-hover) !important;
+        border-color: var(--hb-button-danger-bg-hover) !important;
+        color: #ffffff !important;
+      }
+
+      :is(
+          .workspace-shell .focus-nav-button,
+          .workspace-shell .tournament-board-tab,
+          .workspace-shell .tournament-card-action,
+          .workspace-shell .menu-room-button,
+          .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link,
+          .workspace-shell .simple-search-actions button,
+          .workspace-shell .portal-link-actions button,
+          .workspace-shell .portal-link-actions a,
+          .workspace-shell .private-link-actions button,
+          .workspace-shell .private-link-actions a,
+          .workspace-shell .round-board-action-cell button,
+          .workspace-shell .round-board-action-cell a,
+          .workspace-shell .people-directory-card .button-row button,
+          .workspace-shell .people-directory-card .button-row a,
+          .public-hero-actions button,
+          .public-hero-actions a,
+          .auth-login-actions button,
+          .auth-create-account-button
+        ) *,
+      :is(
+          .workspace-shell .focus-nav-button,
+          .workspace-shell .tournament-board-tab,
+          .workspace-shell .tournament-card-action,
+          .workspace-shell .menu-room-button,
+          .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link,
+          .workspace-shell .simple-search-actions button,
+          .workspace-shell .portal-link-actions button,
+          .workspace-shell .portal-link-actions a,
+          .workspace-shell .private-link-actions button,
+          .workspace-shell .private-link-actions a,
+          .workspace-shell .round-board-action-cell button,
+          .workspace-shell .round-board-action-cell a,
+          .workspace-shell .people-directory-card .button-row button,
+          .workspace-shell .people-directory-card .button-row a,
+          .public-hero-actions button,
+          .public-hero-actions a,
+          .auth-login-actions button,
+          .auth-create-account-button
+        ):hover * {
+        color: inherit !important;
+      }
+
+      .workspace-shell .focus-nav-shell .focus-nav-button {
+        min-width: 112px !important;
+        min-height: 34px !important;
+      }
+
+      .workspace-shell .menu-panel .menu-tournament-tools {
+        gap: 5px !important;
+      }
+
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link {
+        min-height: 30px !important;
+        padding-block: 5px !important;
+      }
+
+      .workspace-shell .tournament-row-item .tournament-switch-actions {
+        justify-content: flex-start !important;
+      }
