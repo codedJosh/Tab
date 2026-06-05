@@ -13112,3 +13112,355 @@
           min-width: 84px;
         }
       }
+
+      /* Final button enforcement layer.
+         This intentionally sits last so older page-specific button rules cannot
+         create green-on-green, white-on-white, clipped, or oversized controls. */
+      :root {
+        --hb-button-radius: 9px;
+        --hb-button-height: 32px;
+        --hb-button-height-small: 28px;
+        --hb-button-height-large: 38px;
+        --hb-button-pad-y: 6px;
+        --hb-button-pad-x: 12px;
+        --hb-button-font: 0.72rem;
+        --hb-button-font-small: 0.66rem;
+        --hb-button-font-large: 0.78rem;
+        --hb-button-weight: 650;
+        --hb-button-primary-bg: var(--accent);
+        --hb-button-primary-bg-hover: var(--accent-deep);
+        --hb-button-primary-text: #ffffff;
+        --hb-button-secondary-bg: rgba(255, 255, 255, 0.94);
+        --hb-button-secondary-bg-hover: #ffffff;
+        --hb-button-secondary-text: var(--accent-deep);
+        --hb-button-secondary-border: rgba(20, 49, 38, 0.16);
+        --hb-button-danger-bg: #9f2f2f;
+        --hb-button-danger-bg-hover: #842727;
+        --hb-button-disabled-bg: rgba(20, 49, 38, 0.08);
+        --hb-button-disabled-text: rgba(20, 49, 38, 0.45);
+      }
+
+      :is(
+          button:not([class]),
+          button.secondary-button,
+          button.ghost-button,
+          button.danger-button,
+          button.danger-subtle-button,
+          button.primary-button,
+          button.button-primary,
+          button.button-secondary,
+          button.button-outline,
+          button.button-danger,
+          a.secondary-button,
+          a.ghost-button,
+          a.danger-button,
+          a.danger-subtle-button,
+          a.primary-button,
+          a.button-primary,
+          a.button-secondary,
+          a.button-outline,
+          a.button-danger,
+          .inline-link.secondary-button,
+          .inline-link.ghost-button,
+          .inline-link.danger-button
+        ) {
+        min-height: var(--hb-button-height) !important;
+        padding: var(--hb-button-pad-y) var(--hb-button-pad-x) !important;
+        border-radius: var(--hb-button-radius) !important;
+        border-width: 1px !important;
+        border-style: solid !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        font-size: var(--hb-button-font) !important;
+        font-weight: var(--hb-button-weight) !important;
+        line-height: 1.1 !important;
+        letter-spacing: 0 !important;
+        text-align: center !important;
+        text-decoration: none !important;
+        text-transform: none !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        box-shadow: none !important;
+        transform: none !important;
+        transition:
+          background-color 160ms ease,
+          border-color 160ms ease,
+          color 160ms ease,
+          opacity 160ms ease !important;
+      }
+
+      :is(
+          button:not([class]),
+          button.primary-button,
+          button.button-primary,
+          a.primary-button,
+          a.button-primary
+        ) {
+        background: var(--hb-button-primary-bg) !important;
+        border-color: var(--hb-button-primary-bg) !important;
+        color: var(--hb-button-primary-text) !important;
+      }
+
+      :is(
+          button:not([class]),
+          button.primary-button,
+          button.button-primary,
+          a.primary-button,
+          a.button-primary
+        ):hover {
+        background: var(--hb-button-primary-bg-hover) !important;
+        border-color: var(--hb-button-primary-bg-hover) !important;
+        color: var(--hb-button-primary-text) !important;
+      }
+
+      :is(
+          button.secondary-button,
+          button.ghost-button,
+          button.button-secondary,
+          button.button-outline,
+          a.secondary-button,
+          a.ghost-button,
+          a.button-secondary,
+          a.button-outline,
+          .inline-link.secondary-button,
+          .inline-link.ghost-button
+        ) {
+        background: var(--hb-button-secondary-bg) !important;
+        border-color: var(--hb-button-secondary-border) !important;
+        color: var(--hb-button-secondary-text) !important;
+      }
+
+      :is(
+          button.secondary-button,
+          button.ghost-button,
+          button.button-secondary,
+          button.button-outline,
+          a.secondary-button,
+          a.ghost-button,
+          a.button-secondary,
+          a.button-outline,
+          .inline-link.secondary-button,
+          .inline-link.ghost-button
+        ):hover {
+        background: var(--hb-button-secondary-bg-hover) !important;
+        border-color: rgba(20, 49, 38, 0.26) !important;
+        color: var(--hb-button-secondary-text) !important;
+      }
+
+      :is(
+          button.danger-button,
+          button.button-danger,
+          a.danger-button,
+          a.button-danger,
+          .inline-link.danger-button
+        ) {
+        background: var(--hb-button-danger-bg) !important;
+        border-color: var(--hb-button-danger-bg) !important;
+        color: #ffffff !important;
+      }
+
+      :is(
+          button.danger-button,
+          button.button-danger,
+          a.danger-button,
+          a.button-danger,
+          .inline-link.danger-button
+        ):hover {
+        background: var(--hb-button-danger-bg-hover) !important;
+        border-color: var(--hb-button-danger-bg-hover) !important;
+        color: #ffffff !important;
+      }
+
+      :is(button.danger-subtle-button, a.danger-subtle-button) {
+        background: rgba(159, 47, 47, 0.08) !important;
+        border-color: rgba(159, 47, 47, 0.28) !important;
+        color: #842727 !important;
+      }
+
+      :is(button.danger-subtle-button, a.danger-subtle-button):hover {
+        background: rgba(159, 47, 47, 0.13) !important;
+        border-color: rgba(159, 47, 47, 0.38) !important;
+        color: #842727 !important;
+      }
+
+      :is(
+          button:not([class]),
+          button.secondary-button,
+          button.ghost-button,
+          button.danger-button,
+          button.danger-subtle-button,
+          button.primary-button,
+          button.button-primary,
+          button.button-secondary,
+          button.button-outline,
+          button.button-danger,
+          a.secondary-button,
+          a.ghost-button,
+          a.danger-button,
+          a.danger-subtle-button,
+          a.primary-button,
+          a.button-primary,
+          a.button-secondary,
+          a.button-outline,
+          a.button-danger,
+          .inline-link.secondary-button,
+          .inline-link.ghost-button,
+          .inline-link.danger-button
+        ) *,
+      :is(
+          button:not([class]),
+          button.secondary-button,
+          button.ghost-button,
+          button.danger-button,
+          button.danger-subtle-button,
+          button.primary-button,
+          button.button-primary,
+          button.button-secondary,
+          button.button-outline,
+          button.button-danger,
+          a.secondary-button,
+          a.ghost-button,
+          a.danger-button,
+          a.danger-subtle-button,
+          a.primary-button,
+          a.button-primary,
+          a.button-secondary,
+          a.button-outline,
+          a.button-danger,
+          .inline-link.secondary-button,
+          .inline-link.ghost-button,
+          .inline-link.danger-button
+        ):hover * {
+        color: inherit !important;
+      }
+
+      :is(
+          button:not([class]),
+          button.secondary-button,
+          button.ghost-button,
+          button.danger-button,
+          button.danger-subtle-button,
+          button.primary-button,
+          button.button-primary,
+          button.button-secondary,
+          button.button-outline,
+          button.button-danger
+        ):disabled,
+      :is(a, .inline-link)[aria-disabled="true"] {
+        background: var(--hb-button-disabled-bg) !important;
+        border-color: rgba(20, 49, 38, 0.1) !important;
+        color: var(--hb-button-disabled-text) !important;
+        box-shadow: none !important;
+        cursor: not-allowed !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+
+      :is(
+          button:not([class]),
+          button.secondary-button,
+          button.ghost-button,
+          button.danger-button,
+          button.danger-subtle-button,
+          button.primary-button,
+          button.button-primary,
+          button.button-secondary,
+          button.button-outline,
+          button.button-danger,
+          a.secondary-button,
+          a.ghost-button,
+          a.danger-button,
+          a.danger-subtle-button,
+          a.primary-button,
+          a.button-primary,
+          a.button-secondary,
+          a.button-outline,
+          a.button-danger
+        ):focus-visible {
+        outline: none !important;
+        box-shadow:
+          0 0 0 2px rgba(255, 255, 255, 0.95),
+          0 0 0 5px rgba(31, 106, 78, 0.24) !important;
+      }
+
+      .button-size-small,
+      [data-button-size="small"],
+      .workspace-shell :is(.round-board-action-cell, .private-link-actions, .portal-link-actions, .people-directory-card .button-row) :is(button, a),
+      .workspace-shell table :is(button, a) {
+        min-height: var(--hb-button-height-small) !important;
+        padding: 4px 9px !important;
+        font-size: var(--hb-button-font-small) !important;
+        border-radius: 8px !important;
+      }
+
+      .button-size-large,
+      [data-button-size="large"] {
+        min-height: var(--hb-button-height-large) !important;
+        padding: 8px 15px !important;
+        font-size: var(--hb-button-font-large) !important;
+      }
+
+      .button-row,
+      .wrap-row,
+      .toolbar-row,
+      .workspace-shell .button-row,
+      .workspace-shell .wrap-row,
+      .workspace-shell .toolbar-row {
+        gap: 6px !important;
+        align-items: center !important;
+      }
+
+      .workspace-shell .tournament-row-item .tournament-switch-actions > button.tournament-card-action,
+      .workspace-shell .tournament-row-item .tournament-switch-actions > a.tournament-card-action {
+        min-width: 86px !important;
+        max-width: 126px !important;
+        min-height: 30px !important;
+        padding: 5px 11px !important;
+        border-radius: 8px !important;
+        font-size: 0.68rem !important;
+      }
+
+      .workspace-shell .control-room-actions button,
+      .workspace-shell .draw-operation-column button,
+      .workspace-shell .draw-publish-shell button,
+      .workspace-shell .draw-manual-room-panel button[type="submit"],
+      .workspace-shell .standings-subnav > button,
+      .workspace-shell .tournament-board-tab {
+        min-height: 30px !important;
+        border-radius: 8px !important;
+        font-size: 0.68rem !important;
+        box-shadow: none !important;
+      }
+
+      .workspace-shell .menu-nav-link,
+      .workspace-shell .menu-room-button,
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link {
+        color: rgba(244, 249, 245, 0.92) !important;
+      }
+
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border-color: rgba(255, 255, 255, 0.14) !important;
+        color: var(--accent-deep) !important;
+      }
+
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link:hover {
+        background: #ffffff !important;
+        color: var(--accent-deep) !important;
+      }
+
+      .workspace-shell .menu-nav-link.is-active,
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link.is-active {
+        background: rgba(31, 106, 78, 0.58) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+        color: #ffffff !important;
+      }
+
+      .workspace-shell .menu-nav-link *,
+      .workspace-shell .menu-room-button *,
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link * {
+        color: inherit !important;
+      }
