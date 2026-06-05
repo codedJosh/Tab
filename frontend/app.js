@@ -19341,9 +19341,8 @@
       }
 
       function renderTournamentResultsStudio(tournament) {
-        const canManage = canManageTournament(tournament);
-        const canShowSpeakers = canViewSpeakerBoard(tournament, { canManage });
-        const canShowTeamPointTotals = canViewTeamBoard(tournament, { canManage });
+        const canShowSpeakers = tournament.publication.showSpeakerBoard !== false;
+        const canShowTeamPointTotals = tournament.publication.showTeamPointsBoard !== false;
         const resultsViewOptions = [
           canShowSpeakers
             ? {
@@ -24644,11 +24643,15 @@
                       <strong>${escapeHtml(standingHeadline)}</strong>
                       <span class="portal-summary-copy">${escapeHtml(standingSupport)}</span>
                     </div>
-                    <div class="portal-focus-card">
-                      <span class="muted">Speaker score</span>
-                      <strong>${escapeHtml(speakerHeadline)}</strong>
-                      <span class="portal-summary-copy">${escapeHtml(speakerSupport)}</span>
-                    </div>
+                    ${
+                      canShowSpeakerBoard
+                        ? `<div class="portal-focus-card">
+                            <span class="muted">Speaker score</span>
+                            <strong>${escapeHtml(speakerHeadline)}</strong>
+                            <span class="portal-summary-copy">${escapeHtml(speakerSupport)}</span>
+                          </div>`
+                        : ""
+                    }
                     <div class="portal-focus-card">
                       <span class="muted">Latest round</span>
                       <strong>${escapeHtml(drawHeadline)}</strong>
@@ -24753,27 +24756,25 @@
                     }
                   </div>
                 </details>
-                <details class="portal-accordion" ${compactLayout ? "" : "open"}>
-                  <summary>
-                    <strong>Speaker tab</strong>
-                    <span class="portal-summary-copy">${escapeHtml(
-                      canShowSpeakerBoard
-                        ? scoredRoundCount
-                          ? scoredRoundCount +
-                            " scored round" +
-                            (scoredRoundCount === 1 ? "" : "s")
-                          : "Awaiting scored ballots"
-                        : "Hidden for this portal",
-                    )}</span>
-                  </summary>
-                  <div class="portal-body">
-                    ${
-                      canShowSpeakerBoard
-                        ? renderPortalSpeakerPerformanceWindow(tournament, participant)
-                        : `<div class="empty-state">Speaker performance data is hidden for this portal.</div>`
-                    }
-                  </div>
-                </details>
+                ${
+                  canShowSpeakerBoard
+                    ? `<details class="portal-accordion" ${compactLayout ? "" : "open"}>
+                        <summary>
+                          <strong>Speaker tab</strong>
+                          <span class="portal-summary-copy">${escapeHtml(
+                            scoredRoundCount
+                              ? scoredRoundCount +
+                                " scored round" +
+                                (scoredRoundCount === 1 ? "" : "s")
+                              : "Awaiting scored ballots",
+                          )}</span>
+                        </summary>
+                        <div class="portal-body">
+                          ${renderPortalSpeakerPerformanceWindow(tournament, participant)}
+                        </div>
+                      </details>`
+                    : ""
+                }
                 <details class="portal-accordion" ${compactLayout ? "" : "open"}>
                   <summary>
                     <strong>Standings</strong>
@@ -24793,42 +24794,36 @@
                     }
                   </div>
                 </details>
-                <details class="portal-accordion" ${compactLayout ? "" : "open"}>
-                  <summary>
-                    <strong>Team Board</strong>
-                    <span class="portal-summary-copy">${escapeHtml(
-                      canShowTeamBoard
-                        ? "Total speaks across team members"
-                        : "Hidden for this portal",
-                    )}</span>
-                  </summary>
-                  <div class="portal-body">
-                    ${
-                      canShowTeamBoard
-                        ? renderTeamPointsTotalsTable(tournament)
-                        : `<div class="empty-state">Team Board is hidden for this portal.</div>`
-                    }
-                  </div>
-                </details>
-                <details class="portal-accordion" ${compactLayout ? "" : "open"}>
-                  <summary>
-                    <strong>Speaker Board</strong>
-                    <span class="portal-summary-copy">${escapeHtml(
-                      canShowSpeakerBoard
-                        ? speakerStanding
-                          ? "Current speaker rank: #" + speakerStanding.speakerRank
-                          : "Awaiting speaker scores"
-                        : "Hidden for this portal",
-                    )}</span>
-                  </summary>
-                  <div class="portal-body">
-                    ${
-                      canShowSpeakerBoard
-                        ? renderPortalSpeakerWindow(tournament, participant)
-                        : `<div class="empty-state">Speaker Board is hidden for this portal.</div>`
-                    }
-                  </div>
-                </details>
+                ${
+                  canShowTeamBoard
+                    ? `<details class="portal-accordion" ${compactLayout ? "" : "open"}>
+                        <summary>
+                          <strong>Team Board</strong>
+                          <span class="portal-summary-copy">Total speaks across team members</span>
+                        </summary>
+                        <div class="portal-body">
+                          ${renderTeamPointsTotalsTable(tournament)}
+                        </div>
+                      </details>`
+                    : ""
+                }
+                ${
+                  canShowSpeakerBoard
+                    ? `<details class="portal-accordion" ${compactLayout ? "" : "open"}>
+                        <summary>
+                          <strong>Speaker Board</strong>
+                          <span class="portal-summary-copy">${escapeHtml(
+                            speakerStanding
+                              ? "Current speaker rank: #" + speakerStanding.speakerRank
+                              : "Awaiting speaker scores",
+                          )}</span>
+                        </summary>
+                        <div class="portal-body">
+                          ${renderPortalSpeakerWindow(tournament, participant)}
+                        </div>
+                      </details>`
+                    : ""
+                }
                 <details class="portal-accordion" ${compactLayout ? "" : "open"}>
                   <summary>
                     <strong>Judge feedback</strong>
