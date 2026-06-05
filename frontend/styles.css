@@ -12173,4 +12173,360 @@
           grid-template-columns: 1fr;
         }
       }
-    
+
+      /* Premium operations pass: quieter records, fewer competing card weights. */
+      .workspace-shell .content-panel {
+        container-type: inline-size;
+      }
+
+      .workspace-shell .surface > .section-heading:has(h2:only-child),
+      .workspace-shell .surface > .section-heading:has(h3:only-child) {
+        margin-bottom: 8px;
+      }
+
+      .workspace-shell .section-heading h2,
+      .workspace-shell .section-heading h3 {
+        letter-spacing: -0.015em;
+      }
+
+      .workspace-shell .tournament-list {
+        width: min(760px, 100%);
+      }
+
+      .workspace-shell .tournament-row-item {
+        border-radius: 14px;
+        border-color: rgba(20, 49, 38, 0.08);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 252, 249, 0.74)),
+          rgba(255, 255, 255, 0.66);
+        box-shadow: none !important;
+      }
+
+      .workspace-shell .tournament-row-item .tournament-list-summary {
+        grid-template-columns: minmax(170px, 1fr) minmax(260px, 0.85fr) 24px;
+        min-height: 56px;
+        gap: 10px;
+        padding: 10px 12px;
+      }
+
+      .workspace-shell .tournament-row-item .tournament-switch-title strong {
+        font-size: 0.86rem;
+        font-weight: 620;
+      }
+
+      .workspace-shell .tournament-row-item .tournament-switch-title span {
+        font-size: 0.68rem;
+        font-weight: 500;
+      }
+
+      .workspace-shell .tournament-inline-stats {
+        grid-template-columns: repeat(4, minmax(58px, 1fr));
+        gap: 5px;
+      }
+
+      .workspace-shell .tournament-inline-stats span {
+        min-height: 30px;
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.64);
+        font-size: 0.64rem;
+        font-weight: 500;
+      }
+
+      .workspace-shell .tournament-inline-stats strong {
+        font-size: 0.74rem;
+        font-weight: 500;
+      }
+
+      .workspace-shell .tournament-row-item .tournament-list-body {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        padding: 8px 12px 11px;
+      }
+
+      .workspace-shell .tournament-row-status {
+        font-size: 0.67rem;
+        font-weight: 500;
+      }
+
+      .workspace-shell .tournament-row-item .tournament-switch-actions {
+        gap: 5px;
+      }
+
+      .workspace-shell .tournament-row-item .tournament-switch-actions .tournament-card-action {
+        min-width: 82px;
+        max-width: 112px;
+        min-height: 28px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-size: 0.66rem;
+        font-weight: 620;
+      }
+
+      .workspace-shell .draw-operations-panel {
+        padding: 0;
+        border: 0;
+        background: transparent;
+      }
+
+      .workspace-shell .draw-operations-grid {
+        grid-template-columns: repeat(3, minmax(220px, 1fr));
+        gap: 10px;
+        align-items: stretch;
+      }
+
+      .workspace-shell .draw-operation-column {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 8px;
+        min-height: 100%;
+        padding: 12px;
+        border: 1px solid rgba(20, 49, 38, 0.08) !important;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.62);
+      }
+
+      .workspace-shell .draw-operation-column:not(:last-child) {
+        padding-right: 12px;
+      }
+
+      .workspace-shell .draw-operation-column .section-heading {
+        min-height: 0;
+        margin: 0;
+      }
+
+      .workspace-shell .draw-operation-column .eyebrow {
+        margin: 0;
+        font-size: 0.64rem;
+      }
+
+      .workspace-shell .draw-operation-column form {
+        align-content: start;
+        gap: 8px;
+      }
+
+      .workspace-shell .draw-operation-column .field-grid.two,
+      .workspace-shell .draw-publish-grid {
+        gap: 8px;
+      }
+
+      .workspace-shell .draw-operation-column .fine-print {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        font-size: 0.66rem;
+      }
+
+      .workspace-shell .draw-operation-column button {
+        width: auto;
+        min-width: 98px;
+        max-width: 180px;
+        min-height: 30px;
+        padding: 6px 11px;
+        border-radius: 8px;
+      }
+
+      .workspace-shell .draw-operation-column .button-row {
+        gap: 6px;
+      }
+
+      .workspace-shell .draw-publish-shell button,
+      .workspace-shell .draw-manual-room-panel button[type="submit"] {
+        width: 100%;
+        max-width: none;
+      }
+
+      .workspace-shell .draw-danger-form {
+        padding-top: 8px;
+      }
+
+      .workspace-shell .draw-conflict-panel-compact {
+        border: 1px solid rgba(20, 49, 38, 0.08);
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      .workspace-shell .draw-conflict-details summary {
+        min-height: 34px;
+        padding: 0;
+      }
+
+      @container (max-width: 980px) {
+        .workspace-shell .draw-operations-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .workspace-shell .tournament-list {
+          width: 100%;
+        }
+
+        .workspace-shell .tournament-row-item .tournament-list-summary,
+        .workspace-shell .tournament-row-item .tournament-list-body {
+          grid-template-columns: 1fr;
+        }
+
+        .workspace-shell .tournament-inline-stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .workspace-shell .tournament-row-item .tournament-switch-actions {
+          justify-content: flex-start;
+        }
+      }
+
+      /* Composition layer: make workspace pages feel like one product, not nested cards. */
+      .workspace-shell {
+        --workspace-rule: rgba(20, 49, 38, 0.08);
+        --workspace-soft: rgba(255, 255, 255, 0.58);
+        --workspace-softer: rgba(255, 255, 255, 0.34);
+      }
+
+      .workspace-shell .content-panel {
+        align-content: start;
+      }
+
+      .workspace-shell .content-panel > .surface {
+        overflow: hidden;
+      }
+
+      .workspace-shell .surface :is(.surface, .subsurface, .inline-card, .flat-panel, .stat-card, .directory-card, .link-card) {
+        border-color: var(--workspace-rule);
+        background: var(--workspace-softer);
+        box-shadow: none !important;
+      }
+
+      .workspace-shell .surface .surface {
+        padding: 10px;
+      }
+
+      .workspace-shell .flat-grid > .surface,
+      .workspace-shell .surface-grid > .surface,
+      .workspace-shell .leaderboard-grid > .surface {
+        min-height: 0;
+      }
+
+      .workspace-shell .section-heading {
+        border-bottom: 1px solid transparent;
+      }
+
+      .workspace-shell .surface > .section-heading:first-child {
+        padding-bottom: 6px;
+        border-bottom-color: rgba(20, 49, 38, 0.045);
+      }
+
+      .workspace-shell .section-heading .role-pill,
+      .workspace-shell .section-heading .mini-pill {
+        background: transparent;
+        border-color: transparent;
+        color: rgba(40, 72, 58, 0.68);
+        padding-inline: 0;
+      }
+
+      .workspace-shell .empty-state {
+        border-style: solid;
+        border-color: rgba(20, 49, 38, 0.07);
+        background: rgba(255, 255, 255, 0.3);
+        color: rgba(40, 72, 58, 0.72);
+      }
+
+      .workspace-shell .control-room-compact {
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(241, 249, 244, 0.86)),
+          rgba(255, 255, 255, 0.72);
+      }
+
+      .workspace-shell .control-room-compact-head {
+        align-items: center;
+        gap: 12px;
+        padding-bottom: 9px;
+        border-bottom: 1px solid rgba(20, 49, 38, 0.06);
+      }
+
+      .workspace-shell .control-room-compact-head h2 {
+        font-size: 0.98rem;
+        font-weight: 620;
+      }
+
+      .workspace-shell .control-room-compact-grid {
+        gap: 8px;
+      }
+
+      .workspace-shell .control-room-next,
+      .workspace-shell .control-room-metric {
+        border-radius: 12px;
+        border-color: rgba(20, 49, 38, 0.075);
+        background: rgba(255, 255, 255, 0.44);
+        padding: 10px;
+      }
+
+      .workspace-shell .control-room-next strong,
+      .workspace-shell .control-room-metric strong {
+        font-size: 0.86rem;
+        font-weight: 610;
+      }
+
+      .workspace-shell .control-room-actions {
+        gap: 6px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(20, 49, 38, 0.055);
+      }
+
+      .workspace-shell .control-room-actions button {
+        min-height: 30px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-size: 0.68rem;
+      }
+
+      .workspace-shell :is(.notice-list, .private-link-compact-list, .portal-link-list, .team-directory, .judge-directory) {
+        gap: 6px;
+      }
+
+      .workspace-shell :is(.notice-item, .private-link-card, .portal-link-item, .team-card, .judge-card) {
+        border-radius: 10px;
+        border-color: rgba(20, 49, 38, 0.065);
+        background: rgba(255, 255, 255, 0.34);
+        box-shadow: none !important;
+      }
+
+      .workspace-shell .round-board-shell {
+        border-radius: 14px;
+      }
+
+      .workspace-shell .round-board-table th,
+      .workspace-shell .round-board-table td,
+      .workspace-shell table th,
+      .workspace-shell table td {
+        padding: 7px 8px;
+        font-size: 0.68rem;
+      }
+
+      .workspace-shell table th {
+        font-weight: 620;
+        letter-spacing: 0.08em;
+      }
+
+      .workspace-shell .table-wrap {
+        border-radius: 12px;
+      }
+
+      .workspace-shell .standings-board-card {
+        background: rgba(255, 255, 255, 0.48);
+      }
+
+      .workspace-shell .standings-subnav {
+        background: rgba(255, 255, 255, 0.52);
+      }
+
+      .workspace-shell .standings-subnav > button {
+        min-height: 30px;
+        border-radius: 8px;
+        font-size: 0.68rem;
+      }
+
+      @media (min-width: 1100px) {
+        .workspace-shell .content-panel {
+          padding-right: 8px;
+        }
+      }

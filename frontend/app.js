@@ -17066,7 +17066,7 @@
                 key: "team-board",
                 label: "Team Board",
                 badge: standings.length ? standings.length + " teams" : "Awaiting",
-                note: "Total speaks across team members",
+                note: "Total speaks of team members across matches",
                 render: () => `
                   <section class="surface">
                     <div class="section-heading">
@@ -19352,7 +19352,7 @@
             ? {
                 key: "points",
                 label: "Team Board",
-                description: "Total speaks from team members across matches",
+                description: "Total speaks of team members across matches",
               }
             : null,
           {
@@ -24772,7 +24772,7 @@
                 </details>
                 <details class="portal-accordion" ${compactLayout ? "" : "open"}>
                   <summary>
-                    <strong>Team standings</strong>
+                    <strong>Standings</strong>
                     <span class="portal-summary-copy">${escapeHtml(
                       canShowStandings
                         ? standingRecord
@@ -24786,6 +24786,23 @@
                       canShowStandings
                         ? renderPortalStandingWindow(tournament, participant)
                         : `<div class="empty-state">Standings are hidden for this portal.</div>`
+                    }
+                  </div>
+                </details>
+                <details class="portal-accordion" ${compactLayout ? "" : "open"}>
+                  <summary>
+                    <strong>Team Board</strong>
+                    <span class="portal-summary-copy">${escapeHtml(
+                      canShowTeamBoard
+                        ? "Total speaks across team members"
+                        : "Hidden for this portal",
+                    )}</span>
+                  </summary>
+                  <div class="portal-body">
+                    ${
+                      canShowTeamBoard
+                        ? renderTeamPointsTotalsTable(tournament)
+                        : `<div class="empty-state">Team Board is hidden for this portal.</div>`
                     }
                   </div>
                 </details>
