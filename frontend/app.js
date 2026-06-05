@@ -17622,14 +17622,14 @@
           {
             key: "draw",
             label: "Round Draw",
-            note: "Pairings, round controls, conflict review, and release flow.",
+            note: "Pairings, room controls, and release flow.",
             badge: snapshot.totalRooms ? snapshot.totalRooms + " rooms" : "No rooms",
             render: () => renderTournamentDrawStudio(tournament),
           },
           {
             key: "draw-review",
             label: "Draw Review",
-            note: "Room list, publication state, and draw visibility.",
+            note: "Room list, publication state, and conflict review.",
             badge: snapshot.totalRooms ? snapshot.totalRooms + " rooms" : "No rooms",
             render: () => renderTournamentDrawReviewStudio(tournament),
           },
@@ -17895,17 +17895,6 @@
         const teamCount = getTournamentTeams(tournament).length;
         const judgeCount = getTournamentOpsSnapshot(tournament).judges || 0;
         const formatLabel = getFormatLabel(tournament);
-        const registrationSettings = getTournamentRegistrationSettings(tournament);
-        const isRegistrationOpen =
-          Boolean(registrationSettings.debaterOpen) || Boolean(registrationSettings.judgeOpen);
-        const registrationStatus = isRegistrationOpen
-          ? [
-              registrationSettings.debaterOpen ? "Debater registration open" : "",
-              registrationSettings.judgeOpen ? "Judge registration open" : "",
-            ]
-              .filter(Boolean)
-              .join(" • ")
-          : "Registration has not started yet.";
         const tournamentMeta = [
           formatLabel,
           tournament.status === "archived" ? "Archived" : "Visible",
@@ -17937,16 +17926,13 @@
                 <strong>${escapeHtml(tournament.name)}</strong>
                 <span>${escapeHtml(tournamentMeta)}</span>
               </div>
+            </summary>
+            <div class="tournament-list-body">
               <div class="tournament-inline-stats" aria-label="Tournament totals">
                 <span><strong>${escapeHtml(tournament.rounds)}</strong> rounds</span>
                 <span><strong>${escapeHtml(tournament.participants.length)}</strong> speakers</span>
                 <span><strong>${escapeHtml(teamCount)}</strong> teams</span>
                 <span><strong>${escapeHtml(judgeCount)}</strong> judges</span>
-              </div>
-            </summary>
-            <div class="tournament-list-body">
-              <div class="tournament-row-status">
-                <span>${escapeHtml(registrationStatus)}</span>
               </div>
               <div class="button-row tournament-switch-actions">
                 <button class="button-primary tournament-card-action" type="button" data-action="${escapeHtml(openAction)}" data-id="${escapeHtml(
@@ -19223,7 +19209,6 @@
             </section>
 
             ${renderRoundControlBoard(tournament, true, true, true)}
-            ${renderConflictReviewPanel(tournament, { compact: true })}
           </section>
         `;
       }
@@ -19238,6 +19223,7 @@
               </div>
               <span class="role-pill">${escapeHtml(snapshot.totalRooms)} rooms</span>
             </div>
+            ${renderConflictReviewPanel(tournament, { compact: true })}
             ${renderDrawTable(tournament, true, true)}
           </section>
         `;
