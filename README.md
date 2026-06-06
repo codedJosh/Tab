@@ -43,6 +43,7 @@ window.JADE_BACKEND_URL = "https://your-backend-host/api";
 1. Create PostgreSQL and run `schema.sql`
 2. Add:
    - required: `DATABASE_URL`, `JADE_SESSION_SECRET`
+   - optional database SSL override: `DATABASE_SSL=true` or `DATABASE_SSL=false`
    - optional: `JADE_WORKSPACE_ID`
    - optional email delivery (Resend): `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
    - optional email behavior: `RESEND_REPLY_TO` (defaults to `hummingbird@myjade.org`), `PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES` (defaults to `10`), `PUBLIC_APP_URL`
@@ -79,3 +80,17 @@ Recommended settings:
 - Base directory: leave blank
 - Publish directory: leave blank if Netlify reads `netlify.toml`, otherwise set `frontend`
 - Build command: leave blank
+
+## Render Backend
+
+For the web service, use the repo root with:
+
+- Build command: `npm install`
+- Start command: `npm start`
+- Required env vars: `DATABASE_URL`, `JADE_SESSION_SECRET`
+- Recommended: use the Render Postgres internal URL when the database and web service are in the same Render region.
+
+The server auto-creates the JADE tables on startup. If Render logs `Connection terminated unexpectedly` before a port opens, check the database URL and SSL mode first:
+
+- Internal Render Postgres URL: set `DATABASE_SSL=false` if your connection is being forced through TLS.
+- External Render Postgres URL: set `DATABASE_SSL=true`, or include `sslmode=require` in the URL.

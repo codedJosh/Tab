@@ -128,6 +128,18 @@ const TOURNAMENT_PERMISSION_KEYS = [
   "debaterEmails",
 ];
 
+function parseDatabaseUrl() {
+  try {
+    return new URL(DATABASE_URL);
+  } catch (_error) {
+    return null;
+  }
+}
+
+const parsedDatabaseUrl = parseDatabaseUrl();
+const databaseHostname = String(parsedDatabaseUrl?.hostname || "").trim().toLowerCase();
+const hasDatabaseSslMode = Boolean(parsedDatabaseUrl?.searchParams?.has("sslmode"));
+
 if (!DATABASE_URL) {
   throw new Error("Missing DATABASE_URL for JADE backend.");
 }
@@ -136,19 +148,50 @@ if (!JADE_SESSION_SECRET) {
   throw new Error("Missing JADE_SESSION_SECRET for JADE backend.");
 }
 
-const shouldUseSsl =
-  DATABASE_SSL === "true" ||
-  (DATABASE_SSL !== "false" &&
-    !/localhost|127\.0\.0\.1/i.test(DATABASE_URL));
+const isLocalDatabaseHost = /^(localhost|127\.0\.0\.1|::1)$/.test(databaseHostname);
+const isLikelyPrivateDatabaseHost =
+  Boolean(databaseHostname) &&
+  (!databaseHostname.includes(".") ||
+    databaseHostname.endsWith(".internal") ||
+    databaseHostname.endsWith(".local"));
 
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
-});
+const shouldAutoUseSsl =
+  !hasDatabaseSslMode && !isLocalDatabaseHost && !isLikelyPrivateDatabaseHost;
+
+function buildPoolConfig() {
+  const config = {
+    connectionString: DATABASE_URL,
+  };
+
+  if (DATABASE_SSL === "true") {
+    config.ssl = { rejectUnauthorized: false };
+  } else if (DATABASE_SSL === "false") {
+    config.ssl = false;
+  } else if (shouldAutoUseSsl) {
+    config.ssl = { rejectUnauthorized: false };
+  }
+
+  return config;
+}
+
+const pool = new Pool(buildPoolConfig());
 
 async function ensureStorageSchema() {
   const client = await pool.connect();
   try {
+    await client.query(`
+      create table if not exists jade_workspaces (
+        id text primary key,
+        state jsonb not null,
+        revision bigint not null default 1,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      )
+    `);
+    await client.query(`
+      create index if not exists jade_workspaces_updated_at_idx
+      on jade_workspaces (updated_at desc)
+    `);
     await client.query(`
       alter table jade_workspaces
       add column if not exists revision bigint not null default 1
@@ -165,6 +208,28 @@ async function ensureStorageSchema() {
     await client.query(`
       create index if not exists jade_workspace_history_workspace_idx
       on jade_workspace_history (workspace_id, revision desc)
+    `);
+    await client.query(`
+      create table if not exists jade_sessions (
+        id text primary key,
+        workspace_id text not null references jade_workspaces(id) on delete cascade,
+        email text not null,
+        token_hash text not null unique,
+        created_at timestamptz not null default now(),
+        expires_at timestamptz not null
+      )
+    `);
+    await client.query(`
+      create index if not exists jade_sessions_workspace_idx
+      on jade_sessions (workspace_id)
+    `);
+    await client.query(`
+      create index if not exists jade_sessions_email_idx
+      on jade_sessions (email)
+    `);
+    await client.query(`
+      create index if not exists jade_sessions_expires_idx
+      on jade_sessions (expires_at)
     `);
   } finally {
     client.release();
