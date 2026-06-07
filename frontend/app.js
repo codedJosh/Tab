@@ -246,6 +246,8 @@
       const CLOUD_BOOT_REQUEST_TIMEOUT_MS = 45000;
       const CLOUD_AUTH_BOOT_TIMEOUT_MS = 45000;
       const CLOUD_REQUEST_TIMEOUT_MS = 35000;
+      const CLOUD_PERSIST_DEBOUNCE_MS = 180;
+      const LOCAL_STATE_SAVE_DEBOUNCE_MS = 120;
 
       const FORMAT_PRESETS = {
         "British Parliamentary": {
@@ -532,6 +534,7 @@
       let cloudPersistWorkerRunning = false;
       let cloudRefreshInFlight = null;
       let pendingCloudSync = null;
+      let localStateSaveTimer = null;
       let pendingSessionHistoryMode = "replace";
       let suppressSessionHistorySync = false;
       let liveSyncTimer = null;
@@ -8035,7 +8038,8 @@
           return;
         }
 
-        const normalizedSnapshot = clone(snapshot);
+        // Callers provide a detached snapshot, so avoid cloning the full workspace twice.
+        const normalizedSnapshot = snapshot;
         normalizedSnapshot.workspaceContractVersion = WORKSPACE_CONTRACT_VERSION;
         assertWorkspaceContract(normalizedSnapshot, "pending cloud sync");
 
@@ -8345,17 +8349,13 @@
       }
 
       function queueCloudPersist(options = {}) {
-        const syncId = createId("cloud-sync");
-        const queuedSnapshotSource =
-          options.snapshot && typeof options.snapshot === "object" ? options.snapshot : state;
-        if (!queuedSnapshotSource) {
+        const snapshotSource =
+          options.snapshot && typeof options.snapshot === "object" ? options.snapshot : null;
+        if (!snapshotSource && !state) {
           return;
         }
-        const queuedState = clone(queuedSnapshotSource);
-        savePendingCloudSyncRecord(queuedState, syncId);
         queuedCloudPersistRequest = {
-          syncId,
-          queuedState,
+          snapshotSource,
           options,
         };
 
@@ -8366,13 +8366,18 @@
         cloudPersistWorkerRunning = true;
         cloudPersistQueue = (async () => {
           while (queuedCloudPersistRequest) {
+            // Let rapid UI changes collapse into one newest-state save.
+            await waitForCloudRetry(CLOUD_PERSIST_DEBOUNCE_MS);
             const request = queuedCloudPersistRequest;
             queuedCloudPersistRequest = null;
-            const {
-              syncId: requestSyncId,
-              queuedState: requestState,
-              options: requestOptions,
-            } = request;
+            const requestSource = request.snapshotSource || state;
+            if (!requestSource) {
+              continue;
+            }
+            const requestState = clone(requestSource);
+            const requestSyncId = createId("cloud-sync");
+            const requestOptions = request.options || {};
+            savePendingCloudSyncRecord(requestState, requestSyncId);
             if (!(await probeCloudBackend()) || !session.cloudSessionToken || !getCurrentUser()) {
               continue;
             }
@@ -8428,7 +8433,7 @@
             cloudPersistWorkerRunning = false;
             if (queuedCloudPersistRequest) {
               queueCloudPersist({
-                snapshot: queuedCloudPersistRequest.queuedState,
+                snapshot: queuedCloudPersistRequest.snapshotSource,
                 ...queuedCloudPersistRequest.options,
               });
             }
@@ -8576,6 +8581,10 @@
       }
 
       function saveState() {
+        if (localStateSaveTimer) {
+          window.clearTimeout(localStateSaveTimer);
+          localStateSaveTimer = null;
+        }
         if (!state) {
           localStorageRemove(STORAGE_KEY);
           return;
@@ -8583,6 +8592,25 @@
         state.workspaceContractVersion = WORKSPACE_CONTRACT_VERSION;
         assertWorkspaceContract(state, "local save");
         localStorageSet(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function scheduleStateSave() {
+        if (localStateSaveTimer) {
+          window.clearTimeout(localStateSaveTimer);
+        }
+        localStateSaveTimer = window.setTimeout(() => {
+          localStateSaveTimer = null;
+          saveState();
+        }, LOCAL_STATE_SAVE_DEBOUNCE_MS);
+      }
+
+      function flushScheduledStateSave() {
+        if (!localStateSaveTimer) {
+          return;
+        }
+        window.clearTimeout(localStateSaveTimer);
+        localStateSaveTimer = null;
+        saveState();
       }
 
       function setFlash(type, text) {
@@ -8595,7 +8623,7 @@
 
       function persist(type, text) {
         updateCurrentUserRecord();
-        saveState();
+        scheduleStateSave();
         saveSession();
         applyBranding();
         if (type && text) {
@@ -30348,12 +30376,17 @@
 
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "hidden") {
+            flushScheduledStateSave();
             if (hasPendingCloudSyncForCurrentSession()) {
               flushCloudPersistQueue().catch(() => {});
             }
             return;
           }
           void refreshSharedStateIfIdle();
+        });
+
+        window.addEventListener("pagehide", () => {
+          flushScheduledStateSave();
         });
 
         window.addEventListener("popstate", () => {
