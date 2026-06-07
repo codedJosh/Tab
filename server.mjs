@@ -121,7 +121,7 @@ const WORKSPACE_HISTORY_LIMIT = Math.max(
 const PASSWORD_HASH_VERSION = "pbkdf2-sha256-v1";
 const PASSWORD_HASH_ITERATIONS = 210000;
 const PASSWORD_SALT_BYTES = 16;
-const MAX_BODY_SIZE = "30mb";
+const MAX_BODY_SIZE = process.env.MAX_BODY_SIZE || "30mb";
 const TOURNAMENT_PERMISSION_KEYS = [
   "managerEmails",
   "tabManagerEmails",
@@ -169,7 +169,7 @@ const shouldAutoUseSsl =
 function buildPoolConfig() {
   const config = {
     connectionString: DATABASE_URL,
-    max: Math.max(2, Number(process.env.DATABASE_POOL_MAX || 10) || 10),
+    max: Math.max(2, Number(process.env.DATABASE_POOL_MAX || 4) || 4),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
     keepAlive: true,
@@ -1089,8 +1089,13 @@ function createJudgeRecord(name, email, institution = "", extras = {}) {
   };
 }
 
-function ensureWorkspaceState(state) {
-  const next = state && typeof state === "object" ? clone(state) : {};
+function ensureWorkspaceState(state, options = {}) {
+  const next =
+    state && typeof state === "object"
+      ? options.clone === false
+        ? state
+        : clone(state)
+      : {};
   const incomingContractVersion = String(next.workspaceContractVersion || "").trim();
   if (
     incomingContractVersion &&
@@ -1561,7 +1566,9 @@ async function readWorkspaceRecord(client) {
     return null;
   }
   return {
-    state: ensureWorkspaceState(result.rows[0].state),
+    // PostgreSQL gives this request its own decoded object, so normalizing it
+    // in place avoids briefly retaining another complete workspace copy.
+    state: ensureWorkspaceState(result.rows[0].state, { clone: false }),
     revision: normalizeWorkspaceRevision(result.rows[0].revision),
   };
 }
@@ -1576,7 +1583,9 @@ async function readWorkspaceRevision(client) {
 }
 
 async function writeWorkspaceState(client, state, options = {}) {
-  const normalized = ensureWorkspaceState(state);
+  const normalized = options.normalized
+    ? state
+    : ensureWorkspaceState(state, { clone: options.clone !== false });
   const expectedRevision = normalizeWorkspaceRevision(options.expectedRevision);
   const params = [WORKSPACE_ID, JSON.stringify(normalized)];
   let result;
@@ -1593,7 +1602,7 @@ async function writeWorkspaceState(client, state, options = {}) {
               revision = jade_workspaces.revision + 1,
               updated_at = now()
         where jade_workspaces.revision = $3
-        returning state, revision
+        returning revision
       `,
       params,
     );
@@ -1618,13 +1627,12 @@ async function writeWorkspaceState(client, state, options = {}) {
           set state = excluded.state,
               revision = jade_workspaces.revision + 1,
               updated_at = now()
-        returning state, revision
+        returning revision
       `,
       params,
     );
   }
 
-  const savedState = ensureWorkspaceState(result.rows[0]?.state || normalized);
   const revision = normalizeWorkspaceRevision(result.rows[0]?.revision) || 1;
   const shouldSaveHistory =
     revision === 1 || revision % WORKSPACE_HISTORY_INTERVAL === 0;
@@ -1635,7 +1643,7 @@ async function writeWorkspaceState(client, state, options = {}) {
         values ($1, $2, $3::jsonb)
         on conflict (workspace_id, revision) do nothing
       `,
-      [WORKSPACE_ID, revision, JSON.stringify(savedState)],
+      [WORKSPACE_ID, revision, params[1]],
     );
     await client.query(
       `
@@ -1653,7 +1661,7 @@ async function writeWorkspaceState(client, state, options = {}) {
     );
   }
   return {
-    state: savedState,
+    ...(options.returnState === false ? {} : { state: normalized }),
     revision,
   };
 }
@@ -2448,7 +2456,9 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        const nextState = ensureWorkspaceState(incomingState);
+        // The parsed request body is already isolated to this request. Normalize
+        // it in place instead of creating another full workspace-sized object.
+        const nextState = ensureWorkspaceState(incomingState, { clone: false });
         const user = nextState.users.find((entry) => entry.email === email);
 
         if (!user) {
@@ -3077,7 +3087,10 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        const nextState = ensureWorkspaceState(incomingState);
+        // Express has already created an isolated request object. Normalizing
+        // that object in place avoids another complete workspace clone during
+        // every autosave.
+        const nextState = ensureWorkspaceState(incomingState, { clone: false });
         const user = nextState.users.find((entry) => entry.email === normalizeEmail(session.email));
         if (!user || !user.active) {
           const error = new Error("This account is no longer allowed to access JADE.");
@@ -3094,9 +3107,10 @@ app.post("/api", async (request, response) => {
 
         const savedWorkspace = await writeWorkspaceState(client, nextState, {
           expectedRevision: expectedRevision || workspace.revision,
+          normalized: true,
+          returnState: false,
         });
         return {
-          state: savedWorkspace.state,
           revision: savedWorkspace.revision,
           notifications,
         };

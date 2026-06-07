@@ -8389,12 +8389,13 @@
                 expectedRevision: cloudRuntime.revision,
               });
               cloudRuntime.initialized = true;
-              if (result?.state && pendingCloudSync?.id === requestSyncId) {
-                state = await rehydrateState(result.state);
-                updateCurrentUserRecord();
-                saveState();
-                saveSession();
+              if (pendingCloudSync?.id === requestSyncId) {
+                // Persist responses are acknowledgement-only. Keeping the
+                // current local state avoids downloading a second workspace
+                // copy and prevents an older response from replacing edits
+                // made while the request was in flight.
                 clearPendingCloudSyncRecord(requestSyncId);
+                saveSession();
                 if (requiresSharedBackend() && !requestOptions.skipSuccessRender) {
                   renderApp();
                 }
@@ -8508,9 +8509,11 @@
           throw error;
         }
         cloudRuntime.initialized = true;
-        state = await rehydrateState(result.state);
-        updateCurrentUserRecord();
-        saveState();
+        if (result?.state) {
+          state = await rehydrateState(result.state);
+          updateCurrentUserRecord();
+          saveState();
+        }
         saveSession();
         clearPendingCloudSyncRecord(syncId);
 
