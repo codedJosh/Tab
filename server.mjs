@@ -4,9 +4,11 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import compression from "compression";
 import dotenv from "dotenv";
 import express from "express";
 import { Pool } from "pg";
+import sharp from "sharp";
 
 dotenv.config();
 
@@ -138,6 +140,14 @@ const MEMORY_WARNING_MB = Math.max(
   128,
   Number(process.env.MEMORY_WARNING_MB || 400) || 400,
 );
+const EMBEDDED_IMAGE_COMPACT_THRESHOLD_BYTES = Math.max(
+  256 * 1024,
+  Number(process.env.EMBEDDED_IMAGE_COMPACT_THRESHOLD_BYTES || 750 * 1024) ||
+    750 * 1024,
+);
+const TOURNAMENT_BANNER_MAX_WIDTH = 1600;
+const TOURNAMENT_BANNER_MAX_HEIGHT = 600;
+const PRIORITY_API_ACTIONS = new Set(["sign_in", "access_link"]);
 const TOURNAMENT_PERMISSION_KEYS = [
   "managerEmails",
   "tabManagerEmails",
@@ -208,6 +218,92 @@ pool.on("error", (error) => {
   // A dropped idle connection should be replaced by the pool, not terminate Node.
   console.error("Postgres pool connection error:", error);
 });
+
+function parseImageDataUrl(value) {
+  const match = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/is.exec(
+    String(value || "").trim(),
+  );
+  if (!match) {
+    return null;
+  }
+  try {
+    return {
+      mimeType: match[1].toLowerCase(),
+      buffer: Buffer.from(match[2], "base64"),
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function compactTournamentBannerDataUrl(value) {
+  const parsed = parseImageDataUrl(value);
+  if (!parsed || parsed.buffer.length < EMBEDDED_IMAGE_COMPACT_THRESHOLD_BYTES) {
+    return null;
+  }
+
+  const optimized = await sharp(parsed.buffer)
+    .rotate()
+    .resize({
+      width: TOURNAMENT_BANNER_MAX_WIDTH,
+      height: TOURNAMENT_BANNER_MAX_HEIGHT,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: 78, effort: 4 })
+    .toBuffer();
+
+  if (optimized.length >= parsed.buffer.length) {
+    return null;
+  }
+  return {
+    dataUrl: `data:image/webp;base64,${optimized.toString("base64")}`,
+    beforeBytes: parsed.buffer.length,
+    afterBytes: optimized.length,
+  };
+}
+
+async function compactOversizedEmbeddedAssets() {
+  const client = await pool.connect();
+  try {
+    const workspace = await readWorkspaceRecord(client);
+    if (!workspace?.state) {
+      return;
+    }
+
+    let changed = 0;
+    let beforeBytes = 0;
+    let afterBytes = 0;
+    for (const tournament of workspace.state.tournaments || []) {
+      const compacted = await compactTournamentBannerDataUrl(tournament.bannerImage);
+      if (!compacted) {
+        continue;
+      }
+      tournament.bannerImage = compacted.dataUrl;
+      changed += 1;
+      beforeBytes += compacted.beforeBytes;
+      afterBytes += compacted.afterBytes;
+    }
+
+    if (!changed) {
+      return;
+    }
+
+    await writeWorkspaceState(client, workspace.state, {
+      expectedRevision: workspace.revision,
+      normalized: true,
+      clone: false,
+      returnState: false,
+    });
+    console.log("Compacted embedded tournament banners", {
+      changed,
+      beforeMb: Math.round((beforeBytes / 1024 / 1024) * 10) / 10,
+      afterMb: Math.round((afterBytes / 1024 / 1024) * 10) / 10,
+    });
+  } finally {
+    client.release();
+  }
+}
 
 async function ensureStorageSchema() {
   const client = await pool.connect();
@@ -1599,6 +1695,13 @@ function createApiConcurrencyGate(limit, queueLimit) {
       next();
       return;
     }
+    const action = String(request.headers["x-jade-action"] || "")
+      .trim()
+      .toLowerCase();
+    if (PRIORITY_API_ACTIONS.has(action)) {
+      next();
+      return;
+    }
 
     let released = false;
     const release = () => {
@@ -2399,6 +2502,8 @@ function buildRecoveryRequest(state, email, note = "") {
 
 const app = express();
 
+app.use(compression({ threshold: 1024 }));
+
 app.use((request, response, next) => {
   const startedAt = Date.now();
   response.once("finish", () => {
@@ -2420,7 +2525,10 @@ app.use((request, response, next) => {
   const origin = request.headers.origin || "*";
   response.setHeader("Access-Control-Allow-Origin", origin);
   response.setHeader("Vary", "Origin");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
+  response.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Accept, X-JADE-Action",
+  );
   response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   if (request.method === "OPTIONS") {
     response.status(204).end();
@@ -2535,18 +2643,23 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        if (passwordCheck.needsUpgrade) {
+        const needsPasswordUpgrade = passwordCheck.needsUpgrade;
+        if (needsPasswordUpgrade) {
           Object.assign(user, buildSecurePasswordRecord(password));
         }
 
         user.lastLoginAt = nowText();
-        const nextWorkspace = await writeWorkspaceState(client, state, {
-          expectedRevision: workspace.revision,
-        });
+        let revision = workspace.revision;
+        if (needsPasswordUpgrade) {
+          const nextWorkspace = await writeWorkspaceState(client, state, {
+            expectedRevision: workspace.revision,
+          });
+          revision = nextWorkspace.revision;
+        }
         const sessionToken = await issueSession(client, email);
         return {
-          state: nextWorkspace.state,
-          revision: nextWorkspace.revision,
+          state,
+          revision,
           sessionToken,
         };
       });
@@ -3313,6 +3426,7 @@ process.once("SIGINT", () => {
 });
 
 ensureStorageSchema()
+  .then(() => compactOversizedEmbeddedAssets())
   .then(() => {
     httpServer = app.listen(PORT, () => {
       console.log("JADE backend listening on http://127.0.0.1:" + PORT + "/api");

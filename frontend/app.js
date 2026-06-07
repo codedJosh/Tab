@@ -8190,6 +8190,7 @@
             headers: {
               "Content-Type": "application/json",
               Accept: "application/json",
+              "X-JADE-Action": action,
             },
             body: JSON.stringify({
               action,
@@ -23226,6 +23227,47 @@
         });
       }
 
+      async function readImageAsOptimizedDataUrl(file) {
+        if (!file || typeof file !== "object" || !file.size) {
+          return null;
+        }
+        if (!String(file.type || "").toLowerCase().startsWith("image/")) {
+          throw new Error("Select an image file for the tournament banner.");
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        try {
+          const image = await new Promise((resolve, reject) => {
+            const source = new Image();
+            source.onload = () => resolve(source);
+            source.onerror = () => reject(new Error("This banner image could not be decoded."));
+            source.src = objectUrl;
+          });
+          const sourceWidth = Math.max(1, Number(image.naturalWidth || image.width || 1));
+          const sourceHeight = Math.max(1, Number(image.naturalHeight || image.height || 1));
+          const scale = Math.min(1, 1600 / sourceWidth, 600 / sourceHeight);
+          const width = Math.max(1, Math.round(sourceWidth * scale));
+          const height = Math.max(1, Math.round(sourceHeight * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d");
+          if (!context) {
+            throw new Error("This browser could not prepare the tournament banner.");
+          }
+          context.drawImage(image, 0, 0, width, height);
+          const blob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/webp", 0.8);
+          });
+          if (!blob) {
+            throw new Error("This browser could not optimize the tournament banner.");
+          }
+          return await readFileAsDataUrl(blob);
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
+      }
+
       function getRegionalOperationsLandingLink() {
         return getPublicScreenLink("regional-operations");
       }
@@ -24993,7 +25035,10 @@
         const requireRegionalOperationsAccess =
           String(formData.get("requireRegionalOperationsAccess") || "").trim().toLowerCase() ===
           "yes";
-        const cloudAvailable = await probeCloudBackend(true);
+        const cloudAvailable =
+          cloudRuntime.checked && cloudRuntime.available
+            ? true
+            : await probeCloudBackend(true);
 
         if (cloudAvailable) {
           try {
@@ -27462,7 +27507,7 @@
         if (!ensureTournamentManagerById(tournamentId)) return;
         let uploadedBannerImage = "";
         try {
-          uploadedBannerImage = await readFileAsDataUrl(formData.get("bannerFile"));
+          uploadedBannerImage = await readImageAsOptimizedDataUrl(formData.get("bannerFile"));
         } catch (error) {
           console.error("Tournament banner upload failed", error);
           setFlash("error", "The tournament banner image could not be read. Try a smaller image or a different file.");
