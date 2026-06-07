@@ -112,16 +112,32 @@ const REGIONAL_BANK_ACCOUNT_TYPES = ["chequing", "savings"];
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const WORKSPACE_HISTORY_INTERVAL = Math.max(
   1,
-  Number(process.env.WORKSPACE_HISTORY_INTERVAL || 10) || 10,
+  Number(process.env.WORKSPACE_HISTORY_INTERVAL || 25) || 25,
 );
 const WORKSPACE_HISTORY_LIMIT = Math.max(
   5,
-  Number(process.env.WORKSPACE_HISTORY_LIMIT || 25) || 25,
+  Number(process.env.WORKSPACE_HISTORY_LIMIT || 10) || 10,
 );
 const PASSWORD_HASH_VERSION = "pbkdf2-sha256-v1";
 const PASSWORD_HASH_ITERATIONS = 210000;
 const PASSWORD_SALT_BYTES = 16;
 const MAX_BODY_SIZE = process.env.MAX_BODY_SIZE || "30mb";
+const API_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.API_CONCURRENCY || 2) || 2,
+);
+const API_QUEUE_LIMIT = Math.max(
+  API_CONCURRENCY,
+  Number(process.env.API_QUEUE_LIMIT || 24) || 24,
+);
+const SLOW_REQUEST_MS = Math.max(
+  500,
+  Number(process.env.SLOW_REQUEST_MS || 2500) || 2500,
+);
+const MEMORY_WARNING_MB = Math.max(
+  128,
+  Number(process.env.MEMORY_WARNING_MB || 400) || 400,
+);
 const TOURNAMENT_PERMISSION_KEYS = [
   "managerEmails",
   "tabManagerEmails",
@@ -1542,6 +1558,88 @@ function sendStatePayload(response, statusCode, payload = {}) {
   });
 }
 
+function getRuntimeMetrics() {
+  const memory = process.memoryUsage();
+  const toMb = (bytes) => Math.round((Number(bytes || 0) / 1024 / 1024) * 10) / 10;
+  return {
+    memory: {
+      rssMb: toMb(memory.rss),
+      heapUsedMb: toMb(memory.heapUsed),
+      heapTotalMb: toMb(memory.heapTotal),
+      externalMb: toMb(memory.external),
+    },
+    databasePool: {
+      total: pool.totalCount,
+      idle: pool.idleCount,
+      waiting: pool.waitingCount,
+      maximum: buildPoolConfig().max,
+    },
+  };
+}
+
+function createApiConcurrencyGate(limit, queueLimit) {
+  let active = 0;
+  const queue = [];
+
+  const startNext = () => {
+    if (active >= limit || !queue.length) {
+      return;
+    }
+    const nextRequest = queue.shift();
+    if (nextRequest.cancelled) {
+      startNext();
+      return;
+    }
+    active += 1;
+    nextRequest.start();
+  };
+
+  return (request, response, next) => {
+    if (request.method !== "POST" || request.path !== "/api") {
+      next();
+      return;
+    }
+
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      active = Math.max(0, active - 1);
+      startNext();
+    };
+    const start = () => {
+      request.resume();
+      response.once("finish", release);
+      response.once("close", release);
+      next();
+    };
+
+    if (active < limit) {
+      active += 1;
+      start();
+      return;
+    }
+
+    if (queue.length >= queueLimit) {
+      sendError(
+        response,
+        503,
+        "backend_busy",
+        "JADE Hummingbird is processing several updates. Please try again in a moment.",
+      );
+      return;
+    }
+
+    request.pause();
+    const queuedRequest = { start, cancelled: false };
+    response.once("close", () => {
+      if (released) return;
+      queuedRequest.cancelled = true;
+    });
+    queue.push(queuedRequest);
+  };
+}
+
 async function withTransaction(work) {
   const client = await pool.connect();
   try {
@@ -2302,6 +2400,23 @@ function buildRecoveryRequest(state, email, note = "") {
 const app = express();
 
 app.use((request, response, next) => {
+  const startedAt = Date.now();
+  response.once("finish", () => {
+    const elapsedMs = Date.now() - startedAt;
+    const metrics = getRuntimeMetrics();
+    if (elapsedMs >= SLOW_REQUEST_MS || metrics.memory.rssMb >= MEMORY_WARNING_MB) {
+      console.warn("JADE runtime warning", {
+        method: request.method,
+        path: request.path,
+        elapsedMs,
+        ...metrics,
+      });
+    }
+  });
+  next();
+});
+
+app.use((request, response, next) => {
   const origin = request.headers.origin || "*";
   response.setHeader("Access-Control-Allow-Origin", origin);
   response.setHeader("Vary", "Origin");
@@ -2314,6 +2429,7 @@ app.use((request, response, next) => {
   next();
 });
 
+app.use(createApiConcurrencyGate(API_CONCURRENCY, API_QUEUE_LIMIT));
 app.use(express.json({ limit: MAX_BODY_SIZE }));
 
 app.get("/api", async (_request, response) => {
@@ -2343,6 +2459,7 @@ app.get("/api/health", async (_request, response) => {
     sendJson(response, 200, {
       ok: true,
       status: "healthy",
+      ...getRuntimeMetrics(),
     });
   } catch (error) {
     console.error(error);
@@ -3160,9 +3277,44 @@ app.post("/api", async (request, response) => {
   }
 });
 
+let httpServer = null;
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`Received ${signal}; closing JADE Hummingbird cleanly.`);
+
+  const forceExitTimer = setTimeout(() => {
+    console.error("JADE Hummingbird shutdown timed out.");
+    process.exit(1);
+  }, 10000);
+  forceExitTimer.unref();
+
+  if (httpServer) {
+    await new Promise((resolve) => httpServer.close(resolve));
+  }
+  await pool.end();
+  clearTimeout(forceExitTimer);
+  process.exit(0);
+}
+
+process.once("SIGTERM", () => {
+  shutdown("SIGTERM").catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+});
+process.once("SIGINT", () => {
+  shutdown("SIGINT").catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+});
+
 ensureStorageSchema()
   .then(() => {
-    app.listen(PORT, () => {
+    httpServer = app.listen(PORT, () => {
       console.log("JADE backend listening on http://127.0.0.1:" + PORT + "/api");
       console.log("JADE app available at http://127.0.0.1:" + PORT + "/");
     });

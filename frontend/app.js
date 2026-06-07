@@ -246,8 +246,8 @@
       const CLOUD_BOOT_REQUEST_TIMEOUT_MS = 45000;
       const CLOUD_AUTH_BOOT_TIMEOUT_MS = 45000;
       const CLOUD_REQUEST_TIMEOUT_MS = 35000;
-      const CLOUD_PERSIST_DEBOUNCE_MS = 180;
-      const LOCAL_STATE_SAVE_DEBOUNCE_MS = 120;
+      const CLOUD_PERSIST_DEBOUNCE_MS = 650;
+      const LOCAL_STATE_SAVE_DEBOUNCE_MS = 500;
 
       const FORMAT_PRESETS = {
         "British Parliamentary": {
@@ -8453,18 +8453,12 @@
         updateCurrentUserRecord();
         saveState();
         saveSession();
-        const intendedState = clone(state);
-        const intendedSession = normalizeSessionRecord(session);
 
         try {
           await cloudPersistQueue;
         } catch (error) {
           console.error(error);
         }
-        state = await rehydrateState(intendedState);
-        session = intendedSession;
-        saveState();
-        saveSession();
 
         const cloudAvailable =
           cloudRuntime.checked && cloudRuntime.available
@@ -8488,6 +8482,9 @@
 
         let result;
         const syncId = createId("cloud-sync");
+        // Keep one detached snapshot for both recovery and transport. The
+        // previous flow cloned and rehydrated the complete workspace several
+        // times before every explicit save.
         const queuedState = clone(state);
         savePendingCloudSyncRecord(queuedState, syncId);
         try {

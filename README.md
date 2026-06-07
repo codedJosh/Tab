@@ -45,6 +45,10 @@ window.JADE_BACKEND_URL = "https://your-backend-host/api";
    - required: `DATABASE_URL`, `JADE_SESSION_SECRET`
    - optional database SSL override: `DATABASE_SSL=true` or `DATABASE_SSL=false`
    - optional: `JADE_WORKSPACE_ID`
+   - recommended performance limits: `DATABASE_POOL_MAX=4`, `API_CONCURRENCY=2`
+   - optional request controls: `API_QUEUE_LIMIT=24`, `MAX_BODY_SIZE=30mb`
+   - optional history controls: `WORKSPACE_HISTORY_INTERVAL=25`, `WORKSPACE_HISTORY_LIMIT=10`
+   - optional diagnostics: `SLOW_REQUEST_MS=2500`, `MEMORY_WARNING_MB=400`
    - optional email delivery (Resend): `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
    - optional email behavior: `RESEND_REPLY_TO` (defaults to `hummingbird@myjade.org`), `PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES` (defaults to `10`), `PUBLIC_APP_URL`
 3. Run `npm install`
@@ -94,3 +98,9 @@ The server auto-creates the JADE tables on startup. If Render logs `Connection t
 
 - Internal Render Postgres URL: set `DATABASE_SSL=false` if your connection is being forced through TLS.
 - External Render Postgres URL: set `DATABASE_SSL=true`, or include `sslmode=require` in the URL.
+
+For a small or medium Render instance, keep `DATABASE_POOL_MAX=4` and
+`API_CONCURRENCY=2`. The API concurrency gate prevents several full workspace
+uploads from being parsed and persisted simultaneously. `/api/health` reports
+RSS/heap and database-pool usage, while slow or high-memory requests are logged
+as `JADE runtime warning` entries.
