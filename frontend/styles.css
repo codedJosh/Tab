@@ -1715,7 +1715,7 @@
         justify-items: center;
         gap: 0;
         padding: clamp(30px, 4vw, 54px);
-        padding-bottom: clamp(34px, 8vh, 76px);
+        padding-bottom: clamp(16px, 3.5vh, 34px);
       }
 
       .premium-home-hero::before {
@@ -1738,17 +1738,17 @@
         align-items: end;
         justify-items: start;
         padding: clamp(30px, 4vw, 54px);
-        padding-bottom: clamp(34px, 8vh, 76px);
+        padding-bottom: clamp(16px, 3.5vh, 34px);
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-content {
         align-self: end;
         justify-self: start;
-        width: min(460px, 90%);
+        width: min(420px, 90%);
         max-width: none;
         justify-items: center;
         text-align: center;
-        padding: clamp(10px, 1.45vw, 14px) clamp(12px, 1.7vw, 18px);
+        padding: clamp(8px, 1vw, 11px) clamp(10px, 1.35vw, 14px) clamp(11px, 1.4vw, 15px);
         border: 1px solid rgba(223, 255, 219, 0.36);
         border-radius: 24px;
         background:
@@ -1763,6 +1763,7 @@
           inset 0 1px 0 rgba(255, 255, 255, 0.42),
           inset 0 0 34px rgba(231, 255, 226, 0.08),
           inset 0 -1px 0 rgba(178, 228, 160, 0.1);
+        translate: 0 10px;
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-brand-stack,
@@ -1887,12 +1888,12 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
-        width: min(460px, 90%);
+        width: min(420px, 90%);
         align-self: end;
         justify-self: center;
         justify-items: center;
-        gap: clamp(4px, 0.8vw, 8px);
-        padding: clamp(10px, 1.45vw, 14px) clamp(12px, 1.7vw, 18px);
+        gap: clamp(2px, 0.5vw, 5px);
+        padding: clamp(8px, 1vw, 11px) clamp(10px, 1.35vw, 14px) clamp(11px, 1.4vw, 15px);
         text-align: center;
         border: 1px solid rgba(223, 255, 219, 0.36);
         border-radius: 24px;
@@ -1908,6 +1909,7 @@
           inset 0 1px 0 rgba(255, 255, 255, 0.42),
           inset 0 0 34px rgba(231, 255, 226, 0.08),
           inset 0 -1px 0 rgba(178, 228, 160, 0.1);
+        translate: 0 10px;
         animation: heroPanelReveal 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
       }
 
@@ -1936,7 +1938,7 @@
         position: relative;
         z-index: 1;
         display: block;
-        width: min(405px, 92%);
+        width: min(392px, 96%);
         height: clamp(142px, 15.5vw, 184px);
         margin-bottom: clamp(-34px, -3.15vw, -23px);
         object-fit: cover;
@@ -2019,13 +2021,13 @@
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
-        width: min(100%, 420px);
+        width: 100%;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
+        gap: 7px;
         justify-self: center;
         justify-content: center;
         justify-items: stretch;
-        margin-top: 4px;
+        margin-top: 2px;
       }
 
       .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions > :is(button, a) {
@@ -2038,8 +2040,8 @@
         --btn-shadow: 0 12px 28px rgba(4, 18, 12, 0.2);
         --btn-shadow-hover: 0 16px 34px rgba(4, 18, 12, 0.26);
         --btn-font-size: var(--btn-font-size-md);
-        min-height: 40px;
-        padding-inline: 13px;
+        min-height: 36px;
+        padding-inline: 11px;
         width: 100%;
         min-width: 0;
         align-self: stretch;
@@ -8438,13 +8440,13 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
-          align-self: center;
+          align-self: end;
           justify-self: center;
-          width: min(92vw, 380px);
-          gap: 10px;
-          padding: 15px;
+          width: min(86vw, 340px);
+          gap: 4px;
+          padding: 9px 10px 11px;
           border: 1px solid rgba(223, 255, 219, 0.36);
-          border-radius: 20px;
+          border-radius: 18px;
           background:
             linear-gradient(118deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.04) 24%, transparent 42%),
             linear-gradient(135deg, rgba(5, 25, 17, 0.52), rgba(15, 72, 45, 0.32) 50%, rgba(115, 135, 68, 0.18)),
@@ -8466,10 +8468,10 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-jade-logo {
-          width: min(320px, 94%);
-          height: clamp(122px, 29vw, 158px);
-          margin-bottom: clamp(-28px, -6vw, -18px);
-          transform: translateY(12px);
+          width: min(290px, 96%);
+          height: clamp(110px, 27vw, 146px);
+          margin-bottom: clamp(-29px, -6.5vw, -20px);
+          transform: translateY(14px);
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .eyebrow {
@@ -8493,9 +8495,10 @@
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-actions {
-          grid-template-columns: 1fr;
-          width: min(100%, 300px);
-          gap: 8px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          width: 100%;
+          gap: 6px;
           justify-self: center;
           margin: 0;
         }
@@ -8507,9 +8510,9 @@
           --btn-bg-hover: rgba(255, 255, 255, 0.28);
           --btn-color-hover: #ffffff;
           --btn-border-hover: rgba(255, 255, 255, 0.52);
-          --btn-font-size: var(--btn-font-size-md);
-          min-height: 40px;
-          padding-inline: 12px;
+          --btn-font-size: var(--btn-font-size-sm);
+          min-height: 36px;
+          padding-inline: 8px;
           width: 100%;
           -webkit-backdrop-filter: blur(16px) saturate(1.18);
           backdrop-filter: blur(16px) saturate(1.18);
@@ -13545,7 +13548,7 @@
           .workspace-shell .simple-search-actions button,
           .workspace-shell .round-board-action-cell button,
           .public-hero-actions button,
-          .auth-login-actions button:first-child,
+          .auth-login-actions button,
           .auth-create-account-button
         ) {
         background: var(--hb-button-primary-bg) !important;
@@ -13561,7 +13564,7 @@
           .workspace-shell .simple-search-actions button:hover,
           .workspace-shell .round-board-action-cell button:hover,
           .public-hero-actions button:hover,
-          .auth-login-actions button:first-child:hover,
+          .auth-login-actions button:hover,
           .auth-create-account-button:hover
         ) {
         background: var(--hb-button-primary-bg-hover) !important;

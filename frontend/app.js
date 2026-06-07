@@ -14192,7 +14192,7 @@
                           </label>
                           <div class="auth-login-actions">
                             <button type="submit">Sign In</button>
-                            <button class="secondary-button" type="button" data-action="set-public-view" data-view="forgot-password">Forgot Password</button>
+                            <button class="button-primary" type="button" data-action="set-public-view" data-view="forgot-password">Forgot Password</button>
                           </div>
                           <div class="auth-create-account-row">
                             <button class="secondary-button auth-create-account-button" type="button" data-action="set-public-view" data-view="create-account">
@@ -14675,7 +14675,7 @@
                           </label>
                           <div class="auth-login-actions">
                             <button type="submit">Sign In</button>
-                            <button class="secondary-button" type="button" data-action="set-public-view" data-view="forgot-password">Forgot Password</button>
+                            <button class="button-primary" type="button" data-action="set-public-view" data-view="forgot-password">Forgot Password</button>
                           </div>
                         </form>
                         <p class="auth-footer">
