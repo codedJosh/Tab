@@ -110,6 +110,14 @@ const JAMAICA_MAJOR_BANKS = [
 ];
 const REGIONAL_BANK_ACCOUNT_TYPES = ["chequing", "savings"];
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
+const WORKSPACE_HISTORY_INTERVAL = Math.max(
+  1,
+  Number(process.env.WORKSPACE_HISTORY_INTERVAL || 10) || 10,
+);
+const WORKSPACE_HISTORY_LIMIT = Math.max(
+  5,
+  Number(process.env.WORKSPACE_HISTORY_LIMIT || 25) || 25,
+);
 const PASSWORD_HASH_VERSION = "pbkdf2-sha256-v1";
 const PASSWORD_HASH_ITERATIONS = 210000;
 const PASSWORD_SALT_BYTES = 16;
@@ -161,6 +169,10 @@ const shouldAutoUseSsl =
 function buildPoolConfig() {
   const config = {
     connectionString: DATABASE_URL,
+    max: Math.max(2, Number(process.env.DATABASE_POOL_MAX || 10) || 10),
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    keepAlive: true,
   };
 
   if (DATABASE_SSL === "true") {
@@ -175,6 +187,11 @@ function buildPoolConfig() {
 }
 
 const pool = new Pool(buildPoolConfig());
+
+pool.on("error", (error) => {
+  // A dropped idle connection should be replaced by the pool, not terminate Node.
+  console.error("Postgres pool connection error:", error);
+});
 
 async function ensureStorageSchema() {
   const client = await pool.connect();
@@ -231,6 +248,21 @@ async function ensureStorageSchema() {
       create index if not exists jade_sessions_expires_idx
       on jade_sessions (expires_at)
     `);
+    await client.query("delete from jade_sessions where expires_at <= now()");
+    await client.query(
+      `
+        delete from jade_workspace_history history
+        where history.workspace_id = $1
+          and history.revision not in (
+            select revision
+            from jade_workspace_history
+            where workspace_id = $1
+            order by revision desc
+            limit $2
+          )
+      `,
+      [WORKSPACE_ID, WORKSPACE_HISTORY_LIMIT],
+    );
   } finally {
     client.release();
   }
@@ -1594,14 +1626,32 @@ async function writeWorkspaceState(client, state, options = {}) {
 
   const savedState = ensureWorkspaceState(result.rows[0]?.state || normalized);
   const revision = normalizeWorkspaceRevision(result.rows[0]?.revision) || 1;
-  await client.query(
-    `
-      insert into jade_workspace_history (workspace_id, revision, state)
-      values ($1, $2, $3::jsonb)
-      on conflict (workspace_id, revision) do nothing
-    `,
-    [WORKSPACE_ID, revision, JSON.stringify(savedState)],
-  );
+  const shouldSaveHistory =
+    revision === 1 || revision % WORKSPACE_HISTORY_INTERVAL === 0;
+  if (shouldSaveHistory) {
+    await client.query(
+      `
+        insert into jade_workspace_history (workspace_id, revision, state)
+        values ($1, $2, $3::jsonb)
+        on conflict (workspace_id, revision) do nothing
+      `,
+      [WORKSPACE_ID, revision, JSON.stringify(savedState)],
+    );
+    await client.query(
+      `
+        delete from jade_workspace_history
+        where workspace_id = $1
+          and revision not in (
+            select revision
+            from jade_workspace_history
+            where workspace_id = $1
+            order by revision desc
+            limit $2
+          )
+      `,
+      [WORKSPACE_ID, WORKSPACE_HISTORY_LIMIT],
+    );
+  }
   return {
     state: savedState,
     revision,

@@ -528,6 +528,8 @@
         contractMismatch: false,
       };
       let cloudPersistQueue = Promise.resolve();
+      let queuedCloudPersistRequest = null;
+      let cloudPersistWorkerRunning = false;
       let cloudRefreshInFlight = null;
       let pendingCloudSync = null;
       let pendingSessionHistoryMode = "replace";
@@ -8351,28 +8353,44 @@
         }
         const queuedState = clone(queuedSnapshotSource);
         savePendingCloudSyncRecord(queuedState, syncId);
+        queuedCloudPersistRequest = {
+          syncId,
+          queuedState,
+          options,
+        };
 
-        cloudPersistQueue = cloudPersistQueue
-          .then(async () => {
+        if (cloudPersistWorkerRunning) {
+          return;
+        }
+
+        cloudPersistWorkerRunning = true;
+        cloudPersistQueue = (async () => {
+          while (queuedCloudPersistRequest) {
+            const request = queuedCloudPersistRequest;
+            queuedCloudPersistRequest = null;
+            const {
+              syncId: requestSyncId,
+              queuedState: requestState,
+              options: requestOptions,
+            } = request;
             if (!(await probeCloudBackend()) || !session.cloudSessionToken || !getCurrentUser()) {
-              return;
+              continue;
             }
 
             try {
-              const snapshot = await rehydrateState(queuedState);
               const result = await callCloud("persist", {
                 sessionToken: session.cloudSessionToken,
-                state: snapshot,
+                state: requestState,
                 expectedRevision: cloudRuntime.revision,
               });
               cloudRuntime.initialized = true;
-              if (result?.state && pendingCloudSync?.id === syncId) {
+              if (result?.state && pendingCloudSync?.id === requestSyncId) {
                 state = await rehydrateState(result.state);
                 updateCurrentUserRecord();
                 saveState();
                 saveSession();
-                clearPendingCloudSyncRecord(syncId);
-                if (requiresSharedBackend() && !options.skipSuccessRender) {
+                clearPendingCloudSyncRecord(requestSyncId);
+                if (requiresSharedBackend() && !requestOptions.skipSuccessRender) {
                   renderApp();
                 }
               }
@@ -8386,7 +8404,7 @@
                 } catch (_refreshError) {
                   // Keep the preserved local snapshot even if the revision refresh fails.
                 }
-                if (pendingCloudSync?.id === syncId) {
+                if (pendingCloudSync?.id === requestSyncId) {
                   setFlash(
                     "warning",
                     "JADE Hummingbird kept your newest local edit on this device, but another device changed the shared workspace first. Review the result and save again so nothing gets overwritten.",
@@ -8401,9 +8419,19 @@
               );
               renderApp();
             }
-          })
+          }
+        })()
           .catch((error) => {
             console.error(error);
+          })
+          .finally(() => {
+            cloudPersistWorkerRunning = false;
+            if (queuedCloudPersistRequest) {
+              queueCloudPersist({
+                snapshot: queuedCloudPersistRequest.queuedState,
+                ...queuedCloudPersistRequest.options,
+              });
+            }
           });
       }
 
@@ -8432,7 +8460,10 @@
         saveState();
         saveSession();
 
-        const cloudAvailable = await probeCloudBackend(true);
+        const cloudAvailable =
+          cloudRuntime.checked && cloudRuntime.available
+            ? true
+            : await probeCloudBackend(true);
         if (!cloudAvailable) {
           if (requiresSharedBackend()) {
             throw new Error(getSharedBackendUnavailableMessage());
@@ -8454,10 +8485,9 @@
         const queuedState = clone(state);
         savePendingCloudSyncRecord(queuedState, syncId);
         try {
-          const snapshot = await rehydrateState(queuedState);
           result = await callCloud("persist", {
             sessionToken: session.cloudSessionToken,
-            state: snapshot,
+            state: queuedState,
             expectedRevision: cloudRuntime.revision,
           });
         } catch (error) {

@@ -13649,3 +13649,24 @@
       .workspace-shell .tournament-row-item .tournament-switch-actions {
         justify-content: flex-start !important;
       }
+
+      /* Tournament navigation uses the same dark treatment as user settings. */
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link,
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link:hover {
+        background: rgba(255, 255, 255, 0.055) !important;
+        border-color: rgba(255, 255, 255, 0.13) !important;
+        color: rgba(247, 250, 247, 0.96) !important;
+        box-shadow: none !important;
+      }
+
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link:hover {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+      }
+
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link.is-active,
+      .workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link.is-active:hover {
+        background: rgba(49, 112, 82, 0.72) !important;
+        border-color: rgba(125, 181, 148, 0.38) !important;
+        color: #ffffff !important;
+      }
