@@ -1941,10 +1941,10 @@
         display: block;
         width: min(390px, 88%);
         height: clamp(124px, 13.4vw, 162px);
-        margin-bottom: clamp(-31px, -2.8vw, -20px);
+        margin-bottom: clamp(-18px, -1.8vw, -12px);
         object-fit: cover;
         object-position: center 38%;
-        transform: translateY(12px);
+        transform: translateY(2px);
         filter:
           drop-shadow(0 18px 34px rgba(0, 0, 0, 0.34))
           drop-shadow(0 2px 0 rgba(255, 255, 255, 0.08));
@@ -8472,8 +8472,8 @@
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-jade-logo {
           width: min(320px, 88%);
           height: clamp(104px, 24vw, 136px);
-          margin-bottom: clamp(-27px, -5.8vw, -18px);
-          transform: translateY(12px);
+          margin-bottom: clamp(-17px, -4vw, -10px);
+          transform: translateY(2px);
         }
 
         .public-front-page:not(.auth-flow-page) > .premium-home-hero .eyebrow {
