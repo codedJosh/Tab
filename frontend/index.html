@@ -14,21 +14,17 @@
     <link rel="apple-touch-icon" href="jade-hummingbird-mark.svg" />
     <script src="backend-config.js"></script>
     <script>
+      document.documentElement.classList.add("skip-startup-splash");
       try {
-        if (
-          window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-          window.sessionStorage.getItem("hummingbird-startup-splash-seen-v1") === "1"
-        ) {
-          document.documentElement.classList.add("skip-startup-splash");
-        }
+        window.sessionStorage.setItem("hummingbird-startup-splash-seen-v1", "1");
       } catch (error) {
-        // Ignore session storage availability issues and keep the splash as a safe fallback.
+        // Ignore session storage availability issues; the app still opens immediately.
       }
     </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div id="startup-splash" class="startup-splash" role="status" aria-live="polite">
+    <div id="startup-splash" class="startup-splash" role="status" aria-live="polite" hidden>
       <div class="startup-grid"></div>
       <div class="startup-beam startup-beam-one"></div>
       <div class="startup-beam startup-beam-two"></div>

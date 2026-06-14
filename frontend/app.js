@@ -205,16 +205,7 @@
       const MAX_TOURNAMENT_ROUNDS = 20;
       const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const STARTUP_SPLASH_STORAGE_KEY = "hummingbird-startup-splash-seen-v1";
-      const SHOULD_SHOW_STARTUP_SPLASH = (() => {
-        if (REDUCED_MOTION) {
-          return false;
-        }
-        try {
-          return sessionStorageGet(STARTUP_SPLASH_STORAGE_KEY) !== "1";
-        } catch (error) {
-          return true;
-        }
-      })();
+      const SHOULD_SHOW_STARTUP_SPLASH = false;
       const STARTUP_SPLASH_MIN_MS = SHOULD_SHOW_STARTUP_SPLASH ? 850 : 0;
       const STARTUP_SPLASH_EXIT_MS = SHOULD_SHOW_STARTUP_SPLASH ? 260 : 0;
       const STARTUP_SPLASH_STARTED_AT = Date.now();
