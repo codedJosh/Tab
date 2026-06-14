@@ -9394,6 +9394,31 @@
         object-fit: cover;
       }
 
+      .banner-crop-controls {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid rgba(20, 49, 38, 0.1);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.34);
+      }
+
+      .banner-crop-controls label {
+        gap: 6px;
+      }
+
+      .banner-crop-controls input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent-deep);
+      }
+
+      @media (max-width: 720px) {
+        .banner-crop-controls {
+          grid-template-columns: 1fr;
+        }
+      }
+
       .tournament-list-shell {
         display: grid;
         gap: 14px;

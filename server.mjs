@@ -26,6 +26,11 @@ const PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES = Math.max(
   Number(process.env.PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES || 10) || 10,
 );
 const PRIVATE_LINK_EMAIL_COOLDOWN_MS = PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES * 60 * 1000;
+const PASSWORD_RESET_EXPIRY_MINUTES = Math.max(
+  10,
+  Number(process.env.PASSWORD_RESET_EXPIRY_MINUTES || 60) || 60,
+);
+const PASSWORD_RESET_EXPIRY_MS = PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000;
 const WORKSPACE_ID = String(process.env.JADE_WORKSPACE_ID || "primary").trim() || "primary";
 const WORKSPACE_CONTRACT_VERSION = "2026-04-05-ironclad";
 const REQUIRED_WORKSPACE_ROOT_KEYS = [
@@ -1621,6 +1626,14 @@ function hashSessionToken(token) {
   return crypto.createHash("sha256").update(String(token || ""), "utf8").digest("hex");
 }
 
+function createPasswordResetToken() {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+function hashPasswordResetToken(token) {
+  return crypto.createHash("sha256").update(String(token || ""), "utf8").digest("hex");
+}
+
 function sendJson(response, statusCode, payload) {
   response.status(statusCode).json({
     contractVersion: WORKSPACE_CONTRACT_VERSION,
@@ -2012,6 +2025,19 @@ function buildUserAccessUrl(request, token, options = {}) {
   return url.toString();
 }
 
+function buildPasswordResetUrl(request, token) {
+  const baseUrl = resolvePublicDashboardUrl(request);
+  baseUrl.searchParams.delete("access");
+  baseUrl.searchParams.delete("token");
+  baseUrl.searchParams.delete("view");
+  baseUrl.searchParams.delete("manage");
+  baseUrl.searchParams.delete("tab");
+  baseUrl.searchParams.delete("section");
+  baseUrl.searchParams.set("screen", "reset-password");
+  baseUrl.searchParams.set("reset", String(token || "").trim());
+  return baseUrl.toString();
+}
+
 function listRecipientTournamentNames(state, user, tournamentId = "") {
   const names = new Set();
   const tournamentMap = new Map(
@@ -2318,6 +2344,115 @@ async function sendPrivateAccessEmail({
   }
 }
 
+async function sendPasswordResetEmail({ request, user, token } = {}) {
+  const targetUser = user && typeof user === "object" ? user : null;
+  const email = normalizeEmail(targetUser?.email);
+  if (!targetUser || !email) {
+    return {
+      email,
+      status: "skipped",
+      message: "No matching account was available for password reset delivery.",
+    };
+  }
+
+  if (targetUser.active === false) {
+    return {
+      email,
+      status: "skipped",
+      message: "Password reset delivery is disabled for inactive accounts.",
+    };
+  }
+
+  if (!RESEND_API_KEY || !RESEND_FROM_EMAIL) {
+    console.warn(
+      "Password reset email skipped because RESEND_API_KEY or RESEND_FROM_EMAIL is missing.",
+    );
+    return {
+      email,
+      status: "failed",
+      message: "Email delivery is not configured on this backend yet.",
+    };
+  }
+
+  const resetUrl = buildPasswordResetUrl(request, token);
+  const recipientName = String(targetUser.name || "").trim() || "there";
+  const subject = "Reset your " + DEFAULT_BRANDING.appName + " password";
+  const text =
+    "Hi " +
+    recipientName +
+    ",\n\n" +
+    "Use this link to reset your " +
+    DEFAULT_BRANDING.appName +
+    " password. The link expires in " +
+    PASSWORD_RESET_EXPIRY_MINUTES +
+    " minutes.\n\n" +
+    resetUrl +
+    "\n\n" +
+    "If you did not request this reset, you can ignore this email.\n";
+  const html =
+    "<p>Hi " +
+    escapeEmailHtml(recipientName) +
+    ",</p>" +
+    "<p>Use this link to reset your <strong>" +
+    escapeEmailHtml(DEFAULT_BRANDING.appName) +
+    "</strong> password. The link expires in " +
+    escapeEmailHtml(PASSWORD_RESET_EXPIRY_MINUTES) +
+    " minutes.</p>" +
+    "<p><a href=\"" +
+    escapeEmailHtml(resetUrl) +
+    "\">Reset your password</a></p>" +
+    "<p>If you did not request this reset, you can ignore this email.</p>";
+
+  try {
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + RESEND_API_KEY,
+      },
+      body: JSON.stringify({
+        from: RESEND_FROM_EMAIL,
+        to: [email],
+        subject,
+        text,
+        html,
+        ...(RESEND_REPLY_TO ? { reply_to: RESEND_REPLY_TO } : {}),
+      }),
+    });
+
+    if (!resendResponse.ok) {
+      let providerMessage = "Email provider rejected the request.";
+      try {
+        const payload = await resendResponse.json();
+        if (payload?.message) {
+          providerMessage = String(payload.message);
+        }
+      } catch (error) {
+        // Keep the default provider message.
+      }
+      console.error("Password reset email delivery failed:", resendResponse.status, providerMessage);
+      return {
+        email,
+        status: "failed",
+        message: "Password reset email delivery failed.",
+      };
+    }
+
+    return {
+      email,
+      status: "sent",
+      message: "Password reset email sent.",
+    };
+  } catch (error) {
+    console.error("Password reset email delivery crashed:", error);
+    return {
+      email,
+      status: "failed",
+      message: "Password reset email delivery failed.",
+    };
+  }
+}
+
 function collectPersistPrivateEmailTargets(previousState, nextState) {
   const previousUsersByEmail = new Map(
     (previousState?.users || []).map((user) => [normalizeEmail(user.email), user]),
@@ -2471,7 +2606,7 @@ async function deliverPersistPrivateAccessEmails({ previousState, nextState, req
   return results;
 }
 
-function buildRecoveryRequest(state, email, note = "") {
+function buildRecoveryRequest(state, email, note = "", extraFields = {}) {
   const knownAccount = (state.users || []).some((user) => user.email === email);
   const submittedAt = nowText();
   const submittedAtKey = Date.now();
@@ -2484,10 +2619,11 @@ function buildRecoveryRequest(state, email, note = "") {
     existing.knownAccount = knownAccount;
     existing.submittedAt = submittedAt;
     existing.submittedAtKey = submittedAtKey;
-    return;
+    Object.assign(existing, extraFields);
+    return existing;
   }
 
-  state.recoveryRequests.unshift({
+  const entry = {
     id: createId("recovery"),
     email,
     note,
@@ -2497,7 +2633,10 @@ function buildRecoveryRequest(state, email, note = "") {
     status: "open",
     resolvedAt: "",
     resolvedBy: "",
-  });
+    ...extraFields,
+  };
+  state.recoveryRequests.unshift(entry);
+  return entry;
 }
 
 const app = express();
@@ -3364,7 +3503,123 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        buildRecoveryRequest(state, email, note);
+        if (!email) {
+          const error = new Error("Enter the email address linked to your account.");
+          error.statusCode = 422;
+          error.code = "missing_email";
+          throw error;
+        }
+
+        const user =
+          (state.users || []).find((entry) => normalizeEmail(entry.email) === email) || null;
+        const token = user?.active === false ? "" : createPasswordResetToken();
+        const tokenHash = token ? hashPasswordResetToken(token) : "";
+        const expiresAtKey = token ? Date.now() + PASSWORD_RESET_EXPIRY_MS : 0;
+        const recoveryRequest = buildRecoveryRequest(state, email, note, {
+          selfService: true,
+          resetTokenHash: tokenHash,
+          resetTokenExpiresAtKey: expiresAtKey,
+          resetTokenExpiresAt: expiresAtKey ? new Date(expiresAtKey).toISOString() : "",
+          resetSentAt: "",
+          resetEmailStatus: "",
+        });
+
+        let notification = {
+          email,
+          status: "skipped",
+          message: "If the account exists, a reset email will be sent.",
+        };
+        if (user && token) {
+          notification = await sendPasswordResetEmail({ request, user, token });
+          recoveryRequest.resetSentAt = nowText();
+          recoveryRequest.resetEmailStatus = notification.status;
+        }
+
+        const savedWorkspace = await writeWorkspaceState(client, state, {
+          expectedRevision: workspace.revision,
+        });
+        return {
+          state: savedWorkspace.state,
+          revision: savedWorkspace.revision,
+          notifications: [notification],
+        };
+      });
+
+      sendStatePayload(response, 200, result);
+      return;
+    }
+
+    if (action === "reset_password_with_token") {
+      const token = String(request.body?.token || "").trim();
+      const password = String(request.body?.password || "");
+
+      const result = await withTransaction(async (client) => {
+        const workspace = await readWorkspaceRecord(client);
+        const state = workspace?.state;
+        if (!state) {
+          const error = new Error("The shared backend workspace has not been initialized yet.");
+          error.statusCode = 409;
+          error.code = "workspace_not_initialized";
+          throw error;
+        }
+
+        const minimumPasswordLength = Number(state.appSettings?.auth?.minimumPasswordLength || 12);
+        if (password.length < minimumPasswordLength) {
+          const error = new Error(
+            "Password must be at least " + minimumPasswordLength + " characters long.",
+          );
+          error.statusCode = 422;
+          error.code = "password_too_short";
+          throw error;
+        }
+
+        const tokenHash = hashPasswordResetToken(token);
+        const recoveryRequest =
+          (state.recoveryRequests || []).find(
+            (entry) =>
+              entry?.status === "open" &&
+              String(entry?.resetTokenHash || "").trim() &&
+              String(entry?.resetTokenHash || "").trim() === tokenHash,
+          ) || null;
+
+        if (!recoveryRequest) {
+          const error = new Error("This reset link is invalid or has already been used.");
+          error.statusCode = 404;
+          error.code = "invalid_reset_token";
+          throw error;
+        }
+
+        if (Number(recoveryRequest.resetTokenExpiresAtKey || 0) < Date.now()) {
+          recoveryRequest.status = "expired";
+          recoveryRequest.resolvedAt = nowText();
+          recoveryRequest.resolvedBy = "system";
+          recoveryRequest.resetTokenHash = "";
+          const error = new Error("This reset link has expired. Please request a new one.");
+          error.statusCode = 410;
+          error.code = "reset_token_expired";
+          throw error;
+        }
+
+        const user =
+          (state.users || []).find(
+            (entry) => normalizeEmail(entry.email) === normalizeEmail(recoveryRequest.email),
+          ) || null;
+        if (!user || user.active === false) {
+          const error = new Error("This account is not available for password reset.");
+          error.statusCode = 403;
+          error.code = "account_unavailable";
+          throw error;
+        }
+
+        Object.assign(user, buildSecurePasswordRecord(password));
+        user.passwordUpdatedAt = nowText();
+        recoveryRequest.status = "resolved";
+        recoveryRequest.resolvedAt = nowText();
+        recoveryRequest.resolvedBy = normalizeEmail(user.email);
+        recoveryRequest.resetTokenHash = "";
+        recoveryRequest.resetTokenExpiresAtKey = 0;
+        recoveryRequest.resetTokenExpiresAt = "";
+
         const savedWorkspace = await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });

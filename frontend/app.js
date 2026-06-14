@@ -79,6 +79,7 @@
         "regional-ops-sign-in",
         "sign-up",
         "forgot-password",
+        "reset-password",
         "manager-reset-password",
         "reset-user-password",
         "reset-regional-ops-password",
@@ -3250,12 +3251,6 @@
               group: "Tools",
             },
             {
-              key: "links",
-              label: "Private link",
-              count: null,
-              group: "Tools",
-            },
-            {
               key: "settings",
               label: "Settings",
               count: null,
@@ -3289,12 +3284,6 @@
               label: "Tournaments",
               count: getVisibleTournaments(email).length,
               group: "Judge",
-            },
-            {
-              key: "links",
-              label: "Private link",
-              count: null,
-              group: "Tools",
             },
             {
               key: "settings",
@@ -3358,14 +3347,6 @@
             count: getAccountSpeakerHistoryProfiles(email, { includeHidden: true }).length,
             group: "History",
           });
-        }
-
-        if (capabilities.canViewPeople) {
-          items.push({ key: "people", label: "People", count: state.users.length, group: "People" });
-        }
-
-        if (capabilities.canViewLinks) {
-          items.push({ key: "links", label: "Private Links", count: stats.privateLinks, group: "Publication" });
         }
 
         if (capabilities.canViewSettings) {
@@ -12110,6 +12091,7 @@
             "register-judge",
             "regional-operations",
             "forgot-password",
+            "reset-password",
             "create-account",
           ].includes(forcedScreen)
         ) {
@@ -12124,6 +12106,7 @@
             "register-judge",
             "regional-operations",
             "forgot-password",
+            "reset-password",
             "create-account",
           ].includes(screen)
         ) {
@@ -14220,7 +14203,7 @@
                       </div>
                     </div>
                     <p class="hero-copy premium-hero-copy">
-                      Send a reset request for the account linked to your email.
+                      Send a secure password reset link to the email on your account.
                     </p>
                     <div class="button-row wrap-row">
                       <button class="button-primary" type="button" data-action="set-public-view" data-view="auth">Back to sign in</button>
@@ -14231,8 +14214,8 @@
                   <div class="form-shell">
                     <div class="section-heading">
                       <div>
-                        <p class="eyebrow">Reset request</p>
-                        <h2>Request password help</h2>
+                        <p class="eyebrow">Password reset</p>
+                        <h2>Email me a reset link</h2>
                       </div>
                     </div>
                     ${renderFlash()}
@@ -14244,14 +14227,79 @@
                               Email address
                               <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
                             </label>
-                            <label>
-                              Note for the organizer
-                              <textarea name="note" rows="3" placeholder="Optional context, such as the tournament you need to access."></textarea>
-                            </label>
-                            <button type="submit">Send reset request</button>
+                            <button type="submit">Send Reset Link</button>
                           </form>
                         `
                         : `<div class="alert info">Password reset is currently turned off. Please contact your tournament organizer.</div>`
+                    }
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function getPasswordResetTokenFromUrl() {
+        try {
+          const url = new URL(window.location.href);
+          return String(url.searchParams.get("reset") || "").trim();
+        } catch (_error) {
+          return "";
+        }
+      }
+
+      function renderResetPasswordPublicView() {
+        const token = getPasswordResetTokenFromUrl();
+        return `
+          <div class="auth-page">
+            <div class="page-shell">
+              <div class="stack public-front-page auth-flow-page">
+                <section class="hero-panel auth-hero public-hero-panel premium-home-hero compact-auth-hero">
+                  <div class="public-hero-content">
+                    <div class="public-hero-title-lockup">
+                      <div class="jade-logo-wrap hero-logo-wrap">
+                        <img class="jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird logo" />
+                      </div>
+                      <div>
+                        <p class="eyebrow">Password Reset</p>
+                        <h1>Create new password</h1>
+                      </div>
+                    </div>
+                    <p class="hero-copy premium-hero-copy">
+                      Choose a new password for your Hummingbird account.
+                    </p>
+                    <div class="button-row wrap-row">
+                      <button class="button-primary" type="button" data-action="set-public-view" data-view="auth">Back to sign in</button>
+                    </div>
+                  </div>
+                </section>
+                <section class="auth-card auth-flow-card">
+                  <div class="form-shell">
+                    <div class="section-heading">
+                      <div>
+                        <p class="eyebrow">Secure link</p>
+                        <h2>Reset your password</h2>
+                      </div>
+                    </div>
+                    ${renderFlash()}
+                    ${
+                      token
+                        ? `
+                          <form class="stack" data-form="reset-password-with-token">
+                            <input type="hidden" name="token" value="${escapeAttributeValue(token)}" />
+                            <label>
+                              New password
+                              <input type="password" name="password" placeholder="New password" autocomplete="new-password" required />
+                            </label>
+                            <label>
+                              Confirm new password
+                              <input type="password" name="confirmPassword" placeholder="Confirm new password" autocomplete="new-password" required />
+                            </label>
+                            <button type="submit">Reset Password</button>
+                          </form>
+                        `
+                        : `<div class="alert info">This reset link is missing its secure token. Please request a new password reset email.</div>`
                     }
                   </div>
                 </section>
@@ -14728,6 +14776,7 @@
         const managerOpsButtons = capabilities.canManageAny && !capabilities.regionalPortalMode && activeManagedTournament
           ? [
               { section: "roster", label: "Team Registration" },
+              { section: "participants", label: "Participants" },
               { section: "draw", label: "Round Draw" },
               { section: "draw-review", label: "Draw Review" },
               { section: "motions", label: "Motions" },
@@ -16182,6 +16231,23 @@
               <input type="file" name="bannerFile" accept="image/*" />
               <span class="fine-print">Upload a wide rectangular image for this tournament. If no banner is uploaded, no banner appears above the workspace.</span>
             </label>
+            <div class="banner-crop-controls" aria-label="Tournament banner crop controls">
+              <label>
+                Horizontal crop
+                <input type="range" name="bannerCropX" min="0" max="100" value="50" />
+                <span class="fine-print">Move the crop left or right.</span>
+              </label>
+              <label>
+                Vertical crop
+                <input type="range" name="bannerCropY" min="0" max="100" value="50" />
+                <span class="fine-print">Move the crop up or down.</span>
+              </label>
+              <label>
+                Zoom
+                <input type="range" name="bannerCropZoom" min="100" max="180" value="100" />
+                <span class="fine-print">Zoom in before saving the banner.</span>
+              </label>
+            </div>
             ${
               String(tournament.bannerImage || "").trim()
                 ? `<label class="checkbox-row">
@@ -17660,6 +17726,185 @@
         return "focus-" + String(sectionKey || "").trim() + "-" + String(tournamentId || "").trim();
       }
 
+      function getTournamentParticipantDirectory(tournament) {
+        if (!tournament) {
+          return [];
+        }
+
+        const rows = new Map();
+        const remember = (keySeed, details = {}) => {
+          const email = normalizeEmail(details.email);
+          const name = String(details.name || email || "Participant").trim() || "Participant";
+          const key = email || String(keySeed || name).trim().toLowerCase();
+          if (!key) {
+            return;
+          }
+          const existing =
+            rows.get(key) || {
+              key,
+              name,
+              email,
+              institution: "",
+              teamName: "",
+              roles: new Set(),
+              participantId: "",
+              participantToken: "",
+              judgeId: "",
+            };
+          existing.name = String(existing.name || name).trim() || name;
+          existing.email = existing.email || email;
+          existing.institution =
+            existing.institution || String(details.institution || "").trim();
+          existing.teamName = existing.teamName || String(details.teamName || "").trim();
+          existing.participantId =
+            existing.participantId || String(details.participantId || "").trim();
+          existing.participantToken =
+            existing.participantToken || String(details.participantToken || "").trim();
+          existing.judgeId = existing.judgeId || String(details.judgeId || "").trim();
+          (Array.isArray(details.roles) ? details.roles : [details.role])
+            .map((role) => String(role || "").trim())
+            .filter(Boolean)
+            .forEach((role) => existing.roles.add(role));
+          rows.set(key, existing);
+        };
+
+        (tournament.participants || []).forEach((participant) => {
+          remember(participant.id || participant.email || participant.name, {
+            name: participant.name,
+            email: participant.email,
+            institution: participant.institution,
+            teamName: participant.teamName,
+            role: "Debater",
+            participantId: participant.id,
+            participantToken: participant.token,
+          });
+        });
+
+        (tournament.judges || []).forEach((judge) => {
+          remember(judge.id || judge.email || judge.name, {
+            name: judge.name,
+            email: judge.email,
+            institution: judge.institution,
+            role: "Judge",
+            judgeId: judge.id,
+          });
+        });
+
+        const permissions = normalizeTournamentPermissions(tournament.permissions || {});
+        getTournamentPermissionRoleConfigs({ includeLegacy: true }).forEach((config) => {
+          (permissions[config.key] || []).forEach((email) => {
+            const user = getUserByEmail(email);
+            remember(email, {
+              name: user?.name || email,
+              email,
+              role: config.assignmentLabel || config.label,
+            });
+          });
+        });
+
+        return Array.from(rows.values())
+          .map((row) => ({
+            ...row,
+            roles: Array.from(row.roles).sort((left, right) => left.localeCompare(right)),
+          }))
+          .sort(
+            (left, right) =>
+              String(left.teamName || "").localeCompare(String(right.teamName || "")) ||
+              String(left.name || "").localeCompare(String(right.name || "")),
+          );
+      }
+
+      function renderTournamentParticipantsStudio(tournament) {
+        const rows = getTournamentParticipantDirectory(tournament);
+        const canManage = canManageTournament(tournament);
+        const currentEmail = normalizeEmail(session.userEmail);
+
+        return `
+          <section class="surface">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Participants</p>
+                <h2>Tournament people</h2>
+              </div>
+              <span class="role-pill">${escapeHtml(rows.length)} people</span>
+            </div>
+            ${
+              rows.length
+                ? `<div class="regional-list-stack participant-scope-list">
+                    ${rows
+                      .map((row) => {
+                        const isCurrentUser = normalizeEmail(row.email) === currentEmail;
+                        const account = row.email ? getUserByEmail(row.email) : null;
+                        return `
+                          <details class="regional-log-details participant-scope-row">
+                            <summary class="regional-log-summary">
+                              <div class="regional-log-summary-main">
+                                <strong>${escapeHtml(row.name || row.email || "Participant")}</strong>
+                                <p class="muted">${escapeHtml(
+                                  [
+                                    row.teamName,
+                                    row.institution,
+                                    row.roles.join(", "),
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" • ") || "Tournament participant",
+                                )}</p>
+                              </div>
+                              <span class="mini-pill success">${escapeHtml(
+                                row.roles[0] || "Participant",
+                              )}</span>
+                            </summary>
+                            <div class="regional-log-details-body">
+                              <div class="workspace-chip-row">
+                                ${row.roles
+                                  .map(
+                                    (role) =>
+                                      `<span class="role-pill">${escapeHtml(role)}</span>`,
+                                  )
+                                  .join("")}
+                              </div>
+                              <p class="fine-print">${escapeHtml(
+                                row.email || "No email address saved.",
+                              )}</p>
+                              <div class="button-row wrap-row">
+                                ${
+                                  row.participantToken
+                                    ? `<button class="secondary-button button-size-small" type="button" data-action="copy-link" data-id="${escapeHtml(
+                                        tournament.id,
+                                      )}" data-participant-id="${escapeHtml(
+                                        row.participantId,
+                                      )}">Copy private link</button>`
+                                    : ""
+                                }
+                                ${
+                                  row.participantToken && canManage
+                                    ? `<button class="secondary-button button-size-small" type="button" data-action="rotate-link" data-id="${escapeHtml(
+                                        tournament.id,
+                                      )}" data-participant-id="${escapeHtml(
+                                        row.participantId,
+                                      )}">Reset private link</button>`
+                                    : ""
+                                }
+                                ${
+                                  account?.privateAccessToken && isCurrentUser
+                                    ? `<button class="secondary-button button-size-small" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
+                                        row.email,
+                                      )}">Copy account link</button>`
+                                    : ""
+                                }
+                              </div>
+                            </div>
+                          </details>
+                        `;
+                      })
+                      .join("")}
+                  </div>`
+                : `<div class="empty-state">No tournament participants have been added yet.</div>`
+            }
+          </section>
+        `;
+      }
+
       function getFocusedTournamentSections(
         tournament,
         feedbackCategories = [],
@@ -17686,6 +17931,15 @@
               ? tournament.participants.length + " entries"
               : "No entries",
             render: () => renderTournamentRosterStudio(tournament),
+          },
+          {
+            key: "participants",
+            label: "Participants",
+            note: "Tournament people, private links, and assigned roles.",
+            badge: getTournamentParticipantDirectory(tournament).length
+              ? getTournamentParticipantDirectory(tournament).length + " people"
+              : "No people",
+            render: () => renderTournamentParticipantsStudio(tournament),
           },
           {
             key: "draw",
@@ -17815,6 +18069,7 @@
         if (peopleAccess || judgeAccess) {
           allowedKeys.add("roster");
           allowedKeys.add("directory");
+          allowedKeys.add("participants");
         }
         if (backstage) {
           allowedKeys.add("judges");
@@ -23218,7 +23473,7 @@
         });
       }
 
-      async function readImageAsOptimizedDataUrl(file) {
+      async function readImageAsOptimizedDataUrl(file, cropOptions = {}) {
         if (!file || typeof file !== "object" || !file.size) {
           return null;
         }
@@ -23236,9 +23491,24 @@
           });
           const sourceWidth = Math.max(1, Number(image.naturalWidth || image.width || 1));
           const sourceHeight = Math.max(1, Number(image.naturalHeight || image.height || 1));
-          const scale = Math.min(1, 1600 / sourceWidth, 600 / sourceHeight);
-          const width = Math.max(1, Math.round(sourceWidth * scale));
-          const height = Math.max(1, Math.round(sourceHeight * scale));
+          const width = 1600;
+          const height = 600;
+          const cropX = Math.max(0, Math.min(100, Number(cropOptions.x ?? 50))) / 100;
+          const cropY = Math.max(0, Math.min(100, Number(cropOptions.y ?? 50))) / 100;
+          const zoom = Math.max(1, Math.min(1.8, Number(cropOptions.zoom ?? 1)));
+          const targetRatio = width / height;
+          let cropWidth = sourceWidth;
+          let cropHeight = Math.round(cropWidth / targetRatio);
+          if (cropHeight > sourceHeight) {
+            cropHeight = sourceHeight;
+            cropWidth = Math.round(cropHeight * targetRatio);
+          }
+          cropWidth = Math.max(1, Math.round(cropWidth / zoom));
+          cropHeight = Math.max(1, Math.round(cropHeight / zoom));
+          const maxX = Math.max(0, sourceWidth - cropWidth);
+          const maxY = Math.max(0, sourceHeight - cropHeight);
+          const sourceX = Math.round(maxX * cropX);
+          const sourceY = Math.round(maxY * cropY);
           const canvas = document.createElement("canvas");
           canvas.width = width;
           canvas.height = height;
@@ -23246,7 +23516,17 @@
           if (!context) {
             throw new Error("This browser could not prepare the tournament banner.");
           }
-          context.drawImage(image, 0, 0, width, height);
+          context.drawImage(
+            image,
+            sourceX,
+            sourceY,
+            cropWidth,
+            cropHeight,
+            0,
+            0,
+            width,
+            height,
+          );
           const blob = await new Promise((resolve) => {
             canvas.toBlob(resolve, "image/webp", 0.8);
           });
@@ -24972,6 +25252,8 @@
 	                      ? renderRegionalOperationsPublicView()
 	                      : publicView === "forgot-password"
 	                        ? renderForgotPasswordPublicView()
+	                        : publicView === "reset-password"
+	                          ? renderResetPasswordPublicView()
 	                        : publicView === "create-account"
 	                          ? renderCreateAccountPublicView()
 	                          : renderAuthView();
@@ -26035,7 +26317,7 @@
             });
             setFlash(
               "success",
-              "If an account exists for that email address, the password reset request has been logged for the manager.",
+              "If an account exists for that email address, a password reset link has been sent.",
             );
           } catch (error) {
             setFlash(
@@ -26047,36 +26329,63 @@
           return;
         }
 
-        const existing = (state.recoveryRequests || []).find(
-          (request) => request.email === email && request.status === "open",
+        setFlash(
+          "error",
+          "Password reset emails require the shared backend. Please try again when the shared account service is online.",
         );
-        const knownAccount = state.users.some((user) => user.email === email);
-        const submittedAt = timestamp();
-        const submittedAtKey = Date.now();
+        renderApp();
+      }
 
-        if (existing) {
-          existing.note = note || existing.note;
-          existing.knownAccount = knownAccount;
-          existing.submittedAt = submittedAt;
-          existing.submittedAtKey = submittedAtKey;
-        } else {
-          state.recoveryRequests.unshift({
-            id: createId("recovery"),
-            email,
-            note,
-            knownAccount,
-            submittedAt,
-            submittedAtKey,
-            status: "open",
-            resolvedAt: "",
-            resolvedBy: "",
-          });
+      async function resetPasswordWithToken(formData) {
+        const token = String(formData.get("token") || "").trim();
+        const password = String(formData.get("password") || "");
+        const confirmPassword = String(formData.get("confirmPassword") || "");
+
+        if (!token) {
+          setFlash("error", "This reset link is missing its secure token. Request a new reset email.");
+          renderApp();
+          return;
         }
 
-        persist(
-          "success",
-          "If an account exists for that email address, the password reset request has been logged for the manager.",
-        );
+        if (!password || password !== confirmPassword) {
+          setFlash("error", "Enter the same new password in both fields.");
+          renderApp();
+          return;
+        }
+
+        if (!(await probeCloudBackend(true))) {
+          setFlash(
+            "error",
+            requiresSharedBackend()
+              ? getSharedBackendUnavailableMessage()
+              : "Password reset requires the shared account service. Please try again in a moment.",
+          );
+          renderApp();
+          return;
+        }
+
+        try {
+          const result = await callCloud("reset_password_with_token", {
+            token,
+            password,
+          });
+          if (result?.state) {
+            state = await rehydrateState(result.state);
+            saveState();
+          }
+          session.view = "auth";
+          const url = new URL(window.location.href);
+          url.searchParams.delete("reset");
+          url.searchParams.delete("screen");
+          window.history.replaceState({}, "", url.toString());
+          setFlash("success", "Your password has been reset. Sign in with your new password.");
+        } catch (error) {
+          setFlash(
+            "error",
+            error.message || "This reset link could not be used. Please request a new one.",
+          );
+        }
+        renderApp();
       }
 
       async function setUserPasswordInternal(targetEmail, password) {
@@ -27498,7 +27807,11 @@
         if (!ensureTournamentManagerById(tournamentId)) return;
         let uploadedBannerImage = "";
         try {
-          uploadedBannerImage = await readImageAsOptimizedDataUrl(formData.get("bannerFile"));
+          uploadedBannerImage = await readImageAsOptimizedDataUrl(formData.get("bannerFile"), {
+            x: formData.get("bannerCropX"),
+            y: formData.get("bannerCropY"),
+            zoom: Number(formData.get("bannerCropZoom") || 100) / 100,
+          });
         } catch (error) {
           console.error("Tournament banner upload failed", error);
           setFlash("error", "The tournament banner image could not be read. Try a smaller image or a different file.");
@@ -31613,6 +31926,11 @@
 
           if (form.dataset.form === "forgot-password") {
             await submitPasswordResetRequest(formData);
+            return;
+          }
+
+          if (form.dataset.form === "reset-password-with-token") {
+            await resetPasswordWithToken(formData);
             return;
           }
 
