@@ -23576,7 +23576,7 @@
               <p class="fine-print">Uses your device password manager. JADE does not store the password.</p>
               ${
                 devicePasswordSavingSupported
-                  ? `<p class="auth-footer">Enter your current password to update this setting.</p>`
+                  ? ""
                   : `<div class="alert warning">This browser does not support secure device password saving through the app.</div>`
               }
               <button type="submit" ${devicePasswordSavingSupported ? "" : "disabled"}>${
