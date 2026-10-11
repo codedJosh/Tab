@@ -5068,8 +5068,7 @@
                     )}">
                       <div class="round-planner-card-header">
                         <div class="round-planner-card-title">
-                          <p class="eyebrow">Round ${escapeHtml(profile.round)}</p>
-                          <strong>${escapeHtml(profile.label || "Round " + profile.round)}</strong>
+                          <strong>Round ${escapeHtml(profile.round)}</strong>
                         </div>
                         <span class="mini-pill ${escapeHtml(
                           isOutroundProfile(profile) ? "warning" : "success",
@@ -5077,7 +5076,7 @@
                       </div>
                       <div class="field-grid two round-planner-card-grid">
                         <label>
-                          Label
+                          Round name
                           <input type="text" name="roundLabel-${escapeHtml(
                             profile.round,
                           )}" value="${escapeHtml(profile.label)}" />
@@ -5837,7 +5836,6 @@
             );
             const teamRecord = createTeamRecord(label || "Pairing Team " + (index + 1), institutionLabel, {
               source: "generated",
-              notes: "Round-generated speaker pairing.",
             });
 
             return {
@@ -8695,7 +8693,9 @@
           publicAlias: String(
             extras.publicAlias || extras.codeName || extras.publicName || "",
           ).trim(),
-          notes: String(extras.notes || "").trim(),
+          notes: ["randomly generated team.", "round-generated speaker pairing."].includes(
+            String(extras.notes || "").trim().toLowerCase(),
+          ) ? "" : String(extras.notes || "").trim(),
           source,
           createdAt: extras.createdAt || timestamp(),
         };
@@ -12664,106 +12664,6 @@
           );
       }
 
-      function renderSmartActionLink(label, href) {
-        const target = String(href || "").trim();
-        if (!target) {
-          return "";
-        }
-        return `<a class="secondary-button inline-link" href="${escapeHtml(target)}">${escapeHtml(
-          label,
-        )}</a>`;
-      }
-
-      function renderSmartInsightSection({
-        eyebrow = "Hummingbird Intelligence",
-        title = "What needs attention next",
-        intro = "The workspace is reading the live state and surfacing the strongest next actions.",
-        items = [],
-        badgeLabel = "",
-        emptyMessage = "Everything looks steady right now.",
-      } = {}) {
-        const insights = Array.isArray(items) ? items.filter(Boolean).slice(0, 4) : [];
-        return `
-          <section class="surface spotlight-shell smart-insight-shell">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">${escapeHtml(eyebrow)}</p>
-                <h2>${escapeHtml(title)}</h2>
-              </div>
-              ${badgeLabel ? `<span class="role-pill">${escapeHtml(badgeLabel)}</span>` : ""}
-            </div>
-            ${
-              insights.length
-                ? `<div class="smart-insight-grid">
-                    ${insights
-                      .map((item) => {
-                        const tone = ["danger", "warning", "success"].includes(item.tone)
-                          ? item.tone
-                          : "success";
-                        return `
-                          <article class="spotlight-card smart-insight-card">
-                            <div class="smart-insight-card-top">
-                              <h3>${escapeHtml(item.title || "Next action")}</h3>
-                              ${
-                                item.label
-                                  ? `<span class="mini-pill ${escapeHtml(tone)}">${escapeHtml(
-                                      item.label,
-                                    )}</span>`
-                                  : ""
-                            }
-                          </div>
-                            ${
-                              item.actionMarkup
-                                ? `<div class="button-row wrap-row">${item.actionMarkup}</div>`
-                                : ""
-                            }
-                          </article>
-                        `;
-                      })
-                      .join("")}
-                  </div>`
-                : `<div class="alert success">${escapeHtml(emptyMessage)}</div>`
-            }
-          </section>
-        `;
-      }
-
-      function renderOverviewLaunchDeck(items = []) {
-        const launchItems = Array.isArray(items) ? items.filter(Boolean) : [];
-        if (!launchItems.length) {
-          return "";
-        }
-        return `
-          <div class="overview-launch-grid">
-            ${launchItems
-              .map((item) => {
-                const tone = ["success", "warning", "danger"].includes(item.tone)
-                  ? item.tone
-                  : "success";
-                return `
-                  <article class="overview-launch-card ${escapeHtml(item.tone ? "is-" + tone : "")}">
-                    <div class="overview-launch-card-top">
-                      <h3>${escapeHtml(item.title || "Open")}</h3>
-                      ${
-                        item.badge
-                          ? `<span class="mini-pill ${escapeHtml(tone)}">${escapeHtml(item.badge)}</span>`
-                          : ""
-                      }
-                    </div>
-                    ${item.body ? `<p class="muted">${escapeHtml(item.body)}</p>` : ""}
-                    ${
-                      item.actionMarkup
-                        ? `<div class="button-row wrap-row">${item.actionMarkup}</div>`
-                        : ""
-                    }
-                  </article>
-                `;
-              })
-              .join("")}
-          </div>
-        `;
-      }
-
       function getHomeNoticeFeedRecords({
         email = session.userEmail,
         capabilities = getWorkspaceCapabilities(email),
@@ -12845,18 +12745,15 @@
           judgeAssignments,
           limit: 8,
         });
+        if (!feed.length) return "";
         return `
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">${escapeHtml(scopeLabel)}</p>
-                <h3>Latest notices for your role</h3>
+                <h3>${escapeHtml(scopeLabel)}</h3>
               </div>
-              <span class="role-pill">${escapeHtml(feed.length)} live</span>
             </div>
-            ${
-              feed.length
-                ? `<div class="notice-list">
+            <div class="notice-list">
                     ${feed
                       .map(({ notice, tournament }) => {
                         const openAction = renderTournamentNavigationButton(
@@ -12893,526 +12790,9 @@
                         `;
                       })
                       .join("")}
-                  </div>`
-                : `<div class="empty-state">No role-specific notices are live right now.</div>`
-            }
+                  </div>
           </section>
         `;
-      }
-
-      function getManagedTournamentSnapshotList(visibleTournaments = getVisibleTournaments()) {
-        return (Array.isArray(visibleTournaments) ? visibleTournaments : [])
-          .filter((tournament) => canManageTournament(tournament))
-          .map((tournament) => ({
-            tournament,
-            snapshot: getTournamentOpsSnapshot(tournament),
-          }))
-          .sort((left, right) => {
-            const leftWeight =
-              left.snapshot.attentionCount * 100 +
-              left.snapshot.pendingBallotRooms * 25 +
-              left.snapshot.draftRooms * 10 +
-              left.snapshot.conflictFlags * 5;
-            const rightWeight =
-              right.snapshot.attentionCount * 100 +
-              right.snapshot.pendingBallotRooms * 25 +
-              right.snapshot.draftRooms * 10 +
-              right.snapshot.conflictFlags * 5;
-            return (
-              rightWeight - leftWeight ||
-              String(left.tournament.name || "").localeCompare(String(right.tournament.name || ""))
-            );
-          });
-      }
-
-      function getWorkspaceSmartInsights({
-        capabilities = getWorkspaceCapabilities(),
-        visibleTournaments = getVisibleTournaments(),
-        judgeAssignments = getJudgeAssignments(),
-        openRecoveryRequests = getOpenRecoveryRequests(),
-        stats = getOverviewStats(),
-        managerMetrics = getManagerMetrics(),
-      } = {}) {
-        const insights = [];
-
-        if (capabilities.canManageAny) {
-          const managedSnapshots = getManagedTournamentSnapshotList(visibleTournaments);
-          const hottestTournament = managedSnapshots[0] || null;
-          const releaseReady = managedSnapshots.find(
-            ({ tournament, snapshot }) =>
-              snapshot.publishedRooms &&
-              !snapshot.pendingBallotRooms &&
-              !tournament.publication.showPublicStandings,
-          );
-          const regionalSummary = canAccessRegionalOperations()
-            ? getRegionalOperationsSummary()
-            : null;
-
-          if (hottestTournament && hottestTournament.snapshot.attentionCount) {
-            insights.push({
-              tone:
-                hottestTournament.snapshot.pendingBallotRooms ||
-                hottestTournament.snapshot.chairlessRooms ||
-                hottestTournament.snapshot.conflictFlags
-                  ? "danger"
-                  : "warning",
-              label:
-                hottestTournament.snapshot.attentionCount +
-                " watchpoint" +
-                (hottestTournament.snapshot.attentionCount === 1 ? "" : "s"),
-              eyebrow: "Tournament focus",
-              title: hottestTournament.tournament.name + " needs intervention",
-              body:
-                hottestTournament.snapshot.attention[0] ||
-                "This tournament has multiple live blockers in its workflow.",
-              support:
-                "Open the focused tournament workspace and clear the bottleneck before moving to the next queue.",
-              actionMarkup: renderTournamentNavigationButton(
-                hottestTournament.tournament,
-                "Open " + (hottestTournament.tournament.code || "Tournament"),
-                true,
-              ),
-            });
-          }
-
-          if (managerMetrics.pendingAccounts || openRecoveryRequests.length) {
-            insights.push({
-              tone: "warning",
-              label:
-                managerMetrics.pendingAccounts +
-                " pending • " +
-                openRecoveryRequests.length +
-                " resets",
-              eyebrow: "Account queue",
-              title: "People and access need a pass",
-              body:
-                managerMetrics.pendingAccounts +
-                " account" +
-                (managerMetrics.pendingAccounts === 1 ? " is" : "s are") +
-                " still waiting to be claimed, and " +
-                openRecoveryRequests.length +
-                " recovery request" +
-                (openRecoveryRequests.length === 1 ? " is" : "s are") +
-                " still open.",
-              support:
-                "Use People and Access Control before registrations or permissions start drifting.",
-              actionMarkup:
-                `<button class="secondary-button" type="button" data-action="set-view" data-view="people">Open People</button>` +
-                `<button class="secondary-button" type="button" data-action="set-view" data-view="settings">Open Settings</button>`,
-            });
-          }
-
-          if (regionalSummary && regionalSummary.pendingFundingRequests) {
-            insights.push({
-              tone: regionalSummary.pendingFundingRequests > 3 ? "danger" : "warning",
-              label:
-                regionalSummary.pendingFundingRequests +
-                " pending stipend" +
-                (regionalSummary.pendingFundingRequests === 1 ? "" : "s"),
-              eyebrow: "Regional operations",
-              title: "Transport support is backing up",
-              body:
-                regionalSummary.pendingFundingRequests +
-                " regional funding request" +
-                (regionalSummary.pendingFundingRequests === 1 ? " is" : "s are") +
-                " still waiting on manager review.",
-              support:
-                "The regional portal is now part of the same operating picture, so unresolved field support should surface here too.",
-              actionMarkup: renderSmartActionLink(
-                "Open Regional Ops",
-                getPublicScreenLink("regional-operations"),
-              ),
-            });
-          }
-
-          if (releaseReady) {
-            insights.push({
-              tone: "success",
-              label: "Ready to publish",
-              eyebrow: "Visibility",
-              title: releaseReady.tournament.name + " can now go public",
-              body:
-                "Ballots are settled, but public standings are still hidden for this event.",
-              support:
-                "Open the results area and decide whether to publish the current standings.",
-              actionMarkup: renderTournamentNavigationButton(
-                releaseReady.tournament,
-                "Open Results",
-                true,
-              ),
-            });
-          }
-        } else {
-          const primaryAssignment = Array.isArray(judgeAssignments)
-            ? judgeAssignments[0] || null
-            : null;
-          const liveTournament =
-            visibleTournaments.find(
-              (tournament) => String(tournament.status || "").trim().toLowerCase() === "open",
-            ) ||
-            visibleTournaments[0] ||
-            null;
-
-          if (primaryAssignment) {
-            insights.push({
-              tone: "warning",
-              label: getJudgeAllocationRoleLabel(primaryAssignment.allocation.panelRole),
-              eyebrow: "Judging lane",
-              title: "A live judging room is waiting",
-              body:
-                primaryAssignment.tournament.name +
-                " • Round " +
-                primaryAssignment.allocation.round +
-                " • " +
-                primaryAssignment.allocation.room,
-              support:
-                "Open Judging to submit the next ballot or check the latest room instructions.",
-              actionMarkup:
-                `<button class="secondary-button" type="button" data-action="set-view" data-view="judging">Open Judging</button>` +
-                renderTournamentNavigationButton(
-                  primaryAssignment.tournament,
-                  "Open Tournament",
-                  true,
-                ),
-            });
-          }
-
-          if (liveTournament) {
-            const liveSnapshot = getTournamentOpsSnapshot(liveTournament);
-            insights.push({
-              tone: liveSnapshot.attentionCount ? "warning" : "success",
-              label:
-                String(liveTournament.status || "").trim().toLowerCase() === "open"
-                  ? "Open now"
-                  : "Available",
-              eyebrow: "Tournament focus",
-              title: liveTournament.name + " is the clearest next stop",
-              body:
-                liveSnapshot.latestPublishedRound
-                  ? "Latest released round: " + liveSnapshot.latestPublishedRound + "."
-                  : "Use this tournament as your main live workspace entry point.",
-              support:
-                "The landing page is now steering you toward the most relevant active tournament first.",
-              actionMarkup: renderTournamentNavigationButton(
-                liveTournament,
-                "Open Tournament",
-                true,
-              ),
-            });
-          }
-
-          if (stats.privateLinks) {
-            insights.push({
-              tone: "success",
-              label: stats.privateLinks + " live links",
-              eyebrow: "Access",
-              title: "Private access is ready without extra searching",
-              body:
-                "Open your access links when you want the quickest route back into a tournament, round, or personal portal.",
-              support:
-                "This is especially useful when you want to resume exactly where you left off without hunting through dashboards.",
-              actionMarkup:
-                `<button class="secondary-button" type="button" data-action="set-view" data-view="links">Open Access Links</button>`,
-            });
-          }
-
-          if (canAccessRegionalOperations()) {
-            insights.push({
-              tone: "success",
-              label: "Separate portal",
-              eyebrow: "Regional operations",
-              title: "Your field operations tools stay isolated",
-              body:
-                "Regional reporting and transport funding live in their own portal so they do not crowd your main tournament workspace.",
-              support:
-                "Open the regional portal only when you want reporting, stipends, or regional oversight.",
-              actionMarkup: renderSmartActionLink(
-                "Open Regional Ops",
-                getPublicScreenLink("regional-operations"),
-              ),
-            });
-          }
-        }
-
-        if (!insights.length) {
-          insights.push({
-            tone: "success",
-            label: "Calm workspace",
-            eyebrow: "Hummingbird intelligence",
-            title: "Nothing urgent is fighting you right now",
-            body:
-              "The workspace looks stable, so the smartest move is simply to open the area you want and keep momentum.",
-            support:
-              "Use this breathing room to check tournaments, review people, or clean up publication settings before the next rush.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">Open Tournaments</button>`,
-          });
-        }
-
-        return insights.slice(0, 4);
-      }
-
-      function getTournamentSmartInsights(tournament) {
-        const snapshot = getTournamentOpsSnapshot(tournament);
-        const insights = [];
-
-        if (!snapshot.teams && !snapshot.speakers) {
-          insights.push({
-            tone: "warning",
-            label: "Start here",
-            eyebrow: "Registration",
-            title: "The roster still needs its first entries",
-            body:
-              "No participants have been added yet, so everything downstream is blocked behind roster setup.",
-            support:
-              "Open the roster, add teams or speakers, then the rest of the tab room can begin to move.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="roster">Open Roster</button>`,
-          });
-        }
-
-        if (!snapshot.judges) {
-          insights.push({
-            tone: "warning",
-            label: "Judge gap",
-            eyebrow: "Judge readiness",
-            title: "Adjudicators still need to be added",
-            body:
-              "This tournament does not yet have a judge roster, so panels and clash-safe allocations cannot settle.",
-            support:
-              "Add judges now so allocations, chairs, and panel balance stop being bottlenecks later.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="judges">Open Judges</button>`,
-          });
-        }
-
-        if (!snapshot.totalRooms) {
-          insights.push({
-            tone: "warning",
-            label: "No rooms",
-            eyebrow: "Pairings",
-            title: "The next round still needs to be built",
-            body:
-              snapshot.nextUnbuiltRound
-                ? "Round " + snapshot.nextUnbuiltRound + " is ready to be paired."
-                : "No draw rooms have been created yet for this tournament.",
-            support:
-              "Build the next room set so motions, ballots, and judging can move forward.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Round Draw</button>`,
-          });
-        }
-
-        if (snapshot.conflictFlags) {
-          insights.push({
-            tone: "danger",
-            label:
-              snapshot.conflictFlags +
-              " conflict" +
-              (snapshot.conflictFlags === 1 ? "" : "s"),
-            eyebrow: "Draw safety",
-            title: "The draw needs a clash review",
-            body:
-              "Some room allocations are flagged, so the next public release should be checked before it goes live.",
-            support:
-              "Open the draw lab, inspect the flagged rooms, and resolve conflicts before the next release.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw-review">Review Draw</button>`,
-          });
-        }
-
-        if (snapshot.draftRooms && snapshot.nextDraftRound) {
-          insights.push({
-            tone: "warning",
-            label:
-              snapshot.draftRooms +
-              " draft room" +
-              (snapshot.draftRooms === 1 ? "" : "s"),
-            eyebrow: "Release queue",
-            title: "A round is staged and waiting",
-            body:
-              "Round " + snapshot.nextDraftRound + " is drafted but not public yet.",
-            support:
-              "Release it once the chairing, conflicts, and motion state look right.",
-            actionMarkup: `<button type="button" data-action="release-round-now" data-id="${escapeHtml(
-              tournament.id,
-            )}" data-round="${escapeHtml(snapshot.nextDraftRound)}">Release Round ${escapeHtml(
-              snapshot.nextDraftRound,
-            )}</button>`,
-          });
-        }
-
-        if (snapshot.chairlessRooms) {
-          insights.push({
-            tone: "danger",
-            label:
-              snapshot.chairlessRooms +
-              " unchaired room" +
-              (snapshot.chairlessRooms === 1 ? "" : "s"),
-            eyebrow: "Panel integrity",
-            title: "Some rooms still do not have chairs",
-            body:
-              "Judges exist, but at least one room still lacks an official chair assignment.",
-            support:
-              "Open Judges and finish the panel allocations before the round goes live.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="judges">Assign Chairs</button>`,
-          });
-        }
-
-        if (snapshot.pendingBallotRooms) {
-          insights.push({
-            tone: "danger",
-            label:
-              snapshot.pendingBallotRooms +
-              " pending ballot" +
-              (snapshot.pendingBallotRooms === 1 ? "" : "s"),
-            eyebrow: "Results",
-            title: "Published rooms are still waiting on official ballots",
-            body:
-              "Standings and speaker rankings cannot fully settle until those chair ballots come in.",
-            support:
-              "Open Results to review which published rooms still need their official submission.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Review Results</button>`,
-          });
-        }
-
-        if (
-          snapshot.publishedRooms &&
-          !snapshot.pendingBallotRooms &&
-          !tournament.publication.showPublicStandings
-        ) {
-          insights.push({
-            tone: "success",
-            label: "Ready to reveal",
-            eyebrow: "Publishing",
-            title: "The standings can now go public cleanly",
-            body:
-              "Ballots have settled, but public standings are still switched off for this tournament.",
-            support:
-              "If managers are comfortable with the current results, the tournament is ready for a cleaner public release.",
-            actionMarkup: `<button class="secondary-button" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
-              tournament.id,
-            )}">Show Public Standings</button>`,
-          });
-        }
-
-        if (!insights.length) {
-          insights.push({
-            tone: "success",
-            label: "Healthy",
-            eyebrow: "Flight control",
-            title: "This tournament is currently in a stable rhythm",
-            body:
-              "Registration, judging, room creation, and results are all in a good state right now.",
-            support:
-              "Use the focused workspace for fine-grained management, but there is no urgent blocker demanding intervention.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Open Results</button>`,
-          });
-        }
-
-        return insights.slice(0, 4);
-      }
-
-      function getPeopleSmartInsights({
-        pending = getPendingEmails(),
-        trackedSignups = getTrackedSignupUsers(),
-        appointees = getTournamentAppointeeDashboard(),
-        peopleAccounts = getPeopleAccountCards(),
-      } = {}) {
-        const insights = [];
-        const disabledAccounts = (peopleAccounts || []).filter((user) => user.active === false).length;
-        const selfSignups = (trackedSignups || []).filter(
-          (user) => String(user.createdSource || "").trim().toLowerCase() === "self_signup",
-        ).length;
-        const busiestAppointeeDashboard = [...(appointees || [])].sort(
-          (left, right) => Number(right.total || 0) - Number(left.total || 0),
-        )[0] || null;
-
-        if (pending.length) {
-          insights.push({
-            tone: "warning",
-            label: pending.length + " pending",
-            eyebrow: "Access control",
-            title: "Some invitations still have no claimed password",
-            body:
-              pending.length +
-              " permission-bearing email" +
-              (pending.length === 1 ? " is" : "s are") +
-              " still waiting for the user to finish account setup.",
-            support:
-              "Open Access Control to review the pending queue before tournament permissions start to feel inconsistent.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="open-people-section" data-section="access">Open Access Control</button>`,
-          });
-        }
-
-        if (selfSignups) {
-          insights.push({
-            tone: "success",
-            label: selfSignups + " self sign-up" + (selfSignups === 1 ? "" : "s"),
-            eyebrow: "Registrations",
-            title: "New self-registrations are now part of the live directory",
-            body:
-              "The sign-up dashboard is the fastest way to review who just entered the system and whether their account state looks healthy.",
-            support:
-              "Use it as the first stop when you want to confirm that public registration is flowing cleanly into the backend.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="open-people-section" data-section="signups">Open Sign-Ups</button>`,
-          });
-        }
-
-        if (busiestAppointeeDashboard) {
-          insights.push({
-            tone: "warning",
-            label:
-              busiestAppointeeDashboard.total +
-              " appointment" +
-              (busiestAppointeeDashboard.total === 1 ? "" : "s"),
-            eyebrow: "Tournament staffing",
-            title: busiestAppointeeDashboard.tournament.name + " has the densest people load",
-            body:
-              "This tournament currently has the largest live appointee footprint across debaters, judges, and staff.",
-            support:
-              "Use the focused appointee dashboard when you want to review role coverage without opening every tournament one by one.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="open-people-section" data-section="appointees">Open Appointees</button>`,
-          });
-        }
-
-        if (disabledAccounts) {
-          insights.push({
-            tone: "warning",
-            label: disabledAccounts + " disabled",
-            eyebrow: "Directory health",
-            title: "Some accounts are intentionally inactive",
-            body:
-              "Disabled accounts are preserved, but they are still worth reviewing so they do not confuse future permissions or profile lookups.",
-            support:
-              "Open the directory and use the Disabled filter when you want to clean up the inactive edge cases.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="open-people-section" data-section="directory">Open Directory</button>`,
-          });
-        }
-
-        if (!insights.length) {
-          insights.push({
-            tone: "success",
-            label: "Healthy",
-            eyebrow: "Directory intelligence",
-            title: "People records look orderly right now",
-            body:
-              "The shared account directory, registration flow, and appointment queues do not currently show any obvious pressure points.",
-            support:
-              "Use the directory when you want to drill into a specific person, or keep the hub closed until the next operational spike arrives.",
-            actionMarkup:
-              `<button class="secondary-button" type="button" data-action="open-people-section" data-section="directory">Open Directory</button>`,
-          });
-        }
-
-        return insights.slice(0, 4);
       }
 
       function buildInvitationMessage(tournament, participant) {
@@ -14892,8 +14272,8 @@
       function renderAboutView(publicMode = false) {
         const capabilities = publicMode ? null : getWorkspaceCapabilities();
         const primaryAction = publicMode
-          ? `<button class="secondary-button" type="button" data-action="set-view" data-view="overview">Back To Sign In</button>`
-          : `<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">Open Tournaments</button>`;
+          ? `<button class="secondary-button" type="button" data-action="set-view" data-view="overview">Back to sign in</button>`
+          : `<button class="secondary-button" type="button" data-action="set-view" data-view="tournaments">Open tournaments</button>`;
 
         return `
           <div class="${publicMode ? "page-shell" : ""}">
@@ -14903,135 +14283,36 @@
                   ${renderBrandLockup({
                     kicker: "About JADE",
                     size: "hero featured",
-                    subtitle:
-                      "A platform shaped around debating, public speaking, critical thinking, and efficient tournament administration.",
+                    subtitle: "Debate and public speaking in Jamaica.",
                   })}
                   <div>
-                    <p class="eyebrow">More Than Debate</p>
-                    <h1>Debating as empowerment, not just competition.</h1>
+                    <h1>Jamaican Association for Debating and Empowerment</h1>
                     <p class="hero-copy">
-                      JADE stands for the Jamaican Association for Debating and Empowerment. In its public materials, JADE describes itself as the national umbrella organization for the advancement of debating, public speaking, and critical thinking in Jamaica. It presents that work not simply as competition management, but as a route to empowerment, youth development, stronger communication, and sharper civic thinking.
+                      JADE supports debating, public speaking, and critical thinking in Jamaica.
                     </p>
                   </div>
                 </div>
-                <div class="stack">
-                  <div class="hero-stat-band">
-                    <div class="hero-stat-chip">
-                      <span class="muted">Founded</span>
-                      <strong>2014</strong>
-                    </div>
-                    <div class="hero-stat-chip">
-                      <span class="muted">National Role</span>
-                      <strong>Umbrella Body For Debate</strong>
-                    </div>
-                    <div class="hero-stat-chip">
-                      <span class="muted">Mission</span>
-                      <strong>Empowerment Through Speaking And Thinking</strong>
-                    </div>
-                  </div>
-                  <div class="button-row">
-                    ${primaryAction}
-                    ${
-                      publicMode || !capabilities?.canViewSettings
-                        ? ""
-                        : `<button type="button" data-action="set-view" data-view="settings">Settings</button>`
-                    }
-                  </div>
+                <div class="button-row">
+                  ${primaryAction}
+                  ${publicMode || !capabilities?.canViewSettings
+                    ? ""
+                    : `<button type="button" data-action="set-view" data-view="settings">Settings</button>`}
                 </div>
               </section>
-
-              <section class="about-grid">
-                <article class="feature-panel">
-                  <span class="mini-pill success">Mission</span>
-                  <h3>Empowerment through expression and reasoning</h3>
-                  <p class="muted">
-                    JADE publicly frames its mission around fostering empowerment through debating, public speaking, and critical thinking, treating those skills as tools for confidence, agency, and wider personal development.
-                  </p>
-                </article>
-                <article class="feature-panel">
-                  <span class="mini-pill warning">Operations</span>
-                  <h3>Training, adjudication, and event delivery</h3>
-                  <p class="muted">
-                    JADE’s public documents highlight communication-skills training, debate adjudication services, and the planning and administration of debate and public-speaking competitions.
-                  </p>
-                </article>
-                <article class="feature-panel">
-                  <span class="mini-pill success">Representation</span>
-                  <h3>National growth with international pathways</h3>
-                  <p class="muted">
-                    JADE also presents itself as building opportunities for youth and societal advancement, including elite training and international representation for Jamaica in major debating spaces.
-                  </p>
-                </article>
-                <article class="feature-panel">
-                  <span class="mini-pill warning">Community</span>
-                  <h3>Beyond tournaments alone</h3>
-                  <p class="muted">
-                    JADE’s public-facing material also references citizen empowerment and psychosocial interventions, showing that its mission reaches beyond tournament tabbing into broader developmental and social outcomes.
-                  </p>
-                </article>
-              </section>
-
               <section class="surface">
-                <div class="section-heading">
-                  <div>
-                    <p class="eyebrow">This Website</p>
-                    <h2>Why the platform is built this way</h2>
-                  </div>
-                  <span class="role-pill">JADE-Aligned Design</span>
-                </div>
+                <div class="section-heading"><h2>JADE Hummingbird</h2></div>
                 <div class="about-grid">
                   <div class="inline-card">
-                    <h3>Flexible tournament control</h3>
-                    <p class="muted">
-                      Formats can stay standard when needed, but rounds can also change team counts, team sizes, and speaker structures without locking the tab room into one preset.
-                    </p>
+                    <h3>Run tournaments</h3>
+                    <p class="muted">Manage registration, teams, draws, judges, ballots, and results.</p>
                   </div>
                   <div class="inline-card">
-                    <h3>Calm competitor experience</h3>
-                    <p class="muted">
-                      Private links surface only the essentials competitors need: rounds, standings, speaker rankings, and feedback, without exposing staff configuration panels.
-                    </p>
+                    <h3>Adapt rounds</h3>
+                    <p class="muted">Set formats, team sizes, speaker counts, and pairing methods by round.</p>
                   </div>
                   <div class="inline-card">
-                    <h3>Efficient management</h3>
-                    <p class="muted">
-                      The tab room workspace is organized around tournament-by-tournament control so registration, pairing, publishing, and permissions can happen quickly from one focused dashboard.
-                    </p>
-                  </div>
-                </div>
-              </section>
-
-              <section class="surface">
-                <div class="section-heading">
-                  <div>
-                    <p class="eyebrow">How JADE Describes Its Work</p>
-                    <h2>Publicly stated priorities reflected here</h2>
-                  </div>
-                </div>
-                <div class="about-timeline">
-                  <div class="inline-card">
-                    <strong>Debating, public speaking, and critical-thinking training</strong>
-                    <p class="muted">
-                      JADE describes training as a core part of its work. The app mirrors that by supporting standard and non-standard formats so events can match developmental, educational, or competitive goals.
-                    </p>
-                  </div>
-                  <div class="inline-card">
-                    <strong>Debate adjudication services</strong>
-                    <p class="muted">
-                      Because adjudication quality is central to debate development, the platform includes judge assignment, judge-only ballots, feedback capture, and automated standings from official chair ballots.
-                    </p>
-                  </div>
-                  <div class="inline-card">
-                    <strong>Competition planning and administration</strong>
-                    <p class="muted">
-                      Managers can register participants, build teams, create and release draws, allocate judges, publish rounds, and manage permissions from one tournament-centered workspace.
-                    </p>
-                  </div>
-                  <div class="inline-card">
-                    <strong>Youth development, representation, and empowerment</strong>
-                    <p class="muted">
-                      Private links, participant history, speaker boards, standings, and stored feedback help keep competitor growth visible over time, not just the latest result sheet.
-                  </p>
+                    <h3>Share results</h3>
+                    <p class="muted">Publish draws, motions, standings, feedback, and private participant views.</p>
                   </div>
                 </div>
               </section>
@@ -15415,7 +14696,6 @@
                     <div>
                       <p class="eyebrow">Debater view</p>
                       <h1>Your tournament portal</h1>
-                      <p class="hero-copy">Check round status fast, then open your private tab.</p>
                     </div>
                     <nav class="competitor-nav" aria-label="Competitor workspace navigation">
                       <button type="button" ${
@@ -16040,9 +15320,6 @@
                 <select name="format">${getFormatOptionMarkup(tournament.format)}</select>
               </label>
             </div>
-              <p class="fine-print">
-                A preset fills the defaults below. Change any field for this event.
-              </p>
               <p class="fine-print" data-format-guidance>${escapeHtml(formatGuidance)}</p>
             <div class="field-grid three">
               <label>
@@ -16109,9 +15386,6 @@
               </label>
             </div>
             ${renderScoringOptionToggles(tournament.config)}
-            <p class="fine-print">
-              Leave a field blank if it varies by round.
-            </p>
             <p class="fine-print" data-scoring-note>${escapeHtml(
               getScoringProfileHelperText({
                 format: tournament.format,
@@ -16270,9 +15544,6 @@
               <div class="section-heading">
                 <div>
                     <h4>Round-by-round structure planner</h4>
-                    <p class="fine-print">
-                      This planner stays tied to the rounds and base structure above, so only the rounds you customise will depart from the tournament default. Use it to mark which rounds are in-rounds, which are outrounds, and whether each round should run Power Paired, Randomised, or Folding allocations.
-                    </p>
                   </div>
                 <span class="round-plan-badge">${escapeHtml(
                   hasVariableRoundStructure(tournament) ? "Variable structure" : "Fixed structure",
@@ -17057,7 +16328,6 @@
             key: "overview",
             label: "Overview",
             badge: tournament.rounds + " rounds",
-            note: "Current tournament snapshot",
             render: () => `
               <div class="tournament-board-summary">
                 <div class="viewer-summary-grid">
@@ -17070,13 +16340,7 @@
                           ? "Awaiting release"
                           : "Private",
                     )}</strong>
-                    <p class="fine-print">${escapeHtml(
-                      latestVisibleDraw
-                        ? getDrawMatchupForDisplay(tournament, latestVisibleDraw)
-                        : canSeeDraw
-                          ? "The latest room release will appear here."
-                          : "The draw is not public for this tournament.",
-                    )}</p>
+                    ${latestVisibleDraw ? `<p class="fine-print">${escapeHtml(getDrawMatchupForDisplay(tournament, latestVisibleDraw))}</p>` : ""}
                   </article>
                   <article class="viewer-summary-card">
                     <span class="muted">Latest motion</span>
@@ -17085,10 +16349,7 @@
                         ? "Round " + latestMotion.round
                         : "Awaiting release",
                     )}</strong>
-                    <p class="fine-print">${escapeHtml(
-                      latestMotion?.motionTitle ||
-                        "Released motions appear here as soon as tab opens them.",
-                    )}</p>
+                    ${latestMotion?.motionTitle ? `<p class="fine-print">${escapeHtml(latestMotion.motionTitle)}</p>` : ""}
                   </article>
                   <article class="viewer-summary-card">
                     <span class="muted">Leaderboard</span>
@@ -17099,13 +16360,7 @@
                           ? "Awaiting results"
                           : "Private",
                     )}</strong>
-                    <p class="fine-print">${escapeHtml(
-                      topStanding
-                        ? getStandingSummaryText(tournament, topStanding)
-                        : canSeeStandings
-                          ? "Standings update automatically from official ballots."
-                          : "Standings are currently hidden publicly.",
-                    )}</p>
+                    ${topStanding ? `<p class="fine-print">${escapeHtml(getStandingSummaryText(tournament, topStanding))}</p>` : ""}
                   </article>
                   <article class="viewer-summary-card">
                     <span class="muted">${escapeHtml(
@@ -17118,13 +16373,6 @@
                           ? judgeAssignments.length + " room" + (judgeAssignments.length === 1 ? "" : "s")
                           : toTitleLabel(getTournamentAccess(tournament)),
                     )}</strong>
-                    <p class="fine-print">${escapeHtml(
-                      participant
-                        ? "Open your private tab or profile from here when you need your personal tournament view."
-                        : canJudge
-                          ? "Use the judging dashboard for ballots and score entry."
-                          : "This account can follow the tournament through the published boards.",
-                    )}</p>
                   </article>
                 </div>
                 <div class="button-row wrap-row">
@@ -17158,7 +16406,6 @@
             key: "draw",
             label: "Draw",
             badge: canSeeDraw || canJudge ? publishedDrawCount + " posted" : "Private",
-            note: "Published rooms by round",
             render: () => renderTournamentDrawBoard(tournament, {
               canManage: false,
               canSeeDraw: canSeeDraw || canJudge,
@@ -17168,7 +16415,6 @@
             key: "motions",
             label: "Motions",
             badge: releasedMotionCount ? releasedMotionCount + " released" : "Waiting",
-            note: "Released motions and prep status",
             render: () => renderTournamentMotionDisplay(tournament, {
               canManage: false,
               canJudge,
@@ -17181,7 +16427,6 @@
                 badge: speakerStandings.length
                   ? speakerStandings.length + " speakers"
                   : "Awaiting",
-                note: "Individual speaker scores",
                 render: () => `
                   <section class="surface">
                     <div class="section-heading">
@@ -17204,7 +16449,6 @@
                 key: "team-board",
                 label: "Team Board",
                 badge: standings.length ? standings.length + " teams" : "Awaiting",
-                note: "Total speaks of team members across matches",
                 render: () => `
                   <section class="surface">
                     <div class="section-heading">
@@ -17224,7 +16468,6 @@
             key: "leaderboard",
             label: "Standings",
             badge: canSeeStandings ? standings.length + " ranked" : "Private",
-            note: "Team points by placement",
             render: () => `
               <div class="stack">
                 ${renderBreakProjectionPanel(tournament, {
@@ -17248,7 +16491,6 @@
             key: "results",
             label: "Results",
             badge: publishedDrawCount ? publishedDrawCount + " rooms" : "Awaiting",
-            note: "Round progress and official returns",
             render: () => `
               <div class="stack">
                 ${renderRoundControlBoard(tournament, false, canSeeStandings, canSeeDraw || canJudge)}
@@ -17280,11 +16522,7 @@
         return `
           <section class="surface tournament-board-shell">
             <div class="section-heading">
-              <div>
-                <p class="eyebrow">Tournament Boards</p>
-                <h2>Choose the board you need</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(active.label)}</span>
+              <h2>Boards</h2>
             </div>
             <div class="tournament-board-tab-row">
               ${tabs
@@ -17294,7 +16532,6 @@
                       tab.key,
                     )}">
                       <strong>${escapeHtml(tab.label)}</strong>
-                      <span class="muted">${escapeHtml(tab.note)}</span>
                       <span class="tournament-board-badge">${escapeHtml(tab.badge)}</span>
                     </button>
                   `,
@@ -17930,7 +17167,6 @@
           {
             key: "roster",
             label: "Team Registration",
-            note: "Participants, institutions, teams, and linked entry records.",
             badge: tournament.participants.length
               ? tournament.participants.length + " entries"
               : "No entries",
@@ -17939,7 +17175,6 @@
           {
             key: "participants",
             label: "Participants",
-            note: "Tournament people, private links, and assigned roles.",
             badge: getTournamentParticipantDirectory(tournament).length
               ? getTournamentParticipantDirectory(tournament).length + " people"
               : "No people",
@@ -17948,21 +17183,18 @@
           {
             key: "draw",
             label: "Round Draw",
-            note: "Pairings, room controls, and release flow.",
             badge: snapshot.totalRooms ? snapshot.totalRooms + " rooms" : "No rooms",
             render: () => renderTournamentDrawStudio(tournament),
           },
           {
             key: "draw-review",
             label: "Draw Review",
-            note: "Room list, publication state, and conflict review.",
             badge: snapshot.totalRooms ? snapshot.totalRooms + " rooms" : "No rooms",
             render: () => renderTournamentDrawReviewStudio(tournament),
           },
           {
             key: "motions",
             label: "Motions",
-            note: "Round motions, prep timing, and the released motions board.",
             badge: getRoundControls(tournament).filter((control) => control.motionReleased).length
               ? getRoundControls(tournament).filter((control) => control.motionReleased).length +
                 " released"
@@ -17972,7 +17204,6 @@
           {
             key: "results",
             label: "Standings",
-            note: "Speaker Board, Team Board, and placement-based Standings.",
             badge: snapshot.pendingBallotRooms
               ? snapshot.pendingBallotRooms + " pending"
               : standings.length
@@ -17984,7 +17215,6 @@
             ? {
                 key: "breaks",
                 label: "Break",
-                note: "Released break board and qualification line.",
                 badge: getBreakBoard(tournament)?.breaking?.length
                   ? getBreakBoard(tournament).breaking.length + " breaking"
                   : "Released",
@@ -17994,7 +17224,6 @@
           {
             key: "directory",
             label: "Teams",
-            note: "Review team identities, institutions, aliases, and linked speakers.",
             badge: teams ? teams + " teams" : "No teams",
             render: () => `
               <section class="surface">
@@ -18011,14 +17240,12 @@
           {
             key: "judges",
             label: "Judges",
-            note: "Judge roster, allocations, chair balance, and judging analytics.",
             badge: snapshot.judges ? snapshot.judges + " judges" : "No judges",
             render: () => renderJudgeManagementStudio(tournament),
           },
           {
             key: "setup",
             label: "Setup",
-            note: "Format structure, tournament profile, and scoring configuration.",
             badge: getTournamentSetupBadgeLabel(tournament),
             render: () =>
               renderAdminDrawer(
@@ -18031,7 +17258,6 @@
           {
             key: "access",
             label: "Permissions",
-            note: "Permissions, visibility, appointees, and role-based access control.",
             badge: toTitleLabel(getTournamentAccess(tournament)),
             render: () =>
               renderAdminDrawer(
@@ -18048,14 +17274,12 @@
           {
             key: "notices",
             label: "Notices",
-            note: "Post updates for managers, judges, competitors, or public viewers.",
             badge: noticeCount ? noticeCount + " notice" + (noticeCount === 1 ? "" : "s") : "Quiet",
             render: () => renderTournamentNoticeboardStudio(tournament),
           },
           {
             key: "history",
             label: "History",
-            note: "Review the audit trail for important actions and tournament changes.",
             badge: tournament.auditLog.length + " entries",
             render: () =>
               renderAdminDrawer(
@@ -18295,7 +17519,7 @@
                     }) +
                     " • " +
                     getStandingSummaryText(tournament, standing)
-                  : "No standings row entered yet.";
+                  : "";
                 return `
                   <article class="team-card">
                     <details class="team-card-disclosure">
@@ -18304,7 +17528,7 @@
                           <strong class="team-card-name">${escapeHtml(
                             getTeamDisplayLabel(team),
                           )}</strong>
-                          <p class="muted">${escapeHtml(team.institution || "No institution set")}</p>
+                          ${team.institution ? `<p class="muted">${escapeHtml(team.institution)}</p>` : ""}
                         </div>
                         <div class="workspace-chip-row team-card-summary-chips">
                           <span class="role-pill">${escapeHtml(speakers.length)} speakers</span>
@@ -18316,7 +17540,7 @@
                             ? `<p class="fine-print">Public alias: ${escapeHtml(team.publicAlias)}</p>`
                             : ""
                         }
-                        <p class="fine-print">${escapeHtml(standingSummary)}</p>
+                        ${standingSummary ? `<p class="fine-print">${escapeHtml(standingSummary)}</p>` : ""}
                         ${
                           team.notes
                             ? `<p class="muted">${escapeHtml(team.notes)}</p>`
@@ -18395,9 +17619,8 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Registration</p>
+                <h3>Registration</h3>
               </div>
-              <span class="role-pill">Efficient entry setup</span>
             </div>
             <div class="stack">
               <div class="flat-grid roster-entry-grid">
@@ -18627,8 +17850,7 @@
           <div class="flat-panel break-panel">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Smart Break Calculator</p>
-                <h3>${escapeHtml(projection.lockLabel + " break line")}</h3>
+                <h3>Break projection: ${escapeHtml(projection.lockLabel)}</h3>
               </div>
               <span class="role-pill">${escapeHtml(
                 projection.breakSize + " break" + (projection.breakSize === 1 ? "" : "s"),
@@ -18699,8 +17921,7 @@
           <div class="flat-panel">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Institution Dashboard</p>
-                <h3>Where performance is coming from</h3>
+                <h3>Institutions</h3>
               </div>
               <span class="role-pill">${escapeHtml(institutions.length)} tracked</span>
             </div>
@@ -19224,11 +18445,6 @@
               </div>
               <span class="role-pill">${escapeHtml(profiles.length)} rounds</span>
             </div>
-            ${
-              canManage
-                ? `<p class="muted">Track every round state before releasing the next operational step.</p>`
-                : ""
-            }
             <div class="table-wrap round-board-table-wrap">
               <table class="round-board-table">
                 <thead>
@@ -19804,9 +19020,7 @@
                 <div class="section-heading">
                   <div>
                     <h3>Basics</h3>
-                    <p class="fine-print">Name the tournament, choose the format, and set the number of rounds.</p>
                   </div>
-                  <span class="role-pill">${escapeHtml(getFormatLabel({ format: defaults.format }))}</span>
                 </div>
                 <div class="field-grid three">
                   <label>
@@ -19848,7 +19062,6 @@
                 <div class="section-heading">
                   <div>
                     <h3>Room setup</h3>
-                    <p class="fine-print">Start with the format defaults. Change these only if the tournament needs something different.</p>
                   </div>
                 </div>
                 <div class="field-grid three">
@@ -19878,7 +19091,6 @@
                 <div class="section-heading">
                   <div>
                     <h3>Scoring and public view</h3>
-                    <p class="fine-print">Choose how results are scored and what the public can see.</p>
                   </div>
                 </div>
                 <div class="field-grid two">
@@ -19951,7 +19163,6 @@
               <details class="launcher-advanced">
                 <summary>
                   <strong>Show advanced options</strong>
-                  <span>Custom labels, notices, and special rules</span>
                 </summary>
                 <div class="stack launcher-advanced-body">
                   <div class="field-grid two">
@@ -19989,17 +19200,12 @@
               <details class="launcher-advanced">
                 <summary>
                   <strong>Plan rounds before launch</strong>
-                  <span>Use this only if rounds need different formats or stages</span>
                 </summary>
                 <div class="stack launcher-advanced-body">
                   <div class="section-heading">
                     <div>
                       <h3>Round planner</h3>
-                      <p class="fine-print">
-                        This planner updates when you change the round count or format above.
-                      </p>
                     </div>
-                    <span class="round-plan-badge">Optional</span>
                   </div>
                   ${renderRoundPlannerEditorContainer(defaults.rounds, [], defaults, {
                     plannerGuidance: getRoundPlannerGuidance(defaults.format),
@@ -20828,7 +20034,7 @@
         `;
       }
 
-      function renderPeopleDashboardMetricCard(eyebrow, headline, support = "") {
+      function renderPeopleDashboardMetricCard(eyebrow, headline) {
         return `
           <article class="spotlight-card people-dashboard-metric">
             <p class="eyebrow">${escapeHtml(eyebrow)}</p>
@@ -20847,31 +20053,25 @@
           <section class="surface spotlight-shell">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Sign-Ups</p>
-                <h2>People who have registered</h2>
+                <h2>Sign-ups</h2>
               </div>
-              <span class="role-pill">${escapeHtml(pagedSignups.totalRecords)} shown</span>
             </div>
             <div class="spotlight-grid">
               ${renderPeopleDashboardMetricCard(
                 "Tracked Accounts",
                 String(signupStats.total),
-                "All registered accounts currently preserved in the shared workspace.",
               )}
               ${renderPeopleDashboardMetricCard(
                 "Self Sign-Up",
                 String(signupStats.selfSignup),
-                "People who created their own accounts from the public entry flow.",
               )}
               ${renderPeopleDashboardMetricCard(
                 "Manager-Created",
                 String(signupStats.managerCreated),
-                "Accounts created directly by staff or managers in the system.",
               )}
               ${renderPeopleDashboardMetricCard(
                 "Other Registered",
                 String(signupStats.registered),
-                "Registered accounts that do not fall into the other tracked creation paths.",
               )}
             </div>
             ${renderCollectionToolbar({
@@ -20899,14 +20099,6 @@
                             <div class="people-dashboard-note-copy">
                               <strong>${escapeHtml(user.name || user.email)}</strong>
                               <span class="muted">${escapeHtml(user.email)}</span>
-                              <span class="fine-print">${escapeHtml(
-                                normalizeStringList(user.registeredTournamentIds, 200).length +
-                                  " tournament" +
-                                  (normalizeStringList(user.registeredTournamentIds, 200).length === 1
-                                    ? ""
-                                    : "s") +
-                                  " on record",
-                              )}</span>
                             </div>
                             <div class="people-dashboard-note-meta">
                               <span class="mini-pill success">${escapeHtml(
@@ -20924,7 +20116,7 @@
                       )
                       .join("")}
                   </div>`
-                : `<div class="alert success">New registrations will appear here as people create accounts.</div>`
+                : `<div class="empty-state">No sign-ups found.</div>`
             }
             ${renderCollectionPagination("set-signup-dashboard-page", pagedSignups)}
           </section>
@@ -20961,32 +20153,26 @@
               ${renderPeopleDashboardMetricCard(
                 "Appointments",
                 String(appointeeStats.totalAppointments),
-                "All tracked tournament assignments across judges, debaters, and tournament staff.",
               )}
               ${renderPeopleDashboardMetricCard(
                 "Tab Directors",
                 String(appointeeStats.tabDirectorEmails),
-                "Current tab director assignments across all tournaments.",
               )}
               ${renderPeopleDashboardMetricCard(
                 "Tournament Directors",
                 String(appointeeStats.tournamentDirectorEmails),
-                "Tournament director assignments currently on record.",
               )}
               ${renderPeopleDashboardMetricCard(
                 "Judges",
                 String(appointeeStats.judgeEmails),
-                "Judges who have active appointments inside tracked tournaments.",
               )}
               ${renderPeopleDashboardMetricCard(
                 "Debaters",
                 String(appointeeStats.debaterEmails),
-                "Debaters linked directly through tournament appointment lists.",
               )}
               ${renderPeopleDashboardMetricCard(
                 "Tracked Tournaments",
                 String(appointeeStats.tournaments),
-                "Tournaments currently contributing to the shared appointment dashboard.",
               )}
             </div>
             ${
@@ -21148,7 +20334,6 @@
                       <div class="section-heading">
                         <div>
                           <h3>Create regular account</h3>
-                          <p class="fine-print">Create a standard account directly from Access Control.</p>
                         </div>
                       </div>
                       <form class="stack" data-form="create-managed-user">
@@ -21447,7 +20632,6 @@
               <div class="stack">
                 <p class="eyebrow">People Profile</p>
                 <h2>${escapeHtml(user.name)}</h2>
-                <p class="muted">Account details, tournament history, and linked participation in one focused view.</p>
               </div>
               <div class="button-row wrap-row people-account-profile-actions">
                 <button class="secondary-button" type="button" data-action="clear-people-account-focus">Back To Directory</button>
@@ -21715,9 +20899,7 @@
           <section class="surface regional-shell">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">${escapeHtml(eyebrow)}</p>
                 <h2>${escapeHtml(title)}</h2>
-                <p class="muted">${escapeHtml(description)}</p>
               </div>
               <div class="workspace-chip-row">
                 <span class="role-pill">${escapeHtml(
@@ -21938,27 +21120,22 @@
               <article class="spotlight-card">
                 <p class="eyebrow">Coordinators</p>
                 <h3>${escapeHtml(summary.coordinators)}</h3>
-                <p class="muted">Regional coordinator accounts currently active.</p>
               </article>
               <article class="spotlight-card">
                 <p class="eyebrow">Deputies</p>
                 <h3>${escapeHtml(summary.deputies)}</h3>
-                <p class="muted">Deputy regional coordinator accounts on file.</p>
               </article>
               <article class="spotlight-card">
                 <p class="eyebrow">Reports</p>
                 <h3>${escapeHtml(summary.reports)}</h3>
-                <p class="muted">Regional reports submitted and visible in this workspace.</p>
               </article>
               <article class="spotlight-card">
                 <p class="eyebrow">Requests</p>
                 <h3>${escapeHtml(summary.fundingRequests)}</h3>
-                <p class="muted">Resource requests logged for review and processing.</p>
               </article>
               <article class="spotlight-card">
                 <p class="eyebrow">Workshop files</p>
                 <h3>${escapeHtml(workshopResources.length)}</h3>
-                <p class="muted">Training resources available to coordinators.</p>
               </article>
             </div>
           </section>
@@ -24325,19 +23502,15 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Account</p>
                 <h2>Settings</h2>
               </div>
             </div>
-            <p class="muted">Manage your personal workspace preferences. Tournament controls live inside each tournament workspace.</p>
           </section>
           <section class="surface account-settings-preferences">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Personal workspace</p>
                 <h2>Start page</h2>
               </div>
-              <span class="role-pill">Account</span>
             </div>
             <form class="stack" data-form="update-user-preferences">
               <label>
@@ -24352,10 +23525,8 @@
           <section class="surface account-settings-accessibility">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Display and navigation</p>
                 <h2>Accessibility options</h2>
               </div>
-              <span class="role-pill">Inclusive access</span>
             </div>
             <form class="stack" data-form="update-accessibility">
               <label class="checkbox-row">
@@ -24376,7 +23547,6 @@
           <section class="surface account-settings-device">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Password and Device Access</p>
                 <h2>Device password saving</h2>
               </div>
               <span class="role-pill">${escapeHtml(
@@ -24401,12 +23571,12 @@
                   ${checked(devicePasswordSavingEnabled || authPrefs?.savePasswordOnDevice !== false)}
                   ${devicePasswordSavingSupported ? "" : "disabled"}
                 />
-                <span>Save Password Securely On This Device</span>
+                <span>Save password on this device</span>
               </label>
-              <p class="fine-print">Uses your browser/device password manager. Raw passwords are not stored by JADE.</p>
+              <p class="fine-print">Uses your device password manager. JADE does not store the password.</p>
               ${
                 devicePasswordSavingSupported
-                  ? `<p class="auth-footer">Enter your current password to save or refresh the secure device copy. If you switch this off, JADE Hummingbird stops remembering the preference for this account on this device.</p>`
+                  ? `<p class="auth-footer">Enter your current password to update this setting.</p>`
                   : `<div class="alert warning">This browser does not support secure device password saving through the app.</div>`
               }
               <button type="submit" ${devicePasswordSavingSupported ? "" : "disabled"}>${
@@ -24569,9 +23739,7 @@
           <section class="surface regional-shell">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Regional settings</p>
-                <h2>Profile, password, and banking</h2>
-                <p class="muted">Manage your account profile and saved regional request details.</p>
+                <h2>Regional settings</h2>
               </div>
             </div>
           </section>
@@ -24580,17 +23748,14 @@
               <article class="spotlight-card">
                 <p class="eyebrow">Current role</p>
                 <h3>${escapeHtml(getRegionalOperationsRoleLabel(regionalRole || "regional_coordinator"))}</h3>
-                <p class="muted">Regional operations account type.</p>
               </article>
 	              <article class="spotlight-card">
 	                <p class="eyebrow">Region</p>
 	                <h3>${escapeHtml(regionalAssignmentLabel)}</h3>
-	                <p class="muted">Primary region for reports and requests.</p>
 	              </article>
               <article class="spotlight-card">
                 <p class="eyebrow">Parish</p>
                 <h3>${escapeHtml(currentUser?.regionalParish || "Unassigned")}</h3>
-                <p class="muted">Current parish assignment on your account.</p>
               </article>
             </div>
           </section>
@@ -29837,7 +29002,6 @@
               let generatedTeam = generatedTeams[teamNumber - 1];
               if (!generatedTeam) {
                 generatedTeam = createTeamRecord(tournament.code + " Random Team " + teamNumber, "", {
-                  notes: "Randomly generated team.",
                   source: "generated",
                 });
                 generatedTeams.push(generatedTeam);
