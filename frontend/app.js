@@ -508,6 +508,7 @@
       };
       let confirmDialog = null;
       let pendingTournamentSectionJumpId = "";
+      let mobileWorkspaceMenuOpen = false;
       let pendingViewportReset = false;
       let startupSplashDismissed = false;
       let startupSplashFailed = false;
@@ -14804,7 +14805,10 @@
                 <p class="menu-brand-name">Hummingbird</p>
               </div>
             </div>
-            <div class="inline-card menu-welcome-card">
+            <button class="mobile-workspace-menu-toggle" type="button" data-action="toggle-mobile-workspace-menu" aria-expanded="${mobileWorkspaceMenuOpen}" aria-controls="workspace-navigation-items">
+              <span>Navigation</span><span aria-hidden="true">${mobileWorkspaceMenuOpen ? "−" : "+"}</span>
+            </button>
+            <div id="workspace-navigation-items" class="inline-card menu-welcome-card ${mobileWorkspaceMenuOpen ? "is-mobile-open" : ""}">
               ${orderedGroups
                 .map(
                   ([groupLabel, groupItems]) => `
@@ -16037,7 +16041,7 @@
               </label>
             </div>
               <p class="fine-print">
-                Presets are only a starting point. You can override structure, scoring, and round design below.
+                A preset fills the defaults below. Change any field for this event.
               </p>
               <p class="fine-print" data-format-guidance>${escapeHtml(formatGuidance)}</p>
             <div class="field-grid three">
@@ -16106,7 +16110,7 @@
             </div>
             ${renderScoringOptionToggles(tournament.config)}
             <p class="fine-print">
-              Leave structure or break blank when the event changes by round. For points, choose a standard team or individual option, or leave it on no standard scoring.
+              Leave a field blank if it varies by round.
             </p>
             <p class="fine-print" data-scoring-note>${escapeHtml(
               getScoringProfileHelperText({
@@ -24321,17 +24325,17 @@
           <section class="surface">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Settings</p>
-                <h2>General account settings</h2>
+                <p class="eyebrow">Account</p>
+                <h2>Settings</h2>
               </div>
             </div>
             <p class="muted">Manage your personal workspace preferences. Tournament controls live inside each tournament workspace.</p>
           </section>
-          <section class="surface">
+          <section class="surface account-settings-preferences">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Personal Workspace</p>
-                <h2>Personal preferences</h2>
+                <p class="eyebrow">Personal workspace</p>
+                <h2>Start page</h2>
               </div>
               <span class="role-pill">Account</span>
             </div>
@@ -24342,15 +24346,14 @@
                   currentUser?.preferredLandingView || "overview",
                 )}</select>
               </label>
-              <p class="fine-print">Start page applies only to your account.</p>
-              <button type="submit">Save personal settings</button>
+              <button type="submit">Save start page</button>
             </form>
           </section>
-          <section class="surface">
+          <section class="surface account-settings-accessibility">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">Accessibility</p>
-                <h2>Accessibility</h2>
+                <p class="eyebrow">Display and navigation</p>
+                <h2>Accessibility options</h2>
               </div>
               <span class="role-pill">Inclusive access</span>
             </div>
@@ -24367,11 +24370,10 @@
                 )} />
                 <span>Show screen-reader and keyboard guidance near search/navigation</span>
               </label>
-              <p class="fine-print">Use skip link + headings for fastest keyboard and screen-reader navigation.</p>
               <button type="submit">Save accessibility settings</button>
             </form>
           </section>
-          <section class="surface">
+          <section class="surface account-settings-device">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Password and Device Access</p>
@@ -30771,6 +30773,15 @@
           markUserInteraction();
 
           const action = button.dataset.action;
+
+          if (action === "toggle-mobile-workspace-menu") {
+            mobileWorkspaceMenuOpen = !mobileWorkspaceMenuOpen;
+            button.setAttribute("aria-expanded", String(mobileWorkspaceMenuOpen));
+            button.querySelector("span[aria-hidden]").textContent = mobileWorkspaceMenuOpen ? "−" : "+";
+            document.querySelector("#workspace-navigation-items")?.classList.toggle("is-mobile-open", mobileWorkspaceMenuOpen);
+            return;
+          }
+          if (button.closest(".menu-panel")) mobileWorkspaceMenuOpen = false;
 
           if (action === "dismiss-confirmation") {
             closeConfirmationDialog();
