@@ -919,7 +919,7 @@
         const legacyMap = {
           overview: "wins",
           teams: "wins",
-          institutions: "points",
+          institutions: "institutions",
           breaks: "wins",
           standings: "wins",
           "speaker board": "speakers",
@@ -930,7 +930,7 @@
           team: "points",
         };
         const mapped = legacyMap[normalized] || normalized;
-        if (["wins", "speakers", "points"].includes(mapped)) {
+        if (["wins", "speakers", "points", "institutions"].includes(mapped)) {
           return mapped;
         }
         if (["overview", "teams", "institutions", "breaks"].includes(normalized)) {
@@ -10277,6 +10277,62 @@
         );
       }
 
+      function getTournamentInstitutionNames(tournament) {
+        const names = new Map();
+        [
+          ...(tournament.institutions || []),
+          ...getTournamentTeams(tournament).map((team) => team.institution),
+          ...(tournament.participants || []).map((participant) => participant.institution),
+        ].forEach((value) => {
+          const name = String(value || "").trim();
+          if (name && !names.has(normalizeTextKey(name))) names.set(normalizeTextKey(name), name);
+        });
+        return Array.from(names.values()).sort((a, b) => a.localeCompare(b));
+      }
+
+      function renderInstitutionOptions(tournament, current = "") {
+        return `<option value="">No linked institution</option>` +
+          getTournamentInstitutionNames(tournament).map((name) =>
+            `<option value="${escapeAttributeValue(name)}" ${selected(normalizeTextKey(name), normalizeTextKey(current))}>${escapeHtml(name)}</option>`,
+          ).join("");
+      }
+
+      function getInstitutionStandings(tournament) {
+        const standings = getComputedStandings(tournament);
+        const teams = getTournamentTeams(tournament);
+        const institutions = new Map();
+        teams.forEach((team) => {
+          const name = String(team.institution || "").trim();
+          if (!name) return;
+          const key = normalizeTextKey(name);
+          if (!institutions.has(key)) institutions.set(key, { institution: name, teams: 0, wins: 0, losses: 0, points: 0 });
+          const record = institutions.get(key);
+          record.teams += 1;
+          const standing = standings.find((entry) => entry.id === "computed-standing-" + team.id) ||
+            standings.find((entry) =>
+              normalizeTextKey(entry.name) === normalizeTextKey(getTeamDisplayLabel(team)) ||
+              (normalizeTextKey(entry.name) === normalizeTextKey(team.name) &&
+                (normalizeTextKey(entry.institution || entry.school) === key ||
+                  teams.filter((candidate) => normalizeTextKey(candidate.name) === normalizeTextKey(team.name)).length === 1)),
+            );
+          record.wins += Number(standing?.wins || 0);
+          record.losses += Number(standing?.losses || 0);
+        });
+        const rows = Array.from(institutions.values()).map((row) => ({
+          ...row, points: row.wins * 3 + row.losses, average: (row.wins * 3 + row.losses) / row.teams,
+        })).sort((a, b) => b.average - a.average || a.institution.localeCompare(b.institution));
+        return applyCompetitionRanks(rows, (a, b) => a.points * b.teams === b.points * a.teams);
+      }
+
+      function renderInstitutionStandingsTable(tournament) {
+        const rows = getInstitutionStandings(tournament);
+        if (!rows.length) return `<div class="empty-state">No institutions linked to teams.</div>`;
+        return `<div class="table-wrap"><table>
+          <thead><tr><th>Rank</th><th>Institution</th><th>Teams</th><th>Wins</th><th>Losses</th><th>Points</th><th>Average</th></tr></thead>
+          <tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.rank)}</td><td>${escapeHtml(row.institution)}</td><td>${row.teams}</td><td>${row.wins}</td><td>${row.losses}</td><td>${row.points}</td><td>${escapeHtml(formatScoreValue(row.average))}</td></tr>`).join("")}</tbody>
+        </table></div>`;
+      }
+
       function getJudgeAnalytics(tournament) {
         const judges = getTournamentJudges(tournament);
         const allocations = getJudgeAllocationsForTournament(tournament);
@@ -10937,6 +10993,7 @@
             dashboardListed: payload.dashboardListed,
             showPublicStandings: payload.publicStandings,
             showPublicDraw: payload.publicDraw,
+            showInstitutionBoard: Boolean(payload.showInstitutionBoard),
             showSpeakerBoard: Object.prototype.hasOwnProperty.call(payload, "showSpeakerBoard")
               ? Boolean(payload.showSpeakerBoard)
               : true,
@@ -11518,6 +11575,7 @@
               showPublicDraw: true,
               showSpeakerBoard: true,
               showTeamPointsBoard: true,
+              showInstitutionBoard: false,
               usePublicTeamAliases: false,
               showStandingsInPrivatePortal: true,
               showDrawInPrivatePortal: true,
@@ -15478,6 +15536,10 @@
                 <span>Show Speaker Board to participants and viewers</span>
               </label>
               <label class="checkbox-row">
+                <input type="checkbox" name="showInstitutionBoard" ${checked(tournament.publication.showInstitutionBoard === true)} />
+                <span>Institution Board</span>
+              </label>
+              <label class="checkbox-row">
                 <input type="checkbox" name="showTeamPointsBoard" ${checked(
                   tournament.publication.showTeamPointsBoard !== false,
                 )} />
@@ -15760,7 +15822,7 @@
             </label>
             <label>
               Institution
-              <input type="text" name="institution" placeholder="Optional institution" />
+              <select name="institution">${renderInstitutionOptions(tournament)}</select>
             </label>
             <label>
               Linked Team
@@ -15828,9 +15890,7 @@
                 </label>
                 <label>
                   Institution
-                  <input type="text" name="institution" value="${escapeHtml(
-                    participant.institution || "",
-                  )}" placeholder="Optional institution" />
+                  <select name="institution">${renderInstitutionOptions(tournament, participant.institution)}</select>
                 </label>
               </div>
               <button class="secondary-button" type="submit">Save Team</button>
@@ -16132,6 +16192,7 @@
             <span class="round-plan-badge">${escapeHtml(getRoundStructureSummary(tournament))}</span>
           </div>
           ${renderStandingsTable(tournament, canManage, canSeeStandings)}
+${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h4>Institution Board</h4>${renderInstitutionStandingsTable(tournament)}` : ""}
           <h4>Team Board</h4>
           ${
             canSeeTeamBoard
@@ -16523,6 +16584,7 @@
                     )}</span>
                   </div>
                   ${renderStandingsTable(tournament, false, canSeeStandings)}
+${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3>Institution Board</h3>${renderInstitutionStandingsTable(tournament)}` : ""}
                 </section>
               </div>
             `,
@@ -17615,9 +17677,7 @@
                                     </label>
                                     <label>
                                       Institution
-                                      <input type="text" name="institution" value="${escapeHtml(
-                                        team.institution,
-                                      )}" />
+                                      <select name="institution">${renderInstitutionOptions(tournament, team.institution)}</select>
                                     </label>
                                   </div>
                                   <div class="field-grid two">
@@ -17663,6 +17723,10 @@
               </div>
             </div>
             <div class="stack">
+              <form class="compact-inline-form flat-panel" data-form="add-institution" data-id="${escapeHtml(tournament.id)}">
+                <label>Institution<input type="text" name="name" required /></label>
+                <button type="submit">Add Institution</button>
+              </form>
               <div class="flat-grid roster-entry-grid">
                 <form class="stack flat-panel roster-form-panel" data-form="add-team" data-id="${escapeHtml(
                   tournament.id,
@@ -17678,7 +17742,7 @@
                   </label>
                   <label>
                     Institution
-                    <input type="text" name="institution" placeholder="Optional institution" />
+                    <select name="institution">${renderInstitutionOptions(tournament)}</select>
                   </label>
                   <label>
                     Public Alias
@@ -18909,6 +18973,9 @@
         const canShowSpeakers = tournament.publication.showSpeakerBoard !== false;
         const canShowTeamPointTotals = tournament.publication.showTeamPointsBoard !== false;
         const resultsViewOptions = [
+          tournament.publication.showInstitutionBoard === true
+            ? { key: "institutions", label: "Institution Board", description: "Institution standings" }
+            : null,
           canShowSpeakers
             ? {
                 key: "speakers",
@@ -18965,6 +19032,7 @@
         `;
 
         const resultsViewContent = {
+          institutions: `<div class="standings-board-card"><div class="section-heading"><h3>Institution Board</h3></div>${renderInstitutionStandingsTable(tournament)}</div>`,
           wins: winsPanelMarkup,
           speakers: speakersPanelMarkup,
           points: pointsPanelMarkup,
@@ -24415,7 +24483,7 @@
                   <div class="portal-body">
                     ${
                       canShowStandings
-                        ? renderPortalStandingWindow(tournament, participant)
+                        ? renderPortalStandingWindow(tournament, participant) + (tournament.publication.showInstitutionBoard === true ? `<h3>Institution Board</h3>${renderInstitutionStandingsTable(tournament)}` : "")
                         : `<div class="empty-state">Standings are hidden for this portal.</div>`
                     }
                   </div>
@@ -27138,6 +27206,7 @@
             tournament.publication.dashboardListed = boolFromForm(formData, "dashboardListed");
             tournament.publication.showPublicStandings = boolFromForm(formData, "publicStandings");
             tournament.publication.showPublicDraw = boolFromForm(formData, "publicDraw");
+            tournament.publication.showInstitutionBoard = boolFromForm(formData, "showInstitutionBoard");
             tournament.publication.showSpeakerBoard = boolFromForm(
               formData,
               "showSpeakerBoard",
@@ -31484,6 +31553,18 @@
 
           if (form.dataset.form === "add-participant") {
             await addParticipant(form.dataset.id, formData);
+            return;
+          }
+
+          if (form.dataset.form === "add-institution") {
+            const tournament = ensureTournamentManagerById(form.dataset.id);
+            const name = String(formData.get("name") || "").trim();
+            if (!tournament || !name) return;
+            updateTournament(tournament.id, (entry) => {
+              entry.institutions = getTournamentInstitutionNames(entry);
+              if (!entry.institutions.some((value) => normalizeTextKey(value) === normalizeTextKey(name))) entry.institutions.push(name);
+              return entry;
+            }, "Institution added.");
             return;
           }
 

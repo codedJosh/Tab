@@ -14126,6 +14126,19 @@
         max-width: 1080px;
       }
 
+      .workspace-shell .roster-speaker-list-panel .registration-speaker-grid {
+        grid-template-columns: minmax(0, 1fr);
+        grid-auto-rows: auto;
+        align-content: start;
+        align-items: start;
+      }
+
+      .workspace-shell .roster-speaker-list-panel .registration-speaker-card {
+        min-height: 0;
+        height: auto;
+        align-self: start;
+      }
+
       .private-workspace-shell .private-portal-menu {
         display: grid;
       }
