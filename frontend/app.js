@@ -10814,6 +10814,15 @@
           );
       }
 
+      function getRegistrationTeamSize(tournament) {
+        if (String(tournament?.participantModel || "").toLowerCase() === "individuals") return 1;
+        const rounds = getRoundProfiles(tournament);
+        return Math.max(
+          getEffectiveRoundStructure(tournament, null).teamSize || 1,
+          ...rounds.map((round) => getEffectiveRoundStructure(tournament, round).teamSize || 1),
+        );
+      }
+
       function getRegistrationTournamentOptionsMarkup(role = "debater", currentId = "") {
         const tournaments = getOpenRegistrationTournaments(role);
         if (!tournaments.length) {
@@ -10823,7 +10832,7 @@
         return tournaments
           .map(
             (tournament) =>
-              `<option value="${escapeHtml(tournament.id)}" ${selected(
+              `<option value="${escapeHtml(tournament.id)}" data-team-size="${escapeHtml(getRegistrationTeamSize(tournament))}" data-format="${escapeHtml(getFormatLabel(tournament))}" ${selected(
                 tournament.id,
                 currentId,
               )}>${escapeHtml(
@@ -13853,38 +13862,17 @@
         }
 
         return `
-          <div class="leaderboard-list">
+          <div class="registration-event-list">
             ${tournaments
               .map((tournament) => {
                 const registration = getTournamentRegistrationSettings(tournament);
                 const note = role === "judge" ? registration.judgeNote : registration.debaterNote;
                 return `
-                  <div class="leaderboard-row">
-                    <div class="stack">
-                      <strong>${escapeHtml(tournament.name)}</strong>
-                      <span class="muted">${escapeHtml(
-                        tournament.code + " • " + getTournamentFormatContextLabel(tournament),
-                      )}</span>
-                      <span class="fine-print">${escapeHtml(
-                        note ||
-                          (role === "judge"
-                            ? "Judges can self-register here and will be clash-checked against affiliated teams."
-                            : "Debaters can self-register teams here for faster roster setup."),
-                      )}</span>
-                    </div>
-                    <div class="workspace-chip-row">
-                      <span class="mini-pill success">${escapeHtml(
-                        role === "judge"
-                          ? getTournamentJudges(tournament).length + " judges logged"
-                          : tournament.participants.length + " speakers logged",
-                      )}</span>
-                      <span class="mini-pill">${escapeHtml(
-                        role === "judge"
-                          ? getTournamentJudges(tournament).length + " judges"
-                          : getTournamentTeams(tournament).length + " teams",
-                      )}</span>
-                    </div>
-                  </div>
+                  <button type="button" class="registration-event-row" data-action="select-registration-tournament" data-tournament-id="${escapeHtml(tournament.id)}">
+                    <span class="registration-event-title">${escapeHtml(tournament.name)}</span>
+                    <span class="registration-event-meta">${escapeHtml(tournament.code)} · ${escapeHtml(getFormatLabel(tournament))}${role === "judge" ? "" : ` · ${getRegistrationTeamSize(tournament)} per team`}</span>
+                    ${note ? `<span class="registration-event-note">${escapeHtml(note)}</span>` : ""}
+                  </button>
                 `;
               })
               .join("")}
@@ -13898,80 +13886,50 @@
           : "debater";
         const tournaments = getOpenRegistrationTournaments(normalizedRole);
         const isJudge = normalizedRole === "judge";
-        const links = getTournamentRegistrationLinks();
+        const firstTournament = tournaments[0] || null;
+        const initialTeamSize = firstTournament ? getRegistrationTeamSize(firstTournament) : 1;
+        const maximumTeamSize = Math.max(1, ...tournaments.map(getRegistrationTeamSize));
+        const minimumPasswordLength = Number(state.appSettings?.auth?.minimumPasswordLength || 12);
 
         return `
-          <div class="auth-page">
+          <div class="auth-page registration-page">
             <div class="page-shell">
-              <div class="auth-shell">
-                <section class="hero-panel auth-hero">
+              <div class="auth-shell registration-shell">
+                <section class="hero-panel auth-hero registration-hero">
                   <div class="stack">
-                    ${renderBrandLockup({
-                      kicker: isJudge ? "Judge Registration" : "Debater Registration",
-                      size: "hero featured",
-                      subtitle: isJudge
-                        ? "Independent and institutionally affiliated judges can register cleanly, with clash-aware allocations built in."
-                        : "Debaters can register themselves, a teammate, and a team record without waiting for manual roster entry.",
-                    })}
-                    <div>
-                      <p class="eyebrow">Separate Registration Dashboard</p>
-                      <h1>${escapeHtml(
-                        isJudge
-                          ? "Register as a judge for an open tournament."
-                          : "Register your debate team for an open tournament.",
-                      )}</h1>
-                      <p class="hero-copy">
-                        ${escapeHtml(
-                          isJudge
-                            ? "Choose an available event, declare whether you are institutionally affiliated or independent, and JADE Hummingbird will route you straight into your private access once registration is complete."
-                            : "Choose an available event, enter your team details, and JADE Hummingbird will create the roster entry faster while sending you directly to your private access links.",
-                        )}
-                      </p>
+                    <div class="registration-brand">
+                      <img src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird" />
+                      <span>JADE Hummingbird</span>
                     </div>
-                    <div class="button-row wrap-row">
-                      <button class="${isJudge ? "secondary-button" : ""}" type="button" data-action="set-public-view" data-view="register-debater">Debater Registration</button>
-                      <button class="${isJudge ? "" : "secondary-button"}" type="button" data-action="set-public-view" data-view="register-judge">Judge Registration</button>
-                      <a class="secondary-button" href="${escapeHtml(
-                        getDashboardLink(),
-                      )}">Back To Sign In</a>
+                    <div>
+                      <p class="eyebrow">Tournament registration</p>
+                      <h1>${escapeHtml(isJudge ? "Register to judge" : "Register your team")}</h1>
+                      <p class="hero-copy">${escapeHtml(isJudge
+                        ? "Choose a tournament and tell us about your affiliation."
+                        : "Choose a tournament. Your roster will match the number of speakers its format requires.")}</p>
                     </div>
                   </div>
                   <div class="stack">
-                    <div class="hero-stat-band">
-                      <div class="hero-stat-chip">
-                        <span class="muted">Open events</span>
-                        <strong>${escapeHtml(tournaments.length)}</strong>
-                      </div>
-                      <div class="hero-stat-chip">
-                        <span class="muted">Private access</span>
-                        <strong>Issued after signup</strong>
-                      </div>
-                      <div class="hero-stat-chip">
-                        <span class="muted">Clash safety</span>
-                        <strong>${escapeHtml(
-                          isJudge ? "Institution-aware" : "Team-ready",
-                        )}</strong>
-                      </div>
-                    </div>
-                    <div class="inline-card auth-about-card">
-                      <h3>${escapeHtml(
-                        isJudge ? "Open judging opportunities" : "Open tournaments for registration",
-                      )}</h3>
+                    <div class="registration-open-events">
+                      <h2>Open tournaments</h2>
                       ${renderPublicRegistrationTournamentCards(tournaments, normalizedRole)}
+                    </div>
+                    <div class="registration-hero-links">
+                      <button class="registration-nav-button" type="button" data-action="set-public-view" data-view="register-debater" ${!isJudge ? 'aria-current="page"' : ""}>Debaters</button>
+                      <button class="registration-nav-button" type="button" data-action="set-public-view" data-view="register-judge" ${isJudge ? 'aria-current="page"' : ""}>Judges</button>
+                      <a href="${escapeHtml(getDashboardLink())}">Sign in</a>
                     </div>
                   </div>
                 </section>
-                <section class="auth-card">
+                <section class="auth-card registration-card">
                   <div class="auth-layout">
                     <div class="auth-primary">
                       <div class="form-shell">
                         <div class="section-heading">
                           <div>
-                            <p class="eyebrow">${escapeHtml(
-                              isJudge ? "Judge Intake" : "Team Intake",
-                            )}</p>
+                            <p class="eyebrow">${escapeHtml(isJudge ? "Judge entry" : "Team entry")}</p>
                             <h2>${escapeHtml(
-                              isJudge ? "Register as a judge" : "Register as a debater",
+                              isJudge ? "Your details" : "Your tournament entry",
                             )}</h2>
                           </div>
                           <span class="role-pill">${escapeHtml(
@@ -13995,6 +13953,8 @@
                                     normalizedRole,
                                   )}</select>
                                 </label>
+                                ${!isJudge ? `<p class="registration-format-note" data-registration-format-note aria-live="polite">${escapeHtml(getFormatLabel(firstTournament))} · ${initialTeamSize} ${initialTeamSize === 1 ? "person" : "people"} per team</p>` : ""}
+                                <h3 class="registration-section-title">Your account</h3>
                                 <div class="field-grid two">
                                   <label>
                                     Full name
@@ -14007,14 +13967,15 @@
                                     <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
                                   </label>
                                 </div>
+                                <p class="registration-password-help">Use your current JADE Hummingbird password if you have an account. New passwords need at least ${escapeHtml(minimumPasswordLength)} characters. ${isJudge ? "This password signs in only you." : "This password signs in only you; teammates receive their own private access links by email."}</p>
                                 <div class="field-grid two">
                                   <label>
-                                    Password
-                                    <input type="password" name="password" placeholder="Create or enter your password" autocomplete="new-password" required />
+                                    Your password
+                                    <input type="password" name="password" placeholder="Your account password" autocomplete="current-password" required />
                                   </label>
                                   <label>
                                     Confirm password
-                                    <input type="password" name="confirmPassword" placeholder="Repeat password" autocomplete="new-password" required />
+                                    <input type="password" name="confirmPassword" placeholder="Repeat your password" autocomplete="current-password" required />
                                   </label>
                                 </div>
                                 ${
@@ -14039,6 +14000,7 @@
                                       </label>
                                     `
                                     : `
+                                      <h3 class="registration-section-title">Team and roster</h3>
                                       <div class="field-grid two">
                                         <label>
                                           Institution
@@ -14049,72 +14011,59 @@
                                           <input type="text" name="teamName" placeholder="Team name" required />
                                         </label>
                                       </div>
-                                      <div class="field-grid two">
-                                        <label>
-                                          Team-mate name
-                                          <input type="text" name="teammateName" placeholder="Optional team-mate name" />
-                                        </label>
-                                        <label>
-                                          Team-mate email
-                                          <input type="email" name="teammateEmail" placeholder="Optional team-mate email" />
-                                        </label>
-                                      </div>
+                                      <p class="registration-roster-help" data-registration-roster-help>${escapeHtml(initialTeamSize === 1 ? "This format has one person per entry." : `Add ${initialTeamSize - 1} ${initialTeamSize === 2 ? "teammate" : "teammates"}. Each person needs a different email address.`)}</p>
+                                      ${Array.from({ length: maximumTeamSize - 1 }, (_, index) => `
+                                        <div class="registration-roster-member field-grid two" data-registration-teammate="${index + 1}" ${index + 1 >= initialTeamSize ? "hidden" : ""}>
+                                          <label>Team member ${index + 2} name
+                                            <input type="text" name="teammateName-${index + 1}" placeholder="Full name" ${index + 1 < initialTeamSize ? "required" : "disabled"} />
+                                          </label>
+                                          <label>Team member ${index + 2} email
+                                            <input type="email" name="teammateEmail-${index + 1}" placeholder="name@example.com" ${index + 1 < initialTeamSize ? "required" : "disabled"} />
+                                          </label>
+                                        </div>`).join("")}
                                       <label>
                                         Registration note
                                         <textarea name="notes" rows="2" placeholder="Optional note for the tab team, such as preferred spellings or accessibility needs."></textarea>
                                       </label>
                                     `
                                 }
-                                <button type="submit">${escapeHtml(
-                                  isJudge ? "Complete Judge Registration" : "Complete Team Registration",
-                                )}</button>
+                                <button type="submit">${escapeHtml(isJudge ? "Register as a judge" : "Register team")}</button>
                               </form>
                             `
                             : `<div class="alert info">No tournaments are currently open for this registration flow. Check back later or contact the tab team.</div>`
                         }
-                        <p class="auth-footer">
-                          ${escapeHtml(
-                            isJudge
-                              ? "If you already have an account, use the same email and password here and JADE Hummingbird will attach this judge registration to your existing access."
-                              : "If you already have an account, use the same email and password here and JADE Hummingbird will add this tournament registration to your existing access.",
-                          )}
-                        </p>
                       </div>
                     </div>
-                    <div class="auth-support-grid">
-                      <section class="auth-support-card">
-                        <p class="eyebrow">Direct links</p>
-                        <h3>Share the right registration page</h3>
-                        <p class="manager-note">
-                          Send debaters and judges to the matching page so they only see the intake that matters to them.
-                        </p>
-                        <a class="token-link" href="${escapeHtml(links.debater)}">${escapeHtml(
-                          links.debater,
-                        )}</a>
-                        <a class="token-link" href="${escapeHtml(links.judge)}">${escapeHtml(
-                          links.judge,
-                        )}</a>
-                      </section>
-                      <section class="auth-support-card">
-                        <p class="eyebrow">What happens next</p>
-                        <h3>${escapeHtml(
-                          isJudge ? "Judge access becomes clash-aware" : "Team access becomes live immediately",
-                        )}</h3>
-                        <p>
-                          ${escapeHtml(
-                            isJudge
-                              ? "Once saved, your institution is used to block chair or panel assignments into rooms containing an affiliated team."
-                              : "Once saved, JADE Hummingbird creates your roster record, links your team where possible, and sends you straight to your personal access links.",
-                          )}
-                        </p>
-                      </section>
-                    </div>
+                    <p class="registration-next-step">${isJudge
+                      ? "After registration, we’ll open your private access page. Your affiliation helps the tab team avoid judging clashes."
+                      : "After registration, we’ll open your private access page and email individual access links to your teammates."}</p>
                   </div>
                 </section>
               </div>
             </div>
           </div>
         `;
+      }
+
+      function syncPublicRegistrationTeamFields(form) {
+        const select = form?.querySelector('select[name="tournamentId"]');
+        const option = select?.selectedOptions?.[0];
+        const teamSize = Math.max(1, Number(option?.dataset.teamSize || 1));
+        const formatNote = form?.querySelector("[data-registration-format-note]");
+        const rosterHelp = form?.querySelector("[data-registration-roster-help]");
+        if (formatNote) formatNote.textContent =
+          `${option?.dataset.format || "Tournament"} · ${teamSize} ${teamSize === 1 ? "person" : "people"} per team`;
+        if (rosterHelp) rosterHelp.textContent = teamSize === 1
+          ? "This format has one person per entry."
+          : `Add ${teamSize - 1} ${teamSize === 2 ? "teammate" : "teammates"}. Each person needs a different email address.`;
+        form.querySelectorAll("[data-registration-teammate]").forEach((row) => {
+          const active = Number(row.dataset.registrationTeammate) < teamSize;
+          row.hidden = !active;
+          row.querySelectorAll("input").forEach((input) => {
+            input.disabled = !active;
+            input.required = active;
+          });
+        });
       }
 
       function renderRegionalOperationsPublicView() {
@@ -24551,6 +24500,8 @@
 	                          : renderAuthView();
           document.querySelector("#app").innerHTML = appMarkup + renderConfirmationDialog();
           restoreTrackedFormDrafts();
+          const debaterRegistrationForm = document.querySelector('form[data-form="public-debater-registration"]');
+          if (debaterRegistrationForm) syncPublicRegistrationTeamFields(debaterRegistrationForm);
           syncBrowserUrlWithSession();
           if (pendingTournamentSectionJumpId) {
             const targetId = pendingTournamentSectionJumpId;
@@ -24981,7 +24932,8 @@
           (user) => normalizeEmail(user.email) === normalizeEmail(email),
         );
 
-        if (String(password || "").length < state.appSettings.auth.minimumPasswordLength) {
+        if ((!existingUser || canClaimRegisteredUser(existingUser)) &&
+            String(password || "").length < state.appSettings.auth.minimumPasswordLength) {
           throw new Error(
             "Password must be at least " +
               state.appSettings.auth.minimumPasswordLength +
@@ -25231,8 +25183,11 @@
         const confirmPassword = String(formData.get("confirmPassword") || "");
         const institution = String(formData.get("institution") || "").trim();
         const teamName = String(formData.get("teamName") || "").trim();
-        const teammateName = String(formData.get("teammateName") || "").trim();
-        const teammateEmail = normalizeEmail(formData.get("teammateEmail"));
+        const teamSize = tournament ? getRegistrationTeamSize(tournament) : 1;
+        const teammates = Array.from({ length: teamSize - 1 }, (_, index) => ({
+          name: String(formData.get(`teammateName-${index + 1}`) || "").trim(),
+          email: normalizeEmail(formData.get(`teammateEmail-${index + 1}`)),
+        }));
         const notes = String(formData.get("notes") || "").trim();
 
         if (!tournament) {
@@ -25253,6 +25208,13 @@
           return;
         }
 
+        if (teammates.some((teammate) => !teammate.name || !teammate.email) ||
+            new Set([email, ...teammates.map((teammate) => teammate.email)]).size !== teamSize) {
+          setFlash("error", `Enter a name and a unique email for all ${teamSize} team members.`);
+          renderApp();
+          return;
+        }
+
         if (password !== confirmPassword) {
           setFlash("error", "Passwords do not match.");
           renderApp();
@@ -25269,8 +25231,7 @@
               password,
               institution,
               teamName,
-              teammateName,
-              teammateEmail,
+              teammates,
               notes,
             });
             cloudRuntime.initialized = true;
@@ -25290,9 +25251,7 @@
               const warning = getPrivateAccessDeliveryWarning(result.notifications);
               setFlash(
                 warning ? "warning" : "success",
-                (teammateEmail
-                  ? "Team registration saved. Both accounts and private links are now ready."
-                  : "Team registration saved. Your access links are ready.") +
+                "Team registration saved. Each team member has their own access link." +
                   (warning ? " " + warning : ""),
               );
             }
@@ -25321,10 +25280,10 @@
             password,
             createdSource: "self_signup",
           });
-          if (teammateEmail) {
+          for (const teammate of teammates) {
             await ensurePassiveRegistrationUser({
-              name: teammateName || teammateEmail,
-              email: teammateEmail,
+              name: teammate.name,
+              email: teammate.email,
               createdSource: "registered",
               createdBy: email,
             });
@@ -25335,7 +25294,7 @@
           return;
         }
 
-        rememberTournamentHistoryForEmails([email, teammateEmail], tournamentId);
+        rememberTournamentHistoryForEmails([email, ...teammates.map((teammate) => teammate.email)], tournamentId);
 
         updateTournament(
           tournamentId,
@@ -25349,10 +25308,10 @@
               teamName,
             });
 
-            if (teammateName || teammateEmail) {
+            for (const teammate of teammates) {
               upsertTournamentParticipantRegistration(currentTournament, {
-                name: teammateName || teammateEmail,
-                email: teammateEmail,
+                name: teammate.name,
+                email: teammate.email,
                 institution,
                 team,
                 teamName,
@@ -30136,6 +30095,19 @@
 
           const action = button.dataset.action;
 
+          if (action === "select-registration-tournament") {
+            const form = document.querySelector('form[data-form="public-debater-registration"], form[data-form="public-judge-registration"]');
+            const select = form?.querySelector('select[name="tournamentId"]');
+            if (select) {
+              select.value = button.dataset.tournamentId || "";
+              if (form.dataset.form === "public-debater-registration") syncPublicRegistrationTeamFields(form);
+              rememberFormDraft(form);
+              select.scrollIntoView({ behavior: "smooth", block: "center" });
+              select.focus({ preventScroll: true });
+            }
+            return;
+          }
+
           if (action === "toggle-mobile-workspace-menu") {
             mobileWorkspaceMenuOpen = !mobileWorkspaceMenuOpen;
             button.setAttribute("aria-expanded", String(mobileWorkspaceMenuOpen));
@@ -31689,6 +31661,11 @@
           const changedForm = event.target.closest("form[data-form]");
           if (changedForm) {
             rememberFormDraft(changedForm);
+          }
+          if (changedForm?.dataset.form === "public-debater-registration" &&
+              event.target.matches('select[name="tournamentId"]')) {
+            syncPublicRegistrationTeamFields(changedForm);
+            return;
           }
 
           const configurationForm = event.target.closest(

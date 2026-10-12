@@ -1099,6 +1099,22 @@ function getTournamentRegistrationAvailability(tournament, role = "debater") {
   };
 }
 
+function getRegistrationTeamSize(tournament) {
+  if (String(tournament?.participantModel || "").toLowerCase() === "individuals") return 1;
+  const standardSizes = {
+    "British Parliamentary": 2,
+    "American Parliamentary": 2,
+    "JADE Parliamentary": 3,
+    "Iron Person British Parliamentary": 1,
+    "World Schools": 3,
+  };
+  const configuredSize = (format, size) => standardSizes[String(format || "").trim()] ||
+    Math.min(8, Math.max(1, Math.round(Number(size) || 1)));
+  const baseSize = configuredSize(tournament?.format, tournament?.config?.teamSize);
+  return Math.max(baseSize, ...(tournament?.config?.roundProfiles || []).map((round) =>
+    configuredSize(round?.format || tournament?.format, round?.teamSize || tournament?.config?.teamSize)));
+}
+
 function createTeamRecord(name, institution = "", extras = {}) {
   return {
     id: String(extras.id || createId("team")).trim(),
@@ -1389,18 +1405,15 @@ function ensureRegistrationUser(
     }
 
     if (requirePassword) {
-      if (String(password || "").length < minimumPasswordLength) {
-        const error = new Error(
-          "Password must be at least " + minimumPasswordLength + " characters long.",
-        );
-        error.statusCode = 422;
-        error.code = "password_too_short";
-        throw error;
-      }
-
       const passwordCheck = verifyUserPassword(existingUser, password);
       if (!passwordCheck.ok) {
         if (canClaimRegisteredAccount(existingUser)) {
+          if (String(password || "").length < minimumPasswordLength) {
+            const error = new Error("New passwords must be at least " + minimumPasswordLength + " characters long.");
+            error.statusCode = 422;
+            error.code = "password_too_short";
+            throw error;
+          }
           Object.assign(existingUser, buildSecurePasswordRecord(password), {
             name: String(name || existingUser.name || normalizedEmail.split("@")[0]).trim(),
             createdSource,
@@ -3202,8 +3215,15 @@ app.post("/api", async (request, response) => {
       const password = String(request.body?.password || "");
       const institution = String(request.body?.institution || "").trim();
       const teamName = String(request.body?.teamName || "").trim();
-      const teammateName = String(request.body?.teammateName || "").trim();
-      const teammateEmail = normalizeEmail(request.body?.teammateEmail);
+      const teammates = Array.isArray(request.body?.teammates)
+        ? request.body.teammates.map((entry) => ({
+            name: String(entry?.name || "").trim(),
+            email: normalizeEmail(entry?.email),
+          }))
+        : [{
+            name: String(request.body?.teammateName || "").trim(),
+            email: normalizeEmail(request.body?.teammateEmail),
+          }].filter((entry) => entry.name || entry.email);
       const notes = String(request.body?.notes || "").trim();
 
       const result = await withTransaction(async (client) => {
@@ -3243,6 +3263,31 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
+        const requiredTeammates = getRegistrationTeamSize(tournament) - 1;
+        const rosterEmails = [email, ...teammates.map((entry) => entry.email)];
+        if (teammates.length !== requiredTeammates ||
+            teammates.some((entry) => !entry.name || !entry.email) ||
+            new Set(rosterEmails).size !== rosterEmails.length) {
+          const error = new Error("Enter a name and a unique email for all " +
+            getRegistrationTeamSize(tournament) + " team members, including yourself.");
+          error.statusCode = 422;
+          error.code = "invalid_team_roster";
+          throw error;
+        }
+        const registrationTeam = { name: teamName, institution };
+        const existingTeam = (tournament.teams || []).find((entry) =>
+          teamsLookEquivalent(entry, registrationTeam)) || null;
+        const existingMembers = (tournament.participants || []).filter((participant) =>
+          existingTeam && (String(participant.teamId || "") === String(existingTeam.id) ||
+            (!participant.teamId && normalizeTextKey(participant.teamName) === normalizeTextKey(teamName))));
+        if (existingMembers.some((participant) =>
+          !rosterEmails.includes(normalizeEmail(participant.email)))) {
+          const error = new Error("That team already has a different roster. Ask the tournament staff to update it.");
+          error.statusCode = 409;
+          error.code = "team_roster_conflict";
+          throw error;
+        }
+
         const registeredUser = ensureRegistrationUser(state, {
           name,
           email,
@@ -3253,17 +3298,15 @@ app.post("/api", async (request, response) => {
           markLoggedIn: true,
         });
 
-        let teammateUser = null;
-        if (teammateEmail) {
-          teammateUser = ensureRegistrationUser(state, {
-            name: teammateName || teammateEmail,
-            email: teammateEmail,
+        const teammateUsers = teammates.map((teammate) =>
+          ensureRegistrationUser(state, {
+            name: teammate.name,
+            email: teammate.email,
             createdSource: "registered",
             createdBy: email,
             requirePassword: false,
             markLoggedIn: false,
-          });
-        }
+          }));
 
         const team = upsertTournamentRegistrationTeam(tournament, teamName, institution, notes);
         upsertTournamentParticipantRegistration(tournament, {
@@ -3274,10 +3317,10 @@ app.post("/api", async (request, response) => {
           teamName,
         });
 
-        if (teammateName || teammateEmail) {
+        for (const teammate of teammates) {
           upsertTournamentParticipantRegistration(tournament, {
-            name: teammateName || teammateEmail,
-            email: teammateEmail,
+            name: teammate.name,
+            email: teammate.email,
             institution,
             team,
             teamName,
@@ -3285,7 +3328,7 @@ app.post("/api", async (request, response) => {
         }
 
         rememberUserTournamentHistory(state, email, tournamentId);
-        rememberUserTournamentHistory(state, teammateEmail, tournamentId);
+        teammates.forEach((teammate) => rememberUserTournamentHistory(state, teammate.email, tournamentId));
         addTournamentAuditEntry(
           tournament,
           email,
@@ -3308,7 +3351,7 @@ app.post("/api", async (request, response) => {
             }),
           );
         }
-        if (teammateUser) {
+        for (const teammateUser of teammateUsers) {
           notifications.push(
             await sendPrivateAccessEmail({
               state,
