@@ -4179,6 +4179,10 @@
       }
 
       function getScoringMethodOptions(participantModel = "", format = "") {
+        const fixedProfile = getScoringProfile({ format, participantModel });
+        if (normalizeFormatName(format) !== "No Standard Format" && fixedProfile.scoringMethod) {
+          return [{ value: fixedProfile.scoringMethod, label: fixedProfile.scoringMethod }];
+        }
         const normalized = String(participantModel || "").trim().toLowerCase();
         const normalizedFormat = String(format || "").trim();
         const teamFirst =
@@ -4297,6 +4301,9 @@
       ) {
         const { preserveBlank = false } = options;
         const profile = getScoringProfile({ format, participantModel });
+        if (normalizeFormatName(format) !== "No Standard Format") {
+          return profile.scoringMethod;
+        }
         const normalized = normalizeScoringMethodChoice(currentValue);
         if (!normalized) {
           return preserveBlank ? "" : profile.scoringMethod;
@@ -4319,8 +4326,18 @@
       }
 
       function getRoundScoringProfile(tournament, roundOrProfile = null) {
+        const format = getRoundFormat(tournament, roundOrProfile);
+        const method = normalizeScoringMethodChoice(tournament?.config?.scoringMethod);
+        if (format === "No Standard Format") {
+          if (method === "WUDC Team Points") {
+            return { mode: "bp_team", scoringMethod: method };
+          }
+          if (method === "WSDC Team Points" || method === "JADE Parliamentary Team Points") {
+            return { mode: "win_loss_team", scoringMethod: method };
+          }
+        }
         return getScoringProfile({
-          format: getRoundFormat(tournament, roundOrProfile),
+          format,
           participantModel: tournament?.participantModel || "",
         });
       }
@@ -4342,6 +4359,10 @@
           };
         }
 
+        if (teamModes.size === 1) {
+          const mode = [...teamModes][0];
+          return { ...baseProfile, mode };
+        }
         return baseProfile;
       }
 
@@ -5241,6 +5262,10 @@
           losses: normalizeNonNegative(record.losses, 0),
           points: normalizeNonNegative(record.points, 0),
           speaks: normalizeNonNegative(record.speaks, 0),
+          averageSpeaks: normalizeNonNegative(record.scoredRounds, 0)
+            ? Number(record.speaks || 0) / Number(record.scoredRounds)
+            : normalizeNonNegative(record.speaks, 0),
+          votes: normalizeNonNegative(record.votes, 0),
           firsts: normalizeNonNegative(record.firsts, 0),
           seconds: normalizeNonNegative(record.seconds, 0),
           thirds: normalizeNonNegative(record.thirds, 0),
@@ -5305,6 +5330,12 @@
             }
 
             if (profile.mode === "win_loss_team") {
+              if (getFormatLabel(tournament) === "World Schools") {
+                return Number(right.wins) - Number(left.wins) ||
+                  Number(right.votes) - Number(left.votes) ||
+                  Number(right.averageSpeaks) - Number(left.averageSpeaks) ||
+                  String(left.name).localeCompare(String(right.name));
+              }
               return (
                 Number(right.points) - Number(left.points) ||
                 Number(right.speaks) - Number(left.speaks) ||
@@ -5380,6 +5411,11 @@
         }
 
         if (profile.mode === "win_loss_team") {
+          if (getFormatLabel(tournament) === "World Schools") {
+            return Number(first.wins) === Number(second.wins) &&
+              Number(first.votes) === Number(second.votes) &&
+              Number(first.averageSpeaks) === Number(second.averageSpeaks);
+          }
           return (
             Number(first.points) === Number(second.points) &&
             Number(first.speaks) === Number(second.speaks) &&
@@ -5420,8 +5456,8 @@
           return false;
         }
         return (
-          Number(left.cumulativeSpeakerScore ?? left.speakerScore ?? 0) ===
-          Number(right.cumulativeSpeakerScore ?? right.speakerScore ?? 0)
+          Number(left.averageSpeakerScore ?? left.speakerScore ?? 0) ===
+          Number(right.averageSpeakerScore ?? right.speakerScore ?? 0)
         );
       }
 
@@ -5445,8 +5481,12 @@
             { key: "rank", label: "Rank" },
             { key: "name", label: "Entry" },
             { key: "speaks", label: "Speaks" },
+            ...(getFormatLabel(tournament) === "World Schools"
+              ? [{ key: "averageSpeaks", label: "Avg marks" }] : []),
             { key: "wins", label: "Wins" },
             { key: "losses", label: "Losses" },
+            ...(getFormatLabel(tournament) === "World Schools"
+              ? [{ key: "votes", label: "Judge votes" }] : []),
             { key: "points", label: "Team points" },
           ];
         }
@@ -5493,7 +5533,7 @@
 
       function getFormattedStandingCellValue(tournament, standing, key) {
         const value = getStandingCellValue(standing, key);
-        if (["points", "speakerScore"].includes(String(key || "").trim())) {
+        if (["points", "speakerScore", "averageSpeaks"].includes(String(key || "").trim())) {
           return formatScoreValue(value);
         }
         if (String(key || "").trim() === "speaks") {
@@ -6773,6 +6813,33 @@
         return "speaker_only";
       }
 
+      function getWorldSchoolsMajorityResult(tournament, drawId) {
+        const drawEntry = getDrawEntryById(tournament, drawId);
+        const slots = Array.isArray(drawEntry?.slots) ? drawEntry.slots : [];
+        if (slots.length !== 2) return {};
+        const allocations = Array.from(new Map(getJudgeAllocationsForTournament(tournament)
+          .filter((allocation) => allocation.drawId === drawId &&
+            canJudgeAllocationSubmitBallot(tournament, allocation))
+          .map((allocation) => [normalizeEmail(allocation.judgeEmail), allocation])).values());
+        if (!allocations.length) return {};
+        const keys = slots.map(getDrawSlotCheckInKey);
+        const votes = allocations.filter((allocation) => allocation.submittedAt).map((allocation) => {
+          const results = normalizeDrawOfficialResults(
+            Object.keys(allocation.ballotResults || {}).length
+              ? allocation.ballotResults
+              : normalizeJudgeAllocationRole(allocation.panelRole, "panelist") === "chair"
+                ? drawEntry.officialResults : {},
+          );
+          return keys.find((key) => results[key]?.outcome === "win" &&
+            results[keys.find((other) => other !== key)]?.outcome === "loss");
+        }).filter(Boolean);
+        const winner = keys.find((key) => votes.filter((vote) => vote === key).length > allocations.length / 2);
+        if (!winner) return {};
+        return Object.fromEntries(keys.map((key) => [key, {
+          outcome: key === winner ? "win" : "loss",
+        }]));
+      }
+
       function isGenericDrawSideLabel(value) {
         return /^side\s+\d+$/i.test(String(value || "").trim());
       }
@@ -6960,9 +7027,16 @@
         return "";
       }
 
-      function getJudgeRoomResultOptionsMarkup(tournament, drawEntry, slot) {
+      function getJudgeRoomResultOptionsMarkup(tournament, drawEntry, slot, allocation = null) {
         const slotKey = getDrawSlotCheckInKey(slot);
-        const currentResult = normalizeDrawOfficialResults(drawEntry?.officialResults)?.[slotKey] || {};
+        const currentResult = normalizeDrawOfficialResults(
+          allocation ? allocation.ballotResults : drawEntry?.officialResults,
+        )?.[slotKey] || {};
+        const draftResult = allocation?.draft?.[getJudgeRoomResultFieldName(slotKey)];
+        if (draftResult !== undefined) {
+          if (getDrawOfficialResultMode(tournament, drawEntry) === "bp_rank") currentResult.rank = Number(draftResult);
+          else currentResult.outcome = draftResult;
+        }
         const resultMode = getDrawOfficialResultMode(tournament, drawEntry);
         if (resultMode === "bp_rank") {
           const total = Math.max(0, Array.isArray(drawEntry?.slots) ? drawEntry.slots.length : 0);
@@ -7265,18 +7339,6 @@
         return null;
       }
 
-      function getFeedbackTotalScore(entry) {
-        const speakerScore = getFeedbackSpeakerScore(entry);
-        const scoreTotal = Object.entries(entry?.scores || {}).reduce((sum, [key, value]) => {
-          const normalizedKey = String(key || "").trim().toLowerCase();
-          if (["speaker score", "speaker points", "speaks"].includes(normalizedKey)) {
-            return sum;
-          }
-          return sum + Number(value || 0);
-        }, 0);
-        return scoreTotal + Number(speakerScore || 0);
-      }
-
       function getParticipantBallotGroups(tournamentOrParticipant, maybeParticipant) {
         const tournament = maybeParticipant ? tournamentOrParticipant : null;
         const participant = maybeParticipant || tournamentOrParticipant;
@@ -7296,6 +7358,15 @@
           const timestampKey =
             normalizeTimestampKey(entry?.createdAtKey, entry?.createdAt) || index + 1;
           const current = groups.get(groupKey);
+          if (tournament && getRoundFormat(tournament, entry.round) === "World Schools") {
+            groups.set(groupKey, {
+              score: ((current?.score || 0) * (current?.count || 0) + speakerScore) /
+                ((current?.count || 0) + 1),
+              count: (current?.count || 0) + 1,
+              timestampKey,
+            });
+            return;
+          }
           if (!current || Number(timestampKey) >= Number(current.timestampKey || 0)) {
             groups.set(groupKey, {
               score: Number(speakerScore || 0),
@@ -7348,6 +7419,16 @@
           );
           const room = String(drawEntry?.room || allocation?.room || "").trim();
           const current = grouped.get(groupKey);
+
+          if (getRoundFormat(tournament, round) === "World Schools") {
+            const count = (current?.count || 0) + 1;
+            grouped.set(groupKey, {
+              key: groupKey, drawId: String(entry?.drawId || "").trim(),
+              round, room, score: ((current?.score || 0) * (count - 1) + speakerScore) / count,
+              count, timestampKey,
+            });
+            return;
+          }
 
           if (!current || Number(timestampKey) >= Number(current.timestampKey || 0)) {
             grouped.set(groupKey, {
@@ -7456,22 +7537,8 @@
           return null;
         }
 
-        const latestEntry = getOfficialParticipantFeedbackEntries(tournament, participant)
-          .filter((entry) => String(entry.drawId || "").trim() === String(drawId || "").trim())
-          .map((entry, index) => ({
-            entry,
-            timestampKey:
-              normalizeTimestampKey(entry?.createdAtKey, entry?.createdAt) || index + 1,
-          }))
-          .filter(({ entry }) => getFeedbackSpeakerScore(entry) !== null)
-          .sort((left, right) => Number(left.timestampKey) - Number(right.timestampKey))
-          .at(-1);
-
-        if (!latestEntry) {
-          return null;
-        }
-
-        return getFeedbackSpeakerScore(latestEntry.entry);
+        const breakdown = getParticipantSpeakerScoreBreakdown(tournament, participant);
+        return breakdown.find((entry) => entry.drawId === String(drawId || "").trim())?.score ?? null;
       }
 
       function getComputedStandings(tournament) {
@@ -7607,7 +7674,19 @@
                 averageScore: participantScores.reduce(
                   (sum, value) => sum + Number(value || 0),
                   0,
-                ),
+                ) + (getRoundFormat(tournament, drawEntry.round) === "World Schools"
+                  ? (() => {
+                      const slotKey = getDrawSlotCheckInKey(slot);
+                      const submittedPanel = getJudgeAllocationsForTournament(tournament)
+                        .filter((allocation) => allocation.drawId === drawEntry.id && allocation.submittedAt);
+                      const replies = submittedPanel
+                        .map((allocation) => Number(allocation.replySpeeches?.[slotKey]?.score))
+                        .filter(Number.isFinite);
+                      return replies.length && replies.length === submittedPanel.length
+                        ? replies.reduce((sum, score) => sum + score, 0) / replies.length
+                        : 0;
+                    })()
+                  : 0),
               };
             })
             .filter(Boolean)
@@ -7644,21 +7723,6 @@
               });
               return;
             }
-
-            if (!rankedSlots.length || rankedSlots.length !== drawEntry.slots.length) {
-              return;
-            }
-
-            hasAutomaticResults = true;
-            const placementKeys = ["firsts", "seconds", "thirds", "fourths"];
-            const placementPoints = [3, 2, 1, 0];
-            rankedSlots.forEach((slot, index) => {
-              const record = teamMap.get(slot.key);
-              if (!record) return;
-              record.speaks += Number(slot.averageScore || 0);
-              record[placementKeys[index] || "fourths"] += 1;
-              record.points += placementPoints[index] ?? 0;
-            });
             return;
           }
 
@@ -7677,6 +7741,7 @@
               if (!record) return;
               const rankedSlot = rankedSlots.find((entry) => entry.key === slot.key);
               record.speaks += Number(rankedSlot?.averageScore || 0);
+              if (rankedSlot) record.scoredRounds = Number(record.scoredRounds || 0) + 1;
               if (slot.result.outcome === "win") {
                 record.wins += 1;
                 record.points += 3;
@@ -7684,35 +7749,19 @@
                 record.losses += 1;
                 record.points += 1;
               }
+              if (getRoundFormat(tournament, drawEntry.round) === "World Schools") {
+                record.votes = Number(record.votes || 0) +
+                  getJudgeAllocationsForTournament(tournament)
+                    .filter((allocation) => allocation.drawId === drawEntry.id &&
+                      allocation.submittedAt &&
+                      allocation.ballotResults?.[slot.slotKey]?.outcome === "win").length;
+              }
             });
             return;
           }
 
-          if (rankedSlots.length < 2) {
-            return;
-          }
-
-          hasAutomaticResults = true;
-          const first = rankedSlots[0];
-          const second = rankedSlots[1];
-          const firstRecord = teamMap.get(first.key);
-          const secondRecord = teamMap.get(second.key);
-          if (!firstRecord || !secondRecord) {
-            return;
-          }
-          firstRecord.speaks += Number(first.averageScore || 0);
-          secondRecord.speaks += Number(second.averageScore || 0);
-
-          if (Number(first.averageScore || 0) === Number(second.averageScore || 0)) {
-            firstRecord.points += 2;
-            secondRecord.points += 2;
-            return;
-          }
-
-          firstRecord.wins += 1;
-          firstRecord.points += 3;
-          secondRecord.losses += 1;
-          secondRecord.points += 1;
+          // An unsubmitted room has no official result. Speaker marks must never
+          // be used to infer a debate winner or a BP placement.
         });
 
         if (!hasAutomaticResults) {
@@ -7728,7 +7777,8 @@
             .filter((participant) => hasSpeakerRankingData(participant))
             .sort(
               (left, right) =>
-                Number(right.speakerScore) - Number(left.speakerScore) ||
+                Number(right.averageSpeakerScore) - Number(left.averageSpeakerScore) ||
+                Number(right.scoreBreakdown?.length || 0) - Number(left.scoreBreakdown?.length || 0) ||
                 String(left.name).localeCompare(String(right.name)),
             ),
           areSpeakerStandingsTied,
@@ -7788,7 +7838,7 @@
               </tbody>
             </table>
           </div>
-          <p class="table-caption">Match scores list the scored rounds for each speaker. Rankings use cumulative score, with the average shown alongside it.</p>
+          <p class="table-caption">Match scores list the scored rounds for each speaker. Rankings use average substantive score; cumulative score and scored rounds are shown for context.</p>
         `;
       }
 
@@ -9369,6 +9419,10 @@
           checkedInAtKey: normalizeTimestampKey(extras.checkedInAtKey, extras.checkedInAt),
           submittedAt: String(extras.submittedAt || "").trim(),
           submittedAtKey: normalizeTimestampKey(extras.submittedAtKey, extras.submittedAt),
+          ballotResults: normalizeDrawOfficialResults(extras.ballotResults),
+          replySpeeches: extras.replySpeeches && typeof extras.replySpeeches === "object"
+            ? clone(extras.replySpeeches) : {},
+          draft: extras.draft && typeof extras.draft === "object" ? clone(extras.draft) : {},
           createdAt: extras.createdAt || timestamp(),
         };
       }
@@ -9393,6 +9447,9 @@
             checkedInAtKey: record?.checkedInAtKey,
             submittedAt: record?.submittedAt,
             submittedAtKey: record?.submittedAtKey,
+            ballotResults: record?.ballotResults,
+            replySpeeches: record?.replySpeeches,
+            draft: record?.draft,
             createdAt: record?.createdAt,
           },
         );
@@ -10394,6 +10451,7 @@
         if (!allocation) {
           return true;
         }
+        if (!allocation.submittedAt) return false;
         if (normalizeJudgeAllocationRole(allocation.panelRole, "chair") !== "chair") {
           return false;
         }
@@ -10402,9 +10460,14 @@
       }
 
       function getOfficialParticipantFeedbackEntries(tournament, participant) {
-        return (participant?.feedback || []).filter((entry) =>
-          isOfficialFeedbackEntry(tournament, entry),
-        );
+        return (participant?.feedback || []).filter((entry) => {
+          if (getRoundFormat(tournament, entry.round) === "World Schools") {
+            const drawEntry = getDrawEntryById(tournament, entry.drawId);
+            return Boolean(getFeedbackAllocation(tournament, entry)?.submittedAt &&
+              getDrawOfficialResultSummary(tournament, drawEntry));
+          }
+          return isOfficialFeedbackEntry(tournament, entry);
+        });
       }
 
       function getParticipantVisibleFeedbackEntries(tournament, participant) {
@@ -10513,6 +10576,22 @@
 
       function getJudgeRoomResultFieldName(slotKey) {
         return "room_result_" + getJudgeFieldToken(slotKey);
+      }
+
+      function getJudgeReplySpeakerFieldName(slotKey) {
+        return "reply_speaker_" + getJudgeFieldToken(slotKey);
+      }
+
+      function getJudgeReplyScoreFieldName(slotKey) {
+        return "reply_score_" + getJudgeFieldToken(slotKey);
+      }
+
+      function getJudgeReplyCategoryFieldName(slotKey, category) {
+        return "reply_" + category.toLowerCase() + "_" + getJudgeFieldToken(slotKey);
+      }
+
+      function getJudgeDraftValue(allocation, fieldName, fallback = "") {
+        return allocation?.draft?.[fieldName] ?? fallback;
       }
 
       function getJudgeAssignments(email = session.userEmail) {
@@ -11759,7 +11838,7 @@
               (allocation
                 ? '"' + "Round " + allocation.round + " • " + allocation.room + '"'
                 : "this room") +
-              "? This will clear the official result, remove the submitted speaker scores and feedback from the standings calculation, and unlock the room for correction.",
+              "? Saved marks stay available for correction. This ballot stops counting until it is resubmitted.",
             confirmLabel: "Reopen Ballot",
           };
         }
@@ -15029,7 +15108,7 @@
                                   <div class="section-heading">
                                     <strong>${escapeHtml(latestFeedback.judgeEmail)}</strong>
                                     <span class="mini-pill warning">${escapeHtml(
-                                      getFeedbackTotalScore(latestFeedback),
+                                      formatScoreValue(getFeedbackSpeakerScore(latestFeedback)),
                                     )}</span>
                                   </div>
                                   <p class="muted">${escapeHtml(
@@ -15406,6 +15485,9 @@
                 )}" />
               </label>
             </div>
+            ${getFormatLabel(tournament) === "World Schools"
+              ? `<p class="fine-print">World Schools ballots use Content, Style and Strategy marks. These categories apply to other formats.</p>`
+              : ""}
             <div class="field-grid two">
               <label class="checkbox-row">
                 <input type="checkbox" name="randomTeamsAllowed" ${checked(
@@ -22877,8 +22959,11 @@
           drawEntry,
           participants,
         );
-        const feedbackCategories = tournament.settings.feedbackCategories || [];
+        const feedbackCategories = getRoundFormat(tournament, allocation.round) === "World Schools"
+          ? ["Content", "Style", "Strategy"]
+          : tournament.settings.feedbackCategories || [];
         const isChair = normalizeJudgeAllocationRole(allocation.panelRole, "panelist") === "chair";
+        const isWorldSchools = getRoundFormat(tournament, allocation.round) === "World Schools";
         const canSubmitBallot = canJudgeAllocationSubmitBallot(tournament, allocation);
         const ballotLocked = Boolean(allocation.submittedAt);
         const resultMode = getDrawOfficialResultMode(tournament, drawEntry);
@@ -22991,10 +23076,17 @@
                   ? ballotLocked
                     ? `
                   <div class="alert success">
-                    This ${escapeHtml(isChair ? "official" : "panel")} ballot was submitted on ${escapeHtml(
+                    This ballot was submitted on ${escapeHtml(
                       allocation.submittedAt,
                     )} and is now locked. Only tournament managers can reopen it for corrections.
                   </div>
+                  ${Object.keys(allocation.ballotResults || {}).length
+                    ? `<div class="flat-panel"><strong>${escapeHtml(isWorldSchools ? "Your Vote" : "Your Room Result")}</strong>
+                        <p class="muted">${escapeHtml(roomSlots.map((slot) => {
+                          const result = allocation.ballotResults[getDrawSlotCheckInKey(slot)] || {};
+                          return getDrawSlotDisplayLabel(tournament, slot, { drawEntry }) + " " +
+                            (result.rank ? formatOrdinal(result.rank) : toTitleLabel(result.outcome));
+                        }).join(" • "))}</p></div>` : ""}
                   ${
                     getDrawOfficialResultSummary(tournament, drawEntry)
                       ? `<div class="flat-panel">
@@ -23031,6 +23123,9 @@
                                       0,
                                   ),
                               )}</span>
+                              ${isWorldSchools && Object.values(allocation.replySpeeches || {}).some((reply) => reply.participantId === participant.id)
+                                ? `<span class="fine-print">${escapeHtml("Reply speech: " + formatScoreValue(Object.values(allocation.replySpeeches).find((reply) => reply.participantId === participant.id).score))}</span>`
+                                : ""}
                               ${
                                 existing?.note
                                   ? `<span class="fine-print">${escapeHtml(existing.note)}</span>`
@@ -23049,14 +23144,16 @@
                   )}" data-allocation-id="${escapeHtml(allocation.id)}">
                     <div class="ballot-grid">
                       ${
-                        isChair && resultMode !== "speaker_only" && roomSlots.length
+                        resultMode !== "speaker_only" && roomSlots.length && (isChair || isWorldSchools)
                           ? `
                             <section class="ballot-speaker-card ballot-room-result-card">
                               <div class="section-heading">
                                 <div>
-                                  <strong>Official Room Result</strong>
+                                  <strong>${escapeHtml(isChair ? "Room Result" : "Your Vote")}</strong>
                                   <p class="muted">${escapeHtml(
-                                    getJudgeRoomResultGuideText(tournament, drawEntry),
+                                    isWorldSchools
+                                      ? "Record your independent vote. The room result posts after a panel majority."
+                                      : getJudgeRoomResultGuideText(tournament, drawEntry),
                                   )}</p>
                                 </div>
                                 <span class="mini-pill success">${escapeHtml(
@@ -23082,6 +23179,7 @@
                                           tournament,
                                           drawEntry,
                                           slot,
+                                          allocation,
                                         )}</select>
                                       </label>
                                     `,
@@ -23117,11 +23215,11 @@
                               </div>
                               <div class="field-grid three">
                                 <label>
-                                  Speaker Score
-                                  <input type="number" min="0" step="any" name="${escapeHtml(
+                                  ${escapeHtml(isWorldSchools ? "Substantive Speech (60–80)" : "Speaker Score")}
+                                  <input type="number" min="${escapeHtml(isWorldSchools ? 60 : 0)}" max="${escapeHtml(isWorldSchools ? 80 : 100)}" step="any" name="${escapeHtml(
                                     getJudgeScoreFieldName(participant.id, "Speaker Score"),
                                   )}" value="${escapeHtml(
-                                    existing?.speakerScore ?? getFeedbackSpeakerScore(existing) ?? "",
+                                    getJudgeDraftValue(allocation, getJudgeScoreFieldName(participant.id, "Speaker Score"), existing?.speakerScore ?? getFeedbackSpeakerScore(existing) ?? ""),
                                   )}" required />
                                 </label>
                                 ${feedbackCategories
@@ -23129,18 +23227,19 @@
                                     (category) => `
                                       <label>
                                         ${escapeHtml(category)}
-                                        <input type="number" min="0" step="any" name="${escapeHtml(
+                                        <input type="number" min="0" max="${escapeHtml(isWorldSchools ? (category === "Strategy" ? 20 : 40) : 100)}" step="any" name="${escapeHtml(
                                           getJudgeScoreFieldName(participant.id, category),
                                         )}" value="${escapeHtml(
-                                          existing?.scores?.[category] ?? "",
-                                        )}" placeholder="Optional" />
+                                          getJudgeDraftValue(allocation, getJudgeScoreFieldName(participant.id, category), existing?.scores?.[category] ?? ""),
+                                        )}" ${isWorldSchools ? "required" : 'placeholder="Optional"'} />
                                       </label>
                                     `,
                                   )
                                   .join("")}
                               </div>
                               ${
-                                optionalScoreConfig.hasOptionalScores
+                                optionalScoreConfig.crossExaminationEnabled ||
+                                (optionalScoreConfig.rebuttalEnabled && !isWorldSchools)
                                   ? `
                                     <div class="field-grid three">
                                       ${
@@ -23151,7 +23250,7 @@
                                               <input type="number" min="0" max="20" step="any" name="${escapeHtml(
                                                 getJudgeCrossQuestionFieldName(participant.id),
                                               )}" value="${escapeHtml(
-                                                existing?.scores?.["Cross Examination Questions"] ?? "",
+                                                getJudgeDraftValue(allocation, getJudgeCrossQuestionFieldName(participant.id), existing?.scores?.["Cross Examination Questions"] ?? ""),
                                               )}" placeholder="Optional" />
                                             </label>
                                             <label>
@@ -23159,21 +23258,21 @@
                                               <input type="number" min="0" max="40" step="any" name="${escapeHtml(
                                                 getJudgeCrossResponseFieldName(participant.id),
                                               )}" value="${escapeHtml(
-                                                existing?.scores?.["Cross Examination Responses"] ?? "",
+                                                getJudgeDraftValue(allocation, getJudgeCrossResponseFieldName(participant.id), existing?.scores?.["Cross Examination Responses"] ?? ""),
                                               )}" placeholder="Optional" />
                                             </label>
                                           `
                                           : ""
                                       }
                                       ${
-                                        optionalScoreConfig.rebuttalEnabled
+                                        optionalScoreConfig.rebuttalEnabled && !isWorldSchools
                                           ? `
                                             <label>
                                               Rebuttal
                                               <input type="number" min="0" max="50" step="any" name="${escapeHtml(
                                                 getJudgeRebuttalFieldName(participant.id),
                                               )}" value="${escapeHtml(
-                                                existing?.scores?.Rebuttal ?? "",
+                                                getJudgeDraftValue(allocation, getJudgeRebuttalFieldName(participant.id), existing?.scores?.Rebuttal ?? ""),
                                               )}" placeholder="Optional" />
                                             </label>
                                           `
@@ -23188,16 +23287,42 @@
                                 <textarea name="${escapeHtml(
                                   getJudgeNoteFieldName(participant.id),
                                 )}" rows="3" placeholder="Optional adjudication feedback">${escapeHtml(
-                                  existing?.note || "",
+                                  getJudgeDraftValue(allocation, getJudgeNoteFieldName(participant.id), existing?.note || ""),
                                 )}</textarea>
                               </label>
                             </section>
                           `;
                         })
                         .join("")}
+                      ${isWorldSchools ? roomSlots.map((slot) => {
+                        const slotKey = getDrawSlotCheckInKey(slot);
+                        const speakers = orderedParticipants.filter((participant) =>
+                          (slot.participantIds || []).includes(participant.id));
+                        const reply = allocation.replySpeeches?.[slotKey] || {};
+                        return `<section class="ballot-speaker-card">
+                          <strong>${escapeHtml(getDrawSlotDisplayLabel(tournament, slot, { drawEntry }))} Reply Speech</strong>
+                          <div class="field-grid two">
+                            <label>Reply speaker
+                              <select name="${escapeHtml(getJudgeReplySpeakerFieldName(slotKey))}" required>
+                                <option value="">Select speaker</option>
+                                ${speakers.slice(0, 2).map((speaker) => `<option value="${escapeHtml(speaker.id)}" ${selected(speaker.id, getJudgeDraftValue(allocation, getJudgeReplySpeakerFieldName(slotKey), reply.participantId || ""))}>${escapeHtml(speaker.name)}</option>`).join("")}
+                              </select>
+                            </label>
+                            <label>Reply speech (30–40)
+                              <input type="number" min="30" max="40" step="0.5" name="${escapeHtml(getJudgeReplyScoreFieldName(slotKey))}" value="${escapeHtml(getJudgeDraftValue(allocation, getJudgeReplyScoreFieldName(slotKey), reply.score ?? ""))}" required />
+                            </label>
+                          </div>
+                          <div class="field-grid three">
+                            ${["Content", "Style", "Strategy"].map((category) => `<label>${category}
+                              <input type="number" min="0" max="${category === "Strategy" ? 10 : 20}" step="0.5" name="${escapeHtml(getJudgeReplyCategoryFieldName(slotKey, category))}" value="${escapeHtml(getJudgeDraftValue(allocation, getJudgeReplyCategoryFieldName(slotKey, category), reply.breakdown?.[category] ?? ""))}" required />
+                            </label>`).join("")}
+                          </div>
+                        </section>`;
+                      }).join("") : ""}
                     </div>
                     <div class="button-row">
-                      <button type="submit"><span>Submit Ballot</span></button>
+                      <button class="secondary-button" type="submit" name="ballot_action" value="draft" formnovalidate>Save Draft</button>
+                      <button type="submit" name="ballot_action" value="submit"><span>Submit Ballot</span></button>
                     </div>
                   </form>
                   ${renderInternalJudgeFeedbackForms(tournament, allocation)}
@@ -23290,7 +23415,7 @@
               <span class="role-pill">${escapeHtml(assignments.length)} rooms</span>
             </div>
             <div class="alert info">
-              You only see rooms explicitly assigned to your email. Check in from your room card when you arrive. Chair ballots remain official for room results, and formats like World Schools can also let wings file panel ballots. Once a ballot is submitted, only tournament managers can reopen it.
+              You only see rooms assigned to your email. In World Schools, each panel judge submits an independent vote and the majority decides the room result. In other formats, the chair submits the official result. Only tournament managers can reopen submitted ballots.
             </div>
           </section>
           ${
@@ -27960,22 +28085,14 @@
               return tournament;
             }
 
-            tournament.participants = (tournament.participants || []).map((participant) => ({
-              ...participant,
-              feedback: (participant.feedback || []).filter(
-                (entry) =>
-                  !(
-                    String(entry.allocationId || "") === String(allocationId || "") &&
-                    normalizeEmail(entry.judgeEmail) === normalizeEmail(currentAllocation.judgeEmail)
-                  ),
-              ),
-            }));
-
             tournament.judgeAllocations = (tournament.judgeAllocations || []).map((entry) =>
               entry.id === allocationId
                 ? {
                     ...entry,
                     status: entry.checkedIn ? "checked_in" : "assigned",
+                    ballotResults: Object.keys(entry.ballotResults || {}).length
+                      ? entry.ballotResults
+                      : normalizeDrawOfficialResults(getDrawEntryById(tournament, entry.drawId)?.officialResults),
                     submittedAt: "",
                     submittedAtKey: 0,
                   }
@@ -27987,9 +28104,11 @@
                 ? {
                     ...drawEntry,
                     officialResults:
-                      normalizeJudgeAllocationRole(currentAllocation.panelRole, "panelist") === "chair"
-                        ? {}
-                        : normalizeDrawOfficialResults(drawEntry.officialResults),
+                      getRoundFormat(tournament, currentAllocation.round) === "World Schools"
+                        ? getWorldSchoolsMajorityResult(tournament, currentAllocation.drawId)
+                        : normalizeJudgeAllocationRole(currentAllocation.panelRole, "panelist") === "chair"
+                          ? {}
+                          : normalizeDrawOfficialResults(drawEntry.officialResults),
                     ballotCheckedIn:
                       normalizeJudgeAllocationRole(currentAllocation.panelRole, "panelist") === "chair"
                         ? false
@@ -28008,6 +28127,7 @@
             );
           },
           "Submitted ballot reopened.",
+          { forceCloud: true },
         );
       }
 
@@ -29063,9 +29183,22 @@
           return;
         }
 
+        if (formData.get("ballot_action") === "draft") {
+          const draft = Object.fromEntries([...formData.entries()]
+            .filter(([key]) => key !== "ballot_action")
+            .map(([key, value]) => [String(key), String(value).slice(0, 5000)]));
+          updateTournament(tournamentId, (currentTournament) => {
+            currentTournament.judgeAllocations = (currentTournament.judgeAllocations || []).map(
+              (entry) => entry.id === allocationId ? { ...entry, draft } : entry);
+            return currentTournament;
+          }, "Ballot draft saved.", { forceCloud: true });
+          return;
+        }
+
         const targetDrawEntry = getDrawEntryById(tournament, targetAllocation.drawId);
         const roomSlots = Array.isArray(targetDrawEntry?.slots) ? targetDrawEntry.slots : [];
         const resultMode = getDrawOfficialResultMode(tournament, targetDrawEntry);
+        const isWorldSchools = getRoundFormat(tournament, targetAllocation.round) === "World Schools";
         let officialResults = {};
 
         if (isChair && resultMode === "bp_rank" && roomSlots.length) {
@@ -29099,7 +29232,7 @@
           }, {});
         }
 
-        if (isChair && resultMode === "win_loss" && roomSlots.length) {
+        if ((isChair || isWorldSchools) && resultMode === "win_loss" && roomSlots.length) {
           const roomOutcomes = roomSlots.map((slot) => {
             const slotKey = getDrawSlotCheckInKey(slot);
             return {
@@ -29161,16 +29294,43 @@
         const invalidSpeakerScore = participantIds.some((participantId) =>
           isBallotScoreOutsideRange(
             formData.get(getJudgeScoreFieldName(participantId, "Speaker Score")),
-            0,
-            null,
+            isWorldSchools ? 60 : 0,
+            isWorldSchools ? 80 : 100,
           ),
         );
 
         if (invalidSpeakerScore) {
           setFlash(
             "error",
-            "Speaker scores must be valid numbers at 0 or above before the ballot can be submitted.",
+            isWorldSchools
+              ? "World Schools substantive scores must be between 60 and 80."
+              : "Speaker scores must be between 0 and 100.",
           );
+          renderApp();
+          return;
+        }
+
+        const ballotCategories = isWorldSchools
+          ? ["Content", "Style", "Strategy"]
+          : tournament.settings.feedbackCategories || [];
+        const invalidCategories = participantIds.some((participantId) => {
+          const values = ballotCategories.map((category) =>
+            formData.get(getJudgeScoreFieldName(participantId, category)));
+          if (values.some((value, index) =>
+            isBallotScoreOutsideRange(value, 0,
+              isWorldSchools ? (ballotCategories[index] === "Strategy" ? 20 : 40) : 100))) {
+            return true;
+          }
+          if (!isWorldSchools) return false;
+          const parts = values.map(parseBallotScoreValue);
+          const total = parseBallotScoreValue(formData.get(getJudgeScoreFieldName(participantId, "Speaker Score")));
+          return parts.some((value) => value === null) ||
+            Math.abs(parts.reduce((sum, value) => sum + value, 0) - total) > 0.001;
+        });
+        if (invalidCategories) {
+          setFlash("error", isWorldSchools
+            ? "World Schools Content, Style and Strategy must add up to the substantive speech score."
+            : "Feedback category scores must be between 0 and 100.");
           renderApp();
           return;
         }
@@ -29201,6 +29361,7 @@
 
         if (
           optionalScoreConfig.rebuttalEnabled &&
+          !isWorldSchools &&
           participantIds.some((participantId) =>
             isBallotScoreOutsideRange(
               formData.get(getJudgeRebuttalFieldName(participantId)),
@@ -29215,6 +29376,29 @@
           );
           renderApp();
           return;
+        }
+
+        const replySpeeches = {};
+        if (isWorldSchools) {
+          for (const slot of roomSlots) {
+            const slotKey = getDrawSlotCheckInKey(slot);
+            const participantId = String(formData.get(getJudgeReplySpeakerFieldName(slotKey)) || "");
+            const rawScore = formData.get(getJudgeReplyScoreFieldName(slotKey));
+            const score = parseBallotScoreValue(rawScore);
+            const breakdown = Object.fromEntries(["Content", "Style", "Strategy"].map((category) =>
+              [category, parseBallotScoreValue(formData.get(getJudgeReplyCategoryFieldName(slotKey, category)))]));
+            if (!(slot.participantIds || []).slice(0, 2).includes(participantId) ||
+                score === null || isBallotScoreOutsideRange(rawScore, 30, 40) ||
+                !Number.isInteger(score * 2) ||
+                Object.entries(breakdown).some(([category, value]) => value === null ||
+                  value < 0 || value > (category === "Strategy" ? 10 : 20) || !Number.isInteger(value * 2)) ||
+                Math.abs(Object.values(breakdown).reduce((sum, value) => sum + value, 0) - score) > 0.001) {
+              setFlash("error", "Choose a first or second speaker and enter a 30–40 reply mark whose Content, Style and Strategy marks add up.");
+              renderApp();
+              return;
+            }
+            replySpeeches[slotKey] = { participantId, score, breakdown };
+          }
         }
 
         updateTournament(
@@ -29236,7 +29420,7 @@
                   "Speaker Score": speakerScore,
                 };
 
-                (currentTournament.settings.feedbackCategories || []).forEach((category) => {
+                ballotCategories.forEach((category) => {
                   const rawValue = parseBallotScoreValue(
                     formData.get(getJudgeScoreFieldName(participant.id, category)),
                   );
@@ -29260,7 +29444,7 @@
                   }
                 }
 
-                if (optionalScoreConfig.rebuttalEnabled) {
+                if (optionalScoreConfig.rebuttalEnabled && !isWorldSchools) {
                   const rebuttalValue = parseBallotScoreValue(
                     formData.get(getJudgeRebuttalFieldName(participant.id)),
                   );
@@ -29305,11 +29489,18 @@
               },
             );
 
+            const legacyResult = getDrawEntryById(currentTournament, targetAllocation.drawId)?.officialResults || {};
             currentTournament.judgeAllocations = (currentTournament.judgeAllocations || []).map(
-              (allocation) =>
-                allocation.id === targetAllocation.id
+              (allocation) => {
+                const migrated = isWorldSchools && allocation.drawId === targetAllocation.drawId &&
+                  allocation.submittedAt &&
+                  normalizeJudgeAllocationRole(allocation.panelRole, "panelist") === "chair" &&
+                  !Object.keys(allocation.ballotResults || {}).length
+                    ? { ...allocation, ballotResults: normalizeDrawOfficialResults(legacyResult) }
+                    : allocation;
+                return allocation.id === targetAllocation.id
                   ? {
-                      ...allocation,
+                      ...migrated,
                       status: "submitted",
                       checkedIn: true,
                       checkedInAt: allocation.checkedInAt || submittedAt,
@@ -29318,16 +29509,22 @@
                         submittedAtKey,
                       submittedAt,
                       submittedAtKey,
+                      ballotResults: normalizeDrawOfficialResults(officialResults),
+                      replySpeeches,
+                      draft: {},
                     }
-                  : allocation,
+                  : migrated;
+              },
             );
             currentTournament.draw = (currentTournament.draw || []).map((entry) =>
               entry.id === targetAllocation.drawId
                 ? {
                     ...entry,
                     officialResults:
-                      isChair && resultMode !== "speaker_only"
-                        ? normalizeDrawOfficialResults(officialResults)
+                      isWorldSchools
+                        ? getWorldSchoolsMajorityResult(currentTournament, targetAllocation.drawId)
+                        : isChair && resultMode !== "speaker_only"
+                          ? normalizeDrawOfficialResults(officialResults)
                         : normalizeDrawOfficialResults(entry.officialResults),
                     ballotCheckedIn: true,
                   }
@@ -29344,6 +29541,7 @@
             );
           },
           "Judge ballot submitted.",
+          { forceCloud: true },
         );
       }
 
@@ -31344,6 +31542,10 @@
           }
 
           if (form.dataset.form === "submit-judge-ballot") {
+            if (formData.get("ballot_action") !== "draft" &&
+                !window.confirm("Submit this ballot? Review the room result and speaker marks. A tournament manager must reopen it for corrections.")) {
+              return;
+            }
             submitJudgeBallot(form.dataset.id, form.dataset.allocationId, formData);
             return;
           }

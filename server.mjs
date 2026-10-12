@@ -1605,6 +1605,229 @@ function isSystemAdmin(state, email) {
   );
 }
 
+function assertScoringPersistAuthorization(previousState, nextState, actorEmail) {
+  const actor = normalizeEmail(actorEmail);
+  if (isSystemAdmin(previousState, actor)) return;
+  const forbidden = () => {
+    const error = new Error("This account cannot change tournament scoring or access rules.");
+    error.statusCode = 403;
+    error.code = "scoring_permission_denied";
+    throw error;
+  };
+  const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+  const canonicalStandings = (entries) => (entries || []).map((entry) => ({
+    id: String(entry.id || ""), name: String(entry.name || ""),
+    wins: Number(entry.wins || 0), losses: Number(entry.losses || 0),
+    points: Number(entry.points || 0), speaks: Number(entry.speaks || 0),
+    firsts: Number(entry.firsts || 0), seconds: Number(entry.seconds || 0),
+    thirds: Number(entry.thirds || 0), fourths: Number(entry.fourths || 0),
+  })).sort((left, right) => left.id.localeCompare(right.id));
+  if (!equal(previousState.appSettings, nextState.appSettings) ||
+      !equal(previousState.regionalOperations, nextState.regionalOperations) ||
+      (previousState.users || []).length !== (nextState.users || []).length) forbidden();
+  const previousUsers = new Map((previousState.users || []).map((user) => [normalizeEmail(user.email), user]));
+  for (const user of nextState.users || []) {
+    const previous = previousUsers.get(normalizeEmail(user.email));
+    if (!previous || !equal(previous.globalRole, user.globalRole) ||
+        !equal(previous.active, user.active)) forbidden();
+    if (normalizeEmail(user.email) !== actor && !equal(previous, user)) forbidden();
+    if (normalizeEmail(user.email) === actor &&
+        (!equal(previous.passwordHash, user.passwordHash) ||
+         !equal(previous.passwordSalt, user.passwordSalt) ||
+         !equal(previous.privateAccessToken, user.privateAccessToken))) forbidden();
+  }
+  const previousTournaments = new Map((previousState.tournaments || []).map((entry) => [entry.id, entry]));
+  for (const next of nextState.tournaments || []) {
+    const previous = previousTournaments.get(next.id);
+    if (!previous) forbidden();
+    const managers = [
+      ...(previous.permissions?.managerEmails || []),
+      ...(previous.permissions?.tabDirectorEmails || []),
+      ...(previous.permissions?.tabManagerEmails || []),
+      ...(previous.permissions?.caTeamEmails || []),
+    ];
+    if (normalizeEmail(previous.ownerEmail) === actor || managers.some((email) => normalizeEmail(email) === actor)) {
+      continue;
+    }
+    if (!equal(previous.ownerEmail, next.ownerEmail) ||
+        !equal(previous.code, next.code) ||
+        !equal(previous.status, next.status)) forbidden();
+    if (!equal(previous.permissions, next.permissions) ||
+        !equal(previous.format, next.format) ||
+        !equal(previous.participantModel, next.participantModel) ||
+        !equal(previous.config, next.config) ||
+        !equal(canonicalStandings(previous.standings), canonicalStandings(next.standings))) forbidden();
+    const previousAllocations = new Map((previous.judgeAllocations || []).map((entry) => [entry.id, entry]));
+    const stableAllocation = (entry) => {
+      const copy = { ...entry };
+      for (const key of ["ballotResults", "replySpeeches", "draft"]) {
+        if (!Object.keys(copy[key] || {}).length) delete copy[key];
+      }
+      return copy;
+    };
+    const roundFormat = (round) => {
+      const profile = (next.config?.roundProfiles || []).find((entry) => Number(entry.round) === Number(round));
+      return String(profile?.format || next.format || "").trim();
+    };
+    const slotKey = (slot) => String(slot.entryId || slot.teamId || slot.label || "").trim();
+    const canonicalResults = (results) => Object.fromEntries(Object.entries(results || {})
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, value]) => [key, {
+        rank: Number.isInteger(Number(value?.rank)) && Number(value.rank) > 0 ? Number(value.rank) : null,
+        outcome: ["win", "loss", "draw"].includes(String(value?.outcome || "").toLowerCase())
+          ? String(value.outcome).toLowerCase() : "",
+      }]).filter(([, value]) => value.rank || value.outcome));
+    for (const allocation of next.judgeAllocations || []) {
+      const old = previousAllocations.get(allocation.id);
+      if (!old) forbidden();
+      if (equal(stableAllocation(old), stableAllocation(allocation))) continue;
+      if (old.submittedAt && String(old.panelRole || "").toLowerCase() === "chair" &&
+          roundFormat(old.round) === "World Schools" &&
+          !Object.keys(old.ballotResults || {}).length &&
+          equal(canonicalResults(allocation.ballotResults), canonicalResults(
+            (previous.draw || []).find((entry) => entry.id === old.drawId)?.officialResults)) &&
+          equal({ ...stableAllocation(old), ballotResults: undefined },
+                { ...stableAllocation(allocation), ballotResults: undefined })) continue;
+      if (normalizeEmail(old.judgeEmail) !== actor || old.submittedAt ||
+          !equal({ ...old, status: undefined, checkedIn: undefined, checkedInAt: undefined,
+            checkedInAtKey: undefined, submittedAt: undefined, submittedAtKey: undefined,
+            ballotResults: undefined, replySpeeches: undefined, draft: undefined },
+            { ...allocation, status: undefined, checkedIn: undefined, checkedInAt: undefined,
+              checkedInAtKey: undefined, submittedAt: undefined, submittedAtKey: undefined,
+              ballotResults: undefined, replySpeeches: undefined, draft: undefined })) forbidden();
+      if (allocation.submittedAt && !old.submittedAt) {
+        const draw = (previous.draw || []).find((entry) => entry.id === old.drawId);
+        if (!draw) forbidden();
+        const format = roundFormat(old.round);
+        if (String(old.panelRole || "").toLowerCase() !== "chair" && format !== "World Schools") forbidden();
+        const slots = draw.slots || [];
+        const results = allocation.ballotResults || {};
+        if (format === "British Parliamentary" || format === "Iron Person British Parliamentary") {
+          const ranks = slots.map((slot) => Number(results[slotKey(slot)]?.rank));
+          if (ranks.some((rank) => !Number.isInteger(rank) || rank < 1 || rank > slots.length) ||
+              new Set(ranks).size !== slots.length) forbidden();
+        } else if (format === "World Schools" || format === "American Parliamentary" ||
+                   format === "JADE Parliamentary") {
+          const outcomes = slots.map((slot) => results[slotKey(slot)]?.outcome);
+          if (slots.length !== 2 || outcomes.filter((value) => value === "win").length !== 1 ||
+              outcomes.filter((value) => value === "loss").length !== 1) forbidden();
+        }
+        if (format === "World Schools") {
+          for (const slot of slots) {
+            const reply = allocation.replySpeeches?.[slotKey(slot)];
+            const score = Number(reply?.score);
+            if (!(slot.participantIds || []).slice(0, 2).includes(reply?.participantId) ||
+                !Number.isFinite(score) || score < 30 || score > 40 ||
+                !Number.isInteger(score * 2)) forbidden();
+            const parts = ["Content", "Style", "Strategy"].map((category) => Number(reply.breakdown?.[category]));
+            if (parts.some((value, index) => !Number.isFinite(value) || value < 0 ||
+                value > (index === 2 ? 10 : 20) || !Number.isInteger(value * 2)) ||
+                Math.abs(parts.reduce((sum, value) => sum + value, 0) - score) > 0.001) forbidden();
+          }
+        }
+        const assignedIds = old.participantIds?.length
+          ? old.participantIds
+          : draw.participantIds || [];
+        for (const participantId of assignedIds) {
+          const participant = (next.participants || []).find((entry) => entry.id === participantId);
+          const entries = (participant?.feedback || []).filter((entry) =>
+            entry.allocationId === old.id && normalizeEmail(entry.judgeEmail) === actor);
+          if (entries.length !== 1 || entries[0].drawId !== old.drawId) forbidden();
+        }
+      }
+    }
+    if ((previous.judgeAllocations || []).length !== (next.judgeAllocations || []).length) forbidden();
+    const ownAllocationIds = new Set((previous.judgeAllocations || [])
+      .filter((entry) => normalizeEmail(entry.judgeEmail) === actor && !entry.submittedAt)
+      .map((entry) => entry.id));
+    const previousParticipants = new Map((previous.participants || []).map((entry) => [entry.id, entry]));
+    for (const participant of next.participants || []) {
+      const old = previousParticipants.get(participant.id);
+      if (!old) forbidden();
+      const stripOwnFeedback = (entries) => (entries || []).filter((entry) =>
+        !(ownAllocationIds.has(entry.allocationId) && normalizeEmail(entry.judgeEmail) === actor));
+      const scoringFields = (record) => ({
+        teamId: String(record.teamId || ""), teamName: String(record.teamName || ""),
+        speakerScore: Number(record.speakerScore || 0),
+        wins: Number(record.wins || 0), losses: Number(record.losses || 0),
+        points: Number(record.points || 0),
+        firsts: Number(record.firsts || 0), seconds: Number(record.seconds || 0),
+        thirds: Number(record.thirds || 0), fourths: Number(record.fourths || 0),
+        feedback: stripOwnFeedback(record.feedback),
+      });
+      if (!equal(scoringFields(old), scoringFields(participant))) forbidden();
+      for (const entry of participant.feedback || []) {
+        if (!ownAllocationIds.has(entry.allocationId) || normalizeEmail(entry.judgeEmail) !== actor) continue;
+        const allocation = previousAllocations.get(entry.allocationId);
+        const draw = (previous.draw || []).find((entry) => entry.id === allocation?.drawId);
+        const assignedIds = allocation?.participantIds?.length
+          ? allocation.participantIds
+          : draw?.participantIds || [];
+        if (!assignedIds.includes(participant.id) ||
+            entry.drawId !== allocation.drawId) forbidden();
+        const score = Number(entry.speakerScore);
+        const format = roundFormat(allocation.round);
+        if (!Number.isFinite(score) || score < (format === "World Schools" ? 60 : 0) ||
+            score > (format === "World Schools" ? 80 : 100)) forbidden();
+        if (format === "World Schools") {
+          const parts = ["Content", "Style", "Strategy"].map((category) => Number(entry.scores?.[category]));
+          if (parts.some((value, index) => !Number.isFinite(value) || value < 0 ||
+              value > (index === 2 ? 20 : 40)) ||
+              Math.abs(parts.reduce((sum, value) => sum + value, 0) - score) > 0.001) forbidden();
+        }
+      }
+    }
+    if ((previous.participants || []).length !== (next.participants || []).length) forbidden();
+    const previousDraw = new Map((previous.draw || []).map((entry) => [entry.id, entry]));
+    for (const draw of next.draw || []) {
+      const old = previousDraw.get(draw.id);
+      if (!old) forbidden();
+      if (equal(old, draw)) continue;
+      const chair = (previous.judgeAllocations || []).find((entry) =>
+        entry.drawId === draw.id && normalizeEmail(entry.judgeEmail) === actor &&
+        String(entry.panelRole || "").toLowerCase() === "chair" && !entry.submittedAt);
+      const ownWorldSchoolsVote = (previous.judgeAllocations || []).some((entry) =>
+        entry.drawId === draw.id && normalizeEmail(entry.judgeEmail) === actor && !entry.submittedAt &&
+        String(previous.format || "") === "World Schools");
+      if (!equal(canonicalResults(old.officialResults), canonicalResults(draw.officialResults)) &&
+          !chair && !ownWorldSchoolsVote) forbidden();
+      if (!equal(old.slots, draw.slots) || !equal(old.round, draw.round) ||
+          !equal(old.teamIds, draw.teamIds) || !equal(old.participantIds, draw.participantIds)) forbidden();
+      if (!equal(canonicalResults(old.officialResults), canonicalResults(draw.officialResults))) {
+        const submittedNow = (next.judgeAllocations || []).some((entry) =>
+          entry.drawId === draw.id && normalizeEmail(entry.judgeEmail) === actor &&
+          Boolean(entry.submittedAt) && !previousAllocations.get(entry.id)?.submittedAt);
+        if (!submittedNow) forbidden();
+        const format = roundFormat(draw.round);
+        const keys = (draw.slots || []).map(slotKey);
+        if (format === "World Schools") {
+          const panel = Array.from(new Map((next.judgeAllocations || [])
+            .filter((entry) => entry.drawId === draw.id)
+            .map((entry) => [normalizeEmail(entry.judgeEmail), entry])).values());
+          const votes = panel.filter((entry) => entry.submittedAt).map((entry) => {
+            const results = Object.keys(entry.ballotResults || {}).length
+              ? entry.ballotResults
+              : String(entry.panelRole || "").toLowerCase() === "chair"
+                ? old.officialResults || {} : {};
+            return keys.find((key) => results[key]?.outcome === "win" &&
+              results[keys.find((other) => other !== key)]?.outcome === "loss");
+          })
+            .filter(Boolean);
+          const winner = keys.find((key) => votes.filter((vote) => vote === key).length > panel.length / 2);
+          const expected = winner
+            ? Object.fromEntries(keys.map((key) => [key, { rank: null, outcome: key === winner ? "win" : "loss" }]))
+            : {};
+          if (!equal(canonicalResults(expected), canonicalResults(draw.officialResults))) forbidden();
+        } else if (!equal(canonicalResults((next.judgeAllocations || []).find((entry) =>
+          entry.drawId === draw.id && normalizeEmail(entry.judgeEmail) === actor)?.ballotResults || {}),
+          canonicalResults(draw.officialResults))) forbidden();
+      }
+    }
+    if ((previous.draw || []).length !== (next.draw || []).length) forbidden();
+  }
+  if ((previousState.tournaments || []).length !== (nextState.tournaments || []).length) forbidden();
+}
+
 function hasSystemAdminAccounts(state) {
   return (state?.users || []).some((entry) => {
     const normalizedEmail = normalizeEmail(entry?.email);
@@ -3460,13 +3683,15 @@ app.post("/api", async (request, response) => {
         // that object in place avoids another complete workspace clone during
         // every autosave.
         const nextState = ensureWorkspaceState(incomingState, { clone: false });
-        const user = nextState.users.find((entry) => entry.email === normalizeEmail(session.email));
+        const user = currentState.users.find((entry) => entry.email === normalizeEmail(session.email));
         if (!user || !user.active) {
           const error = new Error("This account is no longer allowed to access JADE.");
           error.statusCode = 403;
           error.code = "account_disabled";
           throw error;
         }
+
+        assertScoringPersistAuthorization(currentState, nextState, session.email);
 
         const notifications = await deliverPersistPrivateAccessEmails({
           previousState: currentState,
