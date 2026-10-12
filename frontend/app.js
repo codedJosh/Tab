@@ -10816,10 +10816,13 @@
 
       function getRegistrationTeamSize(tournament) {
         if (String(tournament?.participantModel || "").toLowerCase() === "individuals") return 1;
+        const configuredSize = (value) => normalizeOptionalCount(value, 0);
         const rounds = getRoundProfiles(tournament);
         return Math.max(
           getEffectiveRoundStructure(tournament, null).teamSize || 1,
+          configuredSize(tournament?.config?.teamSize),
           ...rounds.map((round) => getEffectiveRoundStructure(tournament, round).teamSize || 1),
+          ...(tournament?.config?.roundProfiles || []).map((round) => configuredSize(round.teamSize)),
         );
       }
 

@@ -1108,8 +1108,11 @@ function getRegistrationTeamSize(tournament) {
     "Iron Person British Parliamentary": 1,
     "World Schools": 3,
   };
-  const configuredSize = (format, size) => standardSizes[String(format || "").trim()] ||
-    Math.min(8, Math.max(1, Math.round(Number(size) || 1)));
+  const configuredSize = (format, size) => Math.max(
+    standardSizes[String(format || "").trim()] || 1,
+    Number.isFinite(Number(size)) && Number(size) > 0
+      ? Math.min(8, Math.max(1, Math.round(Number(size)))) : 1,
+  );
   const baseSize = configuredSize(tournament?.format, tournament?.config?.teamSize);
   return Math.max(baseSize, ...(tournament?.config?.roundProfiles || []).map((round) =>
     configuredSize(round?.format || tournament?.format, round?.teamSize || tournament?.config?.teamSize)));
