@@ -1322,8 +1322,8 @@
         lastLiveSyncAt = now;
 
         if (!force) {
-          const latestRevision = await getCloudWorkspaceRevision();
           const currentRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
+          const latestRevision = await getCloudWorkspaceRevision();
           if (latestRevision > 0 && latestRevision === currentRevision) {
             return false;
           }
@@ -8179,7 +8179,7 @@
                 initialized:
                   typeof payload?.initialized === "boolean" ? payload.initialized : null,
                 endpoint,
-                revision: normalizeWorkspaceRevision(payload?.revision),
+                revision: normalizeWorkspaceRevision(cloudRuntime.revision),
                 contractVersion: String(payload?.contractVersion || "").trim(),
                 contractMismatch: false,
               };
@@ -8199,7 +8199,7 @@
           available: false,
           initialized: null,
           endpoint: "",
-          revision: 0,
+          revision: normalizeWorkspaceRevision(cloudRuntime.revision),
           contractVersion: "",
           contractMismatch: contractMismatch,
         };
@@ -8251,7 +8251,8 @@
         if (typeof result?.initialized === "boolean") {
           cloudRuntime.initialized = result.initialized;
         }
-        if (typeof result?.revision !== "undefined") {
+        // A revision probe does not load the state belonging to that revision.
+        if (action !== "get_revision" && typeof result?.revision !== "undefined") {
           cloudRuntime.revision = normalizeWorkspaceRevision(result.revision);
         }
         cloudRuntime.contractVersion = String(result?.contractVersion || "").trim();
