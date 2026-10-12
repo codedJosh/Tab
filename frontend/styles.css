@@ -14121,3 +14121,91 @@
           display: none;
         }
       }
+
+      .private-shell {
+        max-width: 1080px;
+      }
+
+      .private-portal-overview {
+        display: grid;
+        gap: 18px;
+      }
+
+      .private-portal-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .private-portal-overview .brand-lockup {
+        align-items: center;
+      }
+
+      .private-portal-overview .jade-logo-wrap {
+        width: 52px;
+        border-radius: 12px;
+        padding: 6px;
+        box-shadow: none;
+      }
+
+      .private-portal-overview .brand-kicker {
+        color: var(--muted);
+        font-size: 0.7rem;
+        font-weight: 650;
+        letter-spacing: 0.08em;
+      }
+
+      .private-portal-overview .brand-name {
+        font-size: 1.1rem;
+        font-weight: 750;
+      }
+
+      .private-portal-overview .section-heading {
+        margin: 0;
+      }
+
+      .private-portal-overview .section-heading h2 {
+        font-size: clamp(1.7rem, 3vw, 2.3rem);
+      }
+
+      .private-portal-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .private-portal-summary .flat-panel {
+        display: grid;
+        align-content: start;
+        gap: 7px;
+        min-width: 0;
+        padding: 16px;
+      }
+
+      .private-portal-summary .flat-panel strong {
+        font-size: 1.05rem;
+        line-height: 1.3;
+      }
+
+      .private-portal-summary .flat-panel span:last-child {
+        color: var(--muted);
+        font-size: 0.85rem;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+      }
+
+      .private-portal-overview .portal-note-card {
+        padding: 14px 16px;
+      }
+
+      .private-portal-overview .portal-note-card p {
+        margin: 6px 0 0;
+      }
+
+      @media (max-width: 720px) {
+        .private-portal-summary {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }

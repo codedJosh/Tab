@@ -22424,6 +22424,26 @@
         return records;
       }
 
+      function getJudgeLinkRecords() {
+        const records = [];
+        state.tournaments.forEach((tournament) => {
+          if (!isSystemAdmin() && !canJudgeTournament(tournament)) return;
+          getTournamentJudges(tournament).forEach((judge) => {
+            const email = normalizeEmail(judge.email);
+            if (!isSystemAdmin() && email !== normalizeEmail(session.userEmail)) return;
+            const user = getUserByEmail(email);
+            records.push({ tournament, judge, user: user?.active ? user : null });
+          });
+        });
+        return records.sort(
+          (left, right) =>
+            String(left.tournament.name).localeCompare(String(right.tournament.name)) ||
+            String(left.judge.name || left.judge.email).localeCompare(
+              String(right.judge.name || right.judge.email),
+            ),
+        );
+      }
+
       function getFilteredTournamentLinkRecords(records = getLinkRecords()) {
         const query = String(session.linksPortalQuery || "").trim();
         return (Array.isArray(records) ? records : []).filter(({ tournament, participant }) =>
@@ -22794,6 +22814,8 @@
       }
 
       function renderLinksView() {
+        const judgeRecords = getJudgeLinkRecords();
+        const availableJudgeLinks = judgeRecords.filter(({ user }) => user?.privateAccessToken).length;
         const records = getPagedCollection(
           getFilteredTournamentLinkRecords(getLinkRecords()),
           session.linksPortalPage,
@@ -22814,6 +22836,7 @@
                 <div class="workspace-chip-row">
                   <span class="role-pill">${escapeHtml(accountRecords.totalRecords)} account links</span>
                   <span class="role-pill">${escapeHtml(records.totalRecords)} tournament links</span>
+                  <span class="role-pill">${escapeHtml(availableJudgeLinks)} judge links</span>
                 </div>
               </div>
             </section>
@@ -22907,6 +22930,47 @@
                     : `<div class="empty-state">No tournament private links yet.</div>`
                 }
                 ${renderCollectionPagination("set-links-portal-page", records)}
+              </section>
+              <section class="surface private-links-section">
+                <div class="section-heading">
+                  <div><h3>Judge links</h3></div>
+                  <span class="role-pill">${escapeHtml(judgeRecords.length)} judges</span>
+                </div>
+                ${
+                  judgeRecords.length
+                    ? `<div class="portal-link-list">
+                        ${judgeRecords
+                          .map(({ tournament, judge, user }) => {
+                            const link = user?.privateAccessToken
+                              ? getUserAccessLink(user.privateAccessToken)
+                              : "";
+                            return `
+                              <details class="portal-link-item">
+                                <summary class="portal-link-summary">
+                                  <span class="portal-link-main">
+                                    <strong>${escapeHtml(judge.name || judge.email)}</strong>
+                                    <span class="muted">${escapeHtml(judge.email)}</span>
+                                  </span>
+                                  <span class="portal-link-meta">
+                                    <span class="role-pill">${escapeHtml(tournament.name)}</span>
+                                  </span>
+                                </summary>
+                                <div class="portal-link-panel">
+                                  ${
+                                    link
+                                      ? `<a class="token-link" href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${escapeHtml(link)}</a>
+                                         <div class="button-row portal-link-actions">
+                                           <button class="secondary-button" type="button" data-action="copy-judge-access-link" data-id="${escapeHtml(tournament.id)}" data-email="${escapeHtml(judge.email)}">Copy link</button>
+                                         </div>`
+                                      : `<p class="muted">This judge needs an active account before a private link is available.</p>`
+                                  }
+                                </div>
+                              </details>`;
+                          })
+                          .join("")}
+                      </div>`
+                    : `<div class="empty-state">No judges are linked to your tournaments yet.</div>`
+                }
               </section>
             </div>
           </div>
@@ -24110,12 +24174,7 @@
         const teamPointStandings = usesTeamPointStandings(tournament);
         const standingRecord = findStandingForParticipant(tournament, participant);
         const speakerStanding = getSpeakerStandingForParticipant(tournament, participant);
-        const computedSpeakerScore = getParticipantComputedSpeakerScore(
-          tournament,
-          participant,
-        );
         const feedbackEntries = getPortalFeedbackEntries(tournament, participant);
-        const latestFeedback = feedbackEntries[feedbackEntries.length - 1] || null;
         const primaryDrawEntry = getPrimaryParticipantDrawEntry(tournament, participant);
         const primarySlotDetails = primaryDrawEntry
           ? getParticipantDrawSlotDetails(tournament, primaryDrawEntry, participant)
@@ -24158,9 +24217,6 @@
           (row) => row.speakerScore !== null && row.speakerScore !== undefined,
         ).length;
         const canShowPerformance = canShowTeamBoard;
-        const welcomeNote =
-          state.appSettings.portal.welcomeNote ||
-          "This private page is designed to show only the essentials for competitors.";
         const standingHeadline = canShowStandings
           ? standingRecord
             ? "#" + standingRecord.rank
@@ -24173,36 +24229,6 @@
               : getStandingSummaryText(tournament, standingRecord)
             : "Standings will appear here when they are published."
           : "Standings are currently private.";
-        const performanceHeadline =
-          teamPointStandings
-            ? canShowStandings
-              ? standingRecord
-                ? formatScoreValue(standingRecord.points) + " team points"
-                : "Awaiting team points"
-              : "Hidden"
-            : canShowSpeakerBoard
-              ? formatScoreValue(computedSpeakerScore) + " speaker pts"
-              : "Hidden";
-        const performanceSupport =
-          teamPointStandings
-            ? canShowStandings
-              ? standingRecord
-                ? getStandingSummaryText(tournament, standingRecord)
-                : "Team results will appear here when they are published."
-              : "Team standings are hidden in this portal."
-            : canShowSpeakerBoard
-              ? speakerStanding
-                ? "Current speaker rank #" + speakerStanding.speakerRank
-                : "Speaker rankings will appear here when scores are entered."
-              : "Individual standings are hidden in this portal.";
-        const speakerHeadline = canShowSpeakerBoard
-          ? formatScoreValue(computedSpeakerScore) + " speaker pts"
-          : "Hidden";
-        const speakerSupport = canShowSpeakerBoard
-          ? speakerStanding
-            ? "Speaker rank #" + speakerStanding.speakerRank
-            : "Speaker rankings will appear here when scores are entered."
-          : "Speaker Board is hidden for this tournament.";
         const drawHeadline = canShowDraw
           ? primaryDrawEntry
             ? "Round " + primaryDrawEntry.round
@@ -24213,108 +24239,58 @@
             ? primaryDrawEntry.room + " • " + primaryDrawEntry.status
             : "No round has been published yet."
           : "The draw is not available in this portal.";
-        const feedbackSupport = canShowFeedback
-          ? latestFeedback
-            ? latestFeedback.judgeEmail + " • " + latestFeedback.createdAt
-            : "Judges have not posted feedback yet."
-          : "Feedback is hidden in this portal.";
 
         return `
           <div class="page-shell">
             <div class="private-shell">
-              <section class="surface portal-ribbon">
-                <div class="portal-head">
+              <section class="surface private-portal-overview">
+                <div class="private-portal-heading">
                   ${renderBrandLockup({
-                    kicker: "Private JADE Hummingbird Access",
+                    kicker: "Private access",
                     size: "compact",
-                    subtitle:
-                      "A compact competitor portal for rounds, standings, speaker scores, and feedback.",
+                    showSubtitle: false,
                   })}
-                  <div class="portal-topline">
-                    <div class="portal-title">
-                      <p class="eyebrow">Private access</p>
-                      <h2>${escapeHtml(participant.name)}</h2>
-                    </div>
-                    <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
-                      toTitleLabel(tournament.status),
-                    )}</span>
-                  </div>
-                  <div class="portal-meta">
-                    <span>${escapeHtml(tournament.name)}</span>
-                    <span>${escapeHtml(getFormatLabel(tournament))}</span>
-                    <span>${escapeHtml(tournament.code)}</span>
-                  </div>
-                  <div class="portal-focus-grid">
-                    <div class="portal-focus-card">
-                      <span class="muted">Entry</span>
-                      <strong>${escapeHtml(portalTeamLabel || participant.name || "Individual")}</strong>
-                      <span class="portal-summary-copy">${escapeHtml(
-                        portalEntrySupport ||
-                          (participant.teamName ? "Registered team or pairing" : "Individual entry"),
-                      )}</span>
-                    </div>
-                    <div class="portal-focus-card">
-                      <span class="muted">${escapeHtml(
-                        teamPointStandings ? "Team result" : "Record",
-                      )}</span>
-                      <strong>${escapeHtml(performanceHeadline)}</strong>
-                      <span class="portal-summary-copy">${escapeHtml(performanceSupport)}</span>
-                    </div>
-                    <div class="portal-focus-card">
-                      <span class="muted">${escapeHtml(
-                        teamPointStandings ? "Team standing" : "Standing",
-                      )}</span>
-                      <strong>${escapeHtml(standingHeadline)}</strong>
-                      <span class="portal-summary-copy">${escapeHtml(standingSupport)}</span>
-                    </div>
-                    ${
-                      canShowSpeakerBoard
-                        ? `<div class="portal-focus-card">
-                            <span class="muted">Speaker score</span>
-                            <strong>${escapeHtml(speakerHeadline)}</strong>
-                            <span class="portal-summary-copy">${escapeHtml(speakerSupport)}</span>
-                          </div>`
-                        : ""
-                    }
-                    <div class="portal-focus-card">
-                      <span class="muted">Latest round</span>
-                      <strong>${escapeHtml(drawHeadline)}</strong>
-                      <span class="portal-summary-copy">${escapeHtml(drawSupport)}</span>
-                    </div>
-                  </div>
-                  <div class="workspace-chip-row">
-                    <span class="mini-pill ${escapeHtml(
-                      canShowDraw && primaryDrawEntry ? "success" : "warning",
-                    )}">${escapeHtml(
-                      canShowDraw && primaryDrawEntry
-                        ? "Round " + primaryDrawEntry.round + " Published"
-                        : "Draw Hidden",
-                    )}</span>
-                    <span class="mini-pill ${escapeHtml(
-                      canShowStandings ? "success" : "warning",
-                    )}">${escapeHtml(
-                      canShowStandings ? "Standings Visible" : "Standings Hidden",
-                    )}</span>
-                    <span class="mini-pill ${escapeHtml(
-                      canShowFeedback && latestFeedback ? "success" : "warning",
-                    )}">${escapeHtml(
-                      canShowFeedback && latestFeedback ? "Feedback Updated" : "Feedback Pending",
-                    )}</span>
-                    ${
-                      primaryDrawEntry && getRoundControlForRound(tournament, primaryDrawEntry.round)?.motionReleased
-                        ? `<span class="mini-pill success">Motion Released</span>`
-                        : `<span class="mini-pill warning">Motion Hidden</span>`
-                    }
-                  </div>
-                  ${
-                    tournament.announcement
-                      ? `<div class="portal-note-card">
-                          <p class="eyebrow">Tournament notice</p>
-                          <p>${escapeHtml(tournament.announcement)}</p>
-                        </div>`
-                      : `<p class="fine-print">${escapeHtml(welcomeNote)}</p>`
-                  }
+                  <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
+                    toTitleLabel(tournament.status),
+                  )}</span>
                 </div>
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">${escapeHtml(tournament.name)}</p>
+                    <h2>${escapeHtml(participant.name)}</h2>
+                  </div>
+                </div>
+                <div class="workspace-chip-row">
+                  ${getFormatLabel(tournament) !== "No Standard Format"
+                    ? `<span class="role-pill">${escapeHtml(getFormatLabel(tournament))}</span>`
+                    : ""}
+                  <span class="role-pill">${escapeHtml(tournament.code)}</span>
+                </div>
+                <div class="private-portal-summary">
+                  <div class="flat-panel">
+                    <span class="muted">Entry</span>
+                    <strong>${escapeHtml(portalTeamLabel || participant.name || "Individual")}</strong>
+                    ${portalEntrySupport ? `<span>${escapeHtml(portalEntrySupport)}</span>` : ""}
+                  </div>
+                  <div class="flat-panel">
+                    <span class="muted">Latest round</span>
+                    <strong>${escapeHtml(drawHeadline)}</strong>
+                    <span>${escapeHtml(drawSupport)}</span>
+                  </div>
+                  <div class="flat-panel">
+                    <span class="muted">${escapeHtml(teamPointStandings ? "Team standing" : "Standing")}</span>
+                    <strong>${escapeHtml(standingHeadline)}</strong>
+                    <span>${escapeHtml(standingSupport)}</span>
+                  </div>
+                </div>
+                ${
+                  tournament.announcement
+                    ? `<div class="portal-note-card">
+                        <strong>Tournament notice</strong>
+                        <p>${escapeHtml(tournament.announcement)}</p>
+                      </div>`
+                    : ""
+                }
               </section>
               ${
                 renderTournamentNoticeboardPreview(tournament, {
@@ -24338,7 +24314,7 @@
               <section class="surface compact-stack">
                 <details class="portal-accordion" open>
                   <summary>
-                    <strong>Team tab</strong>
+                    <strong>Results</strong>
                     <span class="portal-summary-copy">${escapeHtml(
                       canShowPerformance
                         ? roundPerformanceRows.length
@@ -24384,7 +24360,7 @@
                   canShowSpeakerBoard
                     ? `<details class="portal-accordion" ${compactLayout ? "" : "open"}>
                         <summary>
-                          <strong>Speaker tab</strong>
+                          <strong>Speaker scores</strong>
                           <span class="portal-summary-copy">${escapeHtml(
                             scoredRoundCount
                               ? scoredRoundCount +
@@ -30900,6 +30876,34 @@
             await copyTextToClipboard(
               privateAccessLink,
               "Private access URL copied to the clipboard.",
+            );
+            return;
+          }
+
+          if (action === "copy-judge-access-link") {
+            const tournament = getTournamentById(button.dataset.id);
+            const email = normalizeEmail(button.dataset.email);
+            const isListedJudge = tournament && getTournamentJudges(tournament).some(
+              (judge) => normalizeEmail(judge.email) === email,
+            );
+            if (
+              !isListedJudge ||
+              (!isSystemAdmin() && email !== normalizeEmail(session.userEmail))
+            ) {
+              setFlash("error", "This judge link is not available to your account.");
+              renderApp();
+              return;
+            }
+            const user = getUserByEmail(email);
+            if (!user?.active || !user.privateAccessToken) {
+              setFlash("error", "This judge does not have an active account link yet.");
+              renderApp();
+              return;
+            }
+            await flushCloudPersistQueue();
+            await copyTextToClipboard(
+              getUserAccessLink(user.privateAccessToken),
+              "Judge access link copied to the clipboard.",
             );
             return;
           }
