@@ -3257,6 +3257,7 @@
               count: null,
               group: "Account",
             },
+            { key: "links", label: "Private Links", count: null, group: "Account" },
           ];
         }
 
@@ -3292,6 +3293,7 @@
               count: null,
               group: "Account",
             },
+            { key: "links", label: "Private Links", count: null, group: "Account" },
           ];
         }
 
@@ -3303,6 +3305,7 @@
             { key: "overview", label: "Home", count: null, group: "User Settings" },
             { key: "settings", label: "Settings", count: null, group: "User Settings" },
             { key: "tournaments", label: "Tournaments", count: null, group: "Tournament Settings" },
+            { key: "links", label: "Private Links", count: null, group: "Tournament Settings" },
           ];
         }
 
@@ -3310,6 +3313,7 @@
         const items = [
           { key: "overview", label: "Home", count: stats.visibleTournaments, group: "Home" },
           { key: "tournaments", label: "Tournaments", count: stats.openTournaments, group: "Tournament" },
+          { key: "links", label: "Private Links", count: null, group: "People" },
         ];
 
         if (capabilities.canLaunchTournaments) {
@@ -12498,7 +12502,7 @@
           return;
         }
 
-        if (!canAccessGlobalSettings() && email !== currentEmail) {
+        if (!isSystemAdmin() && email !== currentEmail) {
           setFlash("error", "You can only rotate your own private access URL.");
           renderApp();
           return;
@@ -12588,7 +12592,7 @@
 
       function getUserAccessLinkRecords(email = session.userEmail) {
         const target = normalizeEmail(email);
-        const canReviewAll = canAccessGlobalSettings();
+        const canReviewAll = isSystemAdmin(email);
         return state.users
           .filter(
             (user) =>
@@ -22414,7 +22418,7 @@
         state.tournaments.forEach((tournament) => {
           tournament.participants.forEach((participant) => {
             const canSee =
-              canManageTournament(tournament) ||
+              isSystemAdmin() || canManageTournament(tournament) ||
               normalizeEmail(participant.email) === normalizeEmail(session.userEmail);
             if (canSee) {
               records.push({ tournament, participant });
@@ -24242,8 +24246,30 @@
 
         return `
           <div class="page-shell">
-            <div class="private-shell">
-              <section class="surface private-portal-overview">
+            <div class="workspace-shell private-workspace-shell">
+              <aside class="menu-panel" aria-label="Tournament navigation">
+                <div class="menu-brand">
+                  <div class="menu-brand-lockup" aria-label="JADE Hummingbird">
+                    <img class="menu-brand-jade-logo" src="${escapeHtml(JADE_LANDING_LOGO_SRC)}" alt="JADE logo" />
+                    <p class="menu-brand-name">Hummingbird</p>
+                  </div>
+                </div>
+                <div class="inline-card private-portal-menu">
+                  <div class="menu-side-section has-section-label">
+                    <span class="theme-section-label">${escapeHtml(tournament.name)}</span>
+                    <div class="menu-nav-list">
+                      <a class="menu-nav-link" href="#private-overview"><span class="menu-nav-copy"><strong>Overview</strong></span></a>
+                      <a class="menu-nav-link" href="#private-rounds"><span class="menu-nav-copy"><strong>Round Draw</strong></span></a>
+                      <a class="menu-nav-link" href="#private-results"><span class="menu-nav-copy"><strong>Results</strong></span></a>
+                      <a class="menu-nav-link" href="#private-standings"><span class="menu-nav-copy"><strong>Standings</strong></span></a>
+                      <a class="menu-nav-link" href="#private-feedback"><span class="menu-nav-copy"><strong>Feedback</strong></span></a>
+                      <a class="menu-nav-link" href="${escapeHtml(getDashboardLink())}"><span class="menu-nav-copy"><strong>Sign In</strong></span></a>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+              <section class="content-panel" id="workspace-main" role="main">
+              <section class="surface private-portal-overview" id="private-overview">
                 <div class="private-portal-heading">
                   ${renderBrandLockup({
                     kicker: "Private access",
@@ -24312,7 +24338,7 @@
                   : ""
               }
               <section class="surface compact-stack">
-                <details class="portal-accordion" open>
+                <details class="portal-accordion" id="private-results" open>
                   <summary>
                     <strong>Results</strong>
                     <span class="portal-summary-copy">${escapeHtml(
@@ -24337,7 +24363,7 @@
                     }
                   </div>
                 </details>
-                <details class="portal-accordion" ${compactLayout ? "" : "open"}>
+                <details class="portal-accordion" id="private-rounds" open>
                   <summary>
                     <strong>Round board</strong>
                     <span class="portal-summary-copy">${escapeHtml(
@@ -24375,7 +24401,7 @@
                       </details>`
                     : ""
                 }
-                <details class="portal-accordion" ${compactLayout ? "" : "open"}>
+                <details class="portal-accordion" id="private-standings" open>
                   <summary>
                     <strong>Standings</strong>
                     <span class="portal-summary-copy">${escapeHtml(
@@ -24424,7 +24450,7 @@
                       </details>`
                     : ""
                 }
-                <details class="portal-accordion" ${compactLayout ? "" : "open"}>
+                <details class="portal-accordion" id="private-feedback" open>
                   <summary>
                     <strong>Judge feedback</strong>
                     <span class="portal-summary-copy">${escapeHtml(
@@ -24446,6 +24472,7 @@
                 </details>
               </section>
               <p><a class="inline-link" href="${escapeHtml(getDashboardLink())}">Open the main sign-in page</a></p>
+              </section>
             </div>
           </div>
         `;
@@ -30857,7 +30884,7 @@
 
           if (action === "copy-user-access-link") {
             const targetEmail = normalizeEmail(button.dataset.email);
-            if (!canAccessGlobalSettings() && targetEmail !== normalizeEmail(session.userEmail)) {
+            if (!isSystemAdmin() && targetEmail !== normalizeEmail(session.userEmail)) {
               setFlash("error", "You can only copy your own private access URL.");
               renderApp();
               return;
@@ -30928,7 +30955,7 @@
               renderApp();
               return;
             }
-            if (!canAccessGlobalSettings() && targetEmail !== normalizeEmail(session.userEmail)) {
+            if (!isSystemAdmin() && targetEmail !== normalizeEmail(session.userEmail)) {
               setFlash("error", "You can only send your own private access email.");
               renderApp();
               return;

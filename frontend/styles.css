@@ -14126,6 +14126,36 @@
         max-width: 1080px;
       }
 
+      .private-workspace-shell .private-portal-menu {
+        display: grid;
+      }
+
+      .private-workspace-shell .menu-nav-link {
+        text-decoration: none;
+      }
+
+      .private-workspace-shell .portal-accordion {
+        border-radius: 10px;
+        box-shadow: none;
+        background: rgba(255, 255, 255, 0.62);
+        scroll-margin-top: 16px;
+      }
+
+      .private-workspace-shell .portal-accordion > summary {
+        padding: 12px 14px;
+      }
+
+      .private-workspace-shell .portal-body {
+        padding: 0 14px 14px;
+      }
+
+      @media (max-width: 720px) {
+        .private-workspace-shell .private-portal-menu .menu-nav-list {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
       .private-portal-overview {
         display: grid;
         gap: 18px;
