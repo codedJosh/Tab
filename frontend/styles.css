@@ -14025,3 +14025,99 @@
           margin-top: 10px;
         }
       }
+
+      .workspace-shell .private-links-layout,
+      .workspace-shell .private-links-sections {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .workspace-shell .private-links-header .section-heading {
+        margin: 0;
+      }
+
+      .workspace-shell .private-links-section {
+        min-width: 0;
+      }
+
+      .workspace-shell .private-links-section > .section-heading {
+        margin-bottom: 12px;
+      }
+
+      .workspace-shell .private-links-section .collection-toolbar {
+        margin-bottom: 12px;
+      }
+
+      .workspace-shell .private-links-section .private-link-compact-list,
+      .workspace-shell .private-links-section .portal-link-list {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 9px;
+      }
+
+      .workspace-shell .private-links-section .private-link-card,
+      .workspace-shell .private-links-section .portal-link-item {
+        padding: 0;
+        border: 1px solid rgba(20, 49, 38, 0.1);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.62);
+      }
+
+      .workspace-shell .private-links-section .private-link-summary,
+      .workspace-shell .private-links-section .portal-link-summary {
+        min-height: 64px;
+        padding: 12px 14px;
+        gap: 12px;
+      }
+
+      .workspace-shell .private-links-section .private-link-person strong,
+      .workspace-shell .private-links-section .portal-link-main strong {
+        font-size: 0.9rem;
+        line-height: 1.3;
+      }
+
+      .workspace-shell .private-links-section .private-link-person span,
+      .workspace-shell .private-links-section .portal-link-main span {
+        font-size: 0.78rem;
+        line-height: 1.4;
+      }
+
+      .workspace-shell .private-links-section .private-link-meta,
+      .workspace-shell .private-links-section .portal-link-meta {
+        display: inline-flex;
+      }
+
+      .workspace-shell .private-links-section .private-link-panel,
+      .workspace-shell .private-links-section .portal-link-panel {
+        min-width: 0;
+        padding: 12px 14px 14px;
+      }
+
+      .workspace-shell .private-links-section .token-link,
+      .workspace-shell .private-links-section .fine-print {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      @media (max-width: 720px) {
+        .workspace-shell .private-links-header .section-heading {
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .workspace-shell .private-links-section .private-link-summary,
+        .workspace-shell .private-links-section .portal-link-summary {
+          grid-template-columns: minmax(0, 1fr) auto;
+        }
+
+        .workspace-shell .private-links-header .workspace-chip-row {
+          justify-content: flex-start;
+        }
+
+        .workspace-shell .private-links-section .private-link-meta,
+        .workspace-shell .private-links-section .portal-link-meta {
+          display: none;
+        }
+      }

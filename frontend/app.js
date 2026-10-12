@@ -12644,8 +12644,10 @@
         title = "Private Access URLs",
         eyebrow = "Access Links",
         records = getUserAccessLinkRecords(),
+        totalCount = records.length,
         surfaceClass = "surface",
         compact = false,
+        headingTag = "h2",
         toolbarMarkup = "",
         footerMarkup = "",
       } = {}) {
@@ -12654,9 +12656,9 @@
             <div class="section-heading">
               <div>
                 ${eyebrow ? `<p class="eyebrow">${escapeHtml(eyebrow)}</p>` : ""}
-                <h2>${escapeHtml(title)}</h2>
+                <${headingTag}>${escapeHtml(title)}</${headingTag}>
               </div>
-              <span class="role-pill">${escapeHtml(records.length)} available</span>
+              <span class="role-pill">${escapeHtml(totalCount)} available</span>
             </div>
             ${toolbarMarkup}
             ${
@@ -22803,20 +22805,27 @@
           12,
         );
         return `
-          <section class="surface access-directory">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Access</p>
-                <h2>Private links</h2>
+          <div class="private-links-layout">
+            <section class="surface regional-shell private-links-header">
+              <div class="section-heading">
+                <div>
+                  <h2>Private links</h2>
+                </div>
+                <div class="workspace-chip-row">
+                  <span class="role-pill">${escapeHtml(accountRecords.totalRecords)} account links</span>
+                  <span class="role-pill">${escapeHtml(records.totalRecords)} tournament links</span>
+                </div>
               </div>
-            </div>
-            <div class="access-directory-grid">
+            </section>
+            <div class="private-links-sections">
               ${renderUserAccessLinksSection({
                 title: "Account links",
                 eyebrow: "",
                 records: accountRecords.items,
+                totalCount: accountRecords.totalRecords,
                 compact: true,
-                surfaceClass: "access-directory-block",
+                headingTag: "h3",
+                surfaceClass: "surface private-links-section",
                 toolbarMarkup: renderCollectionToolbar({
                   formName: "links-account-search",
                   query: session.linksAccountQuery || "",
@@ -22826,7 +22835,7 @@
                 }),
                 footerMarkup: renderCollectionPagination("set-links-account-page", accountRecords),
               })}
-              <section class="access-directory-block">
+              <section class="surface private-links-section">
                 <div class="section-heading">
                   <div>
                     <h3>Tournament links</h3>
@@ -22900,7 +22909,7 @@
                 ${renderCollectionPagination("set-links-portal-page", records)}
               </section>
             </div>
-          </section>
+          </div>
         `;
       }
 
