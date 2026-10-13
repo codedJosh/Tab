@@ -187,10 +187,179 @@ test('publishing rejects a draft that mixes speakers from registered teams',asyn
  assert.equal(app.run('getRoundReleaseReadiness(tournament,1).canPublish'),false);
  assert.match(app.run('getRoundReleaseReadiness(tournament,1).blockers.join(" ")'),/splits a registered team/);
 });
+test('draw actions report insufficient entries and publishing reports an unnamed format',async()=>{
+ const app=await fixture();
+ app.run('tournament.teams=[];tournament.participants=[]');
+ assert.equal(app.run('getDrawGenerationReadiness(tournament,1).canGenerate'),false);
+ assert.match(app.run('getDrawGenerationReadiness(tournament,1).blocker'),/enough speakers/);
+ assert.match(app.run('getRoundReleaseReadiness(tournament,1).warnings.join(" ")'),/format has no name/);
+});
+test('public registration availability explains the tournament and role switches',async()=>{
+ const app=await fixture();
+ app.run('tournament.status="closed";tournament.registration.debaterOpen=true;tournament.registration.judgeOpen=false');
+ assert.equal(app.run('getTournamentRegistrationAvailability(tournament,"debater").open'),false);
+ assert.match(app.run('getTournamentRegistrationAvailability(tournament,"debater").reason'),/Tournament is closed/);
+ assert.match(app.run('getTournamentRegistrationAvailability(tournament,"judge").reason'),/Tournament is closed/);
+ app.run('tournament.status="open"');
+ assert.equal(app.run('getTournamentRegistrationAvailability(tournament,"debater").open'),true);
+ assert.match(app.run('getTournamentRegistrationAvailability(tournament,"judge").reason'),/turned off in Setup/);
+});
+test('audit timestamps use a named month and unambiguous day-first date',async()=>{
+ const app=await fixture();
+ assert.match(app.run('formatAuditTimestamp("2026-10-12T15:04:00.000Z")'),/^12 Oct 2026,/);
+});
 test('official team results update standings while underqualified institutions stay off the board',async()=>{
  const app=await fixture();
  app.run(`var plan=getDrawGenerationPlan(tournament,getRoundProfileForRound(tournament,1));var draw=createDrawRecord(tournament,{round:1,room:'Room 1',entries:plan.entries});draw.officialResults=Object.fromEntries(draw.slots.map((slot,index)=>[getDrawSlotCheckInKey(slot),{outcome:index?'loss':'win'}]));tournament.draw=[draw];`);
  assert.equal(app.run('getTeamStanding(tournament,tournament.teams[0]).wins'),1);
  assert.equal(app.run('getTeamStanding(tournament,tournament.teams[1]).losses'),1);
  assert.equal(app.run('getInstitutionStandings(tournament).length'),0);
+});
+
+test('a round cannot publish until its motion is saved',async()=>{
+ const app=await fixture();
+ app.run(`var plan=getDrawGenerationPlan(tournament,getRoundProfileForRound(tournament,1));
+   tournament.rounds=1;
+   var room=createDrawRecord(tournament,{id:'motion-room',round:1,room:'Room 1',entries:plan.entries});
+   tournament.draw=[room];
+   var chair=createJudgeRecord('Chair','chair@test.org','',{panelQuality:'chair'});
+   tournament.judges=[chair];
+   tournament.judgeAllocations=[createJudgeAllocationRecord(tournament,room,chair.email,{id:'chair-allocation',panelRole:'chair'})];
+   tournament.roundControls=buildRoundControls(tournament.rounds,[{round:1,motionTitle:'',motionText:''}]);`);
+ assert.equal(app.run('getRoundReleaseReadiness(tournament,1).canPublish'),false);
+ assert.match(app.run('getRoundReleaseReadiness(tournament,1).blockers.join(" ")'),/motion before publishing/);
+ app.run('tournament.roundControls[0].motionTitle="This House would..."');
+ assert.equal(app.run('getRoundReleaseReadiness(tournament,1).canPublish'),true);
+});
+
+test('BP team points use speaks as the first tie-break after team points',async()=>{
+ const app=await fixture();
+ app.run(`tournament=createTournamentRecord({name:'BP Tie Break',format:'British Parliamentary',participantModel:'teams',teamSize:2,teamsPerRoom:4,scoringMethod:'WUDC Team Points'});
+   tournament.standings=[
+     {id:'beta',teamId:'beta',name:'North Team Beta',points:5,speaks:453,firsts:1},
+     {id:'alpha',teamId:'alpha',name:'North Team Alpha',points:5,speaks:451,firsts:1},
+     {id:'gamma',teamId:'gamma',name:'North Team Gamma',points:4,speaks:449,firsts:1},
+     {id:'delta',teamId:'delta',name:'South Team Delta',points:4,speaks:443,firsts:1},
+   ];`);
+ assert.deepEqual(JSON.parse(app.run('JSON.stringify(sortStandingsForTournament(tournament.standings,tournament).map(row=>row.name))')),
+   ['North Team Beta','North Team Alpha','North Team Gamma','South Team Delta']);
+});
+
+test('Use Judge Profile replaces a conflicted chair and clears the saved conflict',async()=>{
+ const app=await fixture();
+ app.run(`var plan=getDrawGenerationPlan(tournament,getRoundProfileForRound(tournament,1));
+   var previousRoom=createDrawRecord(tournament,{id:'previous-chair-room',round:1,room:'Room 1',entries:plan.entries});
+   var room=createDrawRecord(tournament,{id:'chair-room',round:2,room:'Room 2',entries:plan.entries});
+   tournament.draw=[previousRoom,room];
+   tournament.roundControls=buildRoundControls(tournament.rounds,[{round:1,motionTitle:'Previous motion'},{round:2,motionTitle:'Saved motion'}]);
+   var conflicted=createJudgeRecord('Conflicted Chair','conflict@test.org','School A',{panelQuality:'chair'});
+   var replacement=createJudgeRecord('Replacement Chair','replacement@test.org','',{panelQuality:'chair'});
+   tournament.judges=[conflicted,replacement];
+   tournament.judgeAllocations=[
+     createJudgeAllocationRecord(tournament,previousRoom,conflicted.email,{id:'previous-chair',panelRole:'chair'}),
+     createJudgeAllocationRecord(tournament,room,conflicted.email,{id:'old-chair',panelRole:'chair'}),
+   ];
+   state.tournaments=[tournament];
+   updateTournament=(id,updater)=>{state.tournaments=state.tournaments.map(item=>item.id===id?updater(structuredClone(item)):item);tournament=state.tournaments.find(item=>item.id===id)};`);
+ assert.equal(app.run('getRoundConflictSummary(tournament,2).severe'),1);
+ assert.equal(app.run('JSON.stringify(getDrawEntryConflictReport(tournament,tournament.draw.find(entry=>entry.id==="chair-room")).map(issue=>issue.label).sort())'),'["Judge conflict","Judge repeat exposure","Repeat matchup"]');
+ assert.equal(app.run('getRoundReleaseReadiness(tournament,2).canPublish'),false);
+ app.run(`assignJudgeAllocation(tournament.id,{get:key=>({drawId:'chair-room',judgeEmail:'replacement@test.org',panelRole:'auto'}[key]||'')})`);
+ assert.equal(app.run('tournament.judgeAllocations.length'),2);
+ assert.equal(app.run('tournament.judgeAllocations.find(allocation=>allocation.drawId==="chair-room").judgeEmail'),'replacement@test.org');
+ assert.equal(app.run('tournament.judgeAllocations.find(allocation=>allocation.drawId==="chair-room").panelRole'),'chair');
+ assert.equal(app.run('getRoundConflictSummary(tournament,2).severe'),0);
+ assert.equal(app.run('JSON.stringify(getDrawEntryConflictReport(tournament,tournament.draw.find(entry=>entry.id==="chair-room")).map(issue=>issue.label))'),'["Repeat matchup"]');
+ assert.equal(app.run('getRoundReleaseReadiness(tournament,2).canPublish'),true);
+ await app.run('rehydrateState(state).then(value=>{state=value;tournament=state.tournaments.find(item=>item.id===tournament.id)})');
+ assert.equal(app.run('tournament.judgeAllocations.find(allocation=>allocation.drawId==="chair-room").judgeEmail'),'replacement@test.org');
+ assert.equal(app.run('getRoundConflictSummary(tournament,2).severe'),0);
+});
+
+test('room and judge check-ins are counted and labeled separately',async()=>{
+ const app=await fixture();
+ app.run(`var plan=getDrawGenerationPlan(tournament,getRoundProfileForRound(tournament,1));
+   var room=createDrawRecord(tournament,{id:'checkin-room',round:1,room:'Room 1',entries:plan.entries});
+   var slotKey=getDrawSlotCheckInKey(room.slots[0]);room.entryCheckIns={[slotKey]:true};
+   var chair=createJudgeRecord('Chair','chair@test.org','',{panelQuality:'chair'});tournament.judges=[chair];
+   tournament.draw=[room];tournament.judgeAllocations=[createJudgeAllocationRecord(tournament,room,chair.email,{panelRole:'chair',checkedIn:true})];`);
+ const summary=JSON.parse(app.run('JSON.stringify(getRoundStatusSummary(tournament,1))'));
+ assert.equal(summary.entryCheckIns,1);
+ assert.equal(summary.totalEntryCheckIns,2);
+ assert.equal(summary.checkedInJudges,1);
+ assert.equal(summary.totalJudges,1);
+ const stages=JSON.parse(app.run('JSON.stringify(getRoundTimelineStages(tournament,1,{canManage:true}))'));
+ const readiness=stages.find(stage=>stage.label==='Room readiness');
+ assert.match(readiness.value,/Competitors 1\/2 • Judges 1\/1 • Ready 0\/1/);
+});
+
+test('Round Draw ballot review opens the ballot workflow',async()=>{
+ const app=await fixture();
+ app.run(`var plan=getDrawGenerationPlan(tournament,getRoundProfileForRound(tournament,1));
+   tournament.rounds=1;
+   var room=createDrawRecord(tournament,{id:'ballot-room',round:1,room:'Room 1',status:'Published',entries:plan.entries});
+   var pending=createDrawRecord(tournament,{id:'pending-room',round:1,room:'Room 2',status:'Published',entries:plan.entries});
+   tournament.draw=[room,pending];
+   var chair=createJudgeRecord('Chair','chair@test.org','',{panelQuality:'chair'});tournament.judges=[chair];
+   tournament.judgeAllocations=[createJudgeAllocationRecord(tournament,room,chair.email,{id:'ballot-chair',panelRole:'chair',submittedAt:'2026-10-13T12:00:00.000Z',ballotResults:{}})];`);
+ assert.equal(app.run('getTournamentControlRoomState(tournament).nextSection'),'ballots');
+ const html=app.run('getFocusedTournamentSections(tournament).find(section=>section.key==="ballots").render()');
+ assert.match(html,/Ballots/);
+ assert.match(html,/Reopen ballot/);
+ assert.match(html,/Room 1/);
+});
+
+test('private BP tournament completes three rounds of submitted ballots and recalculates standings',async()=>{
+ const app=await fixture();
+ app.run(`tournament=createTournamentRecord({name:'Synthetic Private BP QA',format:'British Parliamentary',participantModel:'teams',teamSize:2,teamsPerRoom:4,rounds:3,scoringMethod:'WUDC Team Points'});
+   tournament.publication.dashboardListed=false;tournament.registration.debaterOpen=false;tournament.registration.judgeOpen=false;
+   tournament.teams=[];tournament.participants=[];tournament.draw=[];tournament.judgeAllocations=[];
+   for (const [name,institution] of [['North Team Beta','Institution Beta'],['North Team Alpha','Institution Alpha'],['North Team Gamma','Institution Gamma'],['South Team Delta','Institution Delta']]) {
+     const team=upsertTournamentRegistrationTeam(tournament,name,institution);
+     for(let speaker=1;speaker<=2;speaker++) upsertTournamentParticipantRegistration(tournament,{name:name+' Speaker '+speaker,email:name.toLowerCase().replaceAll(' ','')+speaker+'@synthetic.test',institution,team});
+   }
+   const chair=createJudgeRecord('Synthetic Chair','chair@synthetic.test','',{panelQuality:'chair'});tournament.judges=[chair];
+   tournament.roundControls=buildRoundControls(3,[1,2,3].map(round=>({round,motionTitle:'Synthetic motion '+round,motionText:'This House supports synthetic tournament testing.'})));
+   state.tournaments=[tournament];
+   updateTournament=(id,updater)=>{state.tournaments=state.tournaments.map(item=>item.id===id?updater(structuredClone(item)):item);tournament=state.tournaments.find(item=>item.id===id)};`);
+ const drawMarkup=app.run('renderTournamentDrawStudio(tournament)');
+ assert.match(drawMarkup,/<input type="checkbox" name="releaseNow" \/>/);
+ assert.doesNotMatch(drawMarkup,/<input type="checkbox" name="releaseNow" checked/);
+ for(let round=1;round<=3;round++) {
+   app.run(`generateTournamentDraw(tournament.id,{get:key=>({round:'${round}',method:'auto',teamsPerRoom:'4',roomPrefix:'QA Room',roomStart:'1'}[key]??null)})`);
+   app.run(`tournament.judgeAllocations.push(createJudgeAllocationRecord(tournament,tournament.draw.find(room=>room.round===${round}),'chair@synthetic.test',{id:'synthetic-chair-${round}',panelRole:'chair'}))`);
+ }
+ assert.equal(app.run('tournament.draw.every(room=>room.status==="Draft")'),true);
+ for(let round=1;round<=3;round++) app.run(`releaseDrawRound(tournament.id,'${round}')`);
+ assert.equal(app.run('tournament.draw.every(room=>room.status==="Published")'),true);
+ app.run("session.userEmail='chair@synthetic.test'");
+ for(let round=1;round<=3;round++) {
+   const json=app.run(`(()=>{const room=tournament.draw.find(entry=>entry.round===${round});const fields={ballot_action:'submit'};
+     room.slots.forEach((slot,index)=>fields[getJudgeRoomResultFieldName(getDrawSlotCheckInKey(slot))]=String(((index+${round}-1)%4)+1));
+     room.slots.flatMap(slot=>slot.participantIds).forEach((id,index)=>{
+       fields[getJudgeScoreFieldName(id,'Speaker Score')]=String(70+((index+${round})%8));
+       (tournament.settings.feedbackCategories||[]).forEach(category=>fields[getJudgeScoreFieldName(id,category)]='70');
+       fields[getJudgeNoteFieldName(id)]='Synthetic feedback for round ${round}.';
+     });
+     return JSON.stringify({roomId:room.id,allocationId:'synthetic-chair-${round}',fields});})()`);
+   const payload=JSON.parse(json);
+   app.run(`submitJudgeBallot(tournament.id,${JSON.stringify(payload.allocationId)},{get:key=>(${JSON.stringify(payload.fields)})[key]??null})`);
+ }
+ await app.run('state.tournaments=[tournament]; rehydrateState(state).then(value=>{state=value;tournament=state.tournaments.find(item=>item.name==="Synthetic Private BP QA")})');
+ assert.equal(app.run('tournament.draw.length'),3);
+ assert.equal(app.run('tournament.draw.every(room=>Object.keys(room.officialResults||{}).length===4)'),true);
+ assert.equal(app.run('tournament.judgeAllocations.every(allocation=>Boolean(allocation.submittedAt))'),true);
+ assert.equal(app.run('tournament.participants.filter(person=>person.feedback.some(item=>item.note.startsWith("Synthetic feedback"))).length'),8);
+ assert.equal(app.run('getComputedStandings(tournament).length'),4);
+ assert.equal(app.run('getComputedStandings(tournament).reduce((sum,row)=>sum+row.points,0)'),18);
+ assert.equal(app.run('getComputedStandings(tournament).every(row=>row.playedRounds===3)'),true);
+ assert.equal(app.run('getSpeakerStandings(tournament).length'),8);
+ assert.equal(app.run('getRoundStatusSummary(tournament,3).officialBallots'),1);
+ assert.equal(app.run('getRoundControlForRound(tournament,2).motionTitle'),'Synthetic motion 2');
+ assert.equal(app.run('tournament.publication.dashboardListed'),false);
+ assert.equal(app.run('tournament.registration.debaterOpen || tournament.registration.judgeOpen'),false);
+ app.run("session.userEmail='manager@test.org'");
+ const ballots=app.run('getFocusedTournamentSections(tournament).find(section=>section.key==="ballots").render()');
+ assert.match(ballots,/Speaker marks and feedback/);
+ assert.match(ballots,/Synthetic feedback for round/);
 });

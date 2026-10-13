@@ -6820,6 +6820,45 @@
         gap: 12px;
       }
 
+      .ballot-review-list,
+      .ballot-review-submissions {
+        display: grid;
+        gap: 10px;
+      }
+
+      .ballot-review-room {
+        display: grid;
+        gap: 12px;
+      }
+
+      .ballot-review-submission {
+        display: grid;
+        gap: 8px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface-soft, rgba(240, 246, 241, 0.68));
+      }
+
+      .ballot-review-submission-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 6px 14px;
+      }
+
+      .ballot-review-submission-head span,
+      .ballot-review-result-list {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .ballot-review-result-list {
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+
       .draw-studio-layout {
         display: grid;
         gap: 12px;
@@ -14610,5 +14649,102 @@
   .workspace-shell .people-directory-row-side {
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+}
+
+/* Keep draw controls readable beside the workspace navigation. */
+.workspace-shell .draw-operations-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.workspace-shell .draw-manual-room-panel {
+  grid-column: 1 / -1;
+}
+
+.workspace-shell .draw-operation-column {
+  min-width: 0;
+}
+
+.workspace-shell .draw-operation-column .field-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-shell .draw-studio-shell .table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.workspace-shell .draw-studio-shell table {
+  min-width: 900px;
+}
+
+.workspace-shell .draw-studio-shell th,
+.workspace-shell .draw-studio-shell td {
+  white-space: nowrap;
+}
+
+.workspace-shell .draw-studio-shell td:nth-child(3),
+.workspace-shell .draw-studio-shell td:nth-child(4) {
+  white-space: normal;
+  min-width: 180px;
+}
+
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: saturate(0.55);
+}
+
+.registration-availability-note {
+  margin-top: 8px;
+  grid-column: 1 / -1;
+}
+
+.registration-closed-message a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.public-hero-guidance {
+  max-width: 56ch;
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.auth-page .public-front-page:not(.auth-flow-page) > .premium-home-hero:not(.regional-operations-hero) {
+  min-height: clamp(280px, 38vh, 380px);
+  padding: clamp(18px, 3vw, 32px);
+}
+
+.auth-page .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-content {
+  width: min(520px, 100%);
+  gap: 8px;
+  padding: 10px 20px 14px;
+}
+
+.auth-page .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-jade-logo {
+  width: min(270px, 72%);
+  height: clamp(86px, 10vw, 112px);
+  margin-bottom: -10px;
+}
+
+.auth-page .public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-title-copy h1 {
+  font-size: clamp(2.1rem, 4vw, 3rem);
+}
+
+@media (max-width: 720px) {
+  .workspace-shell .draw-operations-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-shell .draw-manual-room-panel {
+    grid-column: auto;
   }
 }

@@ -1012,6 +1012,19 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         return new Date().toLocaleString();
       }
 
+      function formatAuditTimestamp(value) {
+        const raw = String(value || "").trim();
+        const parsed = Date.parse(raw);
+        if (!Number.isFinite(parsed)) return raw;
+        return new Intl.DateTimeFormat("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(parsed));
+      }
+
       function normalizeTimestampKey(value, fallbackText = "") {
         const numeric = Number(value);
         if (Number.isFinite(numeric) && numeric > 0) {
@@ -3777,7 +3790,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           nextSection = "draw";
         } else if (snapshot.pendingBallotRooms) {
           nextRequiredAction = "Collect " + snapshot.pendingBallotRooms + " missing ballots.";
-          nextSection = "results";
+          nextSection = "ballots";
         } else if (!snapshot.judges) {
           nextRequiredAction = "Add judges before opening the next round.";
           nextSection = "judges";
@@ -9669,6 +9682,10 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           (allocation) =>
             normalizeJudgeAllocationRole(allocation.panelRole, "panelist") === "chair",
         );
+        const entryCheckIns = rooms.reduce((sum, entry) => {
+          const checkIns = getDrawEntryCheckInSummary(entry);
+          return { checked: sum.checked + checkIns.checked, total: sum.total + checkIns.total };
+        }, { checked: 0, total: 0 });
         const checkedInEntries = rooms.filter((entry) => areAllDrawEntriesCheckedIn(entry)).length;
         const checkedInJudges = allocations.filter((allocation) => allocation.checkedIn).length;
         const published = rooms.filter(
@@ -9693,6 +9710,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           chairs,
           checkedInEntries,
           checkedInJudges,
+          entryCheckIns: entryCheckIns.checked,
+          totalEntryCheckIns: entryCheckIns.total,
+          totalJudges: allocations.length,
           published,
           officialBallots,
           ballotReturns,
@@ -9955,6 +9975,12 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         const rooms = summary.rooms || [];
         const blockers = getRosterIntegrityIssues(tournament, getRoundProfileForRound(tournament, targetRound));
         const warnings = [];
+        if (
+          normalizeFormatName(tournament?.format) === "No Standard Format" &&
+          !String(tournament?.customFormatName || "").trim()
+        ) {
+          warnings.push("Tournament format has no name. Add a custom format name in Setup before publishing results.");
+        }
         const assignedSpeakers = new Set();
         rooms.forEach((room) => {
           (room.slots || []).forEach((slot) => {
@@ -10077,7 +10103,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 
         const control = getRoundControlForRound(tournament, targetRound);
         if (!String(control?.motionTitle || control?.motionText || "").trim()) {
-          warnings.push("Motion has not been entered yet.");
+          blockers.push("Add and save the motion before publishing this round.");
         }
 
         return {
@@ -10101,6 +10127,29 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         const visibleIssues = issues.slice(0, 2).join(" ");
         const remaining = Math.max(0, issues.length - 2);
         return prefix + visibleIssues + (remaining ? " +" + remaining + " more." : "");
+      }
+
+      function getDrawGenerationReadiness(tournament, round, methodValue = "auto", roomSizeValue = null) {
+        const roundProfile = getRoundProfileForRound(tournament, round);
+        const roomSize = normalizeOptionalCount(
+          roomSizeValue,
+          normalizeOptionalCount(roundProfile.teamsPerRoom, normalizeOptionalCount(tournament.config.teamsPerRoom, 2)),
+          8,
+        );
+        const method = getResolvedDrawMethod(tournament, roundProfile, normalizeDrawMethodChoice(methodValue, "auto"));
+        const plan = getDrawGenerationPlan(tournament, roundProfile, method, roomSize);
+        const structure = getEffectiveRoundStructure(tournament, roundProfile, {
+          roomSizeOverride: roomSize,
+          allowRoomOverride: true,
+        });
+        const fullRoomSize = Math.max(1, Number(structure.teamsPerRoom) || roomSize);
+        let blocker = plan.error || "";
+        if (!blocker && plan.entries.length < fullRoomSize) {
+          blocker = shouldGenerateSpeakerPairingTeams(tournament, roundProfile)
+            ? "Add enough speakers to build one full room."
+            : "Add enough complete entries to build one full room.";
+        }
+        return { canGenerate: !blocker, blocker, plan, roomSize: fullRoomSize };
       }
 
       function getRoundTimelineStages(tournament, round, options = {}) {
@@ -10128,14 +10177,17 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               value: summary.published + "/" + summary.rooms.length,
             },
             {
-              label: "Check-In",
+              label: "Room readiness",
               status:
                 summary.rooms.length && summary.fullyReady === summary.rooms.length
                   ? "done"
                   : summary.checkedInEntries || summary.checkedInJudges
                     ? "active"
                     : "pending",
-              value: summary.fullyReady + "/" + summary.rooms.length + " ready",
+              value:
+                "Competitors " + summary.entryCheckIns + "/" + summary.totalEntryCheckIns +
+                " • Judges " + summary.checkedInJudges + "/" + summary.totalJudges +
+                " • Ready " + summary.fullyReady + "/" + summary.rooms.length,
             },
             {
               label: "Motion",
@@ -13754,7 +13806,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                           )}" data-id="${escapeHtml(tournament.id)}" data-draw-id="${escapeHtml(
                             entry.id,
                           )}" data-participant-id="${escapeHtml(participant.id)}">${escapeHtml(
-                            participantCheckedIn ? "Undo My Check-In" : "Check In For This Round",
+                            participantCheckedIn ? "Undo my competitor check-in" : "Competitor check-in",
                           )}</button>`
                         : ""
                     }
@@ -13817,6 +13869,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                         getRegionalOperationsLandingLink(),
                       )}">Regional operations</a>
                     </div>
+                    <p class="public-hero-guidance">JADE Hummingbird manages tournament registration, rounds, results, and feedback. Entrants can register when an event is open; staff can sign in below.</p>
                   </div>
                 </section>
 
@@ -14235,7 +14288,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                 <button type="submit">${escapeHtml(isJudge ? "Register as a judge" : "Register team")}</button>
                               </form>
                             `
-                            : `<div class="alert info">No tournaments are currently open for this registration flow. Check back later or contact the tab team.</div>`
+                            : `<div class="alert info registration-closed-message">Registration is closed for now. Ask your tournament organizer to open registration, or <a href="mailto:${escapeAttributeValue(MANAGER_EMAIL)}?subject=${encodeURIComponent("JADE Hummingbird registration help")}">contact JADE support</a>.</div>`
                         }
                       </div>
                     </div>
@@ -14619,7 +14672,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                           (item) =>
                             `<li><strong>${escapeHtml(item.tournament)}</strong>: ${escapeHtml(
                               item.entry.message,
-                            )} <span class="muted">(${escapeHtml(item.entry.at)})</span></li>`,
+                            )} <span class="muted">(${escapeHtml(formatAuditTimestamp(item.entry.at))})</span></li>`,
                         )
                         .join("")}
                     </ul>`
@@ -15358,7 +15411,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   <th>Official Result</th>
                   <th>Priority</th>
                   <th>Status</th>
-                  ${canManage ? "<th>Check-In</th><th>Ballot</th>" : ""}
+                  ${canManage ? "<th>Competitor check-in</th><th>Ballot</th>" : ""}
                   ${canManage ? "<th>Action</th>" : ""}
                 </tr>
               </thead>
@@ -15375,15 +15428,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                     (entry) => {
                       const matchup = getDrawMatchupForDisplay(tournament, entry);
                       const resultSummary = getDrawOfficialResultSummary(tournament, entry);
-                      const roomAllocations = getAllocationsForDrawEntry(tournament, entry.id);
                       const checkedInEntries = areAllDrawEntriesCheckedIn(entry);
                       const checkInSummary = getDrawEntryCheckInSummary(entry);
                       const conflictCount = getDrawEntryConflictReport(tournament, entry).length;
-                      const panelReady = roomAllocations.some(
-                        (allocation) =>
-                          normalizeJudgeAllocationRole(allocation.panelRole, "panelist") ===
-                          "chair",
-                      );
                       return `
                         <tr>
                           <td>${escapeHtml(entry.round)}</td>
@@ -15401,16 +15448,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                             canManage
                               ? `
                                   <td>${escapeHtml(
-                                    checkedInEntries
-                                      ? "All entries checked in"
-                                      : panelReady
-                                        ? checkInSummary.total
-                                          ? checkInSummary.checked +
-                                            "/" +
-                                            checkInSummary.total +
-                                            " checked in"
-                                          : "Awaiting room check-in"
-                                        : "Panel incomplete",
+                                    checkInSummary.total
+                                      ? checkInSummary.checked + "/" + checkInSummary.total + " competitors"
+                                      : "No competitor check-ins",
                                   )}</td>
                                   <td>${escapeHtml(
                                     entry.ballotCheckedIn
@@ -15440,7 +15480,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                       <button class="ghost-button" type="button" data-action="toggle-room-checkin" data-id="${escapeHtml(
                                         tournament.id,
                                       )}" data-draw-id="${escapeHtml(entry.id)}">${escapeHtml(
-                                        checkedInEntries ? "Clear Check-In" : "Check In Room",
+                                        checkedInEntries ? "Clear competitor check-in" : "Check in competitors",
                                       )}</button>
                                       <button class="ghost-button" type="button" data-action="toggle-room-ballot" data-id="${escapeHtml(
                                         tournament.id,
@@ -15691,6 +15731,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   getTournamentRegistrationSettings(tournament).judgeNote,
                 )}</textarea>
               </label>
+              <p class="fine-print registration-availability-note" role="status">
+                Public registration requires tournament status <strong>Open</strong> and the matching role option above. The main tournament listing is separate. Debaters: ${escapeHtml(getTournamentRegistrationAvailability(tournament, "debater").reason)} Judges: ${escapeHtml(getTournamentRegistrationAvailability(tournament, "judge").reason)}
+              </p>
             </div>
             <label>
               Notes
@@ -16053,7 +16096,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                 <strong>${escapeHtml(analytics.submittedBallots)}</strong>
               </div>
               <div>
-                <span>Judge check-ins</span>
+                <span>Judges checked in</span>
                 <strong>${escapeHtml(analytics.checkedInJudges)}</strong>
               </div>
               <div>
@@ -16147,7 +16190,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                       <input type="number" min="1" max="3" name="judgesPerRoom" value="1" required />
                     </label>
                     <label class="checkbox-row">
-                      <input type="checkbox" name="replaceExisting" checked />
+                      <input type="checkbox" name="replaceExisting" />
                       <span>Replace existing allocations</span>
                     </label>
                   </div>
@@ -16235,7 +16278,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                   <button class="ghost-button" type="button" data-action="toggle-allocation-checkin" data-id="${escapeHtml(
                                     tournament.id,
                                   )}" data-allocation-id="${escapeHtml(allocation.id)}"><span>${escapeHtml(
-                                    allocation.checkedIn ? "Undo Check-In" : "Check In",
+                                    allocation.checkedIn ? "Undo judge check-in" : "Check in judge",
                                   )}</span></button>
                                   <button class="ghost-button" type="button" data-action="delete-allocation" data-id="${escapeHtml(
                                     tournament.id,
@@ -16320,7 +16363,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h4
                   (entry) =>
                     `<li>${escapeHtml(entry.message)} <span class="muted">by ${escapeHtml(
                       entry.actor,
-                    )} on ${escapeHtml(entry.at)}</span></li>`,
+                    )} on ${escapeHtml(formatAuditTimestamp(entry.at))}</span></li>`,
                 )
                 .join("")}
             </ul>`
@@ -17341,6 +17384,76 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         `;
       }
 
+      function renderTournamentBallotReviewStudio(tournament) {
+        const rounds = Array.from(new Set((tournament.draw || []).map((entry) => Number(entry.round || 0))))
+          .filter((round) => round > 0)
+          .sort((left, right) => left - right);
+        const rows = rounds.flatMap((round) =>
+          (tournament.draw || [])
+            .filter((entry) => Number(entry.round) === round)
+            .sort((left, right) => String(left.room || "").localeCompare(String(right.room || "")))
+            .map((drawEntry) => {
+              const allocations = getAllocationsForDrawEntry(tournament, drawEntry.id);
+              const ballotRows = allocations.length
+                ? allocations.map((allocation) => {
+                    const judge = getJudgeByEmail(tournament, allocation.judgeEmail);
+                    const role = getJudgeAllocationRoleLabel(allocation.panelRole);
+                    const result = allocation.ballotResults && Object.keys(allocation.ballotResults).length
+                      ? normalizeDrawOfficialResults(allocation.ballotResults)
+                      : null;
+                    const resultLines = result
+                      ? Object.entries(result).map(([entryKey, value]) => {
+                          const slot = (drawEntry.slots || []).find((item) => getDrawSlotCheckInKey(item) === entryKey);
+                          const label = slot ? getDrawSlotDisplayLabel(tournament, slot, {drawEntry}) : entryKey;
+                          const outcome = value && typeof value === "object"
+                            ? value.placement ? "Place " + value.placement : value.outcome || ""
+                            : String(value || "");
+                          return `<li>${escapeHtml(label)}${outcome ? ": " + escapeHtml(outcome) : ""}</li>`;
+                        }).join("")
+                      : "";
+                    const feedbackRows = (tournament.participants || []).flatMap((participant) =>
+                      (participant.feedback || [])
+                        .filter((feedback) =>
+                          String(feedback.allocationId || "") === String(allocation.id) ||
+                          (!feedback.allocationId && String(feedback.drawId || "") === String(drawEntry.id) &&
+                            normalizeEmail(feedback.judgeEmail) === normalizeEmail(allocation.judgeEmail)),
+                        )
+                        .map((feedback) => {
+                          const scoreText = Object.entries(feedback.scores || {})
+                            .map(([category, score]) => category + " " + formatScoreValue(score))
+                            .join(" · ");
+                          return `<li><strong>${escapeHtml(participant.name || "Speaker")}</strong>
+                            ${scoreText ? `<span>${escapeHtml(scoreText)}</span>` : ""}
+                            ${feedback.note ? `<p>${escapeHtml(feedback.note)}</p>` : ""}
+                          </li>`;
+                        }),
+                    );
+                    return `<div class="ballot-review-submission">
+                      <div class="ballot-review-submission-head">
+                        <strong>${escapeHtml(judge?.name || allocation.judgeEmail || "Unassigned judge")}</strong>
+                        <span>${escapeHtml(role)} · ${allocation.submittedAt ? "Submitted " + escapeHtml(formatAuditTimestamp(allocation.submittedAt)) : "Awaiting ballot"}</span>
+                      </div>
+                      ${resultLines ? `<ul class="ballot-review-result-list">${resultLines}</ul>` : ""}
+                      ${feedbackRows.length ? `<details class="ballot-review-feedback"><summary>Speaker marks and feedback (${feedbackRows.length})</summary><ul class="ballot-review-result-list">${feedbackRows.join("")}</ul></details>` : ""}
+                      ${allocation.submittedAt ? `<button class="ghost-button" type="button" data-action="reopen-ballot" data-id="${escapeHtml(tournament.id)}" data-allocation-id="${escapeHtml(allocation.id)}">Reopen ballot</button>` : ""}
+                    </div>`;
+                  }).join("")
+                : `<p class="muted">No judge allocation is saved for this room.</p>`;
+              return `<article class="flat-panel ballot-review-room">
+                <div class="section-heading">
+                  <div><p class="eyebrow">Round ${escapeHtml(round)}</p><h3>${escapeHtml(drawEntry.room || "Unnamed room")}</h3></div>
+                  <span class="role-pill">${escapeHtml(getDrawOfficialResultSummary(tournament, drawEntry) || "No official result")}</span>
+                </div>
+                <div class="ballot-review-submissions">${ballotRows}</div>
+              </article>`;
+            }),
+        );
+        return `<section class="surface ballot-review-studio">
+          <div class="section-heading"><div><h2>Ballots</h2></div><span class="role-pill">${escapeHtml(rounds.length)} rounds</span></div>
+          ${rows.length ? `<div class="ballot-review-list">${rows.join("")}</div>` : `<div class="empty-state">No round rooms are available to review.</div>`}
+        </section>`;
+      }
+
       function getFocusedTournamentSections(
         tournament,
         feedbackCategories = [],
@@ -17386,6 +17499,14 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             label: "Draw Review",
             badge: snapshot.totalRooms ? snapshot.totalRooms + " rooms" : "No rooms",
             render: () => renderTournamentDrawReviewStudio(tournament),
+          },
+          {
+            key: "ballots",
+            label: "Ballots",
+            badge: snapshot.pendingBallotRooms
+              ? snapshot.pendingBallotRooms + " pending"
+              : "Review submissions",
+            render: () => renderTournamentBallotReviewStudio(tournament),
           },
           {
             key: "motions",
@@ -17501,6 +17622,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         if (operations) {
           allowedKeys.add("draw");
           allowedKeys.add("draw-review");
+          allowedKeys.add("ballots");
         }
         if (fullAdmin) {
           allowedKeys.add("setup");
@@ -18177,7 +18299,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 <strong>${escapeHtml(analytics.submittedBallots)}</strong>
               </div>
               <div class="workspace-stat">
-                <span class="muted">Judge check-ins</span>
+                <span class="muted">Judges checked in</span>
                 <strong>${escapeHtml(analytics.checkedInJudges)}</strong>
               </div>
               <div class="workspace-stat">
@@ -18748,7 +18870,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                               tournament.id,
                             )}" data-round="${escapeHtml(profile.round)}">Publish Draw</button>`
                           : summary.officialBallots < totalRooms
-                            ? `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="results">Review Ballots</button>`
+                            ? `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="ballots">Review Ballots</button>`
                             : `<button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="draw">Open Draw Lab</button>`;
                   return `
                     <tr>
@@ -18789,6 +18911,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         const publishReadiness = getRoundReleaseReadiness(tournament, publishRound);
         const suggestedRoundProfile = getRoundProfileForRound(tournament, suggestedRound);
         const suggestedMethod = normalizeDrawMethodChoice("auto", "auto");
+        const generationReadiness = getDrawGenerationReadiness(tournament, suggestedRound, suggestedMethod);
         return `
           <section class="surface draw-studio-shell">
             <div class="section-heading">
@@ -18846,7 +18969,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                         <input type="number" min="1" name="roomStart" value="1" />
                       </label>
                       <label class="checkbox-row">
-                        <input type="checkbox" name="releaseNow" checked />
+                        <input type="checkbox" name="releaseNow" />
                         <span>Publish immediately</span>
                       </label>
                     </div>
@@ -18857,9 +18980,10 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                         "auto",
                       ),
                     )}</p>
+                    <p class="fine-print draw-readiness-note" data-draw-readiness role="status" aria-live="polite">${escapeHtml(generationReadiness.blocker || (normalizeFormatName(tournament.format) === "No Standard Format" && !String(tournament.customFormatName || "").trim() ? "Tournament format has no name; add one in Setup before publishing results." : "Ready to generate."))}</p>
                     <div class="button-row wrap-row">
-                      <button type="submit">Generate draw</button>
-                      <button class="secondary-button" type="submit" name="intent" value="preview">Preview draw</button>
+                      <button type="submit" data-draw-generate-submit ${generationReadiness.canGenerate ? "" : 'disabled aria-disabled="true"'}>Generate draw</button>
+                      <button class="secondary-button" type="submit" name="intent" value="preview" data-draw-preview-submit ${generationReadiness.canGenerate ? "" : 'disabled aria-disabled="true"'}>Preview draw</button>
                     </div>
                   </form>
                 </div>
@@ -18870,7 +18994,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                       <h3>Publish round</h3>
                     </div>
                   </div>
-                  <p class="fine-print">${escapeHtml(
+                  <p class="fine-print" data-publish-readiness role="status" aria-live="polite">${escapeHtml(
                     getRoundReleaseReadinessText(publishReadiness),
                   )}</p>
                   <div class="draw-publish-grid">
@@ -18884,7 +19008,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                           publishRound,
                         )}</select>
                       </label>
-                      <button type="submit">Publish round</button>
+                      <button type="submit" data-publish-round-submit ${publishReadiness.canPublish ? "" : 'disabled aria-disabled="true"'}>Publish round</button>
                     </form>
 
                     <form class="stack draw-danger-form" data-form="clear-draw-round" data-id="${escapeHtml(
@@ -19754,6 +19878,41 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             roundProfile,
             currentMethod,
           );
+        }
+        const readiness = getDrawGenerationReadiness(
+          tournament,
+          round,
+          currentMethod,
+          form.querySelector('input[name="teamsPerRoom"]')?.value || null,
+        );
+        const readinessNote = form.querySelector("[data-draw-readiness]");
+        if (readinessNote) {
+          readinessNote.textContent = readiness.blocker || (
+            normalizeFormatName(tournament.format) === "No Standard Format" && !String(tournament.customFormatName || "").trim()
+              ? "Tournament format has no name; add one in Setup before publishing results."
+              : "Ready to generate."
+          );
+        }
+        [form.querySelector("[data-draw-generate-submit]"), form.querySelector("[data-draw-preview-submit]")]
+          .filter(Boolean)
+          .forEach((button) => {
+            button.disabled = !readiness.canGenerate;
+            button.setAttribute("aria-disabled", String(!readiness.canGenerate));
+          });
+      }
+
+      function syncDrawPublishForm(form) {
+        if (!form) return;
+        const tournament = getTournamentById(form.dataset.id || "");
+        const round = form.querySelector('select[name="round"]')?.value;
+        if (!tournament || !round) return;
+        const readiness = getRoundReleaseReadiness(tournament, round);
+        const note = form.closest(".draw-publish-shell")?.querySelector("[data-publish-readiness]");
+        if (note) note.textContent = getRoundReleaseReadinessText(readiness);
+        const publishButton = form.querySelector("[data-publish-round-submit]");
+        if (publishButton) {
+          publishButton.disabled = !readiness.canPublish;
+          publishButton.setAttribute("aria-disabled", String(!readiness.canPublish));
         }
       }
 
@@ -23183,7 +23342,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 <button class="secondary-button" type="button" data-action="toggle-judge-self-checkin" data-id="${escapeHtml(
                   tournament.id,
                 )}" data-allocation-id="${escapeHtml(allocation.id)}">${escapeHtml(
-                  allocation.checkedIn ? "Undo My Check-In" : "Check In",
+                  allocation.checkedIn ? "Undo my judge check-in" : "Judge check-in",
                 )}</button>
               </div>
             </div>
@@ -27769,12 +27928,11 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             allocation.drawId === drawId &&
             normalizeEmail(allocation.judgeEmail) === judgeEmail,
         );
-        const composition = getRoomJudgeComposition(tournament, drawId, existing?.id || "");
         const judgeRecord = getJudgeByEmail(tournament, judgeEmail);
+        const composition = getRoomJudgeComposition(tournament, drawId, existing?.id || "");
         const resolvedRole =
           requestedRole ||
-          (!composition.chairCount &&
-          normalizeJudgePanelQuality(judgeRecord?.panelQuality) === "chair"
+          (normalizeJudgePanelQuality(judgeRecord?.panelQuality) === "chair"
             ? "chair"
             : "panelist");
         const conflictingChair = getChairAllocationForDrawEntry(
@@ -27787,6 +27945,9 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           judgeEmail,
           drawEntry.round,
           existing?.id || "",
+        );
+        const replaceCurrentChair = Boolean(
+          !requestedRole && resolvedRole === "chair" && conflictingChair && conflictingChair.id !== existing?.id,
         );
 
         if (!judgeRecord) {
@@ -27821,7 +27982,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           return;
         }
 
-        if (resolvedRole === "chair" && conflictingChair) {
+        if (resolvedRole === "chair" && conflictingChair && !replaceCurrentChair) {
           setFlash("error", "That room already has an assigned chair. Reassign or remove the current chair first.");
           renderApp();
           return;
@@ -27833,7 +27994,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           return;
         }
 
-        if (!existing && composition.total >= 3) {
+        if (!existing && composition.total >= 3 && !replaceCurrentChair) {
           setFlash("error", "That room already has a full judging panel.");
           renderApp();
           return;
@@ -27855,8 +28016,13 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         updateTournament(
           tournamentId,
           (currentTournament) => {
+            if (replaceCurrentChair) {
+              currentTournament.judgeAllocations = (currentTournament.judgeAllocations || []).filter(
+                (allocation) => allocation.id !== conflictingChair.id,
+              );
+            }
             if (existing) {
-              const updatedRole = normalizeJudgeAllocationRole(requestedRole, existing.panelRole);
+              const updatedRole = resolvedRole;
               currentTournament.judgeAllocations = (currentTournament.judgeAllocations || []).map(
                 (allocation) =>
                   allocation.id === existing.id
@@ -27868,7 +28034,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
               );
               return addAudit(
                 currentTournament,
-                "Updated judge " +
+                (replaceCurrentChair ? "Replaced the room chair with " : "Updated judge ") +
                   judgeEmail +
                   " on Round " +
                   drawEntry.round +
@@ -30874,6 +31040,10 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           }
 
           if (action === "toggle-public-standings") {
+            const tournament = getTournamentById(button.dataset.id || "");
+            if (tournament && !tournament.publication.showPublicStandings && normalizeFormatName(tournament.format) === "No Standard Format" && !String(tournament.customFormatName || "").trim() && !window.confirm("This tournament has no format name. Publish these standings anyway? Add a custom format name in Setup first if the current label is wrong.")) {
+              return;
+            }
             toggleTournamentField(button.dataset.id, "showPublicStandings");
             return;
           }
@@ -30889,6 +31059,10 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           }
 
           if (action === "publish-public-standings") {
+            const tournament = getTournamentById(button.dataset.id || "");
+            if (tournament && normalizeFormatName(tournament.format) === "No Standard Format" && !String(tournament.customFormatName || "").trim() && !window.confirm("This tournament has no format name. Publish these standings anyway? Add a custom format name in Setup first if the current label is wrong.")) {
+              return;
+            }
             setTournamentPublicationField(
               button.dataset.id,
               "showPublicStandings",
@@ -31667,6 +31841,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           }
 
           if (form.dataset.form === "auto-allocate-judges") {
+            const targetTournament = getTournamentById(form.dataset.id || "");
+            const targetRound = normalizeRoundCount(formData.get("round"), 1);
+            const hasRoundAssignments = (targetTournament?.judgeAllocations || []).some((entry) => Number(entry.round) === targetRound);
+            if (boolFromForm(formData, "replaceExisting") && hasRoundAssignments && !window.confirm("Replace every judge allocation already saved for this round? This will remove the current assignments before creating new ones.")) {
+              return;
+            }
             autoAllocateJudges(form.dataset.id, formData);
             return;
           }
@@ -31697,6 +31877,9 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           }
 
           if (form.dataset.form === "generate-draw") {
+            if (String(formData.get("intent") || "").toLowerCase() !== "preview" && boolFromForm(formData, "releaseNow") && !window.confirm("Generate this draw and publish it immediately if all publication checks pass? If checks fail, it will be saved as a draft.")) {
+              return;
+            }
             generateTournamentDraw(form.dataset.id, formData);
             return;
           }
@@ -31915,11 +32098,18 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           if (drawGenerationForm) {
             if (
               event.target.matches('select[name="round"]') ||
-              event.target.matches('select[name="method"]')
+              event.target.matches('select[name="method"]') ||
+              event.target.matches('input[name="teamsPerRoom"]')
             ) {
               syncDrawGenerationForm(drawGenerationForm);
               return;
             }
+          }
+
+          const drawPublishForm = event.target.closest('form[data-form="release-draw-round"]');
+          if (drawPublishForm && event.target.matches('select[name="round"]')) {
+            syncDrawPublishForm(drawPublishForm);
+            return;
           }
 
           const select = event.target.closest("[data-round-control-select]");

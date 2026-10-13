@@ -27,6 +27,20 @@ test('same-field conflict rejects atomically and retry is idempotent',()=>{
  const latest=structuredClone(base);latest.participants[0].teamId='other';
  assert.throws(()=>applyTournamentChanges(latest,changes),/same field/);assert.equal(latest.participants[0].teamId,'other');
 });
+test('round controls merge edits to different rounds instead of replacing the whole array',()=>{
+ const base={roundControls:[{round:1,motionTitle:'Old 1',motionText:'',motionReleased:false},{round:2,motionTitle:'Old 2',motionText:'',motionReleased:false}]};
+ const edited=structuredClone(base);edited.roundControls[0].motionTitle='New 1';
+ const latest=structuredClone(base);latest.roundControls[1].motionTitle='New 2';
+ const result=applyTournamentChanges(latest,tournamentChanges(base,edited));
+ assert.deepEqual(result.roundControls.map(control=>control.motionTitle),['New 1','New 2']);
+});
+test('explicit allocation removal survives a concurrent check-in update to that allocation',()=>{
+ const base={judgeAllocations:[{id:'a1',drawId:'d1',checkedIn:false,panelRole:'chair'}]};
+ const edited={judgeAllocations:[]};
+ const latest={judgeAllocations:[{id:'a1',drawId:'d1',checkedIn:true,panelRole:'chair'}]};
+ const result=applyTournamentChanges(latest,tournamentChanges(base,edited));
+ assert.deepEqual(result.judgeAllocations,[]);
+});
 test('malicious object paths cannot change prototypes',()=>{
  assert.throws(()=>applyTournamentChanges(base,[{path:[{key:'__proto__'}],afterExists:true,after:{polluted:true}}]),/Invalid/);
  assert.equal({}.polluted,undefined);
