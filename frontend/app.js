@@ -353,12 +353,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 
       function getRoundPlannerGuidance(format) {
         if (format === "No Standard Format") {
-          return "Use the planner when the event needs custom room structures or round-by-round pairing plans. Leave fields blank for rounds with no fixed default.";
+          return "Set room size, team size, or pairing for a round only when it differs from the tournament defaults.";
         }
-        return (
-          getFormatStructureGuidance(format) +
-          " Override only the rounds that depart from that default structure, and use the pairing field to set each round to Power Paired, Randomised, or Folding."
-        );
+        return "Use round overrides only when a round differs from the format defaults. Pairing options are Power Paired, Randomised, and Folding.";
       }
 
       const THEME_PRESETS = {
@@ -4303,7 +4300,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           note:
             participantModel === "individuals"
               ? "Individual speaker points are tracked automatically from judge ballots."
-              : "Speaker rankings stay separate from team points.",
+              : "",
         };
       }
 
@@ -4327,16 +4324,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       }
 
       function getScoringProfileHelperText(target) {
-        const participantModel =
-          typeof target === "object" ? String(target?.participantModel || "").trim() : "";
         const profile = getScoringProfile(target);
-        if (!profile.note) {
-          return "";
-        }
-        if (profile.mode === "generic" && participantModel.toLowerCase() === "individuals") {
-          return profile.note;
-        }
-        return profile.note + " Speaker rankings are tracked separately from team standings.";
+        return profile.note || "";
       }
 
       function getRoundScoringProfile(tournament, roundOrProfile = null) {
@@ -13571,7 +13560,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               </tbody>
             </table>
           </div>
-          <p class="table-caption">Your row is highlighted when available.</p>
         `;
       }
 
@@ -13782,11 +13770,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               })
               .join("")}
           </div>
-          <p class="table-caption">${
-            personalEntries.length
-              ? "Only rounds that appear to match your entry are shown here first."
-              : "A general published round is shown until a row clearly matching your entry is available."
-          }</p>
         `;
       }
 
@@ -14143,8 +14126,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                       <p class="eyebrow">Tournament registration</p>
                       <h1>${escapeHtml(isJudge ? "Register to judge" : "Register your team")}</h1>
                       <p class="hero-copy">${escapeHtml(isJudge
-                        ? "Choose a tournament and tell us about your affiliation."
-                        : "Choose a tournament. Your roster will match the number of speakers its format requires.")}</p>
+                        ? "Choose a tournament and add your details."
+                        : "Choose a tournament. Team size adjusts to its format.")}</p>
                     </div>
                   </div>
                   <div class="stack">
@@ -14165,16 +14148,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                       <div class="form-shell">
                         <div class="section-heading">
                           <div>
-                            <p class="eyebrow">${escapeHtml(isJudge ? "Judge entry" : "Team entry")}</p>
-                            <h2>${escapeHtml(
-                              isJudge ? "Your details" : "Your tournament entry",
-                            )}</h2>
+                            <h2>Entry details</h2>
                           </div>
-                          <span class="role-pill">${escapeHtml(
-                            tournaments.length
-                              ? tournaments.length + " open"
-                              : "Closed right now",
-                          )}</span>
+                          ${tournaments.length ? "" : '<span class="role-pill">Closed right now</span>'}
                         </div>
                         ${renderFlash()}
                         ${
@@ -14196,20 +14172,18 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                 <div class="field-grid two">
                                   <label>
                                     Full name
-                                    <input type="text" name="name" placeholder="${escapeHtml(
-                                      isJudge ? "Judge name" : "Your name",
-                                    )}" autocomplete="name" required />
+                                    <input type="text" name="name" autocomplete="name" required />
                                   </label>
                                   <label>
                                     Email address
                                     <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
                                   </label>
                                 </div>
-                                <p class="registration-password-help">Use your current JADE Hummingbird password if you have an account. New passwords need at least ${escapeHtml(minimumPasswordLength)} characters. ${isJudge ? "This password signs in only you." : "This password signs in only you; teammates receive their own private access links by email."}</p>
+                                <p class="registration-password-help">Use your current password if you already have an account. New passwords need at least ${escapeHtml(minimumPasswordLength)} characters. ${isJudge ? "This password is for your account only." : "This password is for your account; teammates receive separate links by email."}</p>
                                 <div class="field-grid two">
                                   <label>
                                     Your password
-                                    <input type="password" name="password" placeholder="Your account password" autocomplete="current-password" required />
+                                    <input type="password" name="password" autocomplete="current-password" required />
                                   </label>
                                   <label>
                                     Confirm password
@@ -14228,17 +14202,17 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                           </select>
                                         </label>
                                         <label>
-                                          Institution
-                                          <input type="text" name="institution" placeholder="Required if institutionally affiliated" />
+                                          <span class="field-label-with-hint">Institution <small class="field-hint">Required if affiliated</small></span>
+                                          <input type="text" name="institution" />
                                         </label>
                                       </div>
                                       <label>
                                         Notes
-                                        <textarea name="notes" rows="2" placeholder="Optional note for the tab team, such as experience or scheduling constraints."></textarea>
+                                        <textarea name="notes" rows="2" placeholder="Experience, availability, or conflicts"></textarea>
                                       </label>
                                     `
                                     : `
-                                      <h3 class="registration-section-title">Team and roster</h3>
+                                      <h3 class="registration-section-title">Team roster</h3>
                                       <div class="field-grid two">
                                         <label>
                                           Institution
@@ -14246,14 +14220,14 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                         </label>
                                         <label>
                                           Team name
-                                          <input type="text" name="teamName" placeholder="Team name" required />
+                                          <input type="text" name="teamName" required />
                                         </label>
                                       </div>
                                       <p class="registration-roster-help" data-registration-roster-help>${escapeHtml(initialTeamSize === 1 ? "This format has one person per entry." : `Add ${initialTeamSize - 1} ${initialTeamSize === 2 ? "teammate" : "teammates"}. Each person needs a different email address.`)}</p>
                                       ${Array.from({ length: maximumTeamSize - 1 }, (_, index) => `
                                         <div class="registration-roster-member field-grid two" data-registration-teammate="${index + 1}" ${index + 1 >= initialTeamSize ? "hidden" : ""}>
                                           <label>Team member ${index + 2} name
-                                            <input type="text" name="teammateName-${index + 1}" placeholder="Full name" ${index + 1 < initialTeamSize ? "required" : "disabled"} />
+                                            <input type="text" name="teammateName-${index + 1}" ${index + 1 < initialTeamSize ? "required" : "disabled"} />
                                           </label>
                                           <label>Team member ${index + 2} email
                                             <input type="email" name="teammateEmail-${index + 1}" placeholder="name@example.com" ${index + 1 < initialTeamSize ? "required" : "disabled"} />
@@ -14261,7 +14235,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                         </div>`).join("")}
                                       <label>
                                         Registration note
-                                        <textarea name="notes" rows="2" placeholder="Optional note for the tab team, such as preferred spellings or accessibility needs."></textarea>
+                                        <textarea name="notes" rows="2" placeholder="Spelling corrections or access needs"></textarea>
                                       </label>
                                     `
                                 }
@@ -14272,9 +14246,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                         }
                       </div>
                     </div>
-                    <p class="registration-next-step">${isJudge
-                      ? "After registration, we’ll open your private access page. Your affiliation helps the tab team avoid judging clashes."
-                      : "After registration, we’ll open your private access page and email individual access links to your teammates."}</p>
+                    <p class="registration-next-step">Your private access page opens after registration.</p>
                   </div>
                 </section>
               </div>
@@ -18837,7 +18809,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 <div class="draw-operation-column draw-builder-panel">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Draw Builder</p>
+                      <h3>Draw builder</h3>
                     </div>
                     <span class="mini-pill ${escapeHtml(
                       isOutroundProfile(suggestedRoundProfile) ? "warning" : "success",
@@ -18848,14 +18820,14 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                   )}">
                     <div class="field-grid two">
                       <label>
-                        Selected Round
+                        Round
                         <select name="round">${getRoundOptionMarkup(
                           tournament,
                           suggestedRound,
                         )}</select>
                       </label>
                       <label>
-                        Draw Method
+                        Pairing method
                         <select name="method">${getDrawMethodOptionMarkup(suggestedMethod, {
                           autoMethod: getResolvedDrawMethod(
                             tournament,
@@ -18867,17 +18839,17 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                     </div>
                     <div class="field-grid two">
                       <label>
-                        Teams Per Room
+                        Teams per room
                         <input type="number" min="1" max="8" name="teamsPerRoom" placeholder="Use round default" />
                       </label>
                       <label>
-                        Room Prefix
+                        Room prefix
                         <input type="text" name="roomPrefix" value="Room" />
                       </label>
                     </div>
                     <div class="field-grid two">
                       <label>
-                        Starting Room Number
+                        Starting room number
                         <input type="number" min="1" name="roomStart" value="1" />
                       </label>
                       <label class="checkbox-row">
@@ -18893,8 +18865,8 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                       ),
                     )}</p>
                     <div class="button-row wrap-row">
-                      <button type="submit">Generate Draw</button>
-                      <button class="secondary-button" type="submit" name="intent" value="preview">Preview Draw</button>
+                      <button type="submit">Generate draw</button>
+                      <button class="secondary-button" type="submit" name="intent" value="preview">Preview draw</button>
                     </div>
                   </form>
                 </div>
@@ -18902,7 +18874,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 <div class="draw-operation-column draw-publish-shell">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Publish Controls</p>
+                      <h3>Publish round</h3>
                     </div>
                   </div>
                   <p class="fine-print">${escapeHtml(
@@ -18919,7 +18891,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                           publishRound,
                         )}</select>
                       </label>
-                      <button type="submit">Publish Round</button>
+                      <button type="submit">Publish round</button>
                     </form>
 
                     <form class="stack draw-danger-form" data-form="clear-draw-round" data-id="${escapeHtml(
@@ -18932,7 +18904,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                           publishRound,
                         )}</select>
                       </label>
-                      <button class="danger-button" type="submit">Reset Round</button>
+                      <button class="danger-button" type="submit">Reset round</button>
                     </form>
                   </div>
                 </div>
@@ -18940,7 +18912,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 <div class="draw-operation-column draw-manual-room-panel">
                   <div class="section-heading">
                     <div>
-                      <p class="eyebrow">Manual Room Editor</p>
+                      <h3>Manual room</h3>
                     </div>
                   </div>
                   <form class="stack" data-form="add-draw" data-id="${escapeHtml(
@@ -24366,7 +24338,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           privateVisibility(tournament, state.appSettings, "showFeedbackInPrivatePortal");
         const teamPointStandings = usesTeamPointStandings(tournament);
         const standingRecord = findStandingForParticipant(tournament, participant);
-        const speakerStanding = getSpeakerStandingForParticipant(tournament, participant);
         const feedbackEntries = getPortalFeedbackEntries(tournament, participant);
         const primaryDrawEntry = getPrimaryParticipantDrawEntry(tournament, participant);
         const primarySlotDetails = primaryDrawEntry
@@ -24404,34 +24375,23 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         ]
           .filter(Boolean)
           .join(" • ");
-        const roundPerformanceRows = getParticipantRoundPerformanceRows(tournament, participant);
-        const postedResultCount = roundPerformanceRows.filter((row) => row.resultPosted).length;
-        const scoredRoundCount = roundPerformanceRows.filter(
-          (row) => row.speakerScore !== null && row.speakerScore !== undefined,
-        ).length;
         const canShowPerformance = canShowTeamBoard;
         const standingHeadline = canShowStandings
           ? standingRecord
             ? "#" + standingRecord.rank
-            : "Awaiting release"
-          : "Hidden";
-        const standingSupport = canShowStandings
-          ? standingRecord
-            ? teamPointStandings
-              ? getStandingSummaryText(tournament, standingRecord)
-              : getStandingSummaryText(tournament, standingRecord)
-            : "Standings will appear here when they are published."
-          : "Standings are currently private.";
+            : "—"
+          : "Private";
+        const standingSupport = canShowStandings && standingRecord
+          ? getStandingSummaryText(tournament, standingRecord)
+          : "";
         const drawHeadline = canShowDraw
           ? primaryDrawEntry
             ? "Round " + primaryDrawEntry.round
-            : "Awaiting posting"
-          : "Hidden";
-        const drawSupport = canShowDraw
-          ? primaryDrawEntry
-            ? primaryDrawEntry.room + " • " + primaryDrawEntry.status
-            : "No round has been published yet."
-          : "The draw is not available in this portal.";
+            : "—"
+          : "Private";
+        const drawSupport = canShowDraw && primaryDrawEntry
+          ? primaryDrawEntry.room + " • " + primaryDrawEntry.status
+          : "";
 
         return `
           <div class="page-shell">
@@ -24490,12 +24450,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                   <div class="flat-panel">
                     <span class="muted">Latest round</span>
                     <strong>${escapeHtml(drawHeadline)}</strong>
-                    <span>${escapeHtml(drawSupport)}</span>
+                    ${drawSupport ? `<span>${escapeHtml(drawSupport)}</span>` : ""}
                   </div>
                   <div class="flat-panel">
                     <span class="muted">${escapeHtml(teamPointStandings ? "Team standing" : "Standing")}</span>
                     <strong>${escapeHtml(standingHeadline)}</strong>
-                    <span>${escapeHtml(standingSupport)}</span>
+                    ${standingSupport ? `<span>${escapeHtml(standingSupport)}</span>` : ""}
                   </div>
                 </div>
                 ${
@@ -24529,19 +24489,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 <details class="portal-accordion" id="private-results" open>
                   <summary>
                     <strong>Results</strong>
-                    <span class="portal-summary-copy">${escapeHtml(
-                      canShowPerformance
-                        ? roundPerformanceRows.length
-                          ? postedResultCount +
-                            " result" +
-                            (postedResultCount === 1 ? "" : "s") +
-                            " across " +
-                            roundPerformanceRows.length +
-                            " round" +
-                            (roundPerformanceRows.length === 1 ? "" : "s")
-                          : "Awaiting results"
-                        : "Hidden for this portal",
-                    )}</span>
                   </summary>
                   <div class="portal-body">
                     ${
@@ -24553,14 +24500,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 </details>
                 <details class="portal-accordion" id="private-rounds" open>
                   <summary>
-                    <strong>Rounds</strong>
-                    <span class="portal-summary-copy">${escapeHtml(
-                      canShowDraw
-                        ? primaryDrawEntry
-                          ? "Round " + primaryDrawEntry.round + " · " + primaryDrawEntry.room
-                          : "Awaiting published rounds"
-                        : "Hidden for this portal",
-                    )}</span>
+                    <strong>Round draw</strong>
                   </summary>
                   <div class="portal-body">
                     ${
@@ -24574,14 +24514,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                   canShowSpeakerBoard
                     ? `<details class="portal-accordion" ${compactLayout ? "" : "open"}>
                         <summary>
-                          <strong>Speaker scores</strong>
-                          <span class="portal-summary-copy">${escapeHtml(
-                            scoredRoundCount
-                              ? scoredRoundCount +
-                                " scored round" +
-                                (scoredRoundCount === 1 ? "" : "s")
-                              : "Awaiting scored ballots",
-                          )}</span>
+                          <strong>My scores</strong>
                         </summary>
                         <div class="portal-body">
                           ${renderPortalSpeakerPerformanceWindow(tournament, participant)}
@@ -24592,13 +24525,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 <details class="portal-accordion" id="private-standings" open>
                   <summary>
                     <strong>Standings</strong>
-                    <span class="portal-summary-copy">${escapeHtml(
-                      canShowStandings
-                        ? standingRecord
-                          ? "#" + standingRecord.rank
-                          : "Awaiting standings"
-                        : "Hidden for this portal",
-                    )}</span>
                   </summary>
                   <div class="portal-body">
                     ${
@@ -24625,11 +24551,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                     ? `<details class="portal-accordion" ${compactLayout ? "" : "open"}>
                         <summary>
                           <strong>Speaker rankings</strong>
-                          <span class="portal-summary-copy">${escapeHtml(
-                            speakerStanding
-                              ? "#" + speakerStanding.speakerRank
-                              : "Awaiting speaker scores",
-                          )}</span>
                         </summary>
                         <div class="portal-body">
                           ${renderPortalSpeakerWindow(tournament, participant)}
@@ -24640,13 +24561,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 <details class="portal-accordion" id="private-feedback" open>
                   <summary>
                     <strong>Judge feedback</strong>
-                    <span class="portal-summary-copy">${escapeHtml(
-                      canShowFeedback
-                        ? feedbackEntries.length
-                          ? feedbackEntries.length + " item" + (feedbackEntries.length === 1 ? "" : "s")
-                          : "Nothing posted yet"
-                        : "Hidden for this portal",
-                    )}</span>
                   </summary>
                   <div class="portal-body">
                     ${
@@ -24658,7 +24572,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                   </div>
                 </details>
               </section>
-              <p><a class="inline-link" href="${escapeHtml(getDashboardLink())}">Open the main sign-in page</a></p>
               </section>
             </div>
           </div>

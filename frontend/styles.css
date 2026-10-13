@@ -25,8 +25,8 @@
         --warning-soft: rgba(138, 96, 30, 0.14);
         --danger: #9f2f2f;
         --danger-soft: rgba(159, 47, 47, 0.12);
-        --jade: #2d7d5b;
-        --jade-soft: rgba(45, 125, 91, 0.14);
+        --jade: var(--accent);
+        --jade-soft: var(--accent-soft);
         --gold-soft: rgba(185, 154, 67, 0.1);
         --shadow-strong: 0 14px 32px rgba(20, 31, 25, 0.08);
         --surface-shadow: 0 10px 30px rgba(20, 31, 25, 0.07);
@@ -41,18 +41,39 @@
         --button-bottom: var(--accent-deep);
         --button-hover-top: var(--accent);
         --button-hover-bottom: var(--accent-deep);
-        --btn-radius: 12px;
-        --btn-font-size-sm: 0.82rem;
+        --btn-radius: 10px;
+        --btn-font-size-sm: 0.78rem;
         --btn-font-size-md: var(--text-body-sm);
-        --btn-font-size-lg: 0.96rem;
+        --btn-font-size-lg: 0.94rem;
         --btn-font-weight: var(--weight-strong);
+        --hb-button-radius: 10px;
+        --hb-button-height: 40px;
+        --hb-button-height-small: 34px;
+        --hb-button-height-large: 46px;
+        --hb-button-pad-y: 8px;
+        --hb-button-pad-x: 14px;
+        --hb-button-font: 0.875rem;
+        --hb-button-font-small: 0.78rem;
+        --hb-button-font-large: 0.94rem;
+        --hb-button-weight: 600;
+        --hb-button-primary-bg: var(--accent);
+        --hb-button-primary-bg-hover: var(--accent-deep);
+        --hb-button-primary-text: #ffffff;
+        --hb-button-secondary-bg: rgba(255, 255, 255, 0.94);
+        --hb-button-secondary-bg-hover: #ffffff;
+        --hb-button-secondary-text: var(--accent-deep);
+        --hb-button-secondary-border: rgba(20, 49, 38, 0.16);
+        --hb-button-danger-bg: #9f2f2f;
+        --hb-button-danger-bg-hover: #842727;
+        --hb-button-disabled-bg: rgba(20, 49, 38, 0.08);
+        --hb-button-disabled-text: rgba(20, 49, 38, 0.45);
         --btn-height-sm: 34px;
-        --btn-height-md: 42px;
-        --btn-height-lg: 48px;
+        --btn-height-md: 40px;
+        --btn-height-lg: 46px;
         --btn-pad-x-sm: 10px;
         --btn-pad-y-sm: 6px;
         --btn-pad-x-md: 14px;
-        --btn-pad-y-md: 9px;
+        --btn-pad-y-md: 8px;
         --btn-pad-x-lg: 18px;
         --btn-pad-y-lg: 11px;
         --btn-transition:
@@ -63,18 +84,18 @@
           color 160ms ease,
           box-shadow 160ms ease,
           filter 160ms ease;
-        --text-display: clamp(2.25rem, 4.2vw, 3.45rem);
-        --text-title-1: clamp(1.5rem, 2.4vw, 1.92rem);
-        --text-title-2: 1.18rem;
+        --text-display: clamp(2.15rem, 3.8vw, 3.1rem);
+        --text-title-1: clamp(1.45rem, 2.2vw, 1.8rem);
+        --text-title-2: 1.125rem;
         --text-title-3: 1rem;
         --text-body-lg: 1rem;
-        --text-body: 0.95rem;
-        --text-body-sm: 0.84rem;
-        --text-caption: 0.78rem;
-        --text-overline: 0.7rem;
+        --text-body: 0.9375rem;
+        --text-body-sm: 0.875rem;
+        --text-caption: 0.75rem;
+        --text-overline: 0.6875rem;
         --weight-heavy: 700;
-        --weight-strong: 700;
-        --weight-body: 500;
+        --weight-strong: 600;
+        --weight-body: 400;
       }
 
       * {
@@ -89,13 +110,7 @@
       }
 
       body {
-        font-family:
-          "SF Pro Text",
-          "Segoe UI Variable Text",
-          "Avenir Next",
-          "Segoe UI",
-          system-ui,
-          sans-serif;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         color: var(--ink);
         background:
           radial-gradient(circle at top left, var(--body-glow-one), transparent 24%),
@@ -111,7 +126,7 @@
         text-rendering: optimizeLegibility;
         font-size: var(--text-body);
         line-height: 1.52;
-        font-weight: 500;
+        font-weight: var(--weight-body);
       }
 
       #app {
@@ -811,6 +826,7 @@
       select,
       textarea {
         border-radius: 12px;
+        accent-color: var(--accent);
       }
 
       button:not([class]),
@@ -1563,26 +1579,26 @@
       .registration-shell {
         grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
         max-width: 1180px;
-        margin: 24px auto 64px;
-        gap: 24px;
+        margin: 20px auto 48px;
+        gap: 20px;
       }
 
       .registration-hero,
       .registration-card {
-        border-radius: 24px;
-        padding: clamp(22px, 3vw, 36px);
+        border-radius: 20px;
+        padding: clamp(20px, 2.6vw, 30px);
       }
 
       .registration-hero {
-        gap: 42px;
+        gap: 30px;
         background: linear-gradient(155deg, #f8fbf5, #edf5eb);
       }
 
       .registration-hero h1 {
         max-width: 12ch;
-        font-size: clamp(2.3rem, 4.1vw, 4rem);
-        line-height: 1.04;
-        letter-spacing: -0.045em;
+        font-size: clamp(1.9rem, 3vw, 2.6rem);
+        line-height: 1.08;
+        letter-spacing: -0.035em;
       }
 
       .registration-brand {
@@ -1712,10 +1728,10 @@
       }
 
       .registration-password-help {
-        padding: 13px 16px;
-        border-left: 3px solid var(--accent);
-        border-radius: 0 10px 10px 0;
-        background: rgba(24, 103, 67, 0.06);
+        padding: 0;
+        border: 0;
+        background: transparent;
+        font-size: var(--text-body-sm);
       }
 
       .registration-roster-member[hidden] {
@@ -2545,6 +2561,17 @@
         box-shadow: none;
       }
 
+      select {
+        appearance: none;
+        padding-right: 38px;
+        background-image:
+          linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+          linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+        background-repeat: no-repeat;
+        background-size: 6px 6px, 6px 6px;
+        background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+      }
+
       input:focus,
       select:focus,
       textarea:focus {
@@ -2555,8 +2582,22 @@
       }
 
       textarea {
-        min-height: 112px;
+        min-height: 76px;
         resize: vertical;
+      }
+
+      .field-label-with-hint {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .field-hint {
+        color: var(--muted);
+        font-size: var(--text-caption);
+        font-weight: var(--weight-body);
+        white-space: nowrap;
       }
 
       .checkbox-row,
@@ -8939,11 +8980,11 @@
       .mini-pill,
       .judge-status-pill,
       .competitor-pill {
-        min-height: 24px;
-        padding: 4px 8px;
+        min-height: 28px;
+        padding: 5px 9px;
         border-radius: 9px;
-        font-size: 0.66rem;
-        line-height: 1.1;
+        font-size: 0.75rem;
+        line-height: 1.2;
         letter-spacing: 0.01em;
         box-shadow: none;
       }
@@ -8956,7 +8997,7 @@
         background: transparent;
         color: var(--muted);
         padding-inline: 0;
-        font-size: 0.68rem;
+        font-size: 0.75rem;
       }
 
       .menu-panel {
@@ -11245,11 +11286,11 @@
 
       .role-pill,
       .mini-pill {
-        min-height: 19px;
-        padding: 3px 7px;
-        border-radius: 8px;
-        font-size: 0.63rem;
-        font-weight: 560;
+        min-height: 24px;
+        padding: 4px 8px;
+        border-radius: 9px;
+        font-size: 0.72rem;
+        font-weight: 600;
         box-shadow: none;
       }
 
@@ -12743,25 +12784,7 @@
         }
       }
 
-      /* Premium renovation system layer
-         Reference: the cleaner Create Tournament proportions, applied across tab tools. */
-      :root {
-        --btn-radius: 10px;
-        --btn-height-sm: 28px;
-        --btn-height-md: 34px;
-        --btn-height-lg: 40px;
-        --btn-pad-x-sm: 10px;
-        --btn-pad-y-sm: 5px;
-        --btn-pad-x-md: 13px;
-        --btn-pad-y-md: 7px;
-        --btn-pad-x-lg: 16px;
-        --btn-pad-y-lg: 9px;
-        --btn-font-size-sm: 0.68rem;
-        --btn-font-size-md: 0.74rem;
-        --btn-font-size-lg: 0.82rem;
-        --btn-font-weight: 650;
-      }
-
+      /* Shared workspace surface and layout refinements. */
       .workspace-shell {
         --workspace-card-radius: 14px;
         --workspace-inner-radius: 11px;
@@ -12885,11 +12908,11 @@
       .workspace-shell .section-heading > :is(.role-pill, .mini-pill, .count-badge):last-child,
       .workspace-shell .role-pill,
       .workspace-shell .mini-pill {
-        min-height: 22px;
-        border-radius: 8px;
-        padding: 3px 8px;
-        font-size: 0.62rem;
-        font-weight: 580;
+        min-height: 24px;
+        border-radius: 9px;
+        padding: 4px 8px;
+        font-size: 0.72rem;
+        font-weight: 600;
         box-shadow: none !important;
       }
 
@@ -12907,7 +12930,7 @@
         border-radius: 10px;
         padding: 8px 10px;
         border: 1px solid rgba(20, 49, 38, 0.11);
-        background: rgba(255, 255, 255, 0.82);
+        background-color: rgba(255, 255, 255, 0.82);
         box-shadow: none !important;
       }
 
@@ -13325,33 +13348,7 @@
         }
       }
 
-      /* Final button enforcement layer.
-         This intentionally sits last so older page-specific button rules cannot
-         create green-on-green, white-on-white, clipped, or oversized controls. */
-      :root {
-        --hb-button-radius: 9px;
-        --hb-button-height: 32px;
-        --hb-button-height-small: 28px;
-        --hb-button-height-large: 38px;
-        --hb-button-pad-y: 6px;
-        --hb-button-pad-x: 12px;
-        --hb-button-font: 0.72rem;
-        --hb-button-font-small: 0.66rem;
-        --hb-button-font-large: 0.78rem;
-        --hb-button-weight: 650;
-        --hb-button-primary-bg: var(--accent);
-        --hb-button-primary-bg-hover: var(--accent-deep);
-        --hb-button-primary-text: #ffffff;
-        --hb-button-secondary-bg: rgba(255, 255, 255, 0.94);
-        --hb-button-secondary-bg-hover: #ffffff;
-        --hb-button-secondary-text: var(--accent-deep);
-        --hb-button-secondary-border: rgba(20, 49, 38, 0.16);
-        --hb-button-danger-bg: #9f2f2f;
-        --hb-button-danger-bg-hover: #842727;
-        --hb-button-disabled-bg: rgba(20, 49, 38, 0.08);
-        --hb-button-disabled-text: rgba(20, 49, 38, 0.45);
-      }
-
+      /* Keep accessible button variants consistent across older page components. */
       :is(
           button:not([class]),
           button.secondary-button,
@@ -13629,10 +13626,10 @@
       .workspace-shell .tournament-row-item .tournament-switch-actions > a.tournament-card-action {
         min-width: 86px !important;
         max-width: 126px !important;
-        min-height: 30px !important;
-        padding: 5px 11px !important;
-        border-radius: 8px !important;
-        font-size: 0.68rem !important;
+        min-height: var(--hb-button-height-small) !important;
+        padding: 6px 11px !important;
+        border-radius: 9px !important;
+        font-size: var(--hb-button-font-small) !important;
       }
 
       .workspace-shell .control-room-actions button,
@@ -13641,9 +13638,9 @@
       .workspace-shell .draw-manual-room-panel button[type="submit"],
       .workspace-shell .standings-subnav > button,
       .workspace-shell .tournament-board-tab {
-        min-height: 30px !important;
-        border-radius: 8px !important;
-        font-size: 0.68rem !important;
+        min-height: var(--hb-button-height-small) !important;
+        border-radius: 9px !important;
+        font-size: var(--hb-button-font-small) !important;
         box-shadow: none !important;
       }
 
@@ -14171,7 +14168,7 @@
 
       .private-portal-overview {
         display: grid;
-        gap: 18px;
+        gap: 14px;
       }
 
       .private-portal-heading {
@@ -14216,7 +14213,7 @@
       .private-portal-summary {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
+        gap: 10px;
       }
 
       .private-portal-summary .flat-panel {
@@ -14224,7 +14221,7 @@
         align-content: start;
         gap: 7px;
         min-width: 0;
-        padding: 16px;
+        padding: 14px;
       }
 
       .private-portal-summary .flat-panel strong {
@@ -14268,3 +14265,9 @@
 .table-wrap table { font-variant-numeric: tabular-nums; }
 .table-wrap th { font-size: .8rem; font-weight: 600; text-transform: none; letter-spacing: normal; }
 .table-wrap td { font-size: .9rem; line-height: 1.45; vertical-align: top; }
+
+/* Keep workspace tables and status labels readable at normal browser zoom. */
+.workspace-shell .table-wrap th { font-size: .75rem; font-weight: 600; line-height: 1.35; }
+.workspace-shell .table-wrap td { font-size: .8125rem; line-height: 1.45; }
+.workspace-shell :is(.role-pill, .status-pill, .mini-pill, .judge-status-pill, .competitor-pill) { min-height: 24px; padding: 4px 8px; font-size: .72rem; line-height: 1.25; letter-spacing: 0; }
+.workspace-shell :is(.tournament-row-status, .tournament-switch-title span, .tournament-inline-stats span) { font-size: .75rem; line-height: 1.35; }
