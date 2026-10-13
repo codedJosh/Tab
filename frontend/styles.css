@@ -14511,6 +14511,49 @@
   text-align: left !important;
 }
 
+/* Use one restrained Hummingbird wordmark treatment beside the JADE mark. */
+.jade-product-wordmark {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  text-shadow: none;
+  text-transform: none;
+}
+
+.auth-page .premium-home-hero .public-hero-title-copy h1.jade-product-wordmark {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.2vw, 1.7rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+.public-front-page:not(.auth-flow-page) > .premium-home-hero .public-hero-jade-logo,
+.auth-flow-page .premium-home-hero .public-hero-jade-logo {
+  margin-bottom: 4px;
+}
+
+.workspace-shell .menu-brand-name.jade-product-wordmark {
+  font-size: 1.45rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.registration-brand .jade-product-wordmark {
+  font-size: 1.45rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.brand-lockup .brand-name.jade-product-wordmark {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
 @media (max-width: 520px) {
   .workspace-shell .institution-quick-add {
     grid-template-columns: minmax(0, 1fr);

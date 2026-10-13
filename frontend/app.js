@@ -3934,7 +3934,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
             </div>
             <div class="brand-copy">
               <p class="brand-kicker">${escapeHtml(kicker)}</p>
-              <p class="brand-name">${escapeHtml(appName)}</p>
+              <p class="brand-name jade-product-wordmark">${escapeHtml(appName)}</p>
               ${showSubtitle ? `<p class="brand-subtitle">${escapeHtml(copy)}</p>` : ""}
             </div>
           </div>
@@ -13808,7 +13808,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                     <div class="public-hero-title-lockup public-hero-brand-stack">
                       <img class="public-hero-jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE logo" />
                       <div class="public-hero-title-copy">
-                        <h1>Hummingbird</h1>
+                        <h1 class="jade-product-wordmark">Hummingbird</h1>
                       </div>
                     </div>
                     <div class="button-row wrap-row public-hero-actions">
@@ -14113,7 +14113,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   <div class="stack">
                     <div class="registration-brand">
                       <img src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird" />
-                      <span>Hummingbird</span>
+                      <span class="jade-product-wordmark">Hummingbird</span>
                     </div>
                     <div>
                       <p class="eyebrow">Tournament registration</p>
@@ -14286,7 +14286,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                     <div class="public-hero-title-lockup public-hero-brand-stack">
                       <img class="public-hero-jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE logo" />
                       <div class="public-hero-title-copy">
-                        <h1>Hummingbird</h1>
+                        <h1 class="jade-product-wordmark">Hummingbird</h1>
                       </div>
                     </div>
                     <div class="button-row wrap-row public-hero-actions regional-hero-actions">
@@ -14413,7 +14413,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                 <img class="menu-brand-jade-logo" src="${escapeHtml(
                   JADE_LANDING_LOGO_SRC,
                 )}" alt="JADE logo" />
-                <p class="menu-brand-name">Hummingbird</p>
+                <p class="menu-brand-name jade-product-wordmark">Hummingbird</p>
               </div>
             </div>
             <button class="mobile-workspace-menu-toggle" type="button" data-action="toggle-mobile-workspace-menu" aria-expanded="${mobileWorkspaceMenuOpen}" aria-controls="workspace-navigation-items">
@@ -24386,7 +24386,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 <div class="menu-brand">
                   <div class="menu-brand-lockup" aria-label="JADE Hummingbird">
                     <img class="menu-brand-jade-logo" src="${escapeHtml(JADE_LANDING_LOGO_SRC)}" alt="JADE logo" />
-                    <p class="menu-brand-name">Hummingbird</p>
+                    <p class="menu-brand-name jade-product-wordmark">Hummingbird</p>
                   </div>
                 </div>
                 <div class="inline-card private-portal-menu">

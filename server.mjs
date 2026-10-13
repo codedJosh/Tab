@@ -2253,6 +2253,21 @@ function isAllowedBrowserOrigin(value = "") {
   return allowed.has(origin);
 }
 
+function applyBrowserCorsHeaders(request, response) {
+  const origin = String(request.headers.origin || "").trim();
+  const allowed = !origin || isAllowedBrowserOrigin(origin);
+  response.setHeader("Vary", "Origin");
+  response.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Accept, X-JADE-Action",
+  );
+  response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  if (origin && allowed) {
+    response.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  return { origin, allowed };
+}
+
 function normalizePrivateAccessPortal(value = "") {
   const key = String(value || "")
     .trim()
@@ -2947,19 +2962,10 @@ app.use((request, response, next) => {
 });
 
 app.use((request, response, next) => {
-  const origin = String(request.headers.origin || "").trim();
-  response.setHeader("Vary", "Origin");
-  response.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Accept, X-JADE-Action",
-  );
-  response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  const { allowed } = applyBrowserCorsHeaders(request, response);
   if (request.method === "OPTIONS") {
-    response.status(!origin || isAllowedBrowserOrigin(origin) ? 204 : 403).end();
+    response.status(allowed ? 204 : 403).end();
     return;
-  }
-  if (origin && isAllowedBrowserOrigin(origin)) {
-    response.setHeader("Access-Control-Allow-Origin", origin);
   }
   next();
 });

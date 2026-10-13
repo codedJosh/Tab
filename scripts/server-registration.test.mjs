@@ -60,6 +60,20 @@ test('browser API access accepts JADE and configured app origins only',()=>{
  assert.equal(ctx.isAllowedBrowserOrigin('null'),false);
 });
 
+test('allowed preflight responses include Access-Control-Allow-Origin',()=>{
+ const ctx=vm.createContext({URL,PUBLIC_APP_URL:''});
+ vm.runInContext(`${fn('isAllowedBrowserOrigin')}\n${fn('applyBrowserCorsHeaders')}`,ctx);
+ const headers={};
+ const response={setHeader:(name,value)=>{headers[name.toLowerCase()]=value}};
+ const result=ctx.applyBrowserCorsHeaders({headers:{origin:'https://www.jadehummingbird.org'}},response);
+ assert.equal(result.allowed,true);
+ assert.equal(headers['access-control-allow-origin'],'https://www.jadehummingbird.org');
+ const rejectedHeaders={};
+ const rejected=ctx.applyBrowserCorsHeaders({headers:{origin:'https://attacker.example'}},{setHeader:(name,value)=>{rejectedHeaders[name.toLowerCase()]=value}});
+ assert.equal(rejected.allowed,false);
+ assert.equal(rejectedHeaders['access-control-allow-origin'],undefined);
+});
+
 test('new account sessions are scoped unless the account is a system administrator',()=>{
  const ctx=vm.createContext({
   normalizeEmail:value=>String(value||'').trim().toLowerCase(),
