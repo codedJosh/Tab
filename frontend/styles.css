@@ -14471,6 +14471,56 @@
   border-color: rgba(181, 220, 187, 0.3);
 }
 
+.tournament-noticeboard-studio > .section-heading h2 {
+  max-width: 34ch;
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+}
+
+.workspace-shell .institution-quick-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+}
+
+.workspace-shell .institution-quick-add label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+}
+
+.workspace-shell .institution-quick-add input {
+  width: 100%;
+  min-height: 42px;
+}
+
+.workspace-shell .institution-quick-add button {
+  min-height: 42px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.workspace-shell .menu-nav-link,
+.workspace-shell .menu-panel .menu-tournament-tools .menu-operation-link {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+@media (max-width: 520px) {
+  .workspace-shell .institution-quick-add {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-shell .institution-quick-add button {
+    width: 100%;
+  }
+}
+
 @media (max-width: 720px) {
   .public-front-page > .premium-home-hero .public-hero-jade-logo,
   .auth-flow-page .premium-home-hero .public-hero-jade-logo {

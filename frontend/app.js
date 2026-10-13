@@ -5269,6 +5269,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           points: normalizeNonNegative(record.points, 0),
           speaks: normalizeNonNegative(record.speaks, 0),
           scoredRounds: normalizeNonNegative(record.scoredRounds, 0),
+          playedRounds: normalizeNonNegative(record.playedRounds, 0),
           averageSpeaks: normalizeNonNegative(record.scoredRounds, 0)
             ? Number(record.speaks || 0) / Number(record.scoredRounds)
             : normalizeNonNegative(record.averageSpeaks ?? record.speaks, 0),
@@ -7594,6 +7595,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
             seconds: 0,
             thirds: 0,
             fourths: 0,
+            playedRounds: 0,
             rank: 0,
           });
         });
@@ -7627,6 +7629,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                 seconds: 0,
                 thirds: 0,
                 fourths: 0,
+                playedRounds: 0,
                 rank: 0,
               });
             }
@@ -7675,6 +7678,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   seconds: 0,
                   thirds: 0,
                   fourths: 0,
+                  playedRounds: 0,
                   rank: 0,
                 });
               }
@@ -7729,6 +7733,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                 if (!record) return;
                 const rankedSlot = rankedSlots.find((entry) => entry.key === slot.key);
                 record.speaks += Number(rankedSlot?.averageScore || 0);
+                record.playedRounds = Number(record.playedRounds || 0) + 1;
                 record[placementKeys[index] || "fourths"] += 1;
                 record.points += placementPoints[index] ?? 0;
               });
@@ -7752,6 +7757,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               if (!record) return;
               const rankedSlot = rankedSlots.find((entry) => entry.key === slot.key);
               record.speaks += Number(rankedSlot?.averageScore || 0);
+              record.playedRounds = Number(record.playedRounds || 0) + 1;
               if (rankedSlot) record.scoredRounds = Number(record.scoredRounds || 0) + 1;
               if (slot.result.outcome === "win") {
                 record.wins += 1;
@@ -10429,22 +10435,40 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           const key = normalizeTextKey(name);
           if (!institutions.has(key)) institutions.set(key, { institution: name, teams: 0, wins: 0, losses: 0, points: 0 });
           const record = institutions.get(key);
-          record.teams += 1;
           const standing = standings.find((entry) => getStandingTeam(tournament, entry)?.id === team.id);
+          if (!standing) return;
+          const placementResults =
+            Number(standing.firsts || 0) +
+            Number(standing.seconds || 0) +
+            Number(standing.thirds || 0) +
+            Number(standing.fourths || 0);
+          const recordedResults = Math.max(
+            Number(standing.playedRounds || 0),
+            Number(standing.scoredRounds || 0),
+            Number(standing.wins || 0) + Number(standing.losses || 0),
+            placementResults,
+          );
+          if (recordedResults < 1) return;
+          record.teams += 1;
           record.wins += Number(standing?.wins || 0);
           record.losses += Number(standing?.losses || 0);
+          record.points += Number(standing.points || 0);
         });
-        const rows = Array.from(institutions.values()).map((row) => ({
-          ...row, points: row.wins * 3 + row.losses, average: (row.wins * 3 + row.losses) / row.teams,
-        })).sort((a, b) => b.average - a.average || a.institution.localeCompare(b.institution));
+        const rows = Array.from(institutions.values())
+          .filter((row) => row.teams >= 3)
+          .map((row) => ({
+            ...row,
+            average: row.points / row.teams,
+          }))
+          .sort((a, b) => b.average - a.average || a.institution.localeCompare(b.institution));
         return applyCompetitionRanks(rows, (a, b) => a.points * b.teams === b.points * a.teams);
       }
 
       function renderInstitutionStandingsTable(tournament) {
         const rows = getInstitutionStandings(tournament);
-        if (!rows.length) return `<div class="empty-state">No institutions linked to teams.</div>`;
+        if (!rows.length) return `<div class="empty-state">Institution standings appear once an institution has results from three teams.</div>`;
         return `<div class="table-wrap"><table>
-          <thead><tr><th>Rank</th><th>Institution</th><th>Teams</th><th>Wins</th><th>Losses</th><th>Points</th><th>Points per team</th></tr></thead>
+          <thead><tr><th>Rank</th><th>Institution</th><th>Teams with results</th><th>Wins</th><th>Losses</th><th>Points</th><th>Points per team</th></tr></thead>
           <tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.rank)}</td><td>${escapeHtml(row.institution)}</td><td>${row.teams}</td><td>${row.wins}</td><td>${row.losses}</td><td>${row.points}</td><td>${escapeHtml(formatScoreValue(row.average))}</td></tr>`).join("")}</tbody>
         </table></div>`;
       }
@@ -17788,7 +17812,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
               </div>
             </div>
             <div class="stack">
-              <form class="compact-inline-form flat-panel" data-form="add-institution" data-id="${escapeHtml(tournament.id)}">
+              <form class="compact-inline-form flat-panel institution-quick-add" data-form="add-institution" data-id="${escapeHtml(tournament.id)}">
                 <label>Institution<input type="text" name="name" required /></label>
                 <button type="submit">Add Institution</button>
               </form>
@@ -17921,7 +17945,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           includeInactive: true,
         });
         return `
-          <section class="surface">
+          <section class="surface tournament-noticeboard-studio">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Live Noticeboard</p>

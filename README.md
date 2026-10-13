@@ -51,7 +51,7 @@ window.JADE_BACKEND_URL = "https://your-backend-host/api";
    - optional history controls: `WORKSPACE_HISTORY_INTERVAL=25`, `WORKSPACE_HISTORY_LIMIT=10`
    - optional diagnostics: `SLOW_REQUEST_MS=2500`, `MEMORY_WARNING_MB=400`
    - optional email delivery (Resend): `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
-   - optional email behavior: `RESEND_REPLY_TO` (defaults to `hummingbird@myjade.org`), `PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES` (defaults to `10`), `PUBLIC_APP_URL`
+   - optional email behavior: `RESEND_REPLY_TO` (defaults to `hummingbird@myjade.org`), `PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES` (defaults to `10`), `PUBLIC_APP_URL` (set this to the public app URL for noncanonical deployments)
 3. Run `npm install`
 4. Run `npm run dev` or double-click `start-jade.command`
 5. Open `http://127.0.0.1:8787/`
@@ -75,6 +75,7 @@ When Resend environment variables are configured, JADE now sends account private
 - manager/admin roster updates persisted to the backend
 
 It also supports manual resend from Private Links / People via the `send_private_link_email` backend action.
+Email links use `PUBLIC_APP_URL` or the canonical JADE website domain. The backend does not derive password-reset or account links from browser-supplied request headers.
 
 ## Netlify
 

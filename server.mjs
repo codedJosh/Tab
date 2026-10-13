@@ -24,6 +24,7 @@ const RESEND_FROM_EMAIL = String(process.env.RESEND_FROM_EMAIL || "").trim();
 const RESEND_REPLY_TO =
   String(process.env.RESEND_REPLY_TO || "").trim() || "hummingbird@myjade.org";
 const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || "").trim();
+const DEFAULT_PUBLIC_APP_URL = "https://www.jadehummingbird.org";
 const PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES = Math.max(
   0,
   Number(process.env.PRIVATE_LINK_EMAIL_COOLDOWN_MINUTES || 10) || 10,
@@ -1650,6 +1651,17 @@ function isSystemAdmin(state, email) {
   );
 }
 
+function getAuthenticatedAccountAccess(state, email) {
+  const normalizedEmail = normalizeEmail(email);
+  if (isSystemAdmin(state, normalizedEmail)) {
+    return { state, sessionScope: null };
+  }
+  return {
+    state: memberWorkspace(state, normalizedEmail),
+    sessionScope: { role: "member", email: normalizedEmail },
+  };
+}
+
 function assertScoringPersistAuthorization(previousState, nextState, actorEmail, restrictedJudge = false) {
   const actor = normalizeEmail(actorEmail);
   if (!restrictedJudge && isSystemAdmin(previousState, actor)) return;
@@ -2170,14 +2182,12 @@ async function issueSession(client, email, scope = null) {
 }
 
 async function getSession(client, token) {
-  await purgeExpiredSessions(client);
-
   const tokenHash = hashSessionToken(token);
   const result = await client.query(
     `
       select id, workspace_id, email, expires_at, access_scope
       from jade_sessions
-      where token_hash = $1 and workspace_id = $2
+      where token_hash = $1 and workspace_id = $2 and expires_at > now()
       limit 1
     `,
     [tokenHash, WORKSPACE_ID],
@@ -2203,44 +2213,8 @@ function escapeEmailHtml(value = "") {
     .replaceAll("'", "&#39;");
 }
 
-function resolveRequestOrigin(request) {
-  const originHeader = String(request?.headers?.origin || "").trim();
-  if (originHeader) {
-    try {
-      const parsed = new URL(originHeader);
-      return parsed.origin;
-    } catch (error) {
-      // Ignore invalid origin headers.
-    }
-  }
-
-  const forwardedProto = String(request?.headers?.["x-forwarded-proto"] || "")
-    .split(",")[0]
-    .trim();
-  const forwardedHost = String(request?.headers?.["x-forwarded-host"] || "")
-    .split(",")[0]
-    .trim();
-  const host = forwardedHost || String(request?.headers?.host || "").trim();
-  if (host) {
-    const protocol = forwardedProto || request?.protocol || "https";
-    return protocol + "://" + host;
-  }
-
-  const refererHeader = String(request?.headers?.referer || "").trim();
-  if (refererHeader) {
-    try {
-      const parsed = new URL(refererHeader);
-      return parsed.origin;
-    } catch (error) {
-      // Ignore invalid referer headers.
-    }
-  }
-
-  return "https://jadehummingbird.org";
-}
-
-function resolvePublicDashboardUrl(request) {
-  const candidate = PUBLIC_APP_URL || resolveRequestOrigin(request);
+function resolvePublicDashboardUrl() {
+  const candidate = PUBLIC_APP_URL || DEFAULT_PUBLIC_APP_URL;
   try {
     const url = new URL(candidate);
     if (url.pathname.endsWith("/api")) {
@@ -2260,6 +2234,25 @@ function resolvePublicDashboardUrl(request) {
   }
 }
 
+function isAllowedBrowserOrigin(value = "") {
+  const origin = String(value || "").trim();
+  if (!origin) return false;
+  const allowed = new Set([
+    "https://jadehummingbird.org",
+    "https://www.jadehummingbird.org",
+    "http://localhost:8787",
+    "http://127.0.0.1:8787",
+  ]);
+  if (PUBLIC_APP_URL) {
+    try {
+      allowed.add(new URL(PUBLIC_APP_URL).origin);
+    } catch (error) {
+      // An invalid deployment URL is ignored; link generation falls back to JADE's canonical domain.
+    }
+  }
+  return allowed.has(origin);
+}
+
 function normalizePrivateAccessPortal(value = "") {
   const key = String(value || "")
     .trim()
@@ -2275,7 +2268,7 @@ function normalizePrivateAccessPortal(value = "") {
 function buildUserAccessUrl(request, token, options = {}) {
   const targetToken = String(token || "").trim();
   const portal = normalizePrivateAccessPortal(options.portal || options.screen || "");
-  const baseUrl = resolvePublicDashboardUrl(request);
+  const baseUrl = resolvePublicDashboardUrl();
   const url =
     portal === "regional_operations"
       ? new URL("regional-operations.html", baseUrl)
@@ -2293,7 +2286,7 @@ function buildUserAccessUrl(request, token, options = {}) {
 }
 
 function buildPasswordResetUrl(request, token) {
-  const baseUrl = resolvePublicDashboardUrl(request);
+  const baseUrl = resolvePublicDashboardUrl();
   baseUrl.searchParams.delete("access");
   baseUrl.searchParams.delete("token");
   baseUrl.searchParams.delete("view");
@@ -2954,8 +2947,7 @@ app.use((request, response, next) => {
 });
 
 app.use((request, response, next) => {
-  const origin = request.headers.origin || "*";
-  response.setHeader("Access-Control-Allow-Origin", origin);
+  const origin = String(request.headers.origin || "").trim();
   response.setHeader("Vary", "Origin");
   response.setHeader(
     "Access-Control-Allow-Headers",
@@ -2963,8 +2955,11 @@ app.use((request, response, next) => {
   );
   response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   if (request.method === "OPTIONS") {
-    response.status(204).end();
+    response.status(!origin || isAllowedBrowserOrigin(origin) ? 204 : 403).end();
     return;
+  }
+  if (origin && isAllowedBrowserOrigin(origin)) {
+    response.setHeader("Access-Control-Allow-Origin", origin);
   }
   next();
 });
@@ -3112,10 +3107,10 @@ app.post("/api", async (request, response) => {
           });
           revision = nextWorkspace.revision;
         }
-        const scopedAccount = !isSystemAdmin(state, email);
-        const sessionToken = await issueSession(client, email, scopedAccount ? {role:"member", email} : null);
+        const accountAccess = getAuthenticatedAccountAccess(state, email);
+        const sessionToken = await issueSession(client, email, accountAccess.sessionScope);
         return {
-          state: scopedAccount ? memberWorkspace(state,email) : state,
+          state: accountAccess.state,
           revision,
           sessionToken,
         };
@@ -3277,9 +3272,10 @@ app.post("/api", async (request, response) => {
         const nextWorkspace = await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });
-        const sessionToken = await issueSession(client, email);
+        const accountAccess = getAuthenticatedAccountAccess(nextWorkspace.state, email);
+        const sessionToken = await issueSession(client, email, accountAccess.sessionScope);
         return {
-          state: nextWorkspace.state,
+          state: accountAccess.state,
           revision: nextWorkspace.revision,
           sessionToken,
           notifications,
@@ -3420,7 +3416,8 @@ app.post("/api", async (request, response) => {
         const savedWorkspace = await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });
-        const sessionToken = await issueSession(client, email);
+        const accountAccess = getAuthenticatedAccountAccess(savedWorkspace.state, email);
+        const sessionToken = await issueSession(client, email, accountAccess.sessionScope);
         return {
           state: savedWorkspace.state,
           revision: savedWorkspace.revision,
@@ -3430,6 +3427,7 @@ app.post("/api", async (request, response) => {
       });
 
       await deliverCommittedRegistrationEmails(result, request, "participant_registration", tournamentId);
+      result.state = getAuthenticatedAccountAccess(result.state, email).state;
       sendStatePayload(response, 200, result);
       return;
     }
@@ -3520,7 +3518,8 @@ app.post("/api", async (request, response) => {
         const savedWorkspace = await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });
-        const sessionToken = await issueSession(client, email);
+        const accountAccess = getAuthenticatedAccountAccess(savedWorkspace.state, email);
+        const sessionToken = await issueSession(client, email, accountAccess.sessionScope);
         return {
           state: savedWorkspace.state,
           revision: savedWorkspace.revision,
@@ -3530,6 +3529,7 @@ app.post("/api", async (request, response) => {
       });
 
       await deliverCommittedRegistrationEmails(result, request, "judge_registration", tournamentId);
+      result.state = getAuthenticatedAccountAccess(result.state, email).state;
       sendStatePayload(response, 200, result);
       return;
     }
@@ -3662,7 +3662,7 @@ app.post("/api", async (request, response) => {
         }
 
         return {
-          state: savedWorkspace.state,
+          state: getAuthenticatedAccountAccess(savedWorkspace.state, actorEmail).state,
           revision: savedWorkspace.revision,
           delivered: notification.status === "sent",
           skipped: notification.status === "skipped_cooldown",
@@ -3905,17 +3905,13 @@ app.post("/api", async (request, response) => {
           recoveryRequest.resetEmailStatus = notification.status;
         }
 
-        const savedWorkspace = await writeWorkspaceState(client, state, {
+        await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });
-        return {
-          state: savedWorkspace.state,
-          revision: savedWorkspace.revision,
-          notifications: [notification],
-        };
+        return { accepted: true };
       });
 
-      sendStatePayload(response, 200, result);
+      sendJson(response, 200, { ok: true, accepted: Boolean(result.accepted) });
       return;
     }
 
@@ -3990,16 +3986,13 @@ app.post("/api", async (request, response) => {
         recoveryRequest.resetTokenExpiresAtKey = 0;
         recoveryRequest.resetTokenExpiresAt = "";
 
-        const savedWorkspace = await writeWorkspaceState(client, state, {
+        await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });
-        return {
-          state: savedWorkspace.state,
-          revision: savedWorkspace.revision,
-        };
+        return { reset: true };
       });
 
-      sendStatePayload(response, 200, result);
+      sendJson(response, 200, { ok: true, reset: Boolean(result.reset) });
       return;
     }
 
@@ -4016,6 +4009,7 @@ app.post("/api", async (request, response) => {
 });
 
 let httpServer = null;
+let sessionCleanupTimer = null;
 let shuttingDown = false;
 
 async function shutdown(signal) {
@@ -4032,6 +4026,7 @@ async function shutdown(signal) {
   if (httpServer) {
     await new Promise((resolve) => httpServer.close(resolve));
   }
+  if (sessionCleanupTimer) clearInterval(sessionCleanupTimer);
   await pool.end();
   clearTimeout(forceExitTimer);
   process.exit(0);
@@ -4053,6 +4048,11 @@ process.once("SIGINT", () => {
 ensureStorageSchema()
   .then(() => compactOversizedEmbeddedAssets())
   .then(() => {
+    sessionCleanupTimer = setInterval(() => {
+      pool.query("delete from jade_sessions where expires_at <= now()")
+        .catch((error) => console.error("Expired session cleanup failed:", error.message));
+    }, 15 * 60 * 1000);
+    sessionCleanupTimer.unref?.();
     httpServer = app.listen(PORT, () => {
       console.log("JADE backend listening on http://127.0.0.1:" + PORT + "/api");
       console.log("JADE app available at http://127.0.0.1:" + PORT + "/");
