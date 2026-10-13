@@ -14252,3 +14252,19 @@
           grid-template-columns: minmax(0, 1fr);
         }
       }
+
+/* Competitor summaries use three distinct metrics, without repeated entry cards. */
+.competitor-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.competitor-stat { min-height: 0; padding: 16px; gap: 6px; }
+.competitor-stat strong { font-size: 1.125rem; font-weight: 650; line-height: 1.35; }
+.competitor-stat .portal-summary-copy { font-size: .875rem; font-weight: 400; }
+.portal-summary-copy:empty { display: none; }
+@media (max-width: 720px) { .competitor-card-grid { grid-template-columns: 1fr; } }
+
+/* Keep roster rows compact and score columns easy to compare. */
+.team-directory, .registration-speaker-grid { align-items: start; grid-auto-rows: auto; }
+.team-card-summary, .registration-speaker-card-compact-summary { padding: 14px 16px; }
+.team-card-name, .registration-speaker-card-name { font-size: 1rem; font-weight: 600; line-height: 1.4; }
+.table-wrap table { font-variant-numeric: tabular-nums; }
+.table-wrap th { font-size: .8rem; font-weight: 600; text-transform: none; letter-spacing: normal; }
+.table-wrap td { font-size: .9rem; line-height: 1.45; vertical-align: top; }

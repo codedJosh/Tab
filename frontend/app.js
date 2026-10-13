@@ -428,7 +428,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           compactLayout: true,
           showOnlyLatestFeedback: true,
           welcomeNote:
-            "This private page is designed to show only the essentials for competitors.",
+            "",
           emailTemplate:
             "Hello {{name}}, your private JADE Hummingbird access link for {{tournament}} is {{link}}.",
         },
@@ -7811,7 +7811,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       function renderSpeakerStandingsTable(tournament) {
         const speakerStandings = getSpeakerStandings(tournament);
         if (!speakerStandings.length) {
-          return `<div class="empty-state">Speaker rankings will appear once judges submit ballots.</div>`;
+          return `<div class="empty-state">No speaker scores submitted.</div>`;
         }
 
         return `
@@ -7822,9 +7822,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   <th>Rank</th>
                   <th>Speaker</th>
                   <th>Team</th>
-                  <th>Match Scores</th>
-                  <th>Cumulative</th>
-                  <th>Average</th>
+                  <th>Round scores</th>
+                  <th>Total</th>
+                  <th>Average score</th>
                   <th>Profile</th>
                 </tr>
               </thead>
@@ -7854,7 +7854,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               </tbody>
             </table>
           </div>
-          <p class="table-caption">Match scores list the scored rounds for each speaker. Rankings use average substantive score; cumulative score and scored rounds are shown for context.</p>
+          <p class="table-caption">Ranked by average substantive score.</p>
         `;
       }
 
@@ -10449,7 +10449,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         const rows = getInstitutionStandings(tournament);
         if (!rows.length) return `<div class="empty-state">No institutions linked to teams.</div>`;
         return `<div class="table-wrap"><table>
-          <thead><tr><th>Rank</th><th>Institution</th><th>Teams</th><th>Wins</th><th>Losses</th><th>Points</th><th>Average</th></tr></thead>
+          <thead><tr><th>Rank</th><th>Institution</th><th>Teams</th><th>Wins</th><th>Losses</th><th>Points</th><th>Points per team</th></tr></thead>
           <tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.rank)}</td><td>${escapeHtml(row.institution)}</td><td>${row.teams}</td><td>${row.wins}</td><td>${row.losses}</td><td>${row.points}</td><td>${escapeHtml(formatScoreValue(row.average))}</td></tr>`).join("")}</tbody>
         </table></div>`;
       }
@@ -13567,8 +13567,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   <th>Room</th>
                   <th>Side</th>
                   <th>Score</th>
-                  <th>Cumulative</th>
-                  <th>Average</th>
+                  <th>Total</th>
+                  <th>Average score</th>
                 </tr>
               </thead>
               <tbody>
@@ -13607,7 +13607,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       function renderPortalSpeakerWindow(tournament, participant) {
         const speakerWindow = getSpeakerStandings(tournament);
         if (!speakerWindow.length) {
-          return `<div class="empty-state">Speaker rankings will appear once judges submit ballots.</div>`;
+          return `<div class="empty-state">No speaker scores submitted.</div>`;
         }
 
         return `
@@ -13618,9 +13618,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   <th>Rank</th>
                   <th>Speaker</th>
                   <th>Team</th>
-                  <th>Match Scores</th>
-                  <th>Cumulative</th>
-                  <th>Average</th>
+                  <th>Round scores</th>
+                  <th>Total</th>
+                  <th>Average score</th>
                 </tr>
               </thead>
               <tbody>
@@ -13641,7 +13641,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               </tbody>
             </table>
           </div>
-          <p class="table-caption">Your speaker row is highlighted.</p>
+          
         `;
       }
 
@@ -14732,80 +14732,45 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   toTitleLabel(tournament.status),
                 )}</span>
               </div>
-              <div class="workspace-chip-row">
-                <span class="mini-pill ${escapeHtml(
-                  canShowDraw && latestRound ? "success" : "warning",
-                )}">${escapeHtml(
-                  canShowDraw && latestRound ? "Round " + latestRound.round + " Published" : "Draw Hidden",
-                )}</span>
-                <span class="mini-pill ${escapeHtml(
-                  canShowStandings ? "success" : "warning",
-                )}">${escapeHtml(
-                  canShowStandings ? "Standings Visible" : "Standings Hidden",
-                )}</span>
-                <span class="mini-pill ${escapeHtml(
-                  canShowFeedback && latestFeedback ? "success" : "warning",
-                )}">${escapeHtml(
-                  canShowFeedback && latestFeedback ? "Feedback Updated" : "Feedback Pending",
-                )}</span>
-                ${
-                  latestRoundControl
-                    ? `<span class="mini-pill ${escapeHtml(
-                        latestRoundControl.motionReleased ? "success" : "warning",
-                      )}">${escapeHtml(
-                        latestRoundControl.motionReleased ? "Motion Released" : "Motion Hidden",
-                      )}</span>`
-                    : ""
-                }
-              </div>
               <div class="competitor-card-grid">
-                <div class="competitor-stat">
-                  <span class="muted">Entry</span>
-                  <strong>${escapeHtml(entryLabel)}</strong>
-                  <span class="portal-summary-copy">${escapeHtml(
-                    tournament.participantModel === "teams"
-                      ? "Registered team or pairing"
-                      : "Registered individual entry",
-                  )}</span>
-                </div>
                 <div class="competitor-stat">
                   <span class="muted">Latest round</span>
                   <strong>${escapeHtml(
                     canShowDraw
                       ? latestRound
                         ? "Round " + latestRound.round
-                        : "Awaiting posting"
+                        : "Not published"
                       : "Hidden",
                   )}</strong>
                   <span class="portal-summary-copy">${escapeHtml(
                     canShowDraw
                       ? latestRound
                         ? latestRound.room + " • " + latestRound.status
-                        : "No round has been published yet."
-                      : "The draw is not available here yet.",
+                        : ""
+                      : "",
                   )}</span>
                 </div>
                 <div class="competitor-stat">
                   <span class="muted">${escapeHtml(
-                    tournament.participantModel === "teams" ? "Team standing" : "Standing",
+                    participant.teamId || participant.teamName ? "Team standing" : "Standing",
                   )}</span>
                   <strong>${escapeHtml(
                     canShowStandings
                       ? standing
                         ? "#" + standing.rank
-                        : "Awaiting release"
+                        : "Not published"
                       : "Hidden",
                   )}</strong>
                   <span class="portal-summary-copy">${escapeHtml(
                     canShowStandings
                       ? standing
                         ? getStandingSummaryText(tournament, standing)
-                        : "Standings will appear when they are published."
-                      : "Standings are private right now.",
+                        : ""
+                      : "",
                   )}</span>
                 </div>
                 <div class="competitor-stat">
-                  <span class="muted">Speaker Board</span>
+                  <span class="muted">Speaker rank</span>
                   <strong>${escapeHtml(
                     canShowSpeakerBoard && speakerStanding
                       ? "#" + speakerStanding.speakerRank
@@ -14814,9 +14779,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                         : "Hidden",
                   )}</strong>
                   <span class="portal-summary-copy">${escapeHtml(
-                    canShowSpeakerBoard
+                    canShowSpeakerBoard && speakerStanding
                       ? formatScoreValue(speakerScore) + " speaker points"
-                      : "Hidden for this tournament",
+                      : "",
                   )}</span>
                 </div>
               </div>
@@ -14848,9 +14813,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               <div class="button-row competitor-action-row">
                 <a class="cta-link floating-accent" href="${escapeHtml(
                   getPrivateLink(participant.token),
-                )}" target="_blank" rel="noreferrer">Open My Private Tab</a>
-                ${renderTournamentNavigationButton(tournament, "Open Tournament", true)}
-                ${renderParticipantProfileButton(participant, "Open My History", true)}
+                )}" target="_blank" rel="noreferrer">My tab</a>
+                ${renderTournamentNavigationButton(tournament, "Tournament", true)}
+                ${renderParticipantProfileButton(participant, "History", true)}
               </div>
             </div>
           </article>
@@ -15079,9 +15044,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                 )}</p>
                                 <div class="workspace-chip-row registration-speaker-summary-chips">
                                   <span class="role-pill">${escapeHtml(teamLabel)}</span>
-                                  <span class="mini-pill ${latestFeedback ? "warning" : "success"}">${escapeHtml(
-                                    compactFeedbackLabel,
-                                  )}</span>
+                                  ${participant.institution ? `<span class="muted">${escapeHtml(participant.institution)}</span>` : ""}
                                 </div>
                               </div>
                             </summary>
@@ -15339,7 +15302,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 
         const standings = getComputedStandings(tournament);
         if (!standings.length) {
-          return `<div class="empty-state">Standings will appear automatically once judges submit ballots.</div>`;
+          return `<div class="empty-state">No results submitted.</div>`;
         }
 
         const columns = getStandingsColumns(tournament);
@@ -16270,9 +16233,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                 </div>
                                 <div class="button-row">
                                   <span class="judge-status-pill">${escapeHtml(
-                                    getJudgeAllocationRoleLabel(allocation.panelRole),
-                                  )}</span>
-                                  <span class="judge-status-pill">${escapeHtml(
                                     toTitleLabel(allocation.status || "assigned"),
                                   )}</span>
                                   ${
@@ -16299,7 +16259,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                           )
                           .join("")}
                       </div>`
-                    : `<div class="empty-state">No judge allocations have been created yet.</div>`
+                    : `<div class="empty-state">No judges assigned.</div>`
                 }
               </details>
             </div>
@@ -17751,7 +17711,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
       function renderTeamDirectory(tournament, canManage) {
         const teams = getTournamentTeams(tournament);
         if (!teams.length) {
-          return `<div class="empty-state">No teams have been created for this tournament yet.</div>`;
+          return `<div class="empty-state">No teams registered.</div>`;
         }
 
         return `
@@ -17761,11 +17721,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 const speakers = getTeamSpeakers(tournament, team);
                 const standing = getTeamStanding(tournament, team);
                 const standingSummary = standing
-                  ? getStandingDisplayName(tournament, standing, {
-                      forcePrivate: true,
-                    }) +
-                    " • " +
-                    getStandingSummaryText(tournament, standing)
+                  ? getStandingSummaryText(tournament, standing)
                   : "";
                 return `
                   <article class="team-card">
@@ -17773,7 +17729,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                       <summary class="team-card-summary">
                         <div class="team-card-summary-main">
                           <strong class="team-card-name">${escapeHtml(
-                            getTeamDisplayLabel(team),
+                            team.name,
                           )}</strong>
                           ${team.institution ? `<p class="muted">${escapeHtml(team.institution)}</p>` : ""}
                         </div>
@@ -24539,8 +24495,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                   ? `<section class="surface">
                       <div class="section-heading">
                         <div>
-                          <p class="eyebrow">Live Noticeboard</p>
-                          <h2>Important tournament updates</h2>
+                          <h2>Notices</h2>
                         </div>
                       </div>
                       ${renderTournamentNoticeboardPreview(tournament, {
@@ -24578,11 +24533,11 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 </details>
                 <details class="portal-accordion" id="private-rounds" open>
                   <summary>
-                    <strong>Round board</strong>
+                    <strong>Rounds</strong>
                     <span class="portal-summary-copy">${escapeHtml(
                       canShowDraw
                         ? primaryDrawEntry
-                          ? "Latest room, motion, team, and side are visible"
+                          ? "Round " + primaryDrawEntry.round + " · " + primaryDrawEntry.room
                           : "Awaiting published rounds"
                         : "Hidden for this portal",
                     )}</span>
@@ -24620,7 +24575,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                     <span class="portal-summary-copy">${escapeHtml(
                       canShowStandings
                         ? standingRecord
-                          ? "Current standing: #" + standingRecord.rank
+                          ? "#" + standingRecord.rank
                           : "Awaiting standings"
                         : "Hidden for this portal",
                     )}</span>
@@ -24637,8 +24592,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                   canShowTeamBoard
                     ? `<details class="portal-accordion" ${compactLayout ? "" : "open"}>
                         <summary>
-                          <strong>Team Board</strong>
-                          <span class="portal-summary-copy">Total speaks across team members</span>
+                          <strong>Team speaker totals</strong>
                         </summary>
                         <div class="portal-body">
                           ${renderTeamPointsTotalsTable(tournament)}
@@ -24650,10 +24604,10 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                   canShowSpeakerBoard
                     ? `<details class="portal-accordion" ${compactLayout ? "" : "open"}>
                         <summary>
-                          <strong>Speaker Board</strong>
+                          <strong>Speaker rankings</strong>
                           <span class="portal-summary-copy">${escapeHtml(
                             speakerStanding
-                              ? "Current speaker rank: #" + speakerStanding.speakerRank
+                              ? "#" + speakerStanding.speakerRank
                               : "Awaiting speaker scores",
                           )}</span>
                         </summary>
