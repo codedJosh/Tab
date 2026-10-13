@@ -1468,6 +1468,35 @@ function ensureRegistrationUser(
   return user;
 }
 
+function getTournamentRegistrationTeam(tournament, teamName, institution) {
+  const matches = (team) => normalizeTextKey(team.name) === normalizeTextKey(teamName) &&
+    normalizeTextKey(team.institution) === normalizeTextKey(institution);
+  const existingTeam = (tournament.teams || []).find(matches);
+  if (existingTeam) return existingTeam;
+  const legacyMember = (tournament.participants || []).find((participant) =>
+    participant.teamId && matches({ name: participant.teamName, institution: participant.institution }));
+  return legacyMember ? createTeamRecord(teamName, institution, { id: legacyMember.teamId, source: "derived" }) : null;
+}
+
+function getTournamentRegistrationRosterConflict(tournament, teamName, institution, rosterEmails) {
+  const existingTeam = getTournamentRegistrationTeam(tournament, teamName, institution);
+  const isRequestedTeam = (participant) => participant.teamId
+    ? Boolean(existingTeam && String(participant.teamId) === String(existingTeam.id))
+    : Boolean(participant.teamName && normalizeTextKey(participant.teamName) === normalizeTextKey(teamName) &&
+        normalizeTextKey(participant.institution) === normalizeTextKey(institution));
+  const existingParticipants = tournament.participants || [];
+  if (existingParticipants.some((participant) =>
+    rosterEmails.includes(normalizeEmail(participant.email)) &&
+    (participant.teamId || participant.teamName) && !isRequestedTeam(participant))) {
+    return "A team member is already registered with another team. Ask the tournament staff to update their assignment.";
+  }
+  if (existingParticipants.some((participant) =>
+    isRequestedTeam(participant) && !rosterEmails.includes(normalizeEmail(participant.email)))) {
+    return "That team already has a different roster. Ask the tournament staff to update it.";
+  }
+  return "";
+}
+
 function upsertTournamentRegistrationTeam(tournament, teamName, institution, notes = "") {
   const normalizedTeamName = String(teamName || "").trim();
   const normalizedInstitution = String(institution || "").trim();
@@ -1479,18 +1508,19 @@ function upsertTournamentRegistrationTeam(tournament, teamName, institution, not
     notes,
     source: "manual",
   });
-  const existingTeam =
-    (Array.isArray(tournament.teams) ? tournament.teams : []).find((team) =>
-      teamsLookEquivalent(team, candidate),
-    ) || null;
+  const existingTeam = getTournamentRegistrationTeam(tournament, normalizedTeamName, normalizedInstitution);
 
   if (existingTeam) {
+    if (!(tournament.teams || []).some((team) => team.id === existingTeam.id)) {
+      tournament.teams = [...(tournament.teams || []), existingTeam];
+    }
     tournament.teams = (tournament.teams || []).map((team) =>
       team.id === existingTeam.id
         ? {
             ...team,
             institution: team.institution || normalizedInstitution,
             notes: team.notes || notes,
+            source: "manual",
           }
         : team,
     );
@@ -1512,6 +1542,16 @@ function upsertTournamentParticipantRegistration(
     return null;
   }
 
+  const matchingParticipants = (tournament.participants || []).filter((participant) =>
+    normalizedEmail && normalizeEmail(participant.email) === normalizedEmail);
+  if (matchingParticipants.length > 1 || matchingParticipants.some((participant) =>
+    normalizeTextKey(participant.name) !== normalizeTextKey(normalizedName) ||
+    (participant.teamId && participant.teamId !== team?.id))) {
+    const error = new Error("This email is already attached to a different or ambiguous registration. Ask tournament staff to correct it.");
+    error.code = "team_roster_conflict";
+    error.statusCode = 409;
+    throw error;
+  }
   const existingIndex = (tournament.participants || []).findIndex((participant) =>
     normalizedEmail
       ? normalizeEmail(participant.email) === normalizedEmail
@@ -1804,7 +1844,7 @@ function assertScoringPersistAuthorization(previousState, nextState, actorEmail)
         String(entry.panelRole || "").toLowerCase() === "chair" && !entry.submittedAt);
       const ownWorldSchoolsVote = (previous.judgeAllocations || []).some((entry) =>
         entry.drawId === draw.id && normalizeEmail(entry.judgeEmail) === actor && !entry.submittedAt &&
-        String(previous.format || "") === "World Schools");
+        roundFormat(draw.round) === "World Schools");
       if (!equal(canonicalResults(old.officialResults), canonicalResults(draw.officialResults)) &&
           !chair && !ownWorldSchoolsVote) forbidden();
       if (!equal(old.slots, draw.slots) || !equal(old.round, draw.round) ||
@@ -2010,9 +2050,9 @@ async function withTransaction(work) {
   }
 }
 
-async function readWorkspaceRecord(client) {
+async function readWorkspaceRecord(client, { forUpdate = false } = {}) {
   const result = await client.query(
-    "select state, revision from jade_workspaces where id = $1 limit 1",
+    "select state, revision from jade_workspaces where id = $1 limit 1" + (forUpdate ? " for update" : ""),
     [WORKSPACE_ID],
   );
   if (!result.rows[0]?.state) {
@@ -2524,6 +2564,7 @@ async function sendPrivateAccessEmail({
 
   try {
     const resendResponse = await fetch("https://api.resend.com/emails", {
+      signal: AbortSignal.timeout(8000),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2580,6 +2621,31 @@ async function sendPrivateAccessEmail({
       message:
         "Account was saved, but private URL email delivery failed. You can still copy the private URL manually.",
     };
+  }
+}
+
+async function deliverCommittedRegistrationEmails(result, request, reason, tournamentId) {
+  const recipients = (result.notificationEmails || []).map((email) =>
+    result.state.users.find((user) => user.email === email)).filter(Boolean);
+  delete result.notificationEmails;
+  result.notifications = await Promise.all(recipients.map((user) =>
+    sendPrivateAccessEmail({ state: result.state, user, request, reason, tournamentId })));
+  // Merge delivery receipts only. Never save the pre-email workspace snapshot.
+  const sent = recipients.filter((user) => result.notifications.some((entry) => entry.email === user.email && entry.status === "sent"));
+  if (!sent.length) return;
+  try {
+    const latest = await withTransaction(async (client) => {
+      const workspace = await readWorkspaceRecord(client, { forUpdate: true });
+      for (const sentUser of sent) {
+        const current = workspace.state.users.find((user) => user.email === sentUser.email);
+        if (current) markPrivateAccessEmailSent(current, reason);
+      }
+      return writeWorkspaceState(client, workspace.state, { expectedRevision: workspace.revision });
+    });
+    result.state = latest.state;
+    result.revision = latest.revision;
+  } catch (error) {
+    console.error("Registration saved; email receipt could not be recorded:", error.message);
   }
 }
 
@@ -3230,7 +3296,7 @@ app.post("/api", async (request, response) => {
       const notes = String(request.body?.notes || "").trim();
 
       const result = await withTransaction(async (client) => {
-        const workspace = await readWorkspaceRecord(client);
+        const workspace = await readWorkspaceRecord(client, { forUpdate: true });
         const state = workspace?.state;
         if (!state) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
@@ -3277,15 +3343,9 @@ app.post("/api", async (request, response) => {
           error.code = "invalid_team_roster";
           throw error;
         }
-        const registrationTeam = { name: teamName, institution };
-        const existingTeam = (tournament.teams || []).find((entry) =>
-          teamsLookEquivalent(entry, registrationTeam)) || null;
-        const existingMembers = (tournament.participants || []).filter((participant) =>
-          existingTeam && (String(participant.teamId || "") === String(existingTeam.id) ||
-            (!participant.teamId && normalizeTextKey(participant.teamName) === normalizeTextKey(teamName))));
-        if (existingMembers.some((participant) =>
-          !rosterEmails.includes(normalizeEmail(participant.email)))) {
-          const error = new Error("That team already has a different roster. Ask the tournament staff to update it.");
+        const rosterConflict = getTournamentRegistrationRosterConflict(tournament, teamName, institution, rosterEmails);
+        if (rosterConflict) {
+          const error = new Error(rosterConflict);
           error.statusCode = 409;
           error.code = "team_roster_conflict";
           throw error;
@@ -3342,29 +3402,7 @@ app.post("/api", async (request, response) => {
             (teamName ? " under team " + teamName + "." : "."),
         );
 
-        const notifications = [];
-        if (registeredUser) {
-          notifications.push(
-            await sendPrivateAccessEmail({
-              state,
-              user: registeredUser,
-              request,
-              reason: "participant_registration",
-              tournamentId,
-            }),
-          );
-        }
-        for (const teammateUser of teammateUsers) {
-          notifications.push(
-            await sendPrivateAccessEmail({
-              state,
-              user: teammateUser,
-              request,
-              reason: "participant_registration",
-              tournamentId,
-            }),
-          );
-        }
+        const notificationEmails = [registeredUser, ...teammateUsers].filter(Boolean).map((user) => user.email);
 
         const savedWorkspace = await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
@@ -3374,10 +3412,11 @@ app.post("/api", async (request, response) => {
           state: savedWorkspace.state,
           revision: savedWorkspace.revision,
           sessionToken,
-          notifications,
+          notificationEmails,
         };
       });
 
+      await deliverCommittedRegistrationEmails(result, request, "participant_registration", tournamentId);
       sendStatePayload(response, 200, result);
       return;
     }
@@ -3392,7 +3431,7 @@ app.post("/api", async (request, response) => {
       const notes = String(request.body?.notes || "").trim();
 
       const result = await withTransaction(async (client) => {
-        const workspace = await readWorkspaceRecord(client);
+        const workspace = await readWorkspaceRecord(client, { forUpdate: true });
         const state = workspace?.state;
         if (!state) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
@@ -3463,18 +3502,7 @@ app.post("/api", async (request, response) => {
           "Registered judge " + name + " for " + tournament.name + ".",
         );
 
-        const notifications = [];
-        if (registeredUser) {
-          notifications.push(
-            await sendPrivateAccessEmail({
-              state,
-              user: registeredUser,
-              request,
-              reason: "judge_registration",
-              tournamentId,
-            }),
-          );
-        }
+        const notificationEmails = [registeredUser].filter(Boolean).map((user) => user.email);
 
         const savedWorkspace = await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
@@ -3484,10 +3512,11 @@ app.post("/api", async (request, response) => {
           state: savedWorkspace.state,
           revision: savedWorkspace.revision,
           sessionToken,
-          notifications,
+          notificationEmails,
         };
       });
 
+      await deliverCommittedRegistrationEmails(result, request, "judge_registration", tournamentId);
       sendStatePayload(response, 200, result);
       return;
     }
@@ -3705,6 +3734,11 @@ app.post("/api", async (request, response) => {
       const incomingState = request.body?.state;
       const expectedRevision = normalizeWorkspaceRevision(request.body?.expectedRevision);
 
+      if (!expectedRevision) {
+        sendError(response, 409, "missing_revision", "Load the latest shared workspace before saving an edit.");
+        return;
+      }
+
       assertWorkspaceContract(incomingState, "persist payload");
 
       const result = await withTransaction(async (client) => {
@@ -3746,7 +3780,7 @@ app.post("/api", async (request, response) => {
         });
 
         const savedWorkspace = await writeWorkspaceState(client, nextState, {
-          expectedRevision: expectedRevision || workspace.revision,
+          expectedRevision,
           normalized: true,
           returnState: false,
         });

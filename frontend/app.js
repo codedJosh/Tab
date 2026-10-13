@@ -5,6 +5,7 @@
       const DEVICE_PASSWORD_VAULT_STORAGE_KEY = STORAGE_KEY + "-device-password-vault";
       const BACKEND_ENDPOINT_STORAGE_KEY = STORAGE_KEY + "-backend-endpoint";
       const PENDING_CLOUD_SYNC_STORAGE_KEY = STORAGE_KEY + "-pending-cloud-sync";
+      const CLOUD_SYNC_CONFLICTS_STORAGE_KEY = STORAGE_KEY + "-cloud-sync-conflicts";
       function safeStorageGet(storage, key) {
         try {
           return storage.getItem(key);
@@ -60,7 +61,7 @@
         "section",
         "profile",
       ];
-      const LIVE_SYNC_INTERVAL_MS = 12000;
+      const LIVE_SYNC_INTERVAL_MS = 5000;
       const LIVE_SYNC_MIN_GAP_MS = 2500;
       const LIVE_SYNC_INTERACTION_COOLDOWN_MS = 900;
       const TRACKED_FORM_DRAFT_DATASET_KEYS = [
@@ -527,6 +528,9 @@
       let cloudPersistWorkerRunning = false;
       let cloudRefreshInFlight = null;
       let pendingCloudSync = null;
+      let cloudSyncConflictGeneration = 0;
+      let cloudSyncRequiresRefresh = false;
+      let localMutationVersion = 0;
       let localStateSaveTimer = null;
       let pendingSessionHistoryMode = "replace";
       let suppressSessionHistorySync = false;
@@ -1297,9 +1301,8 @@
         if (now - lastUserInteractionAt < LIVE_SYNC_INTERACTION_COOLDOWN_MS) {
           return false;
         }
-        if (dirtyFormDraftKeys.size) {
-          return false;
-        }
+        // renderApp preserves tracked drafts; an abandoned draft must not
+        // prevent live registrations from appearing for the rest of the session.
         const token = String(new URL(window.location.href).searchParams.get("token") || "").trim();
         if (token) {
           return false;
@@ -5262,13 +5265,17 @@
         const normalized = {
           id: record.id || createId("standing"),
           name: String(record.name || "").trim(),
+          teamId: String(record.teamId || "").trim(),
+          participantId: String(record.participantId || "").trim(),
+          institution: String(record.institution || record.school || "").trim(),
           wins: normalizeNonNegative(record.wins, 0),
           losses: normalizeNonNegative(record.losses, 0),
           points: normalizeNonNegative(record.points, 0),
           speaks: normalizeNonNegative(record.speaks, 0),
+          scoredRounds: normalizeNonNegative(record.scoredRounds, 0),
           averageSpeaks: normalizeNonNegative(record.scoredRounds, 0)
             ? Number(record.speaks || 0) / Number(record.scoredRounds)
-            : normalizeNonNegative(record.speaks, 0),
+            : normalizeNonNegative(record.averageSpeaks ?? record.speaks, 0),
           votes: normalizeNonNegative(record.votes, 0),
           firsts: normalizeNonNegative(record.firsts, 0),
           seconds: normalizeNonNegative(record.seconds, 0),
@@ -5603,7 +5610,7 @@
       function getParticipantSummaryText(tournament, participant) {
         const normalized = normalizeParticipantRecord(participant);
         const computedSpeakerScore = getParticipantComputedSpeakerScore(tournament, normalized);
-        if (tournament.participantModel === "teams") {
+        if (normalized.teamId || normalized.teamName || tournament.participantModel === "teams") {
           return (
             (normalized.teamName || "Unassigned team") +
             (normalized.institution ? " • " + normalized.institution : "") +
@@ -5621,8 +5628,7 @@
       function getTeamStanding(tournament, team) {
         return (
           getComputedStandings(tournament).find(
-            (standing) =>
-              normalizeTextKey(standing.name) === normalizeTextKey(team.name),
+            (standing) => getStandingTeam(tournament, standing)?.id === team.id,
           ) || null
         );
       }
@@ -5633,8 +5639,8 @@
         return (tournament.participants || [])
           .map((participant) => normalizeParticipantRecord(participant))
           .filter((participant) => {
-            if (participant.teamId && participant.teamId === team.id) {
-              return true;
+            if (participant.teamId) {
+              return participant.teamId === team.id;
             }
             if (normalizeTextKey(participant.teamName) !== teamNameKey) {
               return false;
@@ -5794,17 +5800,12 @@
         const hasManagedTeams = getTournamentTeams(tournament).some(
           (team) => normalizeTeamSource(team?.source) === "manual",
         );
-        const eligibleTeams = getEligibleTeamDrawEntriesForRound(tournament, roundProfile);
-
-        if (participantModel === "individuals") {
-          return teamSize > 1 && teamsPerRoom > 1;
-        }
-
-        if (participantModel === "teams" && eligibleTeams.length === 0) {
-          return teamSize > 1 && teamsPerRoom > 1;
-        }
-
-        if (participantModel === "hybrid" && !hasManagedTeams) {
+        const hasRegisteredTeams = getTournamentTeams(tournament).some(
+          (team) => normalizeTeamSource(team?.source) !== "generated",
+        );
+        if (hasRegisteredTeams) return false;
+        if (participantModel === "individuals" ||
+            (participantModel === "hybrid" && tournament.config?.randomTeamsAllowed)) {
           return teamSize > 1 && teamsPerRoom > 1;
         }
 
@@ -5912,15 +5913,13 @@
       function getSupplementalRoundTeamPlan(tournament, roundProfile = {}, method = "random") {
         const structure = getEffectiveRoundStructure(tournament, roundProfile);
         const eligibleTeamEntries = getEligibleTeamDrawEntriesForRound(tournament, roundProfile);
-        const assignedParticipantIds = eligibleTeamEntries.flatMap((entry) =>
-          Array.isArray(entry.roster)
-            ? entry.roster
+        const assignedParticipantIds = getTournamentTeams(tournament).flatMap((team) =>
+          getTeamSpeakers(tournament, team)
                 .map((participant) => String(participant?.id || "").trim())
-                .filter(Boolean)
-            : [],
+                .filter(Boolean),
         );
         const supplementalPairingPlan =
-          Number(structure.teamSize || 0) > 1
+          tournament.participantModel === "hybrid" && tournament.config?.randomTeamsAllowed && Number(structure.teamSize || 0) > 1
             ? buildSpeakerPairingTeamPlan(
                 tournament,
                 roundProfile,
@@ -5935,12 +5934,38 @@
         };
       }
 
+      function getRosterIntegrityIssues(tournament, roundProfile = {}) {
+        const teams = getTournamentTeams(tournament);
+        const issues = [];
+        const ids = new Set();
+        const size = Number(getEffectiveRoundStructure(tournament, roundProfile).teamSize) || 1;
+        teams.forEach((team) => {
+          if (ids.has(team.id)) issues.push("Duplicate team ID: " + getTeamDisplayLabel(team) + ". Repair the team links before drawing.");
+          ids.add(team.id);
+          if (team.source === "generated") return;
+          const roster = getTeamSpeakers(tournament, team);
+          if (roster.length !== size) issues.push(getTeamDisplayLabel(team) + " has " + roster.length + " of " + size + " required speakers.");
+        });
+        const participantIds = new Set();
+        (tournament.participants || []).forEach((participant) => {
+          if (participantIds.has(participant.id)) issues.push("Duplicate speaker ID: " + participant.name + ".");
+          participantIds.add(participant.id);
+          if (participant.teamId && !ids.has(participant.teamId)) issues.push(participant.name + " links to a missing team.");
+          if (tournament.participantModel === "teams" && !teams.some((team) => getTeamSpeakers(tournament, team).some((speaker) => speaker.id === participant.id))) {
+            issues.push(participant.name + " needs a team assignment.");
+          }
+        });
+        return [...new Set(issues)];
+      }
+
       function getDrawGenerationPlan(
         tournament,
         roundProfile = {},
         method = "power",
         roomSizeOverride = null,
       ) {
+        const rosterIssues = getRosterIntegrityIssues(tournament, roundProfile);
+        if (rosterIssues.length) return { entries: [], overflowParticipants: [], error: rosterIssues.join(" ") };
         const resolvedMethod = getResolvedDrawMethod(tournament, roundProfile, method);
         if (isOutroundProfile(roundProfile)) {
           const outroundPlan = getOutroundDrawGenerationPlan(
@@ -5956,7 +5981,7 @@
 
         const participantModel = String(tournament?.participantModel || "").trim().toLowerCase();
         const hasManagedTeams = getTournamentTeams(tournament).some(
-          (team) => normalizeTeamSource(team?.source) === "manual",
+          (team) => normalizeTeamSource(team?.source) !== "generated",
         );
         const structure = getEffectiveRoundStructure(tournament, roundProfile, {
           roomSizeOverride,
@@ -6110,7 +6135,7 @@
 
         return board.breaking
           .map((standing) => {
-            const team = findTournamentTeamByName(tournament, standing?.name || "");
+            const team = getStandingTeam(tournament, standing);
             if (!team) {
               return null;
             }
@@ -7198,7 +7223,8 @@
           return [];
         }
 
-        return getDrawEntriesForTournament(tournament)
+        const candidates = getDrawEntriesForTournament(tournament);
+        return candidates
           .map((entry) => {
             const searchTerms = [
               entry.label,
@@ -7209,7 +7235,10 @@
                 : "",
             ]
               .map((value) => String(value || "").trim().toLowerCase())
-              .filter(Boolean);
+              .filter(Boolean)
+              .filter((term) => candidates.filter((candidate) =>
+                [candidate.label, candidate.shortLabel, candidate.team?.name]
+                  .some((value) => normalizeTextKey(value) === normalizeTextKey(term))).length <= 1);
             const positions = searchTerms
               .map((term) => normalizedMatchup.indexOf(term))
               .filter((position) => position >= 0);
@@ -7568,7 +7597,9 @@
           return sortStandingsForTournament(
             computedSpeakers.map((participant) => ({
               id: "computed-standing-" + participant.id,
+              participantId: participant.id,
               name: participant.name,
+              institution: participant.institution,
               wins: normalizeNonNegative(participant.wins, 0),
               losses: normalizeNonNegative(participant.losses, 0),
               points: Number(participant.speakerScore || 0),
@@ -7582,7 +7613,9 @@
           const key = String(team.id || normalizeTextKey(team.name)).trim();
           teamMap.set(key, {
             id: "computed-standing-" + key,
+            teamId: team.id,
             name: team.name,
+            institution: team.institution,
             wins: 0,
             losses: 0,
             points: 0,
@@ -7613,7 +7646,9 @@
             if (!teamMap.has(key)) {
               teamMap.set(key, {
                 id: "computed-standing-" + key,
+                teamId: String(slot.teamId || "").trim(),
                 name: teamName,
+                institution: String(slot.institution || "").trim(),
                 wins: 0,
                 losses: 0,
                 points: 0,
@@ -7659,7 +7694,9 @@
               if (!teamMap.has(key)) {
                 teamMap.set(key, {
                   id: "computed-standing-" + key,
+                  teamId: String(slot.teamId || "").trim(),
                   name: teamName,
+                  institution: String(slot.institution || "").trim(),
                   wins: 0,
                   losses: 0,
                   points: 0,
@@ -8034,6 +8071,8 @@
           id,
           userEmail,
           createdAt,
+          baseRevision: normalizeWorkspaceRevision(record.baseRevision),
+          conflicted: Boolean(record.conflicted) || !normalizeWorkspaceRevision(record.baseRevision),
           state: snapshot,
         };
       }
@@ -8058,7 +8097,43 @@
         }
       }
 
-      function savePendingCloudSyncRecord(snapshot, syncId) {
+      function preserveCloudSyncConflict(record) {
+        if (!record?.state) return true;
+        let conflicts = [];
+        try {
+          const saved = JSON.parse(localStorageGet(CLOUD_SYNC_CONFLICTS_STORAGE_KEY) || "[]");
+          if (Array.isArray(saved)) conflicts = saved;
+        } catch (_error) {
+          return false;
+        }
+        const conflict = { ...record, conflicted: true };
+        const existing = conflicts.findIndex((entry) => entry.id === conflict.id);
+        if (existing >= 0) conflicts[existing] = conflict;
+        else conflicts.push(conflict);
+        return localStorageSet(CLOUD_SYNC_CONFLICTS_STORAGE_KEY, JSON.stringify(conflicts));
+      }
+
+      async function preparePendingCloudSyncReplay() {
+        if (!pendingCloudSync?.state) return false;
+        const currentEmail = normalizeEmail(session.userEmail);
+        if (pendingCloudSync.userEmail && pendingCloudSync.userEmail !== currentEmail) return false;
+        const loadedRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
+        if (pendingCloudSync.conflicted || !pendingCloudSync.baseRevision ||
+            (loadedRevision > 0 && loadedRevision !== pendingCloudSync.baseRevision)) {
+          pendingCloudSync.conflicted = true;
+          if (preserveCloudSyncConflict(pendingCloudSync)) clearPendingCloudSyncRecord(pendingCloudSync.id);
+          else localStorageSet(PENDING_CLOUD_SYNC_STORAGE_KEY, JSON.stringify(pendingCloudSync));
+          setFlash("warning", "The shared workspace changed while this device had unsaved edits. The local copy was kept for recovery; apply those edits again to the current workspace.");
+          return false;
+        }
+        // The replayed snapshot is the current local view until its save is
+        // acknowledged. Otherwise its acknowledgement would advance revision
+        // while leaving the page on the older downloaded workspace.
+        state = await rehydrateState(pendingCloudSync.state);
+        return true;
+      }
+
+      function savePendingCloudSyncRecord(snapshot, syncId, baseRevision = cloudRuntime.revision) {
         if (!snapshot || !syncId) {
           return;
         }
@@ -8068,10 +8143,16 @@
         normalizedSnapshot.workspaceContractVersion = WORKSPACE_CONTRACT_VERSION;
         assertWorkspaceContract(normalizedSnapshot, "pending cloud sync");
 
+        if (pendingCloudSync?.conflicted && !preserveCloudSyncConflict(pendingCloudSync)) {
+          throw new Error("The device could not preserve the conflicting local copy. Free browser storage before saving again.");
+        }
+
         pendingCloudSync = {
           id: String(syncId).trim(),
           userEmail: normalizeEmail(session.userEmail),
           createdAt: new Date().toISOString(),
+          baseRevision: normalizeWorkspaceRevision(baseRevision),
+          conflicted: !normalizeWorkspaceRevision(baseRevision),
           state: normalizedSnapshot,
         };
         localStorageSet(
@@ -8091,7 +8172,7 @@
       }
 
       function hasPendingCloudSyncForCurrentSession() {
-        if (!pendingCloudSync?.state) {
+        if (!pendingCloudSync?.state || pendingCloudSync.conflicted) {
           return false;
         }
 
@@ -8108,6 +8189,28 @@
         }
 
         return refreshStateFromBackend(options);
+      }
+
+      async function recoverFromCloudSyncConflict(record, options = {}) {
+        const queued = queuedCloudPersistRequest;
+        queuedCloudPersistRequest = null;
+        const recoveryRecord = queued?.snapshotSource
+          ? { ...record, id: createId("cloud-conflict"), state: queued.snapshotSource, baseRevision: queued.baseRevision }
+          : record;
+        recoveryRecord.conflicted = true;
+        if (preserveCloudSyncConflict(recoveryRecord)) clearPendingCloudSyncRecord(record.id);
+        else {
+          pendingCloudSync = recoveryRecord;
+          localStorageSet(PENDING_CLOUD_SYNC_STORAGE_KEY, JSON.stringify(recoveryRecord));
+        }
+        cloudSyncConflictGeneration += 1;
+        cloudSyncRequiresRefresh = true;
+        const refreshed = await refreshStateFromBackend({ skipRender: true, forceApply: true });
+        setFlash("warning", refreshed
+          ? "Another device changed the shared workspace. The latest version is now loaded and your local edits were kept for recovery. Apply the edit again."
+          : "Another device changed the shared workspace. Your local edits were kept for recovery. Refresh the page before editing again.");
+        if (!options.skipRender) renderApp();
+        return refreshed;
       }
 
       async function fetchWithTimeout(resource, options = {}, timeoutMs = CLOUD_REQUEST_TIMEOUT_MS) {
@@ -8334,6 +8437,7 @@
 
         cloudRefreshInFlight = (async () => {
           const previousRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
+          const startingMutationVersion = localMutationVersion;
           try {
             const result = await callCloud("get_state", {
               sessionToken: session.cloudSessionToken,
@@ -8349,7 +8453,13 @@
               return false;
             }
 
-            state = await rehydrateState(result.state);
+            const refreshedState = await rehydrateState(result.state);
+            if (startingMutationVersion !== localMutationVersion) {
+              cloudRuntime.revision = previousRevision;
+              return false;
+            }
+            state = refreshedState;
+            cloudSyncRequiresRefresh = false;
             updateCurrentUserRecord();
             applyBranding();
             saveState();
@@ -8381,8 +8491,15 @@
         if (!snapshotSource && !state) {
           return;
         }
+        if (cloudSyncRequiresRefresh) {
+          setFlash("warning", "Refresh the shared workspace before saving another edit.");
+          renderApp();
+          return;
+        }
+        localMutationVersion += 1;
         queuedCloudPersistRequest = {
-          snapshotSource,
+          snapshotSource: clone(snapshotSource || state),
+          baseRevision: normalizeWorkspaceRevision(options.expectedRevision ?? cloudRuntime.revision),
           options,
         };
 
@@ -8397,25 +8514,34 @@
             await waitForCloudRetry(CLOUD_PERSIST_DEBOUNCE_MS);
             const request = queuedCloudPersistRequest;
             queuedCloudPersistRequest = null;
-            const requestSource = request.snapshotSource || state;
+            const requestSource = request.snapshotSource;
             if (!requestSource) {
               continue;
             }
-            const requestState = clone(requestSource);
+            const requestState = requestSource;
             const requestSyncId = createId("cloud-sync");
             const requestOptions = request.options || {};
-            savePendingCloudSyncRecord(requestState, requestSyncId);
+            savePendingCloudSyncRecord(requestState, requestSyncId, request.baseRevision);
             if (!(await probeCloudBackend()) || !session.cloudSessionToken || !getCurrentUser()) {
               continue;
             }
 
             try {
+              if (!request.baseRevision) {
+                await recoverFromCloudSyncConflict(pendingCloudSync);
+                return;
+              }
               const result = await callCloud("persist", {
                 sessionToken: session.cloudSessionToken,
                 state: requestState,
-                expectedRevision: cloudRuntime.revision,
+                expectedRevision: request.baseRevision,
               });
               cloudRuntime.initialized = true;
+              if (queuedCloudPersistRequest?.baseRevision === request.baseRevision) {
+                // A queued edit includes this acknowledged save from the same
+                // device. Only that continuation can use the returned revision.
+                queuedCloudPersistRequest.baseRevision = normalizeWorkspaceRevision(result.revision);
+              }
               if (pendingCloudSync?.id === requestSyncId) {
                 // Persist responses are acknowledgement-only. Keeping the
                 // current local state avoids downloading a second workspace
@@ -8430,20 +8556,10 @@
             } catch (error) {
               console.error(error);
               if (error.code === "stale_revision") {
-                try {
-                  await callCloud("get_state", {
-                    sessionToken: session.cloudSessionToken,
-                  });
-                } catch (_refreshError) {
-                  // Keep the preserved local snapshot even if the revision refresh fails.
-                }
-                if (pendingCloudSync?.id === requestSyncId) {
-                  setFlash(
-                    "warning",
-                    "JADE Hummingbird kept your newest local edit on this device, but another device changed the shared workspace first. Review the result and save again so nothing gets overwritten.",
-                  );
-                  renderApp();
-                }
+                await recoverFromCloudSyncConflict({
+                  id: requestSyncId, userEmail: normalizeEmail(session.userEmail),
+                  createdAt: new Date().toISOString(), state: requestState, baseRevision: request.baseRevision,
+                });
                 return;
               }
               setFlash(
@@ -8463,6 +8579,7 @@
               queueCloudPersist({
                 snapshot: queuedCloudPersistRequest.snapshotSource,
                 ...queuedCloudPersistRequest.options,
+                expectedRevision: queuedCloudPersistRequest.baseRevision,
               });
             }
           });
@@ -8477,6 +8594,7 @@
       }
 
       async function persistStateToCloudNow({ skipRender = true } = {}) {
+        const conflictGeneration = cloudSyncConflictGeneration;
         updateCurrentUserRecord();
         saveState();
         saveSession();
@@ -8485,6 +8603,17 @@
           await cloudPersistQueue;
         } catch (error) {
           console.error(error);
+        }
+
+        if (cloudSyncRequiresRefresh) {
+          const error = new Error("Refresh the shared workspace before saving another edit.");
+          error.code = "sync_refresh_required";
+          throw error;
+        }
+        if (conflictGeneration !== cloudSyncConflictGeneration) {
+          const error = new Error("The shared workspace was refreshed. Apply that edit again.");
+          error.code = "stale_revision";
+          throw error;
         }
 
         const cloudAvailable =
@@ -8513,17 +8642,26 @@
         // previous flow cloned and rehydrated the complete workspace several
         // times before every explicit save.
         const queuedState = clone(state);
-        savePendingCloudSyncRecord(queuedState, syncId);
+        const baseRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
+        savePendingCloudSyncRecord(queuedState, syncId, baseRevision);
         try {
+          if (!baseRevision) {
+            await recoverFromCloudSyncConflict(pendingCloudSync, { skipRender });
+            const error = new Error("Load the latest shared workspace before saving an edit.");
+            error.code = "sync_refresh_required";
+            throw error;
+          }
           result = await callCloud("persist", {
             sessionToken: session.cloudSessionToken,
             state: queuedState,
-            expectedRevision: cloudRuntime.revision,
+            expectedRevision: baseRevision,
           });
         } catch (error) {
           if (error.code === "stale_revision") {
-            clearPendingCloudSyncRecord(syncId);
-            await refreshStateFromBackend({ skipRender: true });
+            await recoverFromCloudSyncConflict({
+              id: syncId, userEmail: normalizeEmail(session.userEmail),
+              createdAt: new Date().toISOString(), state: queuedState, baseRevision,
+            }, { skipRender });
             const conflictError = new Error(
               "Another device changed JADE Hummingbird first. The page was refreshed to the latest shared version; please apply that edit again.",
             );
@@ -8788,6 +8926,10 @@
           return false;
         }
 
+        if (left.id && right.id && String(left.id) === String(right.id)) {
+          return true;
+        }
+
         const leftKey = getTeamIdentityKey(left);
         const rightKey = getTeamIdentityKey(right);
         if (leftKey && rightKey && leftKey === rightKey) {
@@ -8800,13 +8942,6 @@
         const rightInstitution = normalizeTextKey(right.institution);
         const leftDisplay = normalizeTextKey(getTeamDisplayLabel(left));
         const rightDisplay = normalizeTextKey(getTeamDisplayLabel(right));
-        const leftAlias = normalizeTextKey(left.publicAlias);
-        const rightAlias = normalizeTextKey(right.publicAlias);
-
-        if (leftAlias && rightAlias && leftAlias === rightAlias) {
-          return true;
-        }
-
         if (leftDisplay && rightDisplay && leftDisplay === rightDisplay) {
           return true;
         }
@@ -8865,56 +9000,67 @@
       }
 
       function getStandingDisplayName(tournament, standing, options = {}) {
-        const team = findTournamentTeamByName(tournament, standing?.name || "");
+        const team = getStandingTeam(tournament, standing);
         if (team) {
           return getTeamNameForDisplay(tournament, team, options);
         }
         return String(standing?.name || "").trim();
       }
 
+      function getStandingTeam(tournament, standing) {
+        if (!standing || standing.participantId) return null;
+        const teams = getTournamentTeams(tournament);
+        const explicitTeamId = String(standing.teamId || "").trim();
+        const computedId = String(standing.id || "").startsWith("computed-standing-")
+          ? String(standing.id).slice("computed-standing-".length)
+          : "";
+        const teamId = explicitTeamId || computedId;
+        if (teamId) return teams.find((team) => team.id === teamId) || null;
+
+        const name = normalizeTextKey(standing.name);
+        const institution = normalizeTextKey(standing.institution || standing.school);
+        const matches = teams.filter((team) => {
+          if (institution && normalizeTextKey(team.institution) !== institution) return false;
+          return name && [team.name, getTeamDisplayLabel(team), team.publicAlias]
+            .some((value) => normalizeTextKey(value) === name);
+        });
+        return matches.length === 1 ? matches[0] : null;
+      }
+
       function normalizeTeamsForTournament(teamRecords = [], tournament = {}) {
         const catalog = [];
         const participantModel = String(tournament?.participantModel || "").trim().toLowerCase();
+        const legacyId = (name, institution) =>
+          "legacy-team-" + encodeURIComponent(getTeamIdentityKey({ name, institution }));
 
         (Array.isArray(teamRecords) ? teamRecords : []).forEach((record) => {
-          const team = normalizeTeamRecord(record);
+          const team = normalizeTeamRecord({
+            ...record,
+            id: String(record?.id || "").trim() || legacyId(record?.name || record?.teamName, record?.institution),
+          });
           if (
             team.name &&
-            !catalog.some((existingTeam) => teamsLookEquivalent(existingTeam, team))
+            !catalog.some((existingTeam) => existingTeam.id === team.id &&
+              getTeamIdentityKey(existingTeam) === getTeamIdentityKey(team))
           ) {
             catalog.push(team);
           }
         });
 
-        const curatedTeams = catalog.filter((team) => team.source !== "generated" && team.source !== "derived");
-        const nonGeneratedTeams = catalog.filter((team) => team.source !== "generated");
-
-        if (participantModel === "teams" && curatedTeams.length) {
-          return curatedTeams.sort(
-            (left, right) =>
-              String(left.name).localeCompare(String(right.name)) ||
-              String(left.institution).localeCompare(String(right.institution)),
-          );
-        }
-
-        if (participantModel === "teams" && nonGeneratedTeams.length) {
-          return nonGeneratedTeams.sort(
-            (left, right) =>
-              String(left.name).localeCompare(String(right.name)) ||
-              String(left.institution).localeCompare(String(right.institution)),
-          );
-        }
-
         (tournament.participants || []).forEach((participant) => {
           const teamName = String(participant.teamName || "").trim();
           if (!teamName) return;
+          const teamId = String(participant.teamId || "").trim();
+          if (teamId && catalog.some((team) => team.id === teamId)) return;
+          if (!teamId && catalog.some((team) =>
+            getTeamIdentityKey(team) === getTeamIdentityKey({ name: teamName, institution: participant.institution }))) return;
           const team = normalizeTeamRecord({
-            id: participant.teamId || "",
+            id: teamId || legacyId(teamName, participant.institution),
             name: teamName,
             institution: participant.institution || "",
             source: "derived",
           });
-          if (!catalog.some((existingTeam) => teamsLookEquivalent(existingTeam, team))) {
+          if (!catalog.some((existingTeam) => existingTeam.id === team.id)) {
             catalog.push(team);
           }
         });
@@ -8923,15 +9069,24 @@
           (tournament.standings || []).forEach((standing) => {
             const name = String(standing.name || "").trim();
             if (!name) return;
-            const standingTeam = normalizeTeamRecord({ name, source: "derived" });
-            if (!catalog.some((team) => teamsLookEquivalent(team, standingTeam))) {
-              const team = normalizeTeamRecord({ name, source: "derived" });
-              catalog.push(team);
+            const matchingTeam = catalog.some((team) =>
+              normalizeTextKey(team.name) === normalizeTextKey(name) ||
+              normalizeTextKey(getTeamDisplayLabel(team)) === normalizeTextKey(name));
+            if (!matchingTeam) {
+              catalog.push(normalizeTeamRecord({
+                id: legacyId(name, standing.institution || standing.school),
+                name,
+                institution: standing.institution || standing.school || "",
+                source: "derived",
+              }));
             }
           });
         }
 
-        return catalog.sort(
+        const referencedTeamIds = new Set((tournament.participants || []).map((participant) => String(participant.teamId || "").trim()).filter(Boolean));
+        const hasNonGeneratedTeams = catalog.some((team) => team.source !== "generated");
+        return catalog.filter((team) =>
+          participantModel !== "teams" || !hasNonGeneratedTeams || team.source !== "generated" || referencedTeamIds.has(team.id)).sort(
           (left, right) =>
             String(left.name).localeCompare(String(right.name)) ||
             String(left.institution).localeCompare(String(right.institution)),
@@ -9287,24 +9442,8 @@
           return [];
         }
 
-        const found = new Set();
-        (tournament.participants || []).forEach((participant) => {
-          const normalized = normalizeParticipantRecord(participant);
-          const searchTerms = [
-            normalized.name,
-            normalized.teamName,
-            normalized.institution,
-            normalized.institution && normalized.teamName
-              ? normalized.institution + " " + normalized.teamName
-              : "",
-          ]
-            .map((value) => String(value || "").trim().toLowerCase())
-            .filter(Boolean);
-          if (searchTerms.some((term) => term && text.includes(term))) {
-            found.add(normalized.id);
-          }
-        });
-        return Array.from(found);
+        return [...new Set(inferDrawEntriesFromMatchup(tournament, matchup)
+          .flatMap((entry) => getDrawEntryParticipantIds(entry)))];
       }
 
       function getDrawEntryById(tournament, drawId) {
@@ -9838,8 +9977,20 @@
         const targetRound = normalizeRoundCount(round, 1);
         const summary = getRoundStatusSummary(tournament, targetRound);
         const rooms = summary.rooms || [];
-        const blockers = [];
+        const blockers = getRosterIntegrityIssues(tournament, getRoundProfileForRound(tournament, targetRound));
         const warnings = [];
+        const assignedSpeakers = new Set();
+        rooms.forEach((room) => {
+          (room.slots || []).forEach((slot) => {
+            (slot.participantIds || []).forEach((id) => {
+              if (assignedSpeakers.has(id)) blockers.push("A speaker is assigned more than once in this round.");
+              assignedSpeakers.add(id);
+              const participant = (tournament.participants || []).find((entry) => entry.id === id);
+              if (!participant) blockers.push("A room contains a speaker who is no longer registered.");
+              else if (participant.teamId && participant.teamId !== slot.teamId) blockers.push("A room splits a registered team. Rebuild the draw after correcting team assignments.");
+            });
+          });
+        });
 
         if (!rooms.length) {
           blockers.push("Create at least one room for Round " + targetRound + ".");
@@ -10309,13 +10460,7 @@
           if (!institutions.has(key)) institutions.set(key, { institution: name, teams: 0, wins: 0, losses: 0, points: 0 });
           const record = institutions.get(key);
           record.teams += 1;
-          const standing = standings.find((entry) => entry.id === "computed-standing-" + team.id) ||
-            standings.find((entry) =>
-              normalizeTextKey(entry.name) === normalizeTextKey(getTeamDisplayLabel(team)) ||
-              (normalizeTextKey(entry.name) === normalizeTextKey(team.name) &&
-                (normalizeTextKey(entry.institution || entry.school) === key ||
-                  teams.filter((candidate) => normalizeTextKey(candidate.name) === normalizeTextKey(team.name)).length === 1)),
-            );
+          const standing = standings.find((entry) => getStandingTeam(tournament, entry)?.id === team.id);
           record.wins += Number(standing?.wins || 0);
           record.losses += Number(standing?.losses || 0);
         });
@@ -10507,12 +10652,33 @@
         );
       }
 
-      function isOfficialFeedbackEntry(tournament, entry) {
+      function isOfficialFeedbackEntry(tournament, entry, participant = null) {
+        const allocationId = String(entry?.allocationId || "").trim();
+        const entryDrawId = String(entry?.drawId || "").trim();
         const allocation = getFeedbackAllocation(tournament, entry);
+        if (allocationId && !allocation) return false;
+        const drawId = entryDrawId || String(allocation?.drawId || "").trim();
+        const drawEntry = drawId ? getDrawEntryById(tournament, drawId) : null;
+        if (drawId && !drawEntry) return false;
+        if (allocation && entryDrawId && entryDrawId !== String(allocation.drawId || "").trim()) {
+          return false;
+        }
+        if (participant && drawEntry) {
+          const drawParticipantIds = (drawEntry.participantIds || []).concat(
+            (drawEntry.slots || []).flatMap((slot) => slot.participantIds || []),
+          );
+          if (drawParticipantIds.length && !drawParticipantIds.includes(participant.id)) return false;
+          if (allocation?.participantIds?.length && !allocation.participantIds.includes(participant.id)) return false;
+        }
         if (!allocation) {
           return true;
         }
         if (!allocation.submittedAt) return false;
+        if (entry.judgeEmail && normalizeEmail(entry.judgeEmail) !== normalizeEmail(allocation.judgeEmail)) return false;
+        if (getRoundFormat(tournament, drawEntry?.round || allocation.round) === "World Schools") {
+          return Boolean(drawEntry && getDrawOfficialResultSummary(tournament, drawEntry) &&
+            canJudgeAllocationSubmitBallot(tournament, allocation));
+        }
         if (normalizeJudgeAllocationRole(allocation.panelRole, "chair") !== "chair") {
           return false;
         }
@@ -10521,14 +10687,9 @@
       }
 
       function getOfficialParticipantFeedbackEntries(tournament, participant) {
-        return (participant?.feedback || []).filter((entry) => {
-          if (getRoundFormat(tournament, entry.round) === "World Schools") {
-            const drawEntry = getDrawEntryById(tournament, entry.drawId);
-            return Boolean(getFeedbackAllocation(tournament, entry)?.submittedAt &&
-              getDrawOfficialResultSummary(tournament, drawEntry));
-          }
-          return isOfficialFeedbackEntry(tournament, entry);
-        });
+        return (participant?.feedback || []).filter((entry) =>
+          isOfficialFeedbackEntry(tournament, entry, participant),
+        );
       }
 
       function getParticipantVisibleFeedbackEntries(tournament, participant) {
@@ -12959,13 +13120,25 @@
       }
 
       function findStandingForParticipant(tournament, participant) {
+        const standings = getComputedStandings(tournament);
+        const participantId = String(participant?.id || "").trim();
+        const teamId = String(participant?.teamId || "").trim();
+        if (usesTeamPointStandings(tournament) && teamId) {
+          return standings.find((entry) => getStandingTeam(tournament, entry)?.id === teamId) || null;
+        }
+        const individualStanding = standings.find((entry) =>
+          entry.participantId === participantId || entry.id === "computed-standing-" + participantId,
+        );
+        if (individualStanding) return individualStanding;
+        const matches = standings.filter((entry) => {
+          const team = getStandingTeam(tournament, entry);
+          if (team) return getTeamSpeakers(tournament, team).some((speaker) => speaker.id === participantId);
+          return !entry.teamId && !String(entry.id || "").startsWith("computed-standing-") &&
+            [participant.name, participant.email].some((value) =>
+              value && normalizeTextKey(entry.name) === normalizeTextKey(value));
+        });
         return (
-          getComputedStandings(tournament).find(
-            (entry) =>
-              entry.name === participant.teamName ||
-              entry.name === participant.name ||
-              entry.name === participant.email,
-          ) || null
+          matches.length === 1 ? matches[0] : null
         );
       }
 
@@ -13045,16 +13218,20 @@
 
       function getParticipantDrawEntries(tournament, participant) {
         const searchTerms = getParticipantSearchTerms(participant);
+        const participantId = String(participant.id || "").trim();
         return (tournament.draw || [])
           .filter((entry) => {
             if (String(entry.status || "").trim().toLowerCase() !== "published") {
               return false;
             }
-            if (
-              Array.isArray(entry.participantIds) &&
-              entry.participantIds.includes(String(participant.id || "").trim())
-            ) {
-              return true;
+            if (Array.isArray(entry.participantIds) && entry.participantIds.length) {
+              return entry.participantIds.includes(participantId);
+            }
+            if (Array.isArray(entry.slots) && entry.slots.length) {
+              return entry.slots.some((slot) => (slot.participantIds || []).includes(participantId));
+            }
+            if (Array.isArray(entry.teamIds) && entry.teamIds.length) {
+              return Boolean(participant.teamId && entry.teamIds.includes(participant.teamId));
             }
             const matchup = String(entry.matchup || "").toLowerCase();
             return searchTerms.some((term) => matchup.includes(term));
@@ -13377,7 +13554,7 @@
                     (entry) => `
                       <tr class="${
                         standingRecord &&
-                        (entry.id === standingRecord.id || entry.name === standingRecord.name)
+                        entry.id === standingRecord.id
                           ? "highlight-row"
                           : ""
                       }">
@@ -25131,6 +25308,30 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         rememberTournamentHistoryForEmail(normalizedEmail, tournament.id);
       }
 
+      function getTournamentRegistrationTeam(tournament, teamName, institution) {
+        return getTournamentTeams(tournament).find((team) =>
+          getTeamIdentityKey(team) === getTeamIdentityKey({ name: teamName, institution })) || null;
+      }
+
+      function getTournamentRegistrationRosterConflict(tournament, teamName, institution, rosterEmails) {
+        const existingTeam = getTournamentRegistrationTeam(tournament, teamName, institution);
+        const teamKey = getTeamIdentityKey({ name: teamName, institution });
+        const isRequestedTeam = (participant) => participant.teamId
+          ? Boolean(existingTeam && String(participant.teamId) === String(existingTeam.id))
+          : Boolean(participant.teamName && getTeamIdentityKey({ name: participant.teamName, institution: participant.institution }) === teamKey);
+        const existingParticipants = tournament.participants || [];
+        if (existingParticipants.some((participant) =>
+          rosterEmails.includes(normalizeEmail(participant.email)) &&
+          (participant.teamId || participant.teamName) && !isRequestedTeam(participant))) {
+          return "A team member is already registered with another team. Ask the tournament staff to update their assignment.";
+        }
+        if (existingParticipants.some((participant) =>
+          isRequestedTeam(participant) && !rosterEmails.includes(normalizeEmail(participant.email)))) {
+          return "That team already has a different roster. Ask the tournament staff to update it.";
+        }
+        return "";
+      }
+
       function upsertTournamentRegistrationTeam(tournament, teamName, institution, notes = "") {
         const normalizedTeamName = String(teamName || "").trim();
         const normalizedInstitution = String(institution || "").trim();
@@ -25142,16 +25343,19 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           notes,
           source: "manual",
         });
-        const existingTeam =
-          getTournamentTeams(tournament).find((team) => teamsLookEquivalent(team, candidate)) || null;
+        const existingTeam = getTournamentRegistrationTeam(tournament, normalizedTeamName, normalizedInstitution);
 
         if (existingTeam) {
+          if (!(tournament.teams || []).some((team) => team.id === existingTeam.id)) {
+            tournament.teams = [...(tournament.teams || []), existingTeam];
+          }
           tournament.teams = (tournament.teams || []).map((team) =>
             team.id === existingTeam.id
               ? normalizeTeamRecord({
                   ...team,
                   institution: team.institution || normalizedInstitution,
                   notes: team.notes || notes,
+                  source: "manual",
                 })
               : normalizeTeamRecord(team),
           );
@@ -25172,6 +25376,16 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           return null;
         }
 
+        const matchingParticipants = (tournament.participants || []).filter((participant) =>
+          normalizedEmail && normalizeEmail(participant.email) === normalizedEmail);
+        if (matchingParticipants.length > 1 || matchingParticipants.some((participant) =>
+          normalizeTextKey(participant.name) !== normalizeTextKey(normalizedName) ||
+          (participant.teamId && participant.teamId !== team?.id))) {
+          const error = new Error("This email is already attached to a different or ambiguous registration. Ask tournament staff to correct it.");
+          error.code = "team_roster_conflict";
+          error.statusCode = 409;
+          throw error;
+        }
         const existingIndex = (tournament.participants || []).findIndex((participant) =>
           normalizedEmail
             ? normalizeEmail(participant.email) === normalizedEmail
@@ -25353,6 +25567,15 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
 
         if (requiresSharedBackend()) {
           setFlash("error", getSharedBackendUnavailableMessage());
+          renderApp();
+          return;
+        }
+
+        const rosterConflict = getTournamentRegistrationRosterConflict(
+          tournament, teamName, institution, [email, ...teammates.map((teammate) => teammate.email)],
+        );
+        if (rosterConflict) {
+          setFlash("error", rosterConflict);
           renderApp();
           return;
         }
@@ -26670,9 +26893,10 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
       }
 
       async function persistTournamentMutationDurably(id, updater, successMessage, options = {}) {
+        localMutationVersion += 1;
         const previousState = clone(state);
         const previousSession = normalizeSessionRecord(session);
-        const maxAttempts = Math.max(1, Number(options.maxAttempts || 3));
+        const maxAttempts = 1;
         const errorMessage =
           String(options.errorMessage || "").trim() ||
           "The shared backend could not save that tournament change.";
@@ -27452,7 +27676,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
       function synchronizeTournamentTeamReferences(tournament) {
         tournament.teams = normalizeTeamsForTournament(tournament.teams, tournament);
         const teams = getTournamentTeams(tournament);
-        const teamById = new Map(teams.map((team) => [team.id, team]));
+        const resolveTeam = (reference) => {
+          const matches = teams.filter((team) => reference.id
+            ? team.id === reference.id
+            : getTeamIdentityKey(team) === getTeamIdentityKey(reference));
+          return matches.length === 1 ? matches[0] : null;
+        };
 
         tournament.participants = (tournament.participants || []).map((participant) => {
           const normalized = normalizeParticipantRecord(participant);
@@ -27462,9 +27691,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             institution: normalized.institution || "",
           });
           const linkedTeam =
-            (normalized.teamId && teamById.get(normalized.teamId)) ||
-            teams.find((team) => teamsLookEquivalent(team, teamReference)) ||
-            null;
+            resolveTeam({ ...teamReference, id: normalized.teamId || "" });
           if (!linkedTeam) {
             return normalized;
           }
@@ -27485,9 +27712,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
               publicAlias: slot.publicAlias || "",
             });
             const linkedTeam =
-              (slot.teamId && teamById.get(slot.teamId)) ||
-              teams.find((team) => teamsLookEquivalent(team, slotReference)) ||
-              null;
+              resolveTeam({ ...slotReference, id: slot.teamId || "" });
 
             if (linkedTeam) {
               return {
@@ -28638,6 +28863,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           ),
           8,
         );
+        if ((tournament.judgeAllocations || []).some((entry) => Number(entry.round) === round && entry.submittedAt) ||
+            (tournament.draw || []).some((entry) => Number(entry.round) === round && Object.keys(entry.officialResults || {}).length)) {
+          setFlash("error", "This round already has results. Correct its existing rooms and ballots instead of regenerating it.");
+          renderApp();
+          return;
+        }
         const previewPlan = getDrawGenerationPlan(
           tournament,
           roundProfile,
@@ -31886,6 +32117,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           session = loadStoredSession();
           pendingCloudSync = loadPendingCloudSyncRecord();
           state = await loadState();
+          await preparePendingCloudSyncReplay();
           await hydrateAuthAutofill();
           await applyUserAccessLinkFromUrl();
           updateCurrentUserRecord();
@@ -31906,6 +32138,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           if (hasPendingCloudSyncForCurrentSession() && session.cloudSessionToken) {
             queueCloudPersist({
               snapshot: pendingCloudSync.state,
+              expectedRevision: pendingCloudSync.baseRevision,
               skipSuccessRender: false,
             });
           }
