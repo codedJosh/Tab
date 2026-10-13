@@ -1,3 +1,4 @@
+import { registrationTeamSize } from "./frontend/tournament-rules.js";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -1100,22 +1101,7 @@ function getTournamentRegistrationAvailability(tournament, role = "debater") {
 }
 
 function getRegistrationTeamSize(tournament) {
-  if (String(tournament?.participantModel || "").toLowerCase() === "individuals") return 1;
-  const standardSizes = {
-    "British Parliamentary": 2,
-    "American Parliamentary": 2,
-    "JADE Parliamentary": 3,
-    "Iron Person British Parliamentary": 1,
-    "World Schools": 3,
-  };
-  const configuredSize = (format, size) => Math.max(
-    standardSizes[String(format || "").trim()] || 1,
-    Number.isFinite(Number(size)) && Number(size) > 0
-      ? Math.min(8, Math.max(1, Math.round(Number(size)))) : 1,
-  );
-  const baseSize = configuredSize(tournament?.format, tournament?.config?.teamSize);
-  return Math.max(baseSize, ...(tournament?.config?.roundProfiles || []).map((round) =>
-    configuredSize(round?.format || tournament?.format, round?.teamSize || tournament?.config?.teamSize)));
+  return registrationTeamSize(tournament);
 }
 
 function createTeamRecord(name, institution = "", extras = {}) {

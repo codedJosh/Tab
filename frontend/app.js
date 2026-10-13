@@ -1,3 +1,4 @@
+import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } from "./tournament-rules.js";
       const STORAGE_KEY = "debate-tab-advanced-v1";
       const SESSION_STORAGE_KEY = STORAGE_KEY + "-session";
       const AUTH_PREFS_STORAGE_KEY = STORAGE_KEY + "-auth-prefs";
@@ -5678,33 +5679,7 @@
           roundOrProfile && typeof roundOrProfile === "object"
             ? roundOrProfile
             : getRoundProfileForRound(tournament, roundOrProfile || 1);
-        const roundFormat = getRoundFormat(tournament, profile);
-        const preset = getFormatPreset(roundFormat);
-        const isStandardFormat = roundFormat !== "No Standard Format";
-        const baseTeamsPerRoom = isStandardFormat ? preset.teamsPerRoom : profile?.teamsPerRoom;
-        const baseTeamSize = isStandardFormat ? preset.teamSize : profile?.teamSize;
-        const baseSpeakersPerSide = isStandardFormat
-          ? preset.speakersPerSide
-          : profile?.speakersPerSide;
-
-        return {
-          format: roundFormat,
-          isStandardFormat,
-          teamsPerRoom: normalizeOptionalCount(
-            options.allowRoomOverride && !isStandardFormat
-              ? options.roomSizeOverride
-              : baseTeamsPerRoom,
-            normalizeOptionalCount(tournament?.config?.teamsPerRoom, 2),
-          ),
-          teamSize: normalizeOptionalCount(
-            baseTeamSize,
-            normalizeOptionalCount(tournament?.config?.teamSize, 1),
-          ),
-          speakersPerSide: normalizeOptionalCount(
-            baseSpeakersPerSide,
-            normalizeOptionalCount(tournament?.config?.speakersPerSide, 1),
-          ),
-        };
+        return resolveRoundStructure(tournament, profile, options);
       }
 
       function getDrawEntriesForTournament(tournament) {
@@ -11037,15 +11012,7 @@
       }
 
       function getRegistrationTeamSize(tournament) {
-        if (String(tournament?.participantModel || "").toLowerCase() === "individuals") return 1;
-        const configuredSize = (value) => normalizeOptionalCount(value, 0);
-        const rounds = getRoundProfiles(tournament);
-        return Math.max(
-          getEffectiveRoundStructure(tournament, null).teamSize || 1,
-          configuredSize(tournament?.config?.teamSize),
-          ...rounds.map((round) => getEffectiveRoundStructure(tournament, round).teamSize || 1),
-          ...(tournament?.config?.roundProfiles || []).map((round) => configuredSize(round.teamSize)),
-        );
+        return registrationTeamSize(tournament);
       }
 
       function getRegistrationTournamentOptionsMarkup(role = "debater", currentId = "") {
@@ -29368,57 +29335,33 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
       }
 
       function generateRandomTeams(tournamentId) {
-        if (!ensureTournamentManagerById(tournamentId)) return;
-
-        updateTournament(
-          tournamentId,
-          (tournament) => {
-            if (!tournament.config.randomTeamsAllowed) {
-              return tournament;
-            }
-
-            const participants = clone(tournament.participants);
-            for (let index = participants.length - 1; index > 0; index -= 1) {
-              const swapIndex = Math.floor(Math.random() * (index + 1));
-              const temp = participants[index];
-              participants[index] = participants[swapIndex];
-              participants[swapIndex] = temp;
-            }
-
-            const teamSize = Math.max(
-              1,
-              Number(getRoundProfileForRound(tournament, 1).teamSize) ||
-                Number(tournament.config.teamSize) ||
-                1,
-            );
-            const generatedTeams = [];
-            tournament.participants = participants.map((participant, index) => {
-              const teamNumber = Math.floor(index / teamSize) + 1;
-              let generatedTeam = generatedTeams[teamNumber - 1];
-              if (!generatedTeam) {
-                generatedTeam = createTeamRecord(tournament.code + " Random Team " + teamNumber, "", {
-                  source: "generated",
-                });
-                generatedTeams.push(generatedTeam);
-              }
-              return {
-                ...participant,
-                teamId: generatedTeam.id,
-                teamName: generatedTeam.name,
-              };
-            });
-            tournament.teams = [
-              ...(tournament.teams || []).filter(
-                (team) => !String(team.name || "").startsWith(tournament.code + " Random Team "),
-              ),
-              ...generatedTeams,
-            ];
-            synchronizeTournamentTeamReferences(tournament);
-
-            return addAudit(tournament, "Generated random teams for eligible participants.");
-          },
-          "Random teams generated.",
-        );
+        const tournament = ensureTournamentManagerById(tournamentId);
+        if (!tournament) return;
+        if (!tournament.config.randomTeamsAllowed) {
+          setFlash("error", "Enable random teams in Setup first."); renderApp(); return;
+        }
+        if ((tournament.draw || []).length) {
+          setFlash("error", "Teams cannot be generated after a draw exists."); renderApp(); return;
+        }
+        const teamSize = getEffectiveRoundStructure(tournament, 1).teamSize;
+        const available = unassignedParticipants(tournament);
+        if (!available.length || available.length % teamSize !== 0) {
+          setFlash("error", "Assign " + available.length + " unassigned speakers into complete teams of " + teamSize + "."); renderApp(); return;
+        }
+        updateTournament(tournamentId, (current) => {
+          const participants = shuffleEntries(unassignedParticipants(current));
+          const assignments = new Map();
+          chunkEntries(participants, teamSize).forEach((roster) => {
+            const team = createTeamRecord(current.code + " Team " + ((current.teams || []).length + 1), "", {source: "manual"});
+            current.teams = [...(current.teams || []), team];
+            roster.forEach(person => assignments.set(person.id, team));
+          });
+          current.participants = current.participants.map(person => {
+            const team = assignments.get(person.id);
+            return team ? {...person, teamId: team.id, teamName: team.name} : person;
+          });
+          return addAudit(current, "Assigned unlinked speakers to teams.");
+        }, "Teams created.", {forceCloud: true});
       }
 
       function submitJudgeBallot(tournamentId, allocationId, formData) {
