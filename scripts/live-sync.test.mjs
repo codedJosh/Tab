@@ -15,6 +15,7 @@ function setup(serverRevision) {
   const requests = [];
   let refreshes = 0;
   const context = vm.createContext({
+    URL, window: {location: {href: "http://localhost/"}},
     cloudRuntime: { revision: 10, endpoint: "/api" },
     session: { cloudSessionToken: "test-session" },
     WORKSPACE_CONTRACT_VERSION: "test-contract",

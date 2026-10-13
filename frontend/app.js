@@ -1,3 +1,5 @@
+import { privateVisibility } from "./public-workspace.js";
+import { tournamentChanges } from "./tournament-patch.js";
 import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } from "./tournament-rules.js";
       const STORAGE_KEY = "debate-tab-advanced-v1";
       const SESSION_STORAGE_KEY = STORAGE_KEY + "-session";
@@ -532,6 +534,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       let cloudSyncConflictGeneration = 0;
       let cloudSyncRequiresRefresh = false;
       let localMutationVersion = 0;
+      let tournamentMutationQueue = Promise.resolve();
       let localStateSaveTimer = null;
       let pendingSessionHistoryMode = "replace";
       let suppressSessionHistorySync = false;
@@ -1293,7 +1296,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 
       function canRunLiveSharedRefresh() {
         const now = Date.now();
-        if (!getCurrentUser() || !session.cloudSessionToken) {
+        const privateToken = new URL(window.location.href).searchParams.get("token");
+        if (!privateToken && (!getCurrentUser() || !session.cloudSessionToken)) {
           return false;
         }
         if (document.visibilityState === "hidden") {
@@ -1305,9 +1309,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         // renderApp preserves tracked drafts; an abandoned draft must not
         // prevent live registrations from appearing for the rest of the session.
         const token = String(new URL(window.location.href).searchParams.get("token") || "").trim();
-        if (token) {
-          return false;
-        }
         if (hasEditableFocus()) {
           return false;
         }
@@ -1325,6 +1326,11 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         }
         lastLiveSyncAt = now;
 
+        if (new URL(window.location.href).searchParams.get("token")) {
+          const latest = await getCloudBootstrapState();
+          if (latest) { state = latest; renderApp(); return true; }
+          return false;
+        }
         if (!force) {
           const currentRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
           const latestRevision = await getCloudWorkspaceRevision();
@@ -2171,7 +2177,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         return next;
       }
 
-      function normalizeUserRecord(user = {}) {
+      function normalizeUserRecord(user = {}, { scopedMember = state?.accountScope === "member" } = {}) {
         const createdAt = String(user.createdAt || timestamp()).trim();
         return {
           id: String(user.id || createId("user")).trim(),
@@ -2189,7 +2195,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           lastLoginAt: String(user.lastLoginAt || "").trim(),
           active: user.active !== false,
           privateAccessToken: String(
-            user.privateAccessToken || user.accessToken || createId("access"),
+            user.privateAccessToken || user.accessToken || (scopedMember ? "" : createId("access")),
           ).trim(),
           privateAccessIssuedAt: String(user.privateAccessIssuedAt || createdAt).trim(),
           lastPrivateAccessAt: String(user.lastPrivateAccessAt || "").trim(),
@@ -8347,7 +8353,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         }
 
         try {
-          const result = await callCloud("bootstrap", {}, {
+          const result = await callCloud("bootstrap", {privateToken: new URL(window.location.href).searchParams.get("token") || ""}, {
             timeoutMs: CLOUD_BOOT_REQUEST_TIMEOUT_MS,
           });
           if (typeof result?.initialized === "boolean") {
@@ -11638,6 +11644,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   active: true,
                 }
               : user,
+            { scopedMember: next.accountScope === "member" },
           ),
         );
         const recoveryTimestamp = Date.now();
@@ -11812,6 +11819,12 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       }
 
       async function loadState() {
+        const privateToken = new URL(window.location.href).searchParams.get("token");
+        if (privateToken && requiresSharedBackend()) {
+          session.userEmail = "";
+          session.cloudSessionToken = "";
+          return await getCloudBootstrapState() || buildHostedBlankState();
+        }
         const cloudState = await getCloudAuthenticatedState();
         if (cloudState) {
           return cloudState;
@@ -12294,20 +12307,18 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       }
 
       function getPrivateLink(token) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("access");
-        url.searchParams.delete("screen");
-        clearWorkspaceRouteParams(url);
+        const url = new URL(getDashboardLink());
         url.searchParams.set("token", token);
         return url.toString();
       }
 
-      function getUserAccessLink(token) {
-        const url = new URL(window.location.href);
+      function getUserAccessLink(token, tournamentId = "") {
+        const url = new URL(getDashboardLink());
         url.searchParams.delete("token");
         url.searchParams.delete("screen");
         clearWorkspaceRouteParams(url);
         url.searchParams.set("access", token);
+        if (tournamentId) url.searchParams.set("event", tournamentId);
         return url.toString();
       }
 
@@ -12594,10 +12605,16 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           return false;
         }
 
+        const requestedTournamentId = String(url.searchParams.get("event") || "").trim();
+        session.userEmail = "";
+        session.cloudSessionToken = "";
+        session.managedTournamentId = "";
+        session.selectedTournamentId = "";
+        saveSession();
         if (await probeCloudBackend(true)) {
           try {
             const result = await callCloud("access_link", {
-              token,
+              token, tournamentId: requestedTournamentId,
             });
             cloudRuntime.initialized = true;
             state = await rehydrateState(result.state);
@@ -12609,6 +12626,12 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
             session.view = getPreferredLandingView(session.userEmail);
             session.managedTournamentId = "";
             session.selectedTournamentId = "";
+            const requestedTournament = state.tournaments.find(entry => entry.id === requestedTournamentId);
+            if (requestedTournament && getTournamentJudges(requestedTournament).some(judge => normalizeEmail(judge.email) === session.userEmail)) {
+              session.view = "tournaments";
+              session.selectedTournamentId = requestedTournament.id;
+              session.selectedTournamentBoardTab = "overview";
+            }
             clearFlash();
             saveState();
             saveSession();
@@ -12627,6 +12650,10 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           }
         }
 
+        if (requiresSharedBackend()) {
+          setFlash("error", "Cannot verify this link while the server is unavailable. Try again when connected.");
+          return false;
+        }
         const user = getUserByAccessToken(token);
         url.searchParams.delete("access");
         clearWorkspaceRouteParams(url);
@@ -12784,6 +12811,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           .filter(
             (user) =>
               user.active &&
+              !isSystemAdmin(user.email) &&
               (canReviewAll || normalizeEmail(user.email) === target),
           )
           .sort((left, right) => {
@@ -13306,9 +13334,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         if (matchingEntries.length) {
           return matchingEntries[0];
         }
-        return [...(tournament.draw || [])]
-          .filter((entry) => String(entry.status || "").trim().toLowerCase() === "published")
-          .sort((left, right) => Number(right.round || 0) - Number(left.round || 0))[0] || null;
+        return null;
       }
 
       function getParticipantOfficialFeedbackForDrawEntry(tournament, participant, drawEntry) {
@@ -14685,17 +14711,14 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 
         const canShowStandings =
           tournament.publication.showPublicStandings ||
-          tournament.publication.showStandingsInPrivatePortal ||
-          state.appSettings.portal.showStandingsInPrivatePortal;
+          privateVisibility(tournament, state.appSettings, "showStandingsInPrivatePortal");
         const canShowSpeakerBoard =
           canShowStandings && canViewSpeakerBoard(tournament);
         const canShowDraw =
           tournament.publication.showPublicDraw ||
-          tournament.publication.showDrawInPrivatePortal ||
-          state.appSettings.portal.showDrawInPrivatePortal;
+          privateVisibility(tournament, state.appSettings, "showDrawInPrivatePortal");
         const canShowFeedback =
-          tournament.publication.showFeedbackInPrivatePortal ||
-          state.appSettings.portal.showFeedbackInPrivatePortal;
+          privateVisibility(tournament, state.appSettings, "showFeedbackInPrivatePortal");
         const standing = findStandingForParticipant(tournament, participant);
         const speakerStanding = getSpeakerStandingForParticipant(tournament, participant);
         const speakerScore = getParticipantComputedSpeakerScore(tournament, participant);
@@ -23115,7 +23138,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                         ${judgeRecords
                           .map(({ tournament, judge, user }) => {
                             const link = user?.privateAccessToken
-                              ? getUserAccessLink(user.privateAccessToken)
+                              ? getUserAccessLink(user.privateAccessToken, tournament.id)
                               : "";
                             return `
                               <details class="portal-link-item">
@@ -24331,19 +24354,16 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         const compactLayout = state.appSettings.portal.compactLayout;
         const canShowStandings =
           tournament.publication.showPublicStandings ||
-          tournament.publication.showStandingsInPrivatePortal ||
-          state.appSettings.portal.showStandingsInPrivatePortal;
+          privateVisibility(tournament, state.appSettings, "showStandingsInPrivatePortal");
         const canShowSpeakerBoard =
           canShowStandings && canViewSpeakerBoard(tournament);
         const canShowTeamBoard =
           canShowStandings && canViewTeamBoard(tournament);
         const canShowDraw =
           tournament.publication.showPublicDraw ||
-          tournament.publication.showDrawInPrivatePortal ||
-          state.appSettings.portal.showDrawInPrivatePortal;
+          privateVisibility(tournament, state.appSettings, "showDrawInPrivatePortal");
         const canShowFeedback =
-          tournament.publication.showFeedbackInPrivatePortal ||
-          state.appSettings.portal.showFeedbackInPrivatePortal;
+          privateVisibility(tournament, state.appSettings, "showFeedbackInPrivatePortal");
         const teamPointStandings = usesTeamPointStandings(tournament);
         const standingRecord = findStandingForParticipant(tournament, participant);
         const speakerStanding = getSpeakerStandingForParticipant(tournament, participant);
@@ -26814,6 +26834,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
       }
 
       async function persistTournamentMutationDurably(id, updater, successMessage, options = {}) {
+        await flushCloudPersistQueue();
         localMutationVersion += 1;
         const previousState = clone(state);
         const previousSession = normalizeSessionRecord(session);
@@ -26843,9 +26864,18 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           }
 
           try {
-            await persistStateToCloudNow({
-              skipRender: true,
-            });
+            const before = previousState.tournaments.find(entry => entry.id === id);
+            const after = state.tournaments.find(entry => entry.id === id);
+            if (session.cloudSessionToken) {
+              const result = await callCloud("patch_tournament", {
+                sessionToken: session.cloudSessionToken,
+                tournamentId: id,
+                changes: tournamentChanges(before, after),
+              });
+              state = await rehydrateState(result.state);
+            } else {
+              await persistStateToCloudNow({skipRender:true});
+            }
             setFlash("success", successMessage);
             saveState();
             saveSession();
@@ -26881,9 +26911,10 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
       }
 
       function updateTournamentWithOptions(id, updater, successMessage, options = {}) {
-        const forceCloud = options.forceCloud === true;
+        const forceCloud = options.forceCloud === true || Boolean(session.cloudSessionToken);
         if (forceCloud) {
-          void persistTournamentMutationDurably(id, updater, successMessage, options);
+          tournamentMutationQueue = tournamentMutationQueue.catch(() => {}).then(() =>
+            persistTournamentMutationDurably(id, updater, successMessage, options));
           return;
         }
 
@@ -28706,6 +28737,15 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         );
       }
 
+      async function savePrivateEntryCommand(privateToken, command, message) {
+        try {
+          const result = await callCloud("private_entry_command", {privateToken, command});
+          state = await rehydrateState(result.state);
+          setFlash("success", message);
+        } catch (error) { setFlash("error", error.message || "The change could not be saved."); }
+        renderApp();
+      }
+
       function togglePrivateParticipantCheckIn(token, tournamentId, drawId, participantId) {
         const access = findPrivateAccess(token);
         if (!access || access.tournament.id !== tournamentId || access.participant.id !== participantId) {
@@ -28734,6 +28774,11 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         }
 
         const currentlyCheckedIn = Boolean(drawEntry.entryCheckIns?.[slotKey]);
+        if (requiresSharedBackend()) {
+          void savePrivateEntryCommand(token, {kind:"check_in", drawId, checkedIn:!currentlyCheckedIn}, "Check-in saved.");
+          return;
+        }
+
         updateTournament(
           tournamentId,
           (tournament) => {
@@ -29748,6 +29793,11 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           return;
         }
 
+        const privateToken = new URL(window.location.href).searchParams.get("token");
+        if (privateToken && requiresSharedBackend()) {
+          void savePrivateEntryCommand(privateToken, {kind:"judge_feedback", allocationId, rating, note}, "Feedback sent to tournament staff.");
+          return;
+        }
         updateTournament(
           tournamentId,
           (currentTournament) => {
@@ -31113,7 +31163,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             );
             if (
               !isListedJudge ||
-              (!isSystemAdmin() && email !== normalizeEmail(session.userEmail))
+              (!canManageTournament(tournament) && email !== normalizeEmail(session.userEmail))
             ) {
               setFlash("error", "This judge link is not available to your account.");
               renderApp();
@@ -31127,7 +31177,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             }
             await flushCloudPersistQueue();
             await copyTextToClipboard(
-              getUserAccessLink(user.privateAccessToken),
+              getUserAccessLink(user.privateAccessToken, tournament.id),
               "Judge access link copied to the clipboard.",
             );
             return;
@@ -32014,7 +32064,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           session = loadStoredSession();
           pendingCloudSync = loadPendingCloudSyncRecord();
           state = await loadState();
-          await preparePendingCloudSyncReplay();
+          if (!new URL(window.location.href).searchParams.get("token")) await preparePendingCloudSyncReplay();
           await hydrateAuthAutofill();
           await applyUserAccessLinkFromUrl();
           updateCurrentUserRecord();

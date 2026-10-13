@@ -1,3 +1,5 @@
+import { publicWorkspace, applyPrivateEntryCommand, judgeWorkspace, memberWorkspace } from "./frontend/public-workspace.js";
+import { applyTournamentChanges } from "./frontend/tournament-patch.js";
 import { registrationTeamSize } from "./frontend/tournament-rules.js";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -354,6 +356,7 @@ async function ensureStorageSchema() {
         expires_at timestamptz not null
       )
     `);
+    await client.query("alter table jade_sessions add column if not exists access_scope jsonb");
     await client.query(`
       create index if not exists jade_sessions_workspace_idx
       on jade_sessions (workspace_id)
@@ -1647,9 +1650,9 @@ function isSystemAdmin(state, email) {
   );
 }
 
-function assertScoringPersistAuthorization(previousState, nextState, actorEmail) {
+function assertScoringPersistAuthorization(previousState, nextState, actorEmail, restrictedJudge = false) {
   const actor = normalizeEmail(actorEmail);
-  if (isSystemAdmin(previousState, actor)) return;
+  if (!restrictedJudge && isSystemAdmin(previousState, actor)) return;
   const forbidden = () => {
     const error = new Error("This account cannot change tournament scoring or access rules.");
     error.statusCode = 403;
@@ -1688,7 +1691,7 @@ function assertScoringPersistAuthorization(previousState, nextState, actorEmail)
       ...(previous.permissions?.tabManagerEmails || []),
       ...(previous.permissions?.caTeamEmails || []),
     ];
-    if (normalizeEmail(previous.ownerEmail) === actor || managers.some((email) => normalizeEmail(email) === actor)) {
+    if (!restrictedJudge && (normalizeEmail(previous.ownerEmail) === actor || managers.some((email) => normalizeEmail(email) === actor))) {
       continue;
     }
     if (!equal(previous.ownerEmail, next.ownerEmail) ||
@@ -2149,7 +2152,7 @@ async function purgeExpiredSessions(client) {
   await client.query("delete from jade_sessions where expires_at <= now()");
 }
 
-async function issueSession(client, email) {
+async function issueSession(client, email, scope = null) {
   const token = createSessionToken();
   const tokenHash = hashSessionToken(token);
   const id = createId("session");
@@ -2157,10 +2160,10 @@ async function issueSession(client, email) {
 
   await client.query(
     `
-      insert into jade_sessions (id, workspace_id, email, token_hash, expires_at)
-      values ($1, $2, $3, $4, $5)
+      insert into jade_sessions (id, workspace_id, email, token_hash, expires_at, access_scope)
+      values ($1, $2, $3, $4, $5, $6::jsonb)
     `,
-    [id, WORKSPACE_ID, normalizeEmail(email), tokenHash, expiresAt],
+    [id, WORKSPACE_ID, normalizeEmail(email), tokenHash, expiresAt, scope ? JSON.stringify(scope) : null],
   );
 
   return token;
@@ -2172,7 +2175,7 @@ async function getSession(client, token) {
   const tokenHash = hashSessionToken(token);
   const result = await client.query(
     `
-      select id, workspace_id, email, expires_at
+      select id, workspace_id, email, expires_at, access_scope
       from jade_sessions
       where token_hash = $1 and workspace_id = $2
       limit 1
@@ -2284,9 +2287,8 @@ function buildUserAccessUrl(request, token, options = {}) {
   url.searchParams.delete("tab");
   url.searchParams.delete("section");
   url.searchParams.delete("access");
-  if (targetToken) {
-    url.searchParams.set("access", targetToken);
-  }
+  if (targetToken) url.searchParams.set("access", targetToken);
+  if (options.tournamentId && normalizePrivateAccessEmailReason(options.reason) === "judge_registration") url.searchParams.set("event", String(options.tournamentId));
   return url.toString();
 }
 
@@ -2537,7 +2539,7 @@ async function sendPrivateAccessEmail({
   }
 
   const accessUrl = buildUserAccessUrl(request, targetUser.privateAccessToken, {
-    portal: portalKey,
+    portal: portalKey, tournamentId, reason: reasonKey,
   });
   const tournamentNames = listRecipientTournamentNames(state, targetUser, tournamentId);
   const emailCopy = buildPrivateAccessEmailCopy({
@@ -3020,6 +3022,30 @@ app.post("/api", async (request, response) => {
   const action = String(request.body?.action || "").trim();
 
   try {
+    if (request.body?.sessionToken) {
+      const client = await pool.connect();
+      try {
+        const session = await getSession(client, request.body.sessionToken);
+        if (session?.access_scope?.role === "judge" || (session?.access_scope?.role === "member" && session.access_scope.accessTokenHash)) {
+          if (session.access_scope.role === "judge" && !["get_state","get_revision","patch_tournament"].includes(action)) throw Object.assign(new Error("This judge link only permits tournament and ballot actions."), {statusCode:403});
+          const workspace = await readWorkspaceRecord(client);
+          const user = workspace?.state.users.find(u=>u.email===session.email);
+          if (!user?.active || hashSessionToken(user.privateAccessToken) !== session.access_scope.accessTokenHash) throw Object.assign(new Error("This private link was revoked. Request a new link."),{statusCode:401,code:"invalid_session"});
+        }
+      } finally { client.release(); }
+    }
+
+    if (action === "private_entry_command") {
+      const token = String(request.body?.privateToken || "");
+      const result = await withTransaction(async client => {
+        const workspace = await readWorkspaceRecord(client, {forUpdate:true});
+        applyPrivateEntryCommand(workspace.state, token, request.body?.command || {});
+        const saved = await writeWorkspaceState(client, workspace.state, {expectedRevision:workspace.revision});
+        return {...saved, state:publicWorkspace(saved.state, token)};
+      });
+      sendStatePayload(response, 200, result);
+      return;
+    }
     if (action === "bootstrap") {
       const client = await pool.connect();
       try {
@@ -3027,7 +3053,7 @@ app.post("/api", async (request, response) => {
         sendJson(response, 200, {
           ok: true,
           initialized: Boolean(workspace?.state),
-          state: workspace?.state || null,
+          state: publicWorkspace(workspace?.state, String(request.body?.privateToken || "")),
           revision: normalizeWorkspaceRevision(workspace?.revision),
         });
         return;
@@ -3086,9 +3112,10 @@ app.post("/api", async (request, response) => {
           });
           revision = nextWorkspace.revision;
         }
-        const sessionToken = await issueSession(client, email);
+        const scopedAccount = !isSystemAdmin(state, email);
+        const sessionToken = await issueSession(client, email, scopedAccount ? {role:"member", email} : null);
         return {
-          state,
+          state: scopedAccount ? memberWorkspace(state,email) : state,
           revision,
           sessionToken,
         };
@@ -3511,7 +3538,7 @@ app.post("/api", async (request, response) => {
       const token = String(request.body?.token || "").trim();
 
       const result = await withTransaction(async (client) => {
-        const workspace = await readWorkspaceRecord(client);
+        const workspace = await readWorkspaceRecord(client, {forUpdate:true});
         const state = workspace?.state;
         if (!state) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
@@ -3535,15 +3562,21 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
+        const tournamentId = String(request.body?.tournamentId || "").trim();
+        const systemAdmin = isSystemAdmin(state,user.email);
+        if (systemAdmin && !tournamentId) throw Object.assign(new Error("Use your password to sign in to this account."),{statusCode:403,code:"password_sign_in_required"});
+
         user.lastLoginAt = nowText();
         user.lastPrivateAccessAt = nowText();
 
         const nextWorkspace = await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });
-        const sessionToken = await issueSession(client, user.email);
+        const scopedState = tournamentId ? judgeWorkspace(nextWorkspace.state, user.email, tournamentId) : null;
+        const memberScope = systemAdmin ? null : {role:"member",email:user.email,accessTokenHash:hashSessionToken(token)};
+        const sessionToken = await issueSession(client, user.email, tournamentId ? {role:"judge",tournamentId,accessTokenHash:hashSessionToken(token)} : memberScope);
         return {
-          state: nextWorkspace.state,
+          state: scopedState || (memberScope ? memberWorkspace(nextWorkspace.state,user.email,{includeJudgeWorkspaces:false}) : nextWorkspace.state),
           revision: nextWorkspace.revision,
           sessionToken,
           userEmail: user.email,
@@ -3673,7 +3706,7 @@ app.post("/api", async (request, response) => {
         }
 
         return {
-          state,
+          state: session.access_scope?.role === "judge" ? judgeWorkspace(state, session.email, session.access_scope.tournamentId) : session.access_scope?.role === "member" ? memberWorkspace(state, session.email,{includeJudgeWorkspaces:!session.access_scope.accessTokenHash}) : state,
           revision: workspace.revision,
         };
       });
@@ -3715,6 +3748,37 @@ app.post("/api", async (request, response) => {
       return;
     }
 
+    if (action === "patch_tournament") {
+      const result = await withTransaction(async (client) => {
+        const session = await getSession(client, String(request.body?.sessionToken || ""));
+        if (!session) throw Object.assign(new Error("Sign in again."), {statusCode:401, code:"invalid_session"});
+        const workspace = await readWorkspaceRecord(client, {forUpdate:true});
+        const current = workspace?.state;
+        const user = current?.users.find(entry => entry.email === normalizeEmail(session.email));
+        if (!user?.active) throw Object.assign(new Error("Account unavailable."), {statusCode:403});
+        if (session.access_scope?.role === "judge" && session.access_scope.tournamentId !== request.body?.tournamentId) throw Object.assign(new Error("This link belongs to a different tournament."),{statusCode:403});
+        const index = current.tournaments.findIndex(entry => entry.id === request.body?.tournamentId);
+        if (index < 0) throw Object.assign(new Error("Tournament not found."), {statusCode:404});
+        if (session.access_scope?.role === "member" && isSystemAdmin(current,session.email)) throw Object.assign(new Error("Your account access changed. Sign in again to refresh permissions."),{statusCode:401,code:"invalid_session"});
+        if (session.access_scope?.role === "member") {
+          const tournament=current.tournaments[index], actor=normalizeEmail(session.email);
+          const staffKeys=["managerEmails","tabManagerEmails","tabDirectorEmails","caTeamEmails","tournamentDirectorEmails","convenorEmails","registrationOfficerEmails","financeOfficerEmails","equityOfficerEmails"];
+          const canManage=normalizeEmail(tournament.ownerEmail)===actor || staffKeys.some(key=>(tournament.permissions?.[key] || []).some(value=>normalizeEmail(value)===actor));
+          const isJudge=(tournament.judges || []).some(entry=>normalizeEmail(entry.email)===actor);
+          if (!canManage && !(isJudge && !session.access_scope.accessTokenHash)) throw Object.assign(new Error("This account cannot edit tournament records."),{statusCode:403});
+        }
+        const next = structuredClone(current);
+        try { next.tournaments[index] = applyTournamentChanges(current.tournaments[index], request.body?.changes); }
+        catch (error) { error.statusCode = error.code === "edit_conflict" ? 409 : 422; throw error; }
+        if (next.tournaments[index].id !== current.tournaments[index].id) throw Object.assign(new Error("Tournament identity cannot change."), {statusCode:422});
+        assertScoringPersistAuthorization(current, next, session.email, session.access_scope?.role === "judge");
+        const saved = await writeWorkspaceState(client, next, {expectedRevision:workspace.revision});
+        return session.access_scope?.role === "judge" ? {...saved,state:judgeWorkspace(saved.state,session.email,session.access_scope.tournamentId)} : session.access_scope?.role === "member" ? {...saved,state:memberWorkspace(saved.state,session.email,{includeJudgeWorkspaces:!session.access_scope.accessTokenHash})} : saved;
+      });
+      sendStatePayload(response, 200, result);
+      return;
+    }
+
     if (action === "persist") {
       const sessionToken = String(request.body?.sessionToken || "").trim();
       const incomingState = request.body?.state;
@@ -3726,6 +3790,7 @@ app.post("/api", async (request, response) => {
       }
 
       assertWorkspaceContract(incomingState, "persist payload");
+      if (incomingState.readOnlyProjection) throw Object.assign(new Error("This view cannot replace the shared workspace."), {statusCode:403});
 
       const result = await withTransaction(async (client) => {
         const session = await getSession(client, sessionToken);
@@ -3736,7 +3801,7 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
-        const workspace = await readWorkspaceRecord(client);
+        const workspace = await readWorkspaceRecord(client, {forUpdate:true});
         const currentState = workspace?.state;
         if (!currentState) {
           const error = new Error("The shared backend workspace has not been initialized yet.");
@@ -3757,6 +3822,20 @@ app.post("/api", async (request, response) => {
           throw error;
         }
 
+        if (session.access_scope?.role === "member") {
+          const projectedUser=(incomingState.users || []).find(entry=>normalizeEmail(entry.email)===normalizeEmail(session.email));
+          if (!projectedUser) throw Object.assign(new Error("The account preference update is invalid."),{statusCode:403});
+          const nextState=structuredClone(currentState);
+          const target=nextState.users.find(entry=>normalizeEmail(entry.email)===normalizeEmail(session.email));
+          const landing=String(projectedUser.preferredLandingView || "").trim().slice(0,64);
+          if (landing) target.preferredLandingView=landing;
+          for (const key of ["pinnedTournamentIds","archivedTournamentIds","deletedTournamentIds"]) {
+            target[key]=normalizeStringList(projectedUser[key],key==="pinnedTournamentIds" ? 12 : 200);
+          }
+          const saved=await writeWorkspaceState(client,nextState,{expectedRevision});
+          return {revision:saved.revision,notifications:[],state:memberWorkspace(saved.state,session.email,{includeJudgeWorkspaces:!session.access_scope.accessTokenHash})};
+        }
+        if (session.access_scope) throw Object.assign(new Error("This account must save changes through its tournament records."),{statusCode:403,code:"patch_required"});
         assertScoringPersistAuthorization(currentState, nextState, session.email);
 
         const notifications = await deliverPersistPrivateAccessEmails({
