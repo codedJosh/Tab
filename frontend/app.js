@@ -205,8 +205,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       const PASSWORD_HASH_VERSION = "pbkdf2-sha256-v1";
       const PASSWORD_HASH_ITERATIONS = 210000;
       const PASSWORD_SALT_BYTES = 16;
-      const JADE_LOGO_SRC = "jade-logo.jpg";
-      const JADE_LANDING_LOGO_SRC = "jade-landing-logo.png";
+      const JADE_LOGO_SRC = "jade-landing-logo.png";
+      const JADE_LANDING_LOGO_SRC = JADE_LOGO_SRC;
       const MAX_TOURNAMENT_ROUNDS = 20;
       const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const STARTUP_SPLASH_STORAGE_KEY = "hummingbird-startup-splash-seen-v1";
@@ -12793,45 +12793,22 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         };
       }
 
-      function getUserAccessLinkRecords(email = session.userEmail) {
-        const target = normalizeEmail(email);
-        const canReviewAll = isSystemAdmin(email);
+      function getUserAccessLinkRecords() {
+        const target = normalizeEmail(session.userEmail);
+        if (!target) {
+          return [];
+        }
         return state.users
           .filter(
             (user) =>
               user.active &&
-              !isSystemAdmin(user.email) &&
-              (canReviewAll || normalizeEmail(user.email) === target),
+              Boolean(user.privateAccessToken) &&
+              normalizeEmail(user.email) === target,
           )
-          .sort((left, right) => {
-            if (normalizeEmail(left.email) === normalizeEmail(MANAGER_EMAIL)) {
-              return -1;
-            }
-            if (normalizeEmail(right.email) === normalizeEmail(MANAGER_EMAIL)) {
-              return 1;
-            }
-            return String(left.name || left.email).localeCompare(
-              String(right.name || right.email),
-            );
-          })
           .map((user) => ({
             user,
             link: getUserAccessLink(user.privateAccessToken),
           }));
-      }
-
-      function getFilteredUserAccessLinkRecords(records = getUserAccessLinkRecords()) {
-        const query = String(session.linksAccountQuery || "").trim();
-        return (Array.isArray(records) ? records : []).filter(({ user, link }) =>
-          matchesCollectionQuery(query, [
-            user?.name,
-            user?.email,
-            user?.globalRole,
-            user?.regionalRole,
-            user?.regionalRegion,
-            link,
-          ]),
-        );
       }
 
       function getPrivateAccessDeliveryWarning(notifications = []) {
@@ -12866,7 +12843,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                 ${eyebrow ? `<p class="eyebrow">${escapeHtml(eyebrow)}</p>` : ""}
                 <${headingTag}>${escapeHtml(title)}</${headingTag}>
               </div>
-              <span class="role-pill">${escapeHtml(totalCount)} available</span>
+              ${title === "Your account link" ? "" : `<span class="role-pill">${escapeHtml(totalCount)} available</span>`}
             </div>
             ${toolbarMarkup}
             ${
@@ -12877,17 +12854,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                         const accessUser = user || {};
                         const displayName = accessUser.name || accessUser.email || "Private account";
                         const email = accessUser.email || "";
-                        const issuedAt =
-                          accessUser.privateAccessIssuedAt || accessUser.createdAt || "Recently";
-                        const lastUsed = accessUser.lastPrivateAccessAt
-                          ? " • Last used " + escapeHtml(accessUser.lastPrivateAccessAt)
-                          : "";
                         const roleLabel = toTitleLabel(accessUser.globalRole || "member");
                         const cardBody = `
-                          <a class="token-link" href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${escapeHtml(
-                            link,
-                          )}</a>
-                          <p class="fine-print">Issued ${escapeHtml(issuedAt)}${lastUsed}</p>
+                          <a class="private-link-open" href="${escapeHtml(link)}" target="_blank" rel="noreferrer">Open account page <span aria-hidden="true">↗</span></a>
                           <div class="button-row private-link-actions">
                             <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
                               email,
@@ -13813,7 +13782,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   </div>
                   <div class="public-hero-content">
                     <div class="public-hero-title-lockup public-hero-brand-stack">
-                      <img class="public-hero-jade-logo" src="jade-landing-logo.png" alt="JADE logo" />
+                      <img class="public-hero-jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE logo" />
                       <div class="public-hero-title-copy">
                         <h1>Hummingbird</h1>
                       </div>
@@ -14120,7 +14089,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   <div class="stack">
                     <div class="registration-brand">
                       <img src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird" />
-                      <span>JADE Hummingbird</span>
+                      <span>Hummingbird</span>
                     </div>
                     <div>
                       <p class="eyebrow">Tournament registration</p>
@@ -14179,7 +14148,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                     <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
                                   </label>
                                 </div>
-                                <p class="registration-password-help">Use your current password if you already have an account. New passwords need at least ${escapeHtml(minimumPasswordLength)} characters. ${isJudge ? "This password is for your account only." : "This password is for your account; teammates receive separate links by email."}</p>
+                                <p class="registration-password-help">Use your current password if you have an account; otherwise, choose at least ${escapeHtml(minimumPasswordLength)} characters.${isJudge ? "" : " Each teammate gets a separate link."}</p>
                                 <div class="field-grid two">
                                   <label>
                                     Your password
@@ -14291,7 +14260,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   </div>
                   <div class="public-hero-content">
                     <div class="public-hero-title-lockup public-hero-brand-stack">
-                      <img class="public-hero-jade-logo" src="jade-landing-logo.png" alt="JADE logo" />
+                      <img class="public-hero-jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE logo" />
                       <div class="public-hero-title-copy">
                         <h1>Hummingbird</h1>
                       </div>
@@ -17452,9 +17421,9 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             render: () =>
               renderAdminDrawer(
                 "Tournament Setup",
-                getTournamentSetupBadgeLabel(tournament),
+                "",
                 renderTournamentSettingsPanel(tournament, feedbackCategories, scoringProfile),
-                { eyebrow: "Configuration", open: true },
+                { open: true },
               ),
           },
           {
@@ -20816,6 +20785,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         }
 
         const isManagerUser = normalizeEmail(user.email) === normalizeEmail(MANAGER_EMAIL);
+        const isCurrentUser = normalizeEmail(user.email) === normalizeEmail(session.userEmail);
         const historicalTournamentCount = normalizeStringList(user.registeredTournamentIds, 200).length;
         const joinedLabel = user.createdAt || "Unknown";
         const createdByLabel = user.createdBy
@@ -20909,14 +20879,14 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
               canAccessGlobalSettings() && !isManagerUser
                 ? `
                   <div class="button-row wrap-row">
-                    <a class="secondary-button inline-link people-private-link" href="${escapeHtml(
-                      getUserAccessLink(user.privateAccessToken),
-                    )}" target="_blank" rel="noreferrer" title="${escapeAttributeValue(
-                      getUserAccessLink(user.privateAccessToken),
-                    )}">Private URL</a>
-                    <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
-                      user.email,
-                    )}">Copy Link</button>
+                    ${isCurrentUser ? `
+                      <a class="secondary-button inline-link people-private-link" href="${escapeHtml(
+                        getUserAccessLink(user.privateAccessToken),
+                      )}" target="_blank" rel="noreferrer">My account link</a>
+                      <button class="secondary-button" type="button" data-action="copy-user-access-link" data-email="${escapeHtml(
+                        user.email,
+                      )}">Copy my link</button>
+                    ` : ""}
                     <button class="secondary-button" type="button" data-action="rotate-user-access-link" data-email="${escapeHtml(
                       user.email,
                     )}">Rotate</button>
@@ -22990,7 +22960,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           18,
         );
         const accountRecords = getPagedCollection(
-          getFilteredUserAccessLinkRecords(getUserAccessLinkRecords()),
+          getUserAccessLinkRecords(),
           session.linksAccountPage,
           12,
         );
@@ -23002,7 +22972,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                   <h2>Private links</h2>
                 </div>
                 <div class="workspace-chip-row">
-                  <span class="role-pill">${escapeHtml(accountRecords.totalRecords)} account links</span>
                   <span class="role-pill">${escapeHtml(records.totalRecords)} tournament links</span>
                   <span class="role-pill">${escapeHtml(availableJudgeLinks)} judge links</span>
                 </div>
@@ -23010,20 +22979,14 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             </section>
             <div class="private-links-sections">
               ${renderUserAccessLinksSection({
-                title: "Account links",
+                title: "Your account link",
                 eyebrow: "",
                 records: accountRecords.items,
                 totalCount: accountRecords.totalRecords,
                 compact: true,
                 headingTag: "h3",
                 surfaceClass: "surface private-links-section",
-                toolbarMarkup: renderCollectionToolbar({
-                  formName: "links-account-search",
-                  query: session.linksAccountQuery || "",
-                  placeholder: "Search account links",
-                  clearAction: "clear-links-account-query",
-                  pageData: accountRecords,
-                }),
+                toolbarMarkup: "",
                 footerMarkup: renderCollectionPagination("set-links-account-page", accountRecords),
               })}
               <section class="surface private-links-section">
@@ -23044,7 +23007,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                     ? `<div class="portal-link-list">
                         ${records.items
                           .map(({ tournament, participant }) => {
-                            const preview = buildInvitationMessage(tournament, participant);
                             const privateLink = getPrivateLink(participant.token);
 
                             return `
@@ -23053,9 +23015,9 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                                   <span class="portal-link-main">
                                     <strong>${escapeHtml(participant.name)}</strong>
                                     <span class="muted">${escapeHtml(participant.email)}</span>
+                                    <span class="portal-link-origin">${escapeHtml(tournament.name)} · ${escapeHtml(tournament.code)}</span>
                                   </span>
                                   <span class="portal-link-meta">
-                                    <span class="mini-pill success">${escapeHtml(tournament.code)}</span>
                                     <span class="role-pill">${escapeHtml(
                                       participant.teamName || "Independent",
                                     )}</span>
@@ -23068,10 +23030,9 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                                       participant.teamName || "Independent entry",
                                     )}</span>
                                   </div>
-                                  <a class="token-link" href="${escapeHtml(
+                                  <a class="private-link-open" href="${escapeHtml(
                                     privateLink,
-                                  )}" target="_blank" rel="noreferrer">${escapeHtml(privateLink)}</a>
-                                  <p class="fine-print">${escapeHtml(preview)}</p>
+                                  )}" target="_blank" rel="noreferrer">Open competitor page <span aria-hidden="true">↗</span></a>
                                   ${
                                     canManageTournament(tournament)
                                       ? `
@@ -23118,15 +23079,16 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                                   <span class="portal-link-main">
                                     <strong>${escapeHtml(judge.name || judge.email)}</strong>
                                     <span class="muted">${escapeHtml(judge.email)}</span>
+                                    <span class="portal-link-origin">${escapeHtml(tournament.name)} · ${escapeHtml(tournament.code)}</span>
                                   </span>
                                   <span class="portal-link-meta">
-                                    <span class="role-pill">${escapeHtml(tournament.name)}</span>
+                                    <span class="role-pill">Judge</span>
                                   </span>
                                 </summary>
                                 <div class="portal-link-panel">
                                   ${
                                     link
-                                      ? `<a class="token-link" href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${escapeHtml(link)}</a>
+                                      ? `<a class="private-link-open" href="${escapeHtml(link)}" target="_blank" rel="noreferrer">Open judge page <span aria-hidden="true">↗</span></a>
                                          <div class="button-row portal-link-actions">
                                            <button class="secondary-button" type="button" data-action="copy-judge-access-link" data-id="${escapeHtml(tournament.id)}" data-email="${escapeHtml(judge.email)}">Copy link</button>
                                          </div>`
@@ -31045,7 +31007,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
 
           if (action === "copy-user-access-link") {
             const targetEmail = normalizeEmail(button.dataset.email);
-            if (!isSystemAdmin() && targetEmail !== normalizeEmail(session.userEmail)) {
+            if (targetEmail !== normalizeEmail(session.userEmail)) {
               setFlash("error", "You can only copy your own private access URL.");
               renderApp();
               return;

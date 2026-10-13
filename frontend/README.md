@@ -11,7 +11,8 @@ Deploy this folder to Netlify, not the project root.
 - `index.html`
 - `app.js`
 - `styles.css`
-- `jade-logo.jpg`
+- `jade-landing-logo.png` (shared JADE wordmark)
+- `jade-hummingbird-mark.svg` (app icon)
 - `backend-config.js`
 - `netlify.toml`
 

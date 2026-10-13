@@ -28,7 +28,8 @@ Key files:
 - `frontend/index.html`
 - `frontend/app.js`
 - `frontend/styles.css`
-- `frontend/jade-logo.jpg`
+- `frontend/jade-landing-logo.png` (shared JADE wordmark)
+- `frontend/jade-hummingbird-mark.svg` (app icon)
 - `frontend/backend-config.js`
 - `index.html` (thin local launcher only)
 
