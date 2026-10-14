@@ -1628,6 +1628,38 @@ function isSystemAdmin(state, email) {
   );
 }
 
+function isTournamentStaffManager(tournament, email) {
+  const actor = normalizeEmail(email);
+  if (!actor || !tournament) return false;
+  const staffKeys = [
+    "managerEmails",
+    "tabManagerEmails",
+    "tabDirectorEmails",
+    "caTeamEmails",
+    "tournamentDirectorEmails",
+    "convenorEmails",
+    "registrationOfficerEmails",
+    "financeOfficerEmails",
+    "equityOfficerEmails",
+  ];
+  return normalizeEmail(tournament.ownerEmail) === actor || staffKeys.some((key) =>
+    (tournament.permissions?.[key] || []).some((value) => normalizeEmail(value) === actor));
+}
+
+function isTournamentLinkedEmail(tournament, email) {
+  const target = normalizeEmail(email);
+  if (!target || !tournament) return false;
+  return (tournament.participants || []).some((entry) => normalizeEmail(entry.email) === target) ||
+    (tournament.judges || []).some((entry) => normalizeEmail(entry.email) === target) ||
+    TOURNAMENT_PERMISSION_KEYS.some((key) =>
+      (tournament.permissions?.[key] || []).some((value) => normalizeEmail(value) === target));
+}
+
+function canSendTournamentPrivateLink(tournament, actorEmail, targetEmail) {
+  return isTournamentStaffManager(tournament, actorEmail) &&
+    isTournamentLinkedEmail(tournament, targetEmail);
+}
+
 function getAuthenticatedAccountAccess(state, email) {
   const normalizedEmail = normalizeEmail(email);
   if (isSystemAdmin(state, normalizedEmail)) {
@@ -3738,16 +3770,30 @@ app.post("/api", async (request, response) => {
         }
 
         const canManageAll = isSystemAdmin(state, actorEmail);
-        if (!canManageAll && targetEmail !== actorEmail) {
-          const error = new Error("You can only send your own private URL email.");
+        const tournament = tournamentId
+          ? (state.tournaments || []).find((entry) => String(entry.id || "").trim() === tournamentId) || null
+          : null;
+        const canSendTournamentLink = canSendTournamentPrivateLink(tournament, actorEmail, targetEmail);
+        if (!canManageAll && targetEmail !== actorEmail && !canSendTournamentLink) {
+          const error = new Error("You can only send private links for people assigned to a tournament you manage.");
           error.statusCode = 403;
           error.code = "forbidden_target_email";
           throw error;
         }
 
-        const targetUser = state.users.find(
+        let targetUser = state.users.find(
           (entry) => normalizeEmail(entry.email) === normalizeEmail(targetEmail),
         );
+        let createdTargetUser = false;
+        if (!targetUser && canSendTournamentLink) {
+          targetUser = ensureRegistrationUser(state, {
+            name: String(request.body?.name || "").trim() || targetEmail.split("@")[0],
+            email: targetEmail,
+            createdSource: "registered",
+            createdBy: actorEmail,
+          });
+          createdTargetUser = Boolean(targetUser);
+        }
         if (!targetUser) {
           const error = new Error("That account could not be found.");
           error.statusCode = 404;
@@ -3770,7 +3816,7 @@ app.post("/api", async (request, response) => {
           revision: workspace.revision,
         };
 
-        if (notification.status === "sent") {
+        if (createdTargetUser || notification.status === "sent") {
           savedWorkspace = await writeWorkspaceState(client, state, {
             expectedRevision: workspace.revision,
           });
@@ -3877,8 +3923,7 @@ app.post("/api", async (request, response) => {
         if (session.access_scope?.role === "member" && isSystemAdmin(current,session.email)) throw Object.assign(new Error("Your account access changed. Sign in again to refresh permissions."),{statusCode:401,code:"invalid_session"});
         if (session.access_scope?.role === "member") {
           const tournament=current.tournaments[index], actor=normalizeEmail(session.email);
-          const staffKeys=["managerEmails","tabManagerEmails","tabDirectorEmails","caTeamEmails","tournamentDirectorEmails","convenorEmails","registrationOfficerEmails","financeOfficerEmails","equityOfficerEmails"];
-          const canManage=normalizeEmail(tournament.ownerEmail)===actor || staffKeys.some(key=>(tournament.permissions?.[key] || []).some(value=>normalizeEmail(value)===actor));
+          const canManage=isTournamentStaffManager(tournament, actor);
           const isJudge=(tournament.judges || []).some(entry=>normalizeEmail(entry.email)===actor);
           if (!canManage && !(isJudge && !session.access_scope.accessTokenHash)) throw Object.assign(new Error("This account cannot edit tournament records."),{statusCode:403});
         }

@@ -12653,6 +12653,43 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
         return "";
       }
 
+      async function sendTournamentPrivateAccessLink({ email, name = "", tournamentId, reason }) {
+        const targetEmail = normalizeEmail(email);
+        if (!targetEmail || !tournamentId) return false;
+        if (!(await probeCloudBackend(true)) || !session.cloudSessionToken) {
+          setFlash("warning", "The tournament change was saved, but the private link could not be emailed because the shared session is unavailable.");
+          renderApp();
+          return false;
+        }
+
+        try {
+          const result = await callCloud("send_private_link_email", {
+            sessionToken: session.cloudSessionToken,
+            email: targetEmail,
+            name: String(name || "").trim(),
+            reason,
+            tournamentId,
+          });
+          if (result?.state) state = await rehydrateState(result.state);
+          const notification = Array.isArray(result?.notifications) ? result.notifications[0] : null;
+          if (notification?.status === "sent") {
+            setFlash("success", "Private access link sent to " + targetEmail + ".");
+          } else if (notification?.status === "skipped_cooldown") {
+            setFlash("warning", "The tournament change was saved. A private link was already sent recently to " + targetEmail + ".");
+          } else {
+            setFlash("warning", "The tournament change was saved, but the private link email could not be delivered. " + String(notification?.message || "Copy the link from Private Links and share it manually."));
+          }
+          saveState();
+          saveSession();
+          renderApp();
+          return notification?.status === "sent";
+        } catch (error) {
+          setFlash("warning", "The tournament change was saved, but the private link email failed: " + String(error?.message || "try again from Private Links."));
+          renderApp();
+          return false;
+        }
+      }
+
       function renderUserAccessLinksSection({
         title = "Private Access URLs",
         eyebrow = "Access Links",
@@ -26349,12 +26386,19 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         persist("success", "Tournament created.");
       }
 
-      function assignTournamentRole(tournamentId, roleKey, email) {
+      async function assignTournamentRole(tournamentId, roleKey, email) {
         const targetEmail = normalizeEmail(email);
         if (!targetEmail) return;
         if (!ensureTournamentManagerById(tournamentId)) return;
 
-        updateTournament(
+        await ensurePassiveRegistrationUser({
+          name: targetEmail.split("@")[0],
+          email: targetEmail,
+          createdSource: "registered",
+          createdBy: session.userEmail,
+        });
+
+        const saved = await updateTournament(
           tournamentId,
           (tournament) => {
             getTournamentPermissionKeys({ includeLegacy: true }).forEach((key) => {
@@ -26378,6 +26422,13 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           },
           "Tournament permissions updated.",
         );
+        if (saved) {
+          await sendTournamentPrivateAccessLink({
+            email: targetEmail,
+            tournamentId,
+            reason: "appointment",
+          });
+        }
       }
 
       function updateTournamentAppointeeRole(tournamentId, email, roleKey) {
@@ -26920,7 +26971,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           });
         }
 
-        updateTournament(
+        const saved = await updateTournament(
           tournamentId,
           (tournament) => {
             const email = normalizeEmail(formData.get("email"));
@@ -26964,6 +27015,14 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           },
           "Judge saved.",
         );
+        if (saved) {
+          await sendTournamentPrivateAccessLink({
+            email: judgeEmail,
+            name: String(formData.get("name") || "").trim(),
+            tournamentId,
+            reason: "judge_registration",
+          });
+        }
       }
 
       function removeJudge(tournamentId, judgeEmail) {
@@ -30908,7 +30967,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           }
 
           if (form.dataset.form === "assign-role") {
-            assignTournamentRole(form.dataset.id, formData.get("roleKey"), formData.get("email"));
+            await assignTournamentRole(form.dataset.id, formData.get("roleKey"), formData.get("email"));
             return;
           }
 

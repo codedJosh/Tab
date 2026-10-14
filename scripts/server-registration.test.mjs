@@ -27,6 +27,26 @@ test('session validation checks expiry without deleting rows on every request',a
  assert.deepEqual(Array.from(queries[0].params),['hash:session-token','test']);
 });
 
+test('tournament managers can email only people linked to their tournament',()=>{
+ const ctx=vm.createContext({
+  normalizeEmail:value=>String(value||'').trim().toLowerCase(),
+  TOURNAMENT_PERMISSION_KEYS:['managerEmails','judgeEmails','debaterEmails'],
+ });
+ vm.runInContext([
+  fn('isTournamentStaffManager'),
+  fn('isTournamentLinkedEmail'),
+  fn('canSendTournamentPrivateLink'),
+ ].join('\n'),ctx);
+ const tournament={
+  id:'event-a',ownerEmail:'owner@example.org',
+  permissions:{tabManagerEmails:['tabber@example.org'],judgeEmails:['judge@example.org']},
+  judges:[{email:'judge@example.org'}],participants:[],
+ };
+ assert.equal(ctx.canSendTournamentPrivateLink(tournament,' TABBER@example.org ','judge@example.org'),true);
+ assert.equal(ctx.canSendTournamentPrivateLink(tournament,'other@example.org','judge@example.org'),false);
+ assert.equal(ctx.canSendTournamentPrivateLink(tournament,'tabber@example.org','outsider@example.org'),false);
+});
+
 test('email links ignore attacker-controlled request origins',()=>{
  const ctx=vm.createContext({
   URL,
@@ -134,6 +154,23 @@ test('sign-up commits the account before delivering its access email',()=>{
  assert.doesNotMatch(signup,/await sendPrivateAccessEmail\(/);
  assert.match(signup,/await deliverCommittedRegistrationEmails\(result, request, "sign_up"/);
  assert.ok(signup.indexOf('await deliverCommittedRegistrationEmails') > signup.indexOf('const result = await withTransaction'));
+});
+
+test('tournament link delivery can provision a newly assigned staff account and saves it on email failure',()=>{
+ const action=actionBlock('send_private_link_email');
+ assert.match(action,/canSendTournamentPrivateLink\(tournament, actorEmail, targetEmail\)/);
+ assert.match(action,/ensureRegistrationUser\(state,\s*\{/);
+ assert.match(action,/createdTargetUser \|\| notification\.status === "sent"/);
+});
+
+test('manual judge and staff additions send scoped private links after the tournament save',()=>{
+ const frontend=readFileSync(new URL('../frontend/app.js',import.meta.url),'utf8');
+ const judge=frontend.slice(frontend.indexOf('async function addJudge('),frontend.indexOf('\n      function removeJudge(',frontend.indexOf('async function addJudge(')));
+ const staff=frontend.slice(frontend.indexOf('async function assignTournamentRole('),frontend.indexOf('\n      function updateTournamentAppointeeRole(',frontend.indexOf('async function assignTournamentRole(')));
+ assert.ok(judge.indexOf('await updateTournament(') < judge.indexOf('sendTournamentPrivateAccessLink('));
+ assert.match(judge,/reason: "judge_registration"/);
+ assert.ok(staff.indexOf('await updateTournament(') < staff.indexOf('sendTournamentPrivateAccessLink('));
+ assert.match(staff,/reason: "appointment"/);
 });
 
 test('password reset tokens are committed before the reset email is sent',()=>{
