@@ -1,6 +1,6 @@
 import { publicWorkspace, applyPrivateEntryCommand, judgeWorkspace, memberWorkspace } from "./frontend/public-workspace.js";
 import { applyTournamentChanges } from "./frontend/tournament-patch.js";
-import { registrationTeamSize } from "./frontend/tournament-rules.js";
+import { registrationTeamSize, resolveRoundStructure, hasInconsistentRoundTeamSizes } from "./frontend/tournament-rules.js";
 import { evaluateDrawEntryConflicts } from "./frontend/draw-integrity.js";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -1087,6 +1087,10 @@ function getTournamentRegistrationAvailability(tournament, role = "debater") {
     issues.push("Tournament is closed.");
   }
 
+  if (targetRole === "debater" && hasInconsistentRoundTeamSizes(tournament)) {
+    issues.push("Debater registration is unavailable because rounds require different team sizes. Set one team size for every round in Setup.");
+  }
+
   if (!roleOpen) {
     issues.push(
       targetRole === "judge"
@@ -1666,11 +1670,16 @@ function assertDrawReleaseIntegrity(previousTournament, nextTournament) {
   const controls = new Map((nextTournament?.roundControls || []).map((entry) => [Number(entry.round), entry]));
   const rounds = new Set(newlyPublished.map((entry) => Number(entry.round)));
   for (const round of rounds) {
+    if (hasInconsistentRoundTeamSizes(nextTournament)) {
+      fail("Rounds require different team sizes. Set one team size for every round before publishing.");
+    }
     const control = controls.get(round);
     if (!String(control?.motionTitle || control?.motionText || "").trim()) {
       fail("Save a motion for Round " + round + " before publishing its draw.");
     }
     const rooms = (nextTournament?.draw || []).filter((entry) => Number(entry.round) === round);
+    const roundProfile = (nextTournament?.config?.roundProfiles || []).find((entry) => Number(entry.round) === round) || {};
+    const expectedTeamSize = resolveRoundStructure(nextTournament, roundProfile).teamSize;
     if (!rooms.length || rooms.some((entry) => String(entry.status || "").toLowerCase() !== "published")) {
       fail("Publish every room in Round " + round + " together after its checks pass.");
     }
@@ -1696,13 +1705,22 @@ function assertDrawReleaseIntegrity(previousTournament, nextTournament) {
         entryKeys.add(key);
       }
       for (const slot of slots) {
-        for (const participantId of slot.participantIds || []) {
+        const slotParticipantIds = Array.isArray(slot.participantIds) ? slot.participantIds : [];
+        if (["teams", "hybrid", "individuals"].includes(String(nextTournament?.participantModel || "").toLowerCase()) &&
+            slotParticipantIds.length !== expectedTeamSize) {
+          fail(name + " has a team with " + slotParticipantIds.length + " speakers; " + expectedTeamSize + " are required.");
+        }
+        for (const participantId of slotParticipantIds) {
           const id = String(participantId || "");
           if (assignedParticipants.has(id)) fail("A speaker appears in more than one room in Round " + round + ".");
           assignedParticipants.add(id);
           const participant = (nextTournament?.participants || []).find((entry) => String(entry.id) === id);
           if (!participant) fail("A room contains an unregistered speaker. Refresh the draw before publishing.");
           if (participant.teamId && slot.teamId && String(participant.teamId) !== String(slot.teamId)) {
+            fail("A registered team is split across sides. Correct the team assignment before publishing.");
+          }
+          if (!participant.teamId && participant.teamName && slot.teamName &&
+              normalizeTextKey(participant.teamName) !== normalizeTextKey(slot.teamName)) {
             fail("A registered team is split across sides. Correct the team assignment before publishing.");
           }
         }

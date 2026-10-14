@@ -3,14 +3,14 @@ import { applyTournamentChanges, tournamentChanges } from "../../frontend/tourna
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
 import vm from "node:vm";
-import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } from "../../frontend/tournament-rules.js";
+import { resolveRoundStructure, registrationTeamSize, hasInconsistentRoundTeamSizes, unassignedParticipants } from "../../frontend/tournament-rules.js";
 import { evaluateDrawEntryConflicts } from "../../frontend/draw-integrity.js";
 
 // Run the actual frontend domain functions without starting the browser UI.
 export function loadFrontendDomain() {
   const storage = { getItem: () => null, setItem() {}, removeItem() {} };
   const context = vm.createContext({
-    privateVisibility, applyTournamentChanges, tournamentChanges, resolveRoundStructure, registrationTeamSize, unassignedParticipants, evaluateDrawEntryConflicts, console, URL, crypto: webcrypto, TextEncoder, TextDecoder, structuredClone,
+    privateVisibility, applyTournamentChanges, tournamentChanges, resolveRoundStructure, registrationTeamSize, hasInconsistentRoundTeamSizes, unassignedParticipants, evaluateDrawEntryConflicts, console, URL, crypto: webcrypto, TextEncoder, TextDecoder, structuredClone,
     setTimeout, clearTimeout,
     window: {
       location: { href: "http://localhost/", protocol: "http:" },

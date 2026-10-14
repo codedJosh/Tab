@@ -26,8 +26,23 @@ export function resolveRoundStructure(tournament, profile = {}, options = {}) {
 
 export function registrationTeamSize(tournament) {
   if (String(tournament?.participantModel || '').trim().toLowerCase() === 'individuals') return 1;
-  return Math.max(resolveRoundStructure(tournament).teamSize,
-    ...(tournament?.config?.roundProfiles || []).map(profile => resolveRoundStructure(tournament, profile).teamSize));
+  const profiles = Array.isArray(tournament?.config?.roundProfiles) ? tournament.config.roundProfiles : [];
+  const rounds = Math.max(1, Math.min(8, Math.round(Number(tournament?.rounds) || profiles.length || 1)));
+  return Math.max(...Array.from({length: rounds}, (_, index) => {
+    const profile = profiles.find(entry => Number(entry.round) === index + 1) || profiles[index] || {};
+    return resolveRoundStructure(tournament, profile).teamSize;
+  }));
+}
+
+export function hasInconsistentRoundTeamSizes(tournament) {
+  if (String(tournament?.participantModel || '').trim().toLowerCase() === 'individuals') return false;
+  const profiles = Array.isArray(tournament?.config?.roundProfiles) ? tournament.config.roundProfiles : [];
+  const rounds = Math.max(1, Math.min(8, Math.round(Number(tournament?.rounds) || profiles.length || 1)));
+  const sizes = new Set(Array.from({length: rounds}, (_, index) => {
+    const profile = profiles.find(entry => Number(entry.round) === index + 1) || profiles[index] || {};
+    return resolveRoundStructure(tournament, profile).teamSize;
+  }));
+  return sizes.size > 1;
 }
 
 export function unassignedParticipants(tournament) {

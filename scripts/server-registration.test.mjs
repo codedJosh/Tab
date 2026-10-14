@@ -3,9 +3,11 @@ import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {evaluateDrawEntryConflicts} from '../frontend/draw-integrity.js';
+import {resolveRoundStructure, hasInconsistentRoundTeamSizes, registrationTeamSize} from '../frontend/tournament-rules.js';
 const source=readFileSync(new URL('../server.mjs',import.meta.url),'utf8');
 function fn(name){const start=source.search(new RegExp('(?:async )?function '+name+'\\('));const end=source.slice(start+10).search(/\n(?:async )?function /);return source.slice(start,start+10+end);}
 function actionBlock(action){const start=source.indexOf(`if (action === "${action}")`);const end=source.indexOf('\n    if (action ===',start+1);return source.slice(start,end<0?undefined:end);}
+function integrityContext(){return vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase(),normalizeTextKey:value=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),evaluateDrawEntryConflicts,resolveRoundStructure,hasInconsistentRoundTeamSizes,registrationTeamSize,normalizeTournamentRegistrationSettings:record=>({debaterOpen:record?.debaterOpen!==false,judgeOpen:record?.judgeOpen!==false})});}
 test('registration reads acquire a row lock; ordinary reads do not',async()=>{
  const queries=[];const ctx=vm.createContext({WORKSPACE_ID:'test',ensureWorkspaceState:s=>s,normalizeWorkspaceRevision:Number});
  vm.runInContext(fn('readWorkspaceRecord'),ctx);
@@ -142,7 +144,7 @@ test('password reset tokens are committed before the reset email is sent',()=>{
 });
 
 test('server blocks publishing a round with no saved motion',()=>{
- const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase(),normalizeTextKey:value=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),evaluateDrawEntryConflicts});
+ const ctx=integrityContext();
  vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
  const before={draw:[{id:'room-1',round:1,status:'Draft'}],roundControls:[],judgeAllocations:[]};
  const after={...before,draw:[{...before.draw[0],status:'Published'}]};
@@ -150,7 +152,7 @@ test('server blocks publishing a round with no saved motion',()=>{
 });
 
 test('server blocks publishing a room with a judge assigned in multiple roles',()=>{
- const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase(),normalizeTextKey:value=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),evaluateDrawEntryConflicts});
+ const ctx=integrityContext();
  vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
  const before={draw:[{id:'room-1',round:1,room:'Room 1',status:'Draft',slots:[{teamId:'a',teamName:'Alpha'},{teamId:'b',teamName:'Beta'}]}],roundControls:[{round:1,motionTitle:'Motion'}],judges:[{email:'judge@example.org',name:'Judge'}],judgeAllocations:[]};
  const after={...before,draw:[{...before.draw[0],status:'Published'}],judgeAllocations:[
@@ -161,7 +163,7 @@ test('server blocks publishing a room with a judge assigned in multiple roles',(
 });
 
 test('server publication guard allows an already published room and unrelated edits',()=>{
- const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase(),normalizeTextKey:value=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),evaluateDrawEntryConflicts});
+ const ctx=integrityContext();
  vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
  const before={draw:[{id:'room-1',round:1,status:'Published'}],roundControls:[],judgeAllocations:[]};
  const after={...before,name:'Updated title'};
@@ -169,7 +171,7 @@ test('server publication guard allows an already published room and unrelated ed
 });
 
 test('server keeps published rooms locked against stale status changes and deletion',()=>{
- const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase(),normalizeTextKey:value=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),evaluateDrawEntryConflicts});
+ const ctx=integrityContext();
  vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
  const before={draw:[{id:'room-1',round:1,status:'Published'}]};
  assert.throws(()=>ctx.assertDrawReleaseIntegrity(before,{draw:[{...before.draw[0],status:'Draft'}]}),error=>error.code==='published_round_locked');
@@ -177,7 +179,7 @@ test('server keeps published rooms locked against stale status changes and delet
 });
 
 test('server keeps published matchups fixed while allowing routine priority edits',()=>{
- const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase(),normalizeTextKey:value=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),evaluateDrawEntryConflicts});
+ const ctx=integrityContext();
  vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
  const room={id:'room-1',round:1,room:'Room 1',status:'Published',priority:1,slots:[{teamId:'alpha'}]};
  assert.throws(()=>ctx.assertDrawReleaseIntegrity({draw:[room]},{draw:[{...room,slots:[{teamId:'beta'}]}]}),error=>error.code==='published_round_locked'&&/assignments cannot be changed/.test(error.message));
@@ -185,7 +187,7 @@ test('server keeps published matchups fixed while allowing routine priority edit
 });
 
 test('server publishes a round as one complete set of rooms',()=>{
- const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase(),normalizeTextKey:value=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),evaluateDrawEntryConflicts});
+ const ctx=integrityContext();
  vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
  const before={draw:[{id:'room-1',round:1,status:'Draft'},{id:'room-2',round:1,status:'Draft'}]};
  const after={...before,draw:[{...before.draw[0],status:'Published'},before.draw[1]],roundControls:[{round:1,motionTitle:'Motion'}]};
@@ -193,7 +195,7 @@ test('server publishes a round as one complete set of rooms',()=>{
 });
 
 test('server accepts a complete conflict-free multi-room round',()=>{
- const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase(),normalizeTextKey:value=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),evaluateDrawEntryConflicts});
+ const ctx=integrityContext();
  vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
  const rooms=[
   {id:'r1',round:1,room:'Room 1',status:'Draft',slots:[{teamId:'a',teamName:'Alpha'},{teamId:'b',teamName:'Beta'}]},
@@ -208,7 +210,7 @@ test('server accepts a complete conflict-free multi-room round',()=>{
 });
 
 test('server blocks a judge assigned to two different rooms in one round',()=>{
- const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase(),normalizeTextKey:value=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),evaluateDrawEntryConflicts});
+ const ctx=integrityContext();
  vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
  const rooms=[
   {id:'r1',round:1,room:'Room 1',status:'Draft',slots:[{teamId:'a'},{teamId:'b'}]},
@@ -224,7 +226,7 @@ test('server blocks a judge assigned to two different rooms in one round',()=>{
 });
 
 test('server publication uses the same judge-institution conflict finding as Draw Review',()=>{
- const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase(),normalizeTextKey:value=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),evaluateDrawEntryConflicts});
+ const ctx=integrityContext();
  vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
  const rooms=[{id:'r1',round:1,room:'Room 1',status:'Draft',slots:[
   {teamId:'a',teamName:'Alpha',institution:'North College'},
@@ -235,4 +237,32 @@ test('server publication uses the same judge-institution conflict finding as Dra
  ]};
  const after={...before,draw:rooms.map(room=>({...room,status:'Published'}))};
  assert.throws(()=>ctx.assertDrawReleaseIntegrity(before,after),error=>error.code==='draw_release_blocked'&&error.ruleCode==='JUDGE_INSTITUTION_CLASH'&&/North College/.test(error.message));
+});
+
+test('server blocks publication when a team slot has an incomplete registered roster',()=>{
+ const ctx=integrityContext();
+ vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
+ const room={id:'r1',round:1,room:'Room 1',status:'Draft',slots:[
+  {teamId:'a',teamName:'Alpha',participantIds:['a1']},
+  {teamId:'b',teamName:'Beta',participantIds:['b1','b2']},
+ ]};
+ const before={
+  format:'British Parliamentary',participantModel:'teams',config:{roundProfiles:[{round:1,format:'British Parliamentary'}]},
+  draw:[room],roundControls:[{round:1,motionTitle:'Motion'}],teams:[{id:'a',name:'Alpha'},{id:'b',name:'Beta'}],
+  participants:[{id:'a1',teamId:'a'},{id:'b1',teamId:'b'},{id:'b2',teamId:'b'}],
+  judgeAllocations:[{drawId:'r1',round:1,judgeEmail:'chair@example.org',panelRole:'chair'}],
+ };
+ const after={...before,draw:[{...room,status:'Published'}]};
+ assert.throws(()=>ctx.assertDrawReleaseIntegrity(before,after),error=>error.code==='draw_release_blocked'&&/1 speakers; 2 are required/.test(error.message));
+});
+
+test('server blocks registration while round team sizes disagree',()=>{
+ const ctx=integrityContext();
+ vm.runInContext(fn('getTournamentRegistrationAvailability'),ctx);
+ const result=ctx.getTournamentRegistrationAvailability({
+  status:'Open',participantModel:'teams',registration:{debaterOpen:true},format:'No Standard Format',
+  config:{teamSize:4,roundProfiles:[{round:1,teamSize:4},{round:2,teamSize:2}]},
+ },'debater');
+ assert.equal(result.open,false);
+ assert.match(result.reason,/different team sizes/);
 });

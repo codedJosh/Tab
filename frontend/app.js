@@ -1,6 +1,6 @@
 import { privateVisibility } from "./public-workspace.js";
 import { applyTournamentChanges, tournamentChanges } from "./tournament-patch.js";
-import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } from "./tournament-rules.js";
+import { resolveRoundStructure, registrationTeamSize, hasInconsistentRoundTeamSizes, unassignedParticipants } from "./tournament-rules.js";
 import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
       const STORAGE_KEY = "debate-tab-advanced-v1";
       const SESSION_STORAGE_KEY = STORAGE_KEY + "-session";
@@ -4978,7 +4978,10 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
             }
 
             if (profile.mode === "win_loss_team") {
-              if (getFormatLabel(tournament) === "World Schools") {
+              const roundFormats = getRoundProfiles(tournament).map((roundProfile) =>
+                getRoundFormat(tournament, roundProfile),
+              );
+              if (roundFormats.length && roundFormats.every((format) => format === "World Schools")) {
                 return Number(right.wins) - Number(left.wins) ||
                   Number(right.votes) - Number(left.votes) ||
                   Number(right.averageSpeaks) - Number(left.averageSpeaks) ||
@@ -10244,6 +10247,7 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
           const key = normalizeTextKey(name);
           if (!institutions.has(key)) institutions.set(key, { institution: name, teams: 0, wins: 0, losses: 0, points: 0 });
           const record = institutions.get(key);
+          record.teams += 1;
           const standing = standings.find((entry) => getStandingTeam(tournament, entry)?.id === team.id);
           if (!standing) return;
           const placementResults =
@@ -10251,20 +10255,14 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
             Number(standing.seconds || 0) +
             Number(standing.thirds || 0) +
             Number(standing.fourths || 0);
-          const recordedResults = Math.max(
-            Number(standing.playedRounds || 0),
-            Number(standing.scoredRounds || 0),
-            Number(standing.wins || 0) + Number(standing.losses || 0),
-            placementResults,
-          );
-          if (recordedResults < 1) return;
-          record.teams += 1;
-          record.wins += Number(standing?.wins || 0);
-          record.losses += Number(standing?.losses || 0);
-          record.points += Number(standing.points || 0);
+          const wins = Number(standing.wins || 0) || Number(standing.firsts || 0);
+          const completedRounds = Number(standing.playedRounds || standing.scoredRounds || placementResults);
+          const losses = Number(standing.losses || 0) || Math.max(0, completedRounds - wins);
+          record.wins += wins;
+          record.losses += losses;
+          record.points += wins * 3 + losses;
         });
         const rows = Array.from(institutions.values())
-          .filter((row) => row.teams >= 3)
           .map((row) => ({
             ...row,
             average: row.points / row.teams,
@@ -10275,9 +10273,9 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
 
       function renderInstitutionStandingsTable(tournament) {
         const rows = getInstitutionStandings(tournament);
-        if (!rows.length) return `<div class="empty-state">Institution standings appear once an institution has results from three teams.</div>`;
+        if (!rows.length) return `<div class="empty-state">No institutions are linked to teams yet.</div>`;
         return `<div class="table-wrap"><table>
-          <thead><tr><th>Rank</th><th>Institution</th><th>Teams with results</th><th>Wins</th><th>Losses</th><th>Points</th><th>Points per team</th></tr></thead>
+          <thead><tr><th>Rank</th><th>Institution</th><th>Teams</th><th>Wins</th><th>Losses</th><th>Points</th><th>Points per team</th></tr></thead>
           <tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.rank)}</td><td>${escapeHtml(row.institution)}</td><td>${row.teams}</td><td>${row.wins}</td><td>${row.losses}</td><td>${row.points}</td><td>${escapeHtml(formatScoreValue(row.average))}</td></tr>`).join("")}</tbody>
         </table></div>`;
       }
@@ -10801,6 +10799,9 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
 
         if (String(tournament?.status || "").trim().toLowerCase() !== "open") {
           issues.push("Tournament is closed.");
+        }
+        if (targetRole === "debater" && hasInconsistentRoundTeamSizes(tournament)) {
+          issues.push("Debater registration is unavailable because rounds require different team sizes. Set one team size for every round in Setup.");
         }
         if (!roleOpen) {
           issues.push(
