@@ -7993,7 +7993,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       function normalizeAuthPrefs(record = {}) {
         return {
           rememberedEmail: normalizeEmail(record.rememberedEmail),
-          savePasswordOnDevice: record.savePasswordOnDevice !== false,
+          savePasswordOnDevice: record.savePasswordOnDevice === true,
         };
       }
 
@@ -8903,7 +8903,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         if (!institution) {
           return name;
         }
-        return institution + " " + name;
+        return institution + " · " + name;
       }
 
       function getTeamPublicLabel(team) {
@@ -9515,6 +9515,26 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
             String(left.name || "").localeCompare(String(right.name || ""))
           );
         });
+      }
+
+      function groupBallotParticipantsByEntry(tournament, drawEntry, participants = []) {
+        const groups = new Map();
+        (Array.isArray(participants) ? participants : []).forEach((participant) => {
+          const details = getParticipantDrawSlotDetails(tournament, drawEntry, participant);
+          const key = details.slot
+            ? getDrawSlotCheckInKey(details.slot)
+            : "participant:" + String(participant?.id || participant?.name || groups.size);
+          if (!groups.has(key)) {
+            groups.set(key, {
+              key,
+              label: details.label || "Entry",
+              slot: details.slot,
+              participants: [],
+            });
+          }
+          groups.get(key).participants.push(participant);
+        });
+        return Array.from(groups.values());
       }
 
       function getDrawRoleDisplayLabels(tournament, drawEntry) {
@@ -13836,6 +13856,21 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           .join("");
       }
 
+      function renderPasswordField(label, name, options = {}) {
+        const placeholder = String(options.placeholder || "").trim();
+        const autocomplete = String(options.autocomplete || "current-password").trim();
+        const value = options.value === undefined ? "" : String(options.value);
+        return `
+          <div class="password-field">
+            <label for="password-field-${escapeHtml(name)}">${escapeHtml(label)}</label>
+            <span class="password-field-control">
+              <input id="password-field-${escapeHtml(name)}" type="password" name="${escapeHtml(name)}"${value ? ` value="${escapeHtml(value)}"` : ""}${placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : ""} autocomplete="${escapeHtml(autocomplete)}" required />
+              <button class="password-visibility-toggle" type="button" data-action="toggle-password-visibility" aria-label="Show password" aria-pressed="false">Show</button>
+            </span>
+          </div>
+        `;
+      }
+
       function renderAuthView() {
         const signupDisabled = !state.appSettings.auth.allowSelfSignup;
         const preferredEmail = String(authPrefs?.rememberedEmail || "").trim();
@@ -13843,7 +13878,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           normalizeEmail(authAutofill?.email) === normalizeEmail(preferredEmail)
             ? String(authAutofill?.password || "")
             : "";
-        const savePasswordChecked = authPrefs?.savePasswordOnDevice !== false;
+        const savePasswordChecked = authPrefs?.savePasswordOnDevice === true;
         const openDebaterRegistrations = getOpenRegistrationTournaments("debater");
         const openJudgeRegistrations = getOpenRegistrationTournaments("judge");
         return `
@@ -13858,7 +13893,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   </div>
                   <div class="public-hero-content">
                     <div class="public-hero-title-lockup public-hero-brand-stack">
-                      <img class="public-hero-jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE logo" />
+                      <img class="public-hero-jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird logo" />
                       <div class="public-hero-title-copy">
                         <h1 class="jade-product-wordmark">Hummingbird</h1>
                       </div>
@@ -13867,7 +13902,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                       <button type="button" data-action="set-public-view" data-view="register-debater">Register for a tournament</button>
                       <a class="button-primary" href="${escapeHtml(
                         getRegionalOperationsLandingLink(),
-                      )}">Regional operations</a>
+                      )}">Regional Development</a>
                     </div>
                     <p class="public-hero-guidance">JADE Hummingbird manages tournament registration, rounds, results, and feedback. Entrants can register when an event is open; staff can sign in below.</p>
                   </div>
@@ -13890,10 +13925,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                             Email address
                             <input type="email" name="email" value="${escapeHtml(preferredEmail)}" placeholder="you@example.com" autocomplete="username" required />
                           </label>
-                          <label>
-                            Password
-                            <input type="password" name="password" value="${escapeHtml(preferredPassword)}" placeholder="Your password" autocomplete="current-password" required />
-                          </label>
+                          ${renderPasswordField("Password", "password", { value: preferredPassword, placeholder: "Your password", autocomplete: "current-password" })}
                           <label class="checkbox-row">
                             <input type="checkbox" name="savePasswordOnDevice" ${checked(
                               savePasswordChecked,
@@ -14024,14 +14056,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                         ? `
                           <form class="stack" data-form="reset-password-with-token">
                             <input type="hidden" name="token" value="${escapeAttributeValue(token)}" />
-                            <label>
-                              New password
-                              <input type="password" name="password" placeholder="New password" autocomplete="new-password" required />
-                            </label>
-                            <label>
-                              Confirm new password
-                              <input type="password" name="confirmPassword" placeholder="Confirm new password" autocomplete="new-password" required />
-                            </label>
+                            ${renderPasswordField("New password", "password", { placeholder: "New password", autocomplete: "new-password" })}
+                            ${renderPasswordField("Confirm new password", "confirmPassword", { placeholder: "Confirm new password", autocomplete: "new-password" })}
                             <button type="submit">Reset Password</button>
                           </form>
                         `
@@ -14047,7 +14073,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 
       function renderCreateAccountPublicView() {
         const signupDisabled = !state.appSettings.auth.allowSelfSignup;
-        const savePasswordChecked = authPrefs?.savePasswordOnDevice !== false;
+        const savePasswordChecked = authPrefs?.savePasswordOnDevice === true;
         return `
           <div class="auth-page">
             <div class="page-shell">
@@ -14094,14 +14120,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                               <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
                             </label>
                             <div class="field-grid two">
-                              <label>
-                                Password
-                                <input type="password" name="password" placeholder="Create password" autocomplete="new-password" required />
-                              </label>
-                              <label>
-                                Confirm password
-                                <input type="password" name="confirmPassword" placeholder="Repeat password" autocomplete="new-password" required />
-                              </label>
+                              ${renderPasswordField("Password", "password", { placeholder: "Create password", autocomplete: "new-password" })}
+                              ${renderPasswordField("Confirm password", "confirmPassword", { placeholder: "Repeat password", autocomplete: "new-password" })}
                             </div>
                             <label class="checkbox-row">
                               <input type="checkbox" name="savePasswordOnDevice" ${checked(
@@ -14227,14 +14247,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                 </div>
                                 <p class="registration-password-help">Use your current password if you have an account; otherwise, choose at least ${escapeHtml(minimumPasswordLength)} characters.${isJudge ? "" : " Each teammate gets a separate link."}</p>
                                 <div class="field-grid two">
-                                  <label>
-                                    Your password
-                                    <input type="password" name="password" autocomplete="current-password" required />
-                                  </label>
-                                  <label>
-                                    Confirm password
-                                    <input type="password" name="confirmPassword" placeholder="Repeat your password" autocomplete="current-password" required />
-                                  </label>
+                                  ${renderPasswordField("Your password", "password", { autocomplete: "current-password" })}
+                                  ${renderPasswordField("Confirm password", "confirmPassword", { placeholder: "Repeat your password", autocomplete: "current-password" })}
                                 </div>
                                 ${
                                   isJudge
@@ -14323,7 +14337,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       }
 
       function renderRegionalOperationsPublicView() {
-        const savePasswordChecked = authPrefs?.savePasswordOnDevice !== false;
+        const savePasswordChecked = authPrefs?.savePasswordOnDevice === true;
 
         return `
           <div class="auth-page">
@@ -14337,11 +14351,13 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   </div>
                   <div class="public-hero-content">
                     <div class="public-hero-title-lockup public-hero-brand-stack">
-                      <img class="public-hero-jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE logo" />
+                      <img class="public-hero-jade-logo" src="${escapeHtml(JADE_LOGO_SRC)}" alt="JADE Hummingbird logo" />
                       <div class="public-hero-title-copy">
                         <h1 class="jade-product-wordmark">Hummingbird</h1>
+                        <p class="regional-page-label">Regional Development</p>
                       </div>
                     </div>
+                    <p class="hero-copy premium-hero-copy">For regional coordinators and deputies managing contacts, reports, support requests, and workshop resources.</p>
                     <div class="button-row wrap-row public-hero-actions regional-hero-actions">
                       <a class="button-primary" href="${escapeHtml(getDashboardLink())}">Back to main sign in</a>
                     </div>
@@ -14367,10 +14383,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                             Email Address
                             <input type="email" name="email" placeholder="you@example.com" autocomplete="username" required />
                           </label>
-                          <label>
-                            Password
-                            <input type="password" name="password" placeholder="Your password" autocomplete="current-password" required />
-                          </label>
+                          ${renderPasswordField("Password", "password", { placeholder: "Your password", autocomplete: "current-password" })}
                           <label class="checkbox-row">
                             <input type="checkbox" name="savePasswordOnDevice" ${checked(
                               savePasswordChecked,
@@ -14457,6 +14470,27 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               { section: "history", label: "History" },
             ].filter(Boolean)
           : [];
+        const managerOpsGroupLabels = {
+          roster: "Run the event",
+          participants: "Run the event",
+          draw: "Run the event",
+          "draw-review": "Run the event",
+          motions: "Run the event",
+          results: "Results",
+          breaks: "Results",
+          directory: "Teams and judges",
+          judges: "Teams and judges",
+          access: "Teams and judges",
+          setup: "Setup and updates",
+          notices: "Setup and updates",
+          history: "Setup and updates",
+        };
+        const managerOpsGroups = managerOpsButtons.reduce((groups, entry) => {
+          const label = managerOpsGroupLabels[entry.section] || "Tournament tools";
+          if (!groups.has(label)) groups.set(label, []);
+          groups.get(label).push(entry);
+          return groups;
+        }, new Map());
 
         return `
           <a class="skip-link" href="#workspace-main">Skip to main content</a>
@@ -14505,9 +14539,11 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                 item.key === "tournaments" && managerOpsButtons.length
                                   ? `
                                     <div class="menu-tournament-tools" aria-label="Tournament tools">
-                                      ${managerOpsButtons
-                                        .map(
-                                          (entry) => `
+                                      ${Array.from(managerOpsGroups.entries()).map(([label, entries]) => `
+                                        <details class="menu-tools-group" ${currentView === "tournaments" && entries.some((entry) => session.focusedTournamentSection === entry.section) ? "open" : ""}>
+                                          <summary>${escapeHtml(label)}</summary>
+                                          <div class="menu-tools-group-content">
+                                      ${entries.map((entry) => `
                                             <button class="menu-nav-link menu-operation-link ${
                                               currentView === "tournaments" &&
                                               session.focusedTournamentSection === entry.section
@@ -14520,9 +14556,10 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                                 <strong>${escapeHtml(entry.label)}</strong>
                                               </span>
                                             </button>
-                                          `,
-                                        )
-                                        .join("")}
+                                          `).join("")}
+                                          </div>
+                                        </details>
+                                      `).join("")}
                                     </div>
                                   `
                                   : ""
@@ -21256,7 +21293,9 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           <section class="surface regional-shell">
             <div class="section-heading">
               <div>
+                ${eyebrow ? `<p class="eyebrow">${escapeHtml(eyebrow)}</p>` : ""}
                 <h2>${escapeHtml(title)}</h2>
+                ${description ? `<p class="muted regional-header-description">${escapeHtml(description)}</p>` : ""}
               </div>
               <div class="workspace-chip-row">
                 <span class="role-pill">${escapeHtml(
@@ -23297,6 +23336,11 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           drawEntry,
           participants,
         );
+        const ballotParticipantGroups = groupBallotParticipantsByEntry(
+          tournament,
+          drawEntry,
+          orderedParticipants,
+        );
         const feedbackCategories = getRoundFormat(tournament, allocation.round) === "World Schools"
           ? ["Content", "Style", "Strategy"]
           : tournament.settings.feedbackCategories || [];
@@ -23320,6 +23364,18 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           : null;
         const roundControl = getRoundControlForRound(tournament, allocation.round);
         const optionalScoreConfig = getRoundOptionalScoreConfig(tournament, allocation.round);
+        const submittedResults = normalizeDrawOfficialResults(allocation.ballotResults);
+        const officialResults = normalizeDrawOfficialResults(drawEntry?.officialResults);
+        const submittedMatchesOfficial = roomSlots.length > 0 && roomSlots.every((slot) => {
+          const slotKey = getDrawSlotCheckInKey(slot);
+          const submitted = submittedResults[slotKey];
+          const official = officialResults[slotKey];
+          if (!submitted || !official) return false;
+          if (resultMode === "bp_rank") return Number(submitted.rank || 0) === Number(official.rank || 0);
+          if (resultMode === "win_loss") return String(submitted.outcome || "").toLowerCase() === String(official.outcome || "").toLowerCase();
+          return true;
+        });
+        const officialResultSummary = getDrawOfficialResultSummary(tournament, drawEntry);
         const visibleNotices = getVisibleTournamentNotices(tournament, {
           scope: "judge",
           limit: 2,
@@ -23419,40 +23475,32 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                     )} and is now locked. Only tournament managers can reopen it for corrections.
                   </div>
                   ${Object.keys(allocation.ballotResults || {}).length
-                    ? `<div class="flat-panel"><strong>${escapeHtml(isWorldSchools ? "Your Vote" : "Your Room Result")}</strong>
+                    ? `<div class="flat-panel"><strong>${escapeHtml(isWorldSchools ? "Your Vote" : "Submitted Room Result")}</strong>
                         <p class="muted">${escapeHtml(roomSlots.map((slot) => {
                           const result = allocation.ballotResults[getDrawSlotCheckInKey(slot)] || {};
                           return getDrawSlotDisplayLabel(tournament, slot, { drawEntry }) + " " +
                             (result.rank ? formatOrdinal(result.rank) : toTitleLabel(result.outcome));
                         }).join(" • "))}</p></div>` : ""}
                   ${
-                    getDrawOfficialResultSummary(tournament, drawEntry)
+                    officialResultSummary && !submittedMatchesOfficial
                       ? `<div class="flat-panel">
                           <strong>Official Room Result</strong>
-                          <p class="muted">${escapeHtml(
-                            getDrawOfficialResultSummary(tournament, drawEntry),
-                          )}</p>
+                          <p class="muted">${escapeHtml(officialResultSummary)}</p>
                         </div>`
                       : ""
                   }
                   <div class="leaderboard-list">
-                    ${orderedParticipants
-                      .map((participant) => {
-                        const slotDetails = getParticipantDrawSlotDetails(
-                          tournament,
-                          drawEntry,
-                          participant,
-                        );
-                        const existing = getExistingJudgeFeedback(
-                          participant,
-                          allocation.id,
-                          allocation.judgeEmail,
-                        );
+                    ${ballotParticipantGroups
+                      .map((group) => `
+                        <section class="ballot-team-group">
+                          <h4>${escapeHtml(group.label)}</h4>
+                          <div class="leaderboard-list">
+                      ${group.participants.map((participant) => {
+                        const existing = getExistingJudgeFeedback(participant, allocation.id, allocation.judgeEmail);
                         return `
                           <div class="leaderboard-row">
                             <div class="stack">
                               <strong>${escapeHtml(participant.name)}</strong>
-                              <span class="muted">${escapeHtml(slotDetails.label)}</span>
                               <span class="fine-print">${escapeHtml(
                                 "Speaker score: " +
                                   formatScoreValue(
@@ -23474,6 +23522,9 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                         `;
                       })
                       .join("")}
+                          </div>
+                        </section>
+                      `).join("")}
                   </div>
                 `
                     : `
@@ -23528,13 +23579,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                           `
                           : ""
                       }
-                      ${orderedParticipants
-                        .map((participant) => {
-                          const slotDetails = getParticipantDrawSlotDetails(
-                            tournament,
-                            drawEntry,
-                            participant,
-                          );
+                      ${ballotParticipantGroups
+                        .map((group) => `
+                          <section class="ballot-team-group">
+                            <h4>${escapeHtml(group.label)}</h4>
+                            <div class="ballot-team-speakers">
+                      ${group.participants.map((participant) => {
                           const existing = getExistingJudgeFeedback(
                             participant,
                             allocation.id,
@@ -23545,7 +23595,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                               <div class="section-heading">
                                 <div>
                                   <strong>${escapeHtml(participant.name)}</strong>
-                                  <p class="muted">${escapeHtml(slotDetails.label)}</p>
                                 </div>
                                 <span class="mini-pill success">${escapeHtml(
                                   allocation.round + " / " + allocation.room,
@@ -23632,6 +23681,9 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                           `;
                         })
                         .join("")}
+                            </div>
+                          </section>
+                        `).join("")}
                       ${isWorldSchools ? roomSlots.map((slot) => {
                         const slotKey = getDrawSlotCheckInKey(slot);
                         const speakers = orderedParticipants.filter((participant) =>
@@ -23672,25 +23724,20 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                     <div class="flat-panel">
                       <strong>Assigned Speakers</strong>
                       <div class="leaderboard-list">
-                        ${orderedParticipants
-                          .map(
-                            (participant) => {
-                              const slotDetails = getParticipantDrawSlotDetails(
-                                tournament,
-                                drawEntry,
-                                participant,
-                              );
-                              return `
+                        ${ballotParticipantGroups.map((group) => `
+                          <section class="ballot-team-group">
+                            <h4>${escapeHtml(group.label)}</h4>
+                            <div class="leaderboard-list">
+                        ${group.participants.map((participant) => `
                               <div class="leaderboard-row">
                                 <div class="stack">
                                   <strong>${escapeHtml(participant.name)}</strong>
-                                  <span class="muted">${escapeHtml(slotDetails.label)}</span>
                                 </div>
                               </div>
-                            `;
-                            },
-                          )
-                          .join("")}
+                            `).join("")}
+                            </div>
+                          </section>
+                        `).join("")}
                       </div>
                       ${
                         officialChair
@@ -23960,7 +24007,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         const devicePasswordSavingSupported = supportsDevicePasswordSaving();
         const devicePasswordSavingEnabled =
           normalizeEmail(authPrefs?.rememberedEmail) === normalizeEmail(currentUser?.email) &&
-          authPrefs?.savePasswordOnDevice !== false;
+          authPrefs?.savePasswordOnDevice === true;
         return `
           <section class="surface">
             <div class="section-heading">
@@ -24031,7 +24078,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 <input
                   type="checkbox"
                   name="savePasswordOnDevice"
-                  ${checked(devicePasswordSavingEnabled || authPrefs?.savePasswordOnDevice !== false)}
+                  ${checked(devicePasswordSavingEnabled || authPrefs?.savePasswordOnDevice === true)}
                   ${devicePasswordSavingSupported ? "" : "disabled"}
                 />
                 <span>Save password on this device</span>
@@ -30422,6 +30469,17 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           markUserInteraction();
 
           const action = button.dataset.action;
+
+          if (action === "toggle-password-visibility") {
+            const input = button.closest(".password-field-control")?.querySelector("input");
+            if (!input) return;
+            const showPassword = input.type === "password";
+            input.type = showPassword ? "text" : "password";
+            button.textContent = showPassword ? "Hide" : "Show";
+            button.setAttribute("aria-label", `${showPassword ? "Hide" : "Show"} password`);
+            button.setAttribute("aria-pressed", String(showPassword));
+            return;
+          }
 
           if (action === "select-registration-tournament") {
             const form = document.querySelector('form[data-form="public-debater-registration"], form[data-form="public-judge-registration"]');

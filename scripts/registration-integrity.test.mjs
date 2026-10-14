@@ -59,6 +59,115 @@ test('same-name teams resolve standings and institution points by stable identit
  assert.equal(app.run('getInstitutionStandings(tournament).length'),0);
 });
 
+test('institution and team labels are clearly separated in standings and draw views', async () => {
+ const app=await fixture();
+ assert.equal(app.run(`getTeamDisplayLabel({institution:'North College',name:'Alpha'})`), 'North College · Alpha');
+});
+
+test('regional sections show their section label and purpose in the shared header', async () => {
+ const app=loadFrontendDomain();
+ await app.run(`getSeedState().then(value => { state = value; session.userEmail = state.appSettings.manager.email; session.view = 'regional-home'; })`);
+ const html=app.run('renderRegionalOperationsView()');
+ assert.match(html, /<p class="eyebrow">Regional Development<\/p>/);
+ assert.match(html, /<h2>Home<\/h2>/);
+ assert.match(html, /Regional coordination hub for coordinators and field activity\./);
+});
+
+test('tournament tools are grouped and the current section opens its group', async () => {
+ const app=loadFrontendDomain();
+ await app.run(`getSeedState().then(value => {
+   state = value;
+   session.userEmail = state.appSettings.manager.email;
+   session.view = 'tournaments';
+   tournament = createTournamentRecord({name:'Synthetic menu test',format:'No Standard Format'});
+   state.tournaments = [tournament];
+   session.managedTournamentId = tournament.id;
+   session.focusedTournamentSection = 'draw';
+ })`);
+ const html=app.run('renderMenu()');
+ assert.match(html, /Run the event/);
+ assert.match(html, /Teams and judges/);
+ assert.match(html, /<details class="menu-tools-group" open>/);
+ assert.match(html, /<summary>Results<\/summary>/);
+});
+
+test('public authentication and registration password fields have accessible visibility controls', async () => {
+ const app=await fixture();
+ app.run("tournament.status='Open'; tournament.registration={debaterOpen:true}; state.tournaments=[tournament]");
+ const authHtml=app.run('renderAuthView()');
+ const registrationHtml=app.run('renderPublicRegistrationView("debater")');
+ const signupHtml=app.run('renderCreateAccountPublicView()');
+ assert.match(authHtml, /data-action="toggle-password-visibility" aria-label="Show password" aria-pressed="false"/);
+ assert.match(authHtml, /name="password"[^>]*autocomplete="current-password"/);
+ assert.match(registrationHtml, /name="confirmPassword"[^>]*autocomplete="current-password"/);
+ assert.match(registrationHtml, /data-action="toggle-password-visibility"/);
+ assert.doesNotMatch(authHtml, /name="savePasswordOnDevice" checked/);
+ assert.doesNotMatch(signupHtml, /name="savePasswordOnDevice" checked/);
+ assert.match(signupHtml, /<label for="password-field-password">Password<\/label>/);
+});
+
+test('synthetic account sign-in succeeds and rejects an incorrect password offline', async () => {
+ const app=loadFrontendDomain();
+ await app.run(`getSeedState().then(async value => {
+   state = value;
+   window.location.hostname = 'localhost';
+   probeCloudBackend = async () => false;
+   renderApp = () => {};
+   persist = () => {};
+   saveState = () => {};
+   saveSession = () => {};
+   state.users.push(await buildUser('Synthetic Member', 'member@synthetic.test', 'member', 'Synthetic-Passphrase-2026'));
+ })`);
+ const form = (password) => `({get:key=>({email:'member@synthetic.test',password:${JSON.stringify(password)},savePasswordOnDevice:'off'}[key] ?? null)})`;
+ await app.run(`signIn(${form('incorrect')})`);
+ assert.equal(app.run('session.userEmail'), '');
+ assert.match(app.run('flash.text'), /Incorrect password/);
+ await app.run(`signIn(${form('Synthetic-Passphrase-2026')})`);
+ assert.equal(app.run('session.userEmail'), 'member@synthetic.test');
+});
+
+test('synthetic account creation preserves mismatch errors and signs in a valid new account', async () => {
+ const app=loadFrontendDomain();
+ await app.run(`getSeedState().then(value => {
+   state = value;
+   window.location.hostname = 'localhost';
+   probeCloudBackend = async () => false;
+   renderApp = () => {};
+   persist = () => {};
+   saveState = () => {};
+   saveSession = () => {};
+ })`);
+ const form = (confirmation) => `({get:key=>({name:'Synthetic Entrant',email:'entrant@synthetic.test',password:'Synthetic-Passphrase-2026',confirmPassword:${JSON.stringify(confirmation)},savePasswordOnDevice:'off'}[key] ?? null)})`;
+ await app.run(`signUp(${form('does-not-match')})`);
+ assert.match(app.run('flash.text'), /Passwords do not match/);
+ assert.equal(app.run('getUserByEmail("entrant@synthetic.test")'), null);
+ await app.run(`signUp(${form('Synthetic-Passphrase-2026')})`);
+ assert.equal(app.run('session.userEmail'), 'entrant@synthetic.test');
+ assert.ok(app.run('getUserByEmail("entrant@synthetic.test")'));
+});
+
+test('submitted ballot hides a duplicate official result but keeps a differing result visible', async () => {
+ const app=await fixture();
+ const htmlFor = (officialRanks) => app.run(`(() => {
+     tournament.config.scoringMethod = 'WUDC Team Points';
+     const teams = tournament.teams;
+     const slots = teams.map((team, index) => ({
+       teamId: team.id, entryId: team.id, label: team.name, shortLabel: team.name,
+       participantIds: tournament.participants.filter(person => person.teamId === team.id).map(person => person.id),
+     }));
+     var ballotDraw = createDrawRecord(tournament, {id:'ballot-draw', round:1, room:'Room 1', status:'Published', slots});
+     const resultMap = Object.fromEntries(slots.map((slot, index) => [getDrawSlotCheckInKey(slot), {rank: index + 1}]));
+     ballotDraw.officialResults = Object.fromEntries(slots.map((slot, index) => [getDrawSlotCheckInKey(slot), {rank: ${JSON.stringify(officialRanks)}[index]}]));
+     tournament.draw = [ballotDraw];
+     tournament.judges = [createJudgeRecord('Synthetic Chair', 'chair@synthetic.test', '', {panelQuality:'chair'})];
+     var ballotAllocation = createJudgeAllocationRecord(tournament, ballotDraw, 'chair@synthetic.test', {id:'ballot-allocation', panelRole:'chair', submittedAt:'2026-10-13T12:00:00Z', ballotResults:resultMap});
+     tournament.judgeAllocations = [ballotAllocation];
+     return renderJudgeAssignmentCard({tournament, allocation:ballotAllocation, participants:tournament.participants, drawEntry:ballotDraw, judge:tournament.judges[0]});
+   })()`);
+ assert.equal((htmlFor([1,2]).match(/Official Room Result/g) || []).length, 0);
+ assert.equal((htmlFor([2,1]).match(/Official Room Result/g) || []).length, 1);
+});
+
 test('institution standings qualify only with three teams that have results and divide by those teams',async()=>{
  const app=await fixture();
  app.run(`
