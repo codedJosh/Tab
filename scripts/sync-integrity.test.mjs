@@ -8,16 +8,27 @@ async function fixture(){
  app.run(`state.tournaments=[createTournamentRecord({name:"Test",format:"World Schools"})];var stored = new Map(); localStorageGet=key=>stored.get(key)||null;localStorageSet=(key,value)=>{stored.set(key,value);return true};localStorageRemove=key=>stored.delete(key);renderApp=()=>{};saveSession=()=>{};probeCloudBackend=async()=>true;getCurrentUser=()=>({email:session.userEmail});waitForCloudRetry=async()=>{};`);
  return app;
 }
-test('stale autosave keeps recovery copy and cannot replay over a new registration',async()=>{
+test('stale autosave rebases disjoint edits onto the latest workspace',async()=>{
  const app=await fixture();
- app.run(`var serverState=clone(state);serverState.tournaments[0].name='New registration from another device';var writes=[];
- callCloud=async(action,payload)=>{if(action==='persist'){writes.push(payload.expectedRevision);throw Object.assign(new Error('stale'),{code:'stale_revision'})}return {state:serverState,revision:11}};
- refreshStateFromBackend=async()=>{state=clone(serverState);cloudRuntime.revision=11;cloudSyncRequiresRefresh=false;return true};`);
+ app.run(`var serverState=clone(state);serverState.appSettings.branding.accent='#remote-change';serverState.tournaments[0].teams.push({id:'remote-registration',name:'New team'});var writes=[];
+ cloudConfirmedState=clone(state);state.tournaments[0].name='Local motion edit';
+ callCloud=async(action,payload)=>{if(action==='persist'){writes.push(payload);if(writes.length===1)throw Object.assign(new Error('stale'),{code:'stale_revision'});serverState=clone(payload.state);return {revision:12}}if(action==='get_state')return {state:serverState,revision:11};throw new Error(action)};`);
  await app.run('queueCloudPersist(); cloudPersistQueue');
- assert.equal(app.run('writes.join(",")'),'10');
- assert.equal(app.run('state.tournaments[0].name'),'New registration from another device');
+ assert.equal(app.run('writes.map(item=>item.expectedRevision).join(",")'),'10,11');
+ assert.equal(app.run('serverState.tournaments[0].name'),'Local motion edit');
+ assert.equal(app.run('serverState.appSettings.branding.accent'),'#remote-change');
+ assert.equal(app.run('serverState.tournaments[0].teams.some(team=>team.id==="remote-registration")'),true);
  assert.equal(app.run('hasPendingCloudSyncForCurrentSession()'),false);
- assert.equal(app.run('JSON.parse(stored.get(CLOUD_SYNC_CONFLICTS_STORAGE_KEY)).length'),1);
+ assert.equal(app.run('stored.has(PENDING_CLOUD_SYNC_STORAGE_KEY)'),false);
+});
+test('an explicit deletion keeps its target deleted without erasing a concurrent registration',async()=>{
+ const app=await fixture();
+ app.run(`state.tournaments[0].teams=[{id:'remove-me',name:'Old team'}];cloudConfirmedState=clone(state);
+ state.tournaments[0].teams=[];var serverState=clone(cloudConfirmedState);serverState.tournaments[0].teams.push({id:'new-registration',name:'New team'});var writes=0;
+ callCloud=async(action,payload)=>{if(action==='persist'){writes++;if(writes===1)throw Object.assign(new Error('stale'),{code:'stale_revision'});serverState=clone(payload.state);return {revision:12}}if(action==='get_state')return {state:serverState,revision:11};throw new Error(action)};`);
+ assert.equal(await app.run('persistStateToCloudNow()'),true);
+ assert.equal(app.run('serverState.tournaments[0].teams.some(team=>team.id==="remove-me")'),false);
+ assert.equal(app.run('serverState.tournaments[0].teams.some(team=>team.id==="new-registration")'),true);
 });
 test('offline snapshot without its base revision is preserved instead of replayed',async()=>{
  const app=await fixture();
@@ -25,6 +36,20 @@ test('offline snapshot without its base revision is preserved instead of replaye
  assert.equal(await app.run('preparePendingCloudSyncReplay()'),false);
  assert.equal(app.run('pendingCloudSync'),null);
  assert.equal(app.run('JSON.parse(stored.get(CLOUD_SYNC_CONFLICTS_STORAGE_KEY))[0].id'),'legacy');
+});
+test('pending backend saves retry in the current session after a transport failure',async()=>{
+ const app=await fixture();
+ app.run(`cloudConfirmedState=clone(state);state.tournaments[0].name='Saved offline';var calls=0;
+ navigator.onLine=true;window.setTimeout=(fn,ms)=>setTimeout(fn,ms);window.clearTimeout=clearTimeout;
+ callCloud=async(action,payload)=>{if(action!=='persist')throw new Error(action);calls++;if(calls===1)throw new TypeError('network unavailable');return {revision:11}};`);
+ app.run('queueCloudPersist();');
+ await app.run('cloudPersistQueue');
+ assert.equal(app.run('hasPendingCloudSyncForCurrentSession()'),true);
+ app.run('retryPendingCloudSyncNow()');
+ await new Promise(resolve=>setTimeout(resolve,30));
+ await app.run('cloudPersistQueue');
+ assert.equal(app.run('calls'),2);
+ assert.equal(app.run('hasPendingCloudSyncForCurrentSession()'),false);
 });
 test('queued local continuation uses acknowledged revision and retains both edits',async()=>{
  const app=await fixture();

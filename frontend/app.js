@@ -529,6 +529,8 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
       let workspacePatchWorkerRunning = false;
       let workspacePatchQueue = Promise.resolve();
       let pendingCloudSync = null;
+      let pendingCloudSyncRetryTimer = null;
+      let pendingCloudSyncRetryAttempt = 0;
       let cloudSyncConflictGeneration = 0;
       let cloudSyncRequiresRefresh = false;
       let localMutationVersion = 0;
@@ -1352,6 +1354,9 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
           return;
         }
         liveSyncTimer = window.setInterval(() => {
+          if (hasPendingCloudSyncForCurrentSession() && session.cloudSessionToken && !pendingCloudSyncRetryTimer && !cloudPersistWorkerRunning) {
+            schedulePendingCloudSyncRetry();
+          }
           void refreshSharedStateIfIdle();
         }, LIVE_SYNC_INTERVAL_MS);
       }
@@ -7680,6 +7685,13 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
 
         const snapshot = clone(incomingState);
         assertWorkspaceContract(snapshot, "pending cloud sync");
+        const baseState = record.baseState && typeof record.baseState === "object" && !Array.isArray(record.baseState)
+          ? clone(record.baseState)
+          : null;
+        if (baseState) assertWorkspaceContract(baseState, "pending cloud sync base");
+        const changes = Array.isArray(record.changes)
+          ? clone(record.changes)
+          : baseState ? tournamentChanges(baseState, snapshot) : null;
 
         return {
           id,
@@ -7687,6 +7699,8 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
           createdAt,
           baseRevision: normalizeWorkspaceRevision(record.baseRevision),
           conflicted: Boolean(record.conflicted) || !normalizeWorkspaceRevision(record.baseRevision),
+          baseState,
+          changes,
           state: snapshot,
         };
       }
@@ -7720,7 +7734,8 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
         } catch (_error) {
           return false;
         }
-        const conflict = { ...record, conflicted: true };
+        const { baseState: _baseState, ...recovery } = record;
+        const conflict = { ...recovery, conflicted: true };
         const existing = conflicts.findIndex((entry) => entry.id === conflict.id);
         if (existing >= 0) conflicts[existing] = conflict;
         else conflicts.push(conflict);
@@ -7732,13 +7747,37 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
         const currentEmail = normalizeEmail(session.userEmail);
         if (pendingCloudSync.userEmail && pendingCloudSync.userEmail !== currentEmail) return false;
         const loadedRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
-        if (pendingCloudSync.conflicted || !pendingCloudSync.baseRevision ||
-            (loadedRevision > 0 && loadedRevision !== pendingCloudSync.baseRevision)) {
+        if (pendingCloudSync.conflicted || !pendingCloudSync.baseRevision) {
           pendingCloudSync.conflicted = true;
           if (preserveCloudSyncConflict(pendingCloudSync)) clearPendingCloudSyncRecord(pendingCloudSync.id);
           else localStorageSet(PENDING_CLOUD_SYNC_STORAGE_KEY, JSON.stringify(pendingCloudSync));
           setFlash("warning", "The shared workspace changed while this device had unsaved edits. The local copy was kept for recovery; apply those edits again to the current workspace.");
           return false;
+        }
+        if (loadedRevision > 0 && loadedRevision !== pendingCloudSync.baseRevision) {
+          try {
+            const rebased = await rebasePendingCloudSync(pendingCloudSync);
+            if (!rebased) return false;
+            cloudConfirmedState = clone(rebased.latestState);
+            cloudRuntime.revision = rebased.revision;
+            if (JSON.stringify(rebased.rebasedState) === JSON.stringify(rebased.latestState)) {
+              clearPendingCloudSyncRecord(pendingCloudSync.id);
+              state = clone(rebased.latestState);
+              return false;
+            }
+            pendingCloudSync.baseState = clone(rebased.latestState);
+            pendingCloudSync.baseRevision = rebased.revision;
+            pendingCloudSync.state = clone(rebased.rebasedState);
+            pendingCloudSync.changes = tournamentChanges(rebased.latestState, rebased.rebasedState);
+            localStorageSet(PENDING_CLOUD_SYNC_STORAGE_KEY, JSON.stringify(pendingCloudSync, (key, value) => key === "baseState" ? undefined : value));
+          } catch (error) {
+            if (error?.code !== "edit_conflict") return false;
+            pendingCloudSync.conflicted = true;
+            if (preserveCloudSyncConflict(pendingCloudSync)) clearPendingCloudSyncRecord(pendingCloudSync.id);
+            else localStorageSet(PENDING_CLOUD_SYNC_STORAGE_KEY, JSON.stringify(pendingCloudSync));
+            setFlash("warning", "The same data changed elsewhere. The latest saved version is loaded, and your edit is kept for recovery.");
+            return false;
+          }
         }
         // The replayed snapshot is the current local view until its save is
         // acknowledged. Otherwise its acknowledgement would advance revision
@@ -7747,7 +7786,7 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
         return true;
       }
 
-      function savePendingCloudSyncRecord(snapshot, syncId, baseRevision = cloudRuntime.revision) {
+      function savePendingCloudSyncRecord(snapshot, syncId, baseRevision = cloudRuntime.revision, baseState = cloudConfirmedState, changes = null) {
         if (!snapshot || !syncId) {
           return;
         }
@@ -7767,11 +7806,13 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
           createdAt: new Date().toISOString(),
           baseRevision: normalizeWorkspaceRevision(baseRevision),
           conflicted: !normalizeWorkspaceRevision(baseRevision),
+          baseState: baseState ? clone(baseState) : null,
+          changes: Array.isArray(changes) ? clone(changes) : baseState ? tournamentChanges(baseState, normalizedSnapshot) : null,
           state: normalizedSnapshot,
         };
         localStorageSet(
           PENDING_CLOUD_SYNC_STORAGE_KEY,
-          JSON.stringify(pendingCloudSync),
+          JSON.stringify(pendingCloudSync, (key, value) => key === "baseState" ? undefined : value),
         );
       }
 
@@ -7782,7 +7823,43 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
         }
 
         pendingCloudSync = null;
+        pendingCloudSyncRetryAttempt = 0;
+        if (pendingCloudSyncRetryTimer) window.clearTimeout(pendingCloudSyncRetryTimer);
+        pendingCloudSyncRetryTimer = null;
         localStorageRemove(PENDING_CLOUD_SYNC_STORAGE_KEY);
+      }
+
+      function schedulePendingCloudSyncRetry(delayMs = null) {
+        if (pendingCloudSyncRetryTimer || !hasPendingCloudSyncForCurrentSession() || !session.cloudSessionToken) return;
+        const delay = delayMs ?? Math.min(60_000, 1_000 * (2 ** Math.min(pendingCloudSyncRetryAttempt++, 6)));
+        pendingCloudSyncRetryTimer = window.setTimeout(() => {
+          pendingCloudSyncRetryTimer = null;
+          if (!hasPendingCloudSyncForCurrentSession() || !session.cloudSessionToken || navigator.onLine === false) return;
+          queueCloudPersist({
+            snapshot: pendingCloudSync.state,
+            expectedRevision: pendingCloudSync.baseRevision,
+            baseState: pendingCloudSync.baseState,
+            changes: pendingCloudSync.changes,
+            skipSuccessRender: false,
+          });
+        }, delay);
+      }
+
+      function retryPendingCloudSyncNow() {
+        if (pendingCloudSyncRetryTimer) window.clearTimeout(pendingCloudSyncRetryTimer);
+        pendingCloudSyncRetryTimer = null;
+        schedulePendingCloudSyncRetry(0);
+      }
+
+      async function rebasePendingCloudSync(record) {
+        if ((!Array.isArray(record?.changes) && !record?.baseState) || !session.cloudSessionToken) return null;
+        const latest = await callCloud("get_state", { sessionToken: session.cloudSessionToken });
+        const latestRevision = normalizeWorkspaceRevision(latest?.revision);
+        if (!latest?.state || !latestRevision) return null;
+        const latestState = await rehydrateState(latest.state);
+        const changes = Array.isArray(record.changes) ? record.changes : tournamentChanges(record.baseState, record.state);
+        const rebasedState = applyTournamentChanges(latestState, changes);
+        return { latestState, rebasedState, revision: latestRevision };
       }
 
       function hasPendingCloudSyncForCurrentSession() {
@@ -7812,6 +7889,7 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
           ? { ...record, id: createId("cloud-conflict"), state: queued.snapshotSource, baseRevision: queued.baseRevision }
           : record;
         recoveryRecord.conflicted = true;
+        delete recoveryRecord.baseState;
         if (preserveCloudSyncConflict(recoveryRecord)) clearPendingCloudSyncRecord(record.id);
         else {
           pendingCloudSync = recoveryRecord;
@@ -8217,10 +8295,21 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
           renderApp();
           return;
         }
+        const nextSnapshot = clone(snapshotSource || state);
+        const priorPending = pendingCloudSync;
+        const queuedChanges = Array.isArray(options.changes)
+          ? clone(options.changes)
+          : priorPending?.baseState
+            ? tournamentChanges(priorPending.baseState, nextSnapshot)
+            : priorPending?.changes
+              ? [...clone(priorPending.changes), ...tournamentChanges(priorPending.state, nextSnapshot)]
+              : null;
         localMutationVersion += 1;
         queuedCloudPersistRequest = {
-          snapshotSource: clone(snapshotSource || state),
+          snapshotSource: nextSnapshot,
           baseRevision: normalizeWorkspaceRevision(options.expectedRevision ?? cloudRuntime.revision),
+          baseState: options.baseState ? clone(options.baseState) : clone(pendingCloudSync?.baseState || cloudConfirmedState || state),
+          changes: queuedChanges,
           options,
         };
 
@@ -8242,8 +8331,9 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
             const requestState = requestSource;
             const requestSyncId = createId("cloud-sync");
             const requestOptions = request.options || {};
-            savePendingCloudSyncRecord(requestState, requestSyncId, request.baseRevision);
+            savePendingCloudSyncRecord(requestState, requestSyncId, request.baseRevision, request.baseState, request.changes);
             if (!(await probeCloudBackend()) || !session.cloudSessionToken || !getCurrentUser()) {
+              if (session.cloudSessionToken && getCurrentUser()) schedulePendingCloudSyncRetry();
               continue;
             }
 
@@ -8270,24 +8360,88 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
                 // made while the request was in flight.
                 clearPendingCloudSyncRecord(requestSyncId);
                 cloudConfirmedState = clone(requestState);
+                if (queuedCloudPersistRequest) {
+                  queuedCloudPersistRequest.baseState = clone(requestState);
+                  queuedCloudPersistRequest.baseRevision = normalizeWorkspaceRevision(result.revision);
+                }
                 saveSession();
                 if (requiresSharedBackend() && !requestOptions.skipSuccessRender) {
                   renderApp();
                 }
               }
             } catch (error) {
-              console.error(error);
               if (error.code === "stale_revision") {
+                try {
+                  const rebased = await rebasePendingCloudSync(pendingCloudSync);
+                  if (rebased) {
+                    if (JSON.stringify(rebased.rebasedState) === JSON.stringify(rebased.latestState)) {
+                      cloudConfirmedState = clone(rebased.latestState);
+                      cloudRuntime.revision = rebased.revision;
+                      clearPendingCloudSyncRecord(requestSyncId);
+                      if (queuedCloudPersistRequest) {
+                        queuedCloudPersistRequest.baseState = clone(rebased.latestState);
+                        queuedCloudPersistRequest.baseRevision = rebased.revision;
+                      }
+                      setFlash("success", "Your changes are saved to the shared system.");
+                      saveState();
+                      renderApp();
+                      continue;
+                    }
+                    savePendingCloudSyncRecord(rebased.rebasedState, requestSyncId, rebased.revision, rebased.latestState, tournamentChanges(rebased.latestState, rebased.rebasedState));
+                    const saved = await callCloud("persist", {
+                      sessionToken: session.cloudSessionToken,
+                      state: rebased.rebasedState,
+                      expectedRevision: rebased.revision,
+                    });
+                    cloudRuntime.initialized = true;
+                    cloudConfirmedState = clone(rebased.rebasedState);
+                    if (queuedCloudPersistRequest) {
+                      queuedCloudPersistRequest.baseState = clone(rebased.rebasedState);
+                      queuedCloudPersistRequest.baseRevision = normalizeWorkspaceRevision(saved.revision);
+                    }
+                    clearPendingCloudSyncRecord(requestSyncId);
+                    saveSession();
+                    if (requiresSharedBackend() && !requestOptions.skipSuccessRender) {
+                      setFlash("success", "Your changes are saved to the shared system.");
+                      renderApp();
+                    }
+                    continue;
+                  }
+                } catch (rebaseError) {
+                  if (!rebaseError || rebaseError.code !== "edit_conflict") console.error(rebaseError);
+                  if (rebaseError?.code !== "edit_conflict") {
+                    schedulePendingCloudSyncRetry();
+                    setFlash("warning", "Your change is saved on this device and is waiting to sync. Hummingbird will retry automatically when the shared service is reachable.");
+                    renderApp();
+                    return;
+                  }
+                }
                 await recoverFromCloudSyncConflict({
                   id: requestSyncId, userEmail: normalizeEmail(session.userEmail),
                   createdAt: new Date().toISOString(), state: requestState, baseRevision: request.baseRevision,
+                  baseState: request.baseState,
                 });
                 return;
               }
-              setFlash(
-                "warning",
-                "JADE Hummingbird kept this change on the device and will retry the shared backend save when the connection settles.",
-              );
+              const transient = error?.code === "backend_timeout" || error?.name === "TypeError" || /^5\d\d$/.test(String(error?.code || ""));
+              const sessionExpired = error?.code === "invalid_session" || error?.code === "401" || error?.code === "403";
+              if (transient) schedulePendingCloudSyncRetry();
+              if (sessionExpired) {
+                session.cloudSessionToken = "";
+                saveSession();
+              }
+              if (sessionExpired) {
+                setFlash("warning", "Your change is saved on this device. Sign in again to sync it with the shared system.");
+              } else if (transient) {
+                setFlash("warning", "Your change is saved on this device and is waiting to sync. Hummingbird will retry automatically when the shared service is reachable.");
+              } else {
+                await recoverFromCloudSyncConflict({
+                  id: requestSyncId, userEmail: normalizeEmail(session.userEmail),
+                  createdAt: new Date().toISOString(), state: requestState, baseRevision: request.baseRevision,
+                  baseState: request.baseState,
+                });
+                continue;
+              }
               renderApp();
             }
           }
@@ -8302,6 +8456,8 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
                 snapshot: queuedCloudPersistRequest.snapshotSource,
                 ...queuedCloudPersistRequest.options,
                 expectedRevision: queuedCloudPersistRequest.baseRevision,
+                baseState: queuedCloudPersistRequest.baseState,
+                changes: queuedCloudPersistRequest.changes,
               });
             }
           });
@@ -8407,7 +8563,8 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
         // times before every explicit save.
         const queuedState = clone(state);
         const baseRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
-        savePendingCloudSyncRecord(queuedState, syncId, baseRevision);
+        const baseState = clone(cloudConfirmedState || queuedState);
+        savePendingCloudSyncRecord(queuedState, syncId, baseRevision, baseState);
         try {
           if (!baseRevision) {
             await recoverFromCloudSyncConflict(pendingCloudSync, { skipRender });
@@ -8422,15 +8579,71 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
           });
         } catch (error) {
           if (error.code === "stale_revision") {
-            await recoverFromCloudSyncConflict({
+            const record = {
               id: syncId, userEmail: normalizeEmail(session.userEmail),
-              createdAt: new Date().toISOString(), state: queuedState, baseRevision,
-            }, { skipRender });
-            const conflictError = new Error(
-              "Another device changed JADE Hummingbird first. The page was refreshed to the latest shared version; please apply that edit again.",
-            );
+              createdAt: new Date().toISOString(), state: queuedState, baseRevision, baseState,
+            };
+            try {
+              const rebased = await rebasePendingCloudSync(record);
+              if (rebased) {
+                if (JSON.stringify(rebased.rebasedState) === JSON.stringify(rebased.latestState)) {
+                  state = clone(rebased.latestState);
+                  cloudConfirmedState = clone(rebased.latestState);
+                  cloudRuntime.revision = rebased.revision;
+                  clearPendingCloudSyncRecord(syncId);
+                  saveState();
+                  saveSession();
+                  if (!skipRender) renderApp();
+                  return true;
+                }
+                result = await callCloud("persist", {
+                  sessionToken: session.cloudSessionToken,
+                  state: rebased.rebasedState,
+                  expectedRevision: rebased.revision,
+                });
+                state = rebased.rebasedState;
+                cloudRuntime.initialized = true;
+                cloudConfirmedState = clone(rebased.rebasedState);
+                saveState();
+                saveSession();
+                clearPendingCloudSyncRecord(syncId);
+                if (!skipRender) renderApp();
+                return true;
+              }
+            } catch (rebaseError) {
+              if (rebaseError?.code !== "edit_conflict" && rebaseError?.code !== "stale_revision") {
+                schedulePendingCloudSyncRetry();
+                throw rebaseError;
+              }
+            }
+            await recoverFromCloudSyncConflict(record, { skipRender });
+            const conflictError = new Error("The same data changed elsewhere. The latest saved version is loaded, and your edit is kept for recovery.");
             conflictError.code = "stale_revision";
             throw conflictError;
+          }
+          const transient = error?.code === "backend_timeout" || error?.name === "TypeError" || /^5\d\d$/.test(String(error?.code || ""));
+          const sessionExpired = error?.code === "invalid_session" || error?.code === "401" || error?.code === "403";
+          if (transient || sessionExpired) {
+            if (transient) schedulePendingCloudSyncRetry();
+            if (sessionExpired) {
+              session.cloudSessionToken = "";
+              saveSession();
+            }
+            error.code = "pending_sync";
+            error.message = sessionExpired
+              ? "This change is saved on this device. Sign in again to sync it with the shared system."
+              : "This change is saved on this device. Hummingbird will retry the shared save automatically.";
+          } else {
+            preserveCloudSyncConflict({
+              id: syncId,
+              userEmail: normalizeEmail(session.userEmail),
+              createdAt: new Date().toISOString(),
+              state: queuedState,
+              baseState,
+              baseRevision,
+              conflicted: true,
+            });
+            clearPendingCloudSyncRecord(syncId);
           }
           throw error;
         }
@@ -24835,12 +25048,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
 
           setFlash("success", messages.success || "Password updated.");
         } catch (error) {
-          if (!persisted && error?.code !== "stale_revision") {
+          if (!persisted && error?.code !== "stale_revision" && error?.code !== "pending_sync") {
             state = previousState;
           }
-          session = previousSession;
+          if (error?.code !== "pending_sync") session = previousSession;
           setFlash(
-            error?.code === "stale_revision" ? "warning" : "error",
+            error?.code === "stale_revision" || error?.code === "pending_sync" ? "warning" : "error",
             error?.message || messages.error || "The password could not be saved to the shared system.",
           );
         }
@@ -24862,12 +25075,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           });
           setFlash("success", messages.success || "Saved successfully.");
         } catch (error) {
-          if (error?.code !== "stale_revision") {
+          if (error?.code !== "stale_revision" && error?.code !== "pending_sync") {
             state = previousState;
           }
-          session = previousSession;
+          if (error?.code !== "pending_sync") session = previousSession;
           setFlash(
-            error?.code === "stale_revision" ? "warning" : "error",
+            error?.code === "stale_revision" || error?.code === "pending_sync" ? "warning" : "error",
             error?.message || messages.error || "The shared workspace could not save that change.",
           );
         }
@@ -25054,12 +25267,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
 	                  ".",
           );
         } catch (error) {
-          if (!persisted && error?.code !== "stale_revision") {
+          if (!persisted && error?.code !== "stale_revision" && error?.code !== "pending_sync") {
             state = previousState;
           }
-          session = previousSession;
+          if (error?.code !== "pending_sync") session = previousSession;
           setFlash(
-            error?.code === "stale_revision" ? "warning" : "error",
+            error?.code === "stale_revision" || error?.code === "pending_sync" ? "warning" : "error",
             error?.message || "The regional account could not be saved to the shared system.",
           );
         }
@@ -25820,12 +26033,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
               return false;
             }
 
-            if (error?.code !== "stale_revision") {
+            if (error?.code !== "stale_revision" && error?.code !== "pending_sync") {
               state = previousState;
             }
             session = previousSession;
             setFlash(
-              error?.code === "stale_revision" ? "warning" : "error",
+              error?.code === "stale_revision" || error?.code === "pending_sync" ? "warning" : "error",
               error?.message || errorMessage,
             );
             saveState();
@@ -25948,12 +26161,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           });
           setFlash("success", "Tournament deleted.");
         } catch (error) {
-          if (error?.code !== "stale_revision") {
+          if (error?.code !== "stale_revision" && error?.code !== "pending_sync") {
             state = previousState;
           }
-          session = previousSession;
+          if (error?.code !== "pending_sync") session = previousSession;
           setFlash(
-            error?.code === "stale_revision" ? "warning" : "error",
+            error?.code === "stale_revision" || error?.code === "pending_sync" ? "warning" : "error",
             error?.message || "The tournament could not be deleted right now.",
           );
         }
@@ -28909,12 +29122,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           });
           setFlash("success", "Account status updated.");
         } catch (error) {
-          if (error?.code !== "stale_revision") {
+          if (error?.code !== "stale_revision" && error?.code !== "pending_sync") {
             state = previousState;
           }
-          session = previousSession;
+          if (error?.code !== "pending_sync") session = previousSession;
           setFlash(
-            error?.code === "stale_revision" ? "warning" : "error",
+            error?.code === "stale_revision" || error?.code === "pending_sync" ? "warning" : "error",
             error?.message || "The account status could not be saved to the shared system.",
           );
         }
@@ -28986,12 +29199,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           });
           setFlash("success", "User removed from the database.");
         } catch (error) {
-          if (error?.code !== "stale_revision") {
+          if (error?.code !== "stale_revision" && error?.code !== "pending_sync") {
             state = previousState;
           }
-          session = previousSession;
+          if (error?.code !== "pending_sync") session = previousSession;
           setFlash(
-            error?.code === "stale_revision" ? "warning" : "error",
+            error?.code === "stale_revision" || error?.code === "pending_sync" ? "warning" : "error",
             error?.message || "The account removal could not be saved to the shared system.",
           );
         }
@@ -29246,6 +29459,8 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         window.addEventListener("focus", () => {
           void refreshSharedStateIfIdle();
         });
+
+        window.addEventListener("online", retryPendingCloudSyncNow);
 
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "hidden") {
@@ -31059,6 +31274,8 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             queueCloudPersist({
               snapshot: pendingCloudSync.state,
               expectedRevision: pendingCloudSync.baseRevision,
+              baseState: pendingCloudSync.baseState,
+              changes: pendingCloudSync.changes,
               skipSuccessRender: false,
             });
           }

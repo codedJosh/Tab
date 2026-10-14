@@ -1,24 +1,32 @@
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const plain = value => value && typeof value === 'object' && !Array.isArray(value);
+const setListKeys = new Set(['debaterEmails','judgeEmails','managerEmails','tabManagerEmails','teamIds','participantIds','entryIds','excludedParticipantIds','pinnedTournamentIds','archivedTournamentIds','deletedTournamentIds','registeredTournamentIds']);
+const isSetList = (value, path) => Array.isArray(value) && value.every(item => typeof item === 'string') && new Set(value).size === value.length && setListKeys.has(path.at(-1)?.key);
 const recordKey = value => {
   if (!Array.isArray(value)) return '';
   if (value.every(item => plain(item) && typeof item.id === 'string' && item.id) && new Set(value.map(item => item.id)).size === value.length) return 'id';
   if (value.every(item => plain(item) && Number.isInteger(Number(item.round)) && Number(item.round) > 0) && new Set(value.map(item => Number(item.round))).size === value.length) return 'round';
+  if (value.every(item => plain(item) && typeof item.email === 'string' && item.email.trim()) && new Set(value.map(item => item.email.trim().toLowerCase())).size === value.length) return 'email';
   return '';
 };
 const keyed = value => Boolean(recordKey(value));
-const identity = (record, key) => key === 'round' ? Number(record?.round) : record?.id;
-const isRecordPart = part => Object.hasOwn(part || {}, 'id') || Object.hasOwn(part || {}, 'round');
-const recordPartKey = part => Object.hasOwn(part || {}, 'id') ? 'id' : 'round';
+const identity = (record, key) => key === 'round' ? Number(record?.round) : key === 'email' ? String(record?.email || '').trim().toLowerCase() : record?.id;
+const isRecordPart = part => Object.hasOwn(part || {}, 'id') || Object.hasOwn(part || {}, 'round') || Object.hasOwn(part || {}, 'email');
+const recordPartKey = part => Object.hasOwn(part || {}, 'id') ? 'id' : Object.hasOwn(part || {}, 'round') ? 'round' : 'email';
 const findRecordIndex = (records, part) => {
   const key = recordPartKey(part);
-  const target = key === 'round' ? Number(part.round) : part.id;
+  const target = key === 'round' ? Number(part.round) : key === 'email' ? String(part.email || '').trim().toLowerCase() : part.id;
   return records.findIndex(item => identity(item, key) === target);
 };
 export function tournamentChanges(before, after, path = []) {
   if (equal(before, after)) return [];
   if (plain(before) && plain(after)) return [...new Set([...Object.keys(before), ...Object.keys(after)])].flatMap(key =>
     tournamentChanges(before[key], after[key], [...path, {key}]));
+  if (isSetList(before, path) && isSetList(after, path)) {
+    const oldValues = new Set(before);
+    const newValues = new Set(after);
+    return [{path, setAdd: after.filter(value => !oldValues.has(value)), setRemove: before.filter(value => !newValues.has(value))}];
+  }
   const beforeKey = recordKey(before);
   const afterKey = recordKey(after);
   const key = beforeKey === afterKey ? beforeKey : before?.length === 0 ? afterKey : after?.length === 0 ? beforeKey : '';
@@ -43,6 +51,27 @@ export function applyTournamentChanges(current, changes) {
   for (const change of changes) {
     if (!Array.isArray(change.path) || !change.path.length || change.path.length > 30) throw new Error('Invalid change path.');
     let parent = result;
+    if (Array.isArray(change.setAdd) || Array.isArray(change.setRemove)) {
+      if (!Array.isArray(change.setAdd) || !Array.isArray(change.setRemove) || [...change.setAdd,...change.setRemove].some(value => typeof value !== 'string') || new Set(change.setAdd).size !== change.setAdd.length || new Set(change.setRemove).size !== change.setRemove.length || change.setAdd.some(value => change.setRemove.includes(value))) throw new Error('Invalid set-list change.');
+      for (const part of change.path.slice(0, -1)) {
+        if (isRecordPart(part)) {
+          if (!Array.isArray(parent)) throw new Error('Invalid record path.');
+          const index = findRecordIndex(parent, part);
+          if (index < 0) throw Object.assign(new Error('This record was removed. Refresh before editing.'),{code:'edit_conflict'});
+          parent = parent[index];
+        } else {
+          if (!plain(parent) || typeof part.key !== 'string' || ['__proto__','constructor','prototype'].includes(part.key)) throw new Error('Invalid field path.');
+          parent = parent[part.key];
+        }
+      }
+      const field = change.path.at(-1);
+      if (!plain(parent) || typeof field?.key !== 'string' || !setListKeys.has(field.key) || !Array.isArray(parent[field.key]) || !parent[field.key].every(value => typeof value === 'string')) throw new Error('Invalid set-list target.');
+      const removals = new Set(change.setRemove);
+      const values = parent[field.key].filter(value => !removals.has(value));
+      for (const value of change.setAdd) if (!values.includes(value)) values.push(value);
+      parent[field.key] = values;
+      continue;
+    }
     if (change.removeRecord === true) {
       const identityPart = change.path.at(-1);
       if (!isRecordPart(identityPart)) throw new Error('Invalid record removal.');
@@ -113,9 +142,14 @@ export function applyTournamentChanges(current, changes) {
       if (isRecordPart(part)) {
         const identityKey = recordPartKey(part);
         const targetIdentity = identity(part, identityKey);
-        if (identityKey === 'round' && (!Number.isInteger(targetIdentity) || targetIdentity <= 0)) throw new Error('Invalid record path.');
+        if ((identityKey === 'round' && (!Number.isInteger(targetIdentity) || targetIdentity <= 0)) || (identityKey === 'email' && !targetIdentity)) throw new Error('Invalid record path.');
         const partIdentity = identityKey === 'round' ? Number(part.round) : part.id;
-        if (change.afterExists && (identityKey === 'round' ? Number(desired?.round) !== partIdentity : desired?.id !== partIdentity)) throw new Error('Record identity cannot change.');
+        const identityMatches = identityKey === 'round'
+          ? Number(desired?.round) === partIdentity
+          : identityKey === 'email'
+            ? String(desired?.email || '').trim().toLowerCase() === partIdentity
+            : desired?.id === partIdentity;
+        if (change.afterExists && !identityMatches) throw new Error('Record identity cannot change.');
         if (key < 0 && change.afterExists) parent.push(structuredClone(desired));
         else if (!change.afterExists && key >= 0) parent.splice(key,1);
         else parent[key] = structuredClone(desired);

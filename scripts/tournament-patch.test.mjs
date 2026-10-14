@@ -8,11 +8,25 @@ test('simultaneous registration and team assignment both survive',()=>{
  const result=applyTournamentChanges(latest,tournamentChanges(base,edited));
  assert.equal(result.participants.length,3);assert.equal(result.participants[0].teamId,'c');
 });
+test('user edits and removals preserve accounts added concurrently',()=>{
+ const base={users:[{email:'manager@test.org',role:'manager'}]};
+ const edited={users:[]};
+ const latest={users:[{email:'manager@test.org',role:'manager'},{email:'new@test.org',role:'member'}]};
+ const result=applyTournamentChanges(latest,tournamentChanges(base,edited));
+ assert.deepEqual(result.users.map(user=>user.email),['new@test.org']);
+});
 test('two staff can edit different people without a workspace conflict',()=>{
  const one=structuredClone(base);one.participants[0].teamId='c';
  const two=structuredClone(base);two.participants[1].teamId='d';
  const result=applyTournamentChanges(one,tournamentChanges(base,two));
  assert.deepEqual(result.participants.map(p=>p.teamId),['c','d']);
+});
+test('independent email list additions and removals merge by membership',()=>{
+ const base={permissions:{debaterEmails:['one@test.org','two@test.org']}};
+ const edited=structuredClone(base);edited.permissions.debaterEmails=['two@test.org','three@test.org'];
+ const latest={permissions:{debaterEmails:['one@test.org','two@test.org','four@test.org']}};
+ const result=applyTournamentChanges(latest,tournamentChanges(base,edited));
+ assert.deepEqual(result.permissions.debaterEmails,['two@test.org','four@test.org','three@test.org']);
 });
 test('record reordering preserves a concurrent new registration',()=>{
  const base={teams:[{id:'a',name:'A'},{id:'b',name:'B'}]};
