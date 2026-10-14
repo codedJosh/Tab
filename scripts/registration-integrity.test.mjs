@@ -64,6 +64,30 @@ test('institution and team labels are clearly separated in standings and draw vi
  assert.equal(app.run(`getTeamDisplayLabel({institution:'North College',name:'Alpha'})`), 'North College · Alpha');
 });
 
+test('participant roles appear once each in the tournament people list', async () => {
+ const app=await fixture();
+ app.run(`tournament.participants=[{id:'person',name:'Person',email:'person@test.org',token:''}];
+   tournament.judges=[createJudgeRecord('Person','person@test.org','')];`);
+ const html=app.run('renderTournamentParticipantsStudio(tournament)');
+ const personRow=html.match(/<details class="regional-log-details participant-scope-row">[\s\S]*?<strong>Person<\/strong>[\s\S]*?<\/details>/)?.[0] || '';
+ const displayedRoles=[...personRow.matchAll(/<span[^>]*>(Debater|Judge)<\/span>/g)].map((match)=>match[1]);
+ assert.deepEqual(displayedRoles,['Debater','Judge']);
+});
+
+test('round controls show only actions available in the current motion and prep state', async () => {
+ const app=await fixture();
+ app.run(`tournament.rounds=1;tournament.roundControls=buildRoundControls(1,[]);`);
+ let html=app.run('renderRoundOperationsStudio(tournament)');
+ assert.match(html,/Save and Release Motion/);
+ assert.match(html,/Start Prep/);
+ assert.doesNotMatch(html,/Reset Prep|Hide Motion/);
+ app.run(`tournament.roundControls=buildRoundControls(1,[{round:1,motionReleased:true,motionTitle:'Motion',prepStartedAt:'2026-10-13T12:00:00.000Z',prepStartedAtKey:1}]);`);
+ html=app.run('renderRoundOperationsStudio(tournament)');
+ assert.match(html,/Reset Prep/);
+ assert.match(html,/Hide Motion/);
+ assert.doesNotMatch(html,/Save and Release Motion|Start Prep/);
+});
+
 test('regional sections show their section label and purpose in the shared header', async () => {
  const app=loadFrontendDomain();
  await app.run(`getSeedState().then(value => { state = value; session.userEmail = state.appSettings.manager.email; session.view = 'regional-home'; })`);
@@ -397,9 +421,12 @@ test('room and judge check-ins are counted and labeled separately',async()=>{
  assert.equal(summary.totalEntryCheckIns,2);
  assert.equal(summary.checkedInJudges,1);
  assert.equal(summary.totalJudges,1);
- const stages=JSON.parse(app.run('JSON.stringify(getRoundTimelineStages(tournament,1,{canManage:true}))'));
- const readiness=stages.find(stage=>stage.label==='Room readiness');
- assert.match(readiness.value,/Competitors 1\/2 • Judges 1\/1 • Ready 0\/1/);
+ const checkIns=JSON.parse(app.run(`JSON.stringify({
+   room:Object.values(tournament.draw[0].entryCheckIns),
+   judge:tournament.judgeAllocations.map(allocation=>allocation.checkedIn)
+ })`));
+ assert.deepEqual(checkIns.room,[true]);
+ assert.deepEqual(checkIns.judge,[true]);
 });
 
 test('Round Draw ballot review opens the ballot workflow',async()=>{
@@ -411,7 +438,9 @@ test('Round Draw ballot review opens the ballot workflow',async()=>{
    tournament.draw=[room,pending];
    var chair=createJudgeRecord('Chair','chair@test.org','',{panelQuality:'chair'});tournament.judges=[chair];
    tournament.judgeAllocations=[createJudgeAllocationRecord(tournament,room,chair.email,{id:'ballot-chair',panelRole:'chair',submittedAt:'2026-10-13T12:00:00.000Z',ballotResults:{}})];`);
- assert.equal(app.run('getTournamentControlRoomState(tournament).nextSection'),'ballots');
+ const drawBoard=app.run('renderRoundControlBoard(tournament,true,true,true)');
+ assert.match(drawBoard,/Review Ballots/);
+ assert.match(drawBoard,/data-action="set-focused-tournament-section" data-section="ballots"/);
  const html=app.run('getFocusedTournamentSections(tournament).find(section=>section.key==="ballots").render()');
  assert.match(html,/Ballots/);
  assert.match(html,/Reopen ballot/);

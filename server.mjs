@@ -1120,34 +1120,6 @@ function createTeamRecord(name, institution = "", extras = {}) {
   };
 }
 
-function teamsLookEquivalent(left, right) {
-  if (!left || !right) {
-    return false;
-  }
-
-  const leftId = String(left.id || "").trim();
-  const rightId = String(right.id || "").trim();
-  if (leftId && rightId && leftId === rightId) {
-    return true;
-  }
-
-  const leftName = normalizeTextKey(left.name);
-  const rightName = normalizeTextKey(right.name);
-  const leftInstitution = normalizeTextKey(left.institution);
-  const rightInstitution = normalizeTextKey(right.institution);
-  const leftDisplay = normalizeTextKey(
-    [left.institution, left.name].filter(Boolean).join(" "),
-  );
-  const rightDisplay = normalizeTextKey(
-    [right.institution, right.name].filter(Boolean).join(" "),
-  );
-
-  return Boolean(
-    (leftName && rightName && leftName === rightName && leftInstitution === rightInstitution) ||
-      (leftDisplay && rightDisplay && leftDisplay === rightDisplay),
-  );
-}
-
 function createParticipantRecord(email, name, teamName = "", extras = {}) {
   return {
     id: String(extras.id || createId("participant")).trim(),
@@ -2158,10 +2130,6 @@ async function writeWorkspaceState(client, state, options = {}) {
     ...(options.returnState === false ? {} : { state: normalized }),
     revision,
   };
-}
-
-async function purgeExpiredSessions(client) {
-  await client.query("delete from jade_sessions where expires_at <= now()");
 }
 
 async function issueSession(client, email, scope = null) {

@@ -47,10 +47,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         return safeStorageRemove(window.localStorage, key);
       }
 
-      function sessionStorageGet(key) {
-        return safeStorageGet(window.sessionStorage, key);
-      }
-
       function sessionStorageSet(key, value) {
         return safeStorageSet(window.sessionStorage, key, value);
       }
@@ -946,14 +942,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           return legacyMap[normalized] || "wins";
         }
         return "wins";
-      }
-
-      function normalizeBreakStudioView(value = "") {
-        const normalized = String(value || "break").trim().toLowerCase();
-        if (["break", "projection"].includes(normalized)) {
-          return normalized;
-        }
-        return "break";
       }
 
       function normalizePeopleDirectoryFilter(value = "") {
@@ -2029,17 +2017,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         };
       }
 
-      function hasRegionalBankingInfo(record = {}) {
-        const banking = normalizeRegionalBankingInfo(record);
-        return Boolean(
-          banking.bankName ||
-            banking.accountType ||
-            banking.accountName ||
-            banking.accountNumber ||
-            banking.branchName,
-        );
-      }
-
       function maskRegionalAccountNumber(value = "") {
         const raw = String(value || "").trim();
         if (!raw) {
@@ -2357,24 +2334,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         return normalizeStringList(user.registeredTournamentIds, 200).includes(tournamentId);
       }
 
-      function getCurrentRole() {
-        return getCurrentUser()?.globalRole || "guest";
-      }
-
       function isManager(email = session.userEmail) {
         return normalizeEmail(email) === normalizeEmail(MANAGER_EMAIL);
-      }
-
-      function hasSystemAdminAccounts(users = state?.users || []) {
-        return (users || []).some((entry) => {
-          const role = normalizeGlobalRole(entry?.globalRole || "");
-          return (
-            entry?.active !== false &&
-            (normalizeEmail(entry?.email) === normalizeEmail(MANAGER_EMAIL) ||
-              role === "system_admin" ||
-              role === "manager")
-          );
-        });
       }
 
       function isProtectedSystemManagerEmail(email, users = state?.users || []) {
@@ -2396,10 +2357,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           .map((entry) => normalizeEmail(entry.email));
 
         return activeSystemManagerEmails.length === 1 && activeSystemManagerEmails[0] === target;
-      }
-
-      function needsLocalBootstrapManagerSetup() {
-        return !requiresSharedBackend() && !hasSystemAdminAccounts(state?.users || []);
       }
 
       function isSystemAdmin(email = session.userEmail) {
@@ -2482,10 +2439,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         return hasTournamentSanctionAccess(getTournamentAccess(tournament));
       }
 
-      function canViewManagerOnlyTournamentFeedback(tournament) {
-        return hasFullTournamentAdminAccess(getTournamentAccess(tournament));
-      }
-
       function canJudgeTournament(tournament) {
         return getTournamentAccess(tournament) === "judge";
       }
@@ -2557,15 +2510,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           (tournament.participants || []).find(
             (participant) => normalizeEmail(participant.email) === target,
           ) || null
-        );
-      }
-
-      function getDebaterTournaments(email = session.userEmail) {
-        const target = normalizeEmail(email);
-        return state.tournaments.filter(
-          (tournament) =>
-            canSeeTournament(tournament, target) &&
-            getTournamentAccess(tournament, target) === "debater",
         );
       }
 
@@ -2980,128 +2924,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         };
       }
 
-      function getWorkspaceSearchRecommendations(query = session.searchQuery, email = session.userEmail) {
-        const normalizedQuery = normalizeTextKey(query);
-        const visibleTournaments = getVisibleTournaments(email);
-        const participantDirectory = getParticipantDirectoryRecords(email);
-        const recommendations = [];
-        const seen = new Set();
-
-        function pushRecommendation(value, label, priority = 0, searchFields = []) {
-          const cleanValue = String(value || "").trim();
-          const cleanLabel = String(label || "").trim();
-          if (!cleanValue) {
-            return;
-          }
-
-          const key = normalizeTextKey(cleanValue);
-          if (!key || seen.has(key)) {
-            return;
-          }
-
-          const haystack = [cleanValue, cleanLabel, ...searchFields]
-            .map((entry) => normalizeTextKey(entry))
-            .filter(Boolean)
-            .join(" ");
-
-          if (normalizedQuery && !haystack.includes(normalizedQuery)) {
-            return;
-          }
-
-          let score = priority;
-          if (normalizedQuery) {
-            if (key.startsWith(normalizedQuery)) {
-              score += 8;
-            } else if (key.split(/\s+/).some((part) => part.startsWith(normalizedQuery))) {
-              score += 6;
-            } else {
-              score += 3;
-            }
-          }
-
-          seen.add(key);
-          recommendations.push({
-            value: cleanValue,
-            label: cleanLabel || cleanValue,
-            score,
-          });
-        }
-
-        visibleTournaments.forEach((tournament, index) => {
-          const base = Math.max(12, 34 - index);
-          pushRecommendation(
-            tournament.name,
-            "Tournament • " + tournament.code,
-            base,
-            [tournament.code, getFormatLabel(tournament), tournament.notes],
-          );
-          pushRecommendation(
-            tournament.code,
-            "Code • " + tournament.name,
-            base - 1,
-            [tournament.name, getFormatLabel(tournament)],
-          );
-        });
-
-        participantDirectory.forEach((profile, index) => {
-          const base = Math.max(10, 28 - index);
-          pushRecommendation(
-            profile.name,
-            "Profile • " +
-              profile.tournamentsCount +
-              " tournament" +
-              (profile.tournamentsCount === 1 ? "" : "s") +
-              " tracked",
-            base,
-            [profile.email, ...(profile.institutions || []), ...(profile.teams || [])],
-          );
-        });
-
-        return recommendations
-          .sort(
-            (left, right) =>
-              Number(right.score || 0) - Number(left.score || 0) ||
-              String(left.label).localeCompare(String(right.label)),
-          )
-          .slice(0, normalizedQuery ? 8 : 6);
-      }
-
-      function renderSearchAssist(query = session.searchQuery, datalistId = "workspace-search-suggestions", email = session.userEmail) {
-        const suggestions = getWorkspaceSearchRecommendations(query, email);
-        if (!suggestions.length) {
-          return "";
-        }
-
-        return `
-          <div class="search-assist">
-            <datalist id="${escapeHtml(datalistId)}">
-              ${suggestions
-                .map(
-                  (suggestion) =>
-                    `<option value="${escapeHtml(suggestion.value)}">${escapeHtml(
-                      suggestion.label,
-                    )}</option>`,
-                )
-                .join("")}
-            </datalist>
-            <div class="search-suggestion-row">
-              <span class="theme-section-label">${escapeHtml(
-                String(query || "").trim() ? "Recommended Matches" : "Try Searching For",
-              )}</span>
-              ${suggestions
-                .slice(0, String(query || "").trim() ? 5 : 4)
-                .map(
-                  (suggestion) => `
-                    <button class="secondary-button search-suggestion-chip" type="button" data-action="apply-search-recommendation" data-query="${escapeHtml(
-                      suggestion.value,
-                    )}">${escapeHtml(suggestion.value)}</button>
-                  `,
-                )
-                .join("")}
-            </div>
-          </div>
-        `;
-      }
       function getWorkspaceCapabilities(email = session.userEmail) {
         const target = normalizeEmail(email);
         const accessRecords = state.tournaments
@@ -3461,37 +3283,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         session.peopleAppointeeQuery = "";
       }
 
-      function getTournamentsByStoredOrder(tournaments, orderedIds) {
-        const order = new Map(
-          normalizeStringList(orderedIds, 20).map((id, index) => [String(id), index]),
-        );
-
-        return [...tournaments].sort((left, right) => {
-          const leftOrder = order.has(left.id) ? order.get(left.id) : Number.MAX_SAFE_INTEGER;
-          const rightOrder = order.has(right.id) ? order.get(right.id) : Number.MAX_SAFE_INTEGER;
-          if (leftOrder !== rightOrder) {
-            return leftOrder - rightOrder;
-          }
-          return String(left.name).localeCompare(String(right.name));
-        });
-      }
-
-      function getPinnedTournaments(tournaments = getVisibleTournaments()) {
-        const pinnedIds = getPinnedTournamentIds();
-        return getTournamentsByStoredOrder(
-          tournaments.filter((tournament) => pinnedIds.includes(tournament.id)),
-          pinnedIds,
-        );
-      }
-
-      function getRecentTournaments(tournaments = getVisibleTournaments()) {
-        const recentIds = getRecentTournamentIds();
-        return getTournamentsByStoredOrder(
-          tournaments.filter((tournament) => recentIds.includes(tournament.id)),
-          recentIds,
-        );
-      }
-
       function recordRecentTournament(tournamentId) {
         const targetId = String(tournamentId || "").trim();
         if (!targetId) {
@@ -3642,27 +3433,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         };
       }
 
-      function getRoundBallotSubmissionProgress(tournament, round) {
-        const targetRound = normalizeRoundCount(round, 1);
-        const publishedEntries = (tournament.draw || []).filter(
-          (entry) =>
-            Number(entry.round || 0) === Number(targetRound) &&
-            isPublishedDrawStatus(entry.status),
-        );
-        const submittedIds = getOfficialBallotDrawIdSet(tournament);
-        const submitted = publishedEntries.filter((entry) =>
-          submittedIds.has(String(entry.id || "").trim()),
-        ).length;
-        const total = publishedEntries.length;
-        return {
-          round: targetRound,
-          submitted,
-          total,
-          missing: Math.max(0, total - submitted),
-          label: total ? submitted + "/" + total : "0/0",
-        };
-      }
-
       function getRoundLifecycleState(tournament, round) {
         const targetRound = normalizeRoundCount(round, 1);
         const control = getRoundControlForRound(tournament, targetRound);
@@ -3700,48 +3470,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           return "Results Published";
         }
         return "Results Calculated";
-      }
-
-      function getTournamentControlRoomState(tournament) {
-        const snapshot = getTournamentOpsSnapshot(tournament);
-        const activeRound =
-          snapshot.latestPublishedRound ||
-          snapshot.nextDraftRound ||
-          snapshot.nextUnbuiltRound ||
-          1;
-        const lifecycle = getRoundLifecycleState(tournament, activeRound);
-        const ballotProgress = getRoundBallotSubmissionProgress(tournament, activeRound);
-
-        let nextRequiredAction = "Monitor rounds and publish updates.";
-        let nextSection = "results";
-        if (snapshot.nextUnbuiltRound) {
-          nextRequiredAction = "Generate draw for Round " + snapshot.nextUnbuiltRound + ".";
-          nextSection = "draw";
-        } else if (snapshot.draftRooms && snapshot.nextDraftRound) {
-          nextRequiredAction = "Review and publish Round " + snapshot.nextDraftRound + ".";
-          nextSection = "draw";
-        } else if (snapshot.pendingBallotRooms) {
-          nextRequiredAction = "Collect " + snapshot.pendingBallotRooms + " missing ballots.";
-          nextSection = "ballots";
-        } else if (!snapshot.judges) {
-          nextRequiredAction = "Add judges before opening the next round.";
-          nextSection = "judges";
-        } else if (snapshot.chairlessRooms) {
-          nextRequiredAction = "Assign chairs for " + snapshot.chairlessRooms + " room(s).";
-          nextSection = "judges";
-        } else if (!tournament.publication.showPublicStandings) {
-          nextRequiredAction = "Publish standings when results are confirmed.";
-          nextSection = "results";
-        }
-
-        return {
-          snapshot,
-          activeRound,
-          lifecycle,
-          ballotProgress,
-          nextRequiredAction,
-          nextSection,
-        };
       }
 
       function normalizeNoticeAudience(value, fallback = "everyone") {
@@ -3838,26 +3566,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           );
 
         return typeof options.limit === "number" ? notices.slice(0, options.limit) : notices;
-      }
-
-      function tournamentMatchesQuery(tournament, query) {
-        const normalizedQuery = normalizeTextKey(query);
-        if (!normalizedQuery) {
-          return true;
-        }
-
-        const values = [
-          tournament.name,
-          tournament.code,
-          getFormatLabel(tournament),
-          tournament.customFormatName,
-          tournament.notes,
-          tournament.announcement,
-        ]
-          .map((value) => String(value || "").trim().toLowerCase())
-          .filter(Boolean);
-
-        return values.some((value) => value.includes(normalizedQuery));
       }
 
       function renderBrandLockup({
@@ -4077,17 +3785,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               )}>${escapeHtml(status.label)}</option>`,
           )
           .join("");
-      }
-
-      function getJamaicanBankOptions(current = "") {
-        const normalizedCurrent = String(current || "").trim();
-        return JAMAICA_MAJOR_BANKS.map(
-          (bank) =>
-            `<option value="${escapeHtml(bank)}" ${selected(
-              bank,
-              normalizedCurrent,
-            )}>${escapeHtml(bank)}</option>`,
-        ).join("");
       }
 
       function getScoringMethodFieldLabel(participantModel = "", format = "") {
@@ -4814,15 +4511,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 
       function usesFlexibleTournamentSetup(tournament) {
         return getTournamentFlexibleFeatures(tournament).length > 0;
-      }
-
-      function getTournamentFormatContextLabel(tournament, options = {}) {
-        const formatLabel = getFormatLabel(tournament);
-        const parts = [formatLabel];
-        if (options.includeParticipantModel && tournament?.participantModel) {
-          parts.push(toTitleLabel(tournament.participantModel));
-        }
-        return parts.filter(Boolean).join(" • ");
       }
 
       function getTournamentFlexibleSummary(tournament, limit = 2) {
@@ -7444,24 +7132,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         `;
       }
 
-      function renderSpeakerScoreSummaryMarkup(participant) {
-        const record = participant || {};
-        if (!hasSpeakerRankingData(record)) {
-          return `<span class="muted">Awaiting scores</span>`;
-        }
-
-        return `
-          <div class="speaker-score-summary">
-            <span>${escapeHtml(
-              "Cumulative " + formatScoreValue(record.cumulativeSpeakerScore),
-            )}</span>
-            <span>${escapeHtml(
-              "Average " + formatScoreValue(record.averageSpeakerScore),
-            )}</span>
-          </div>
-        `;
-      }
-
       function getComputedSpeakerParticipants(tournament) {
         return (tournament.participants || []).map((participant) => {
           const normalized = normalizeParticipantRecord(participant);
@@ -7872,10 +7542,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
             ...(tournament.auditLog || []),
           ].slice(0, 50),
         };
-      }
-
-      function getCurrentThemePreset() {
-        return "jade_classic";
       }
 
       function applyBranding() {
@@ -10257,124 +9923,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         return { canGenerate: !blocker, blocker, plan, roomSize: fullRoomSize };
       }
 
-      function getRoundTimelineStages(tournament, round, options = {}) {
-        const summary = getRoundStatusSummary(tournament, round);
-        const control = getRoundControlForRound(tournament, round);
-        const canManage = Boolean(options.canManage);
-        const canSeeStandings = Boolean(options.canSeeStandings);
-        const canSeeDraw = Boolean(options.canSeeDraw);
-
-        if (canManage) {
-          return [
-            {
-              label: "Build",
-              status: summary.rooms.length ? "done" : "pending",
-              value: summary.rooms.length ? summary.rooms.length + " rooms" : "Awaiting draw",
-            },
-            {
-              label: "Release",
-              status:
-                summary.rooms.length && summary.published === summary.rooms.length
-                  ? "done"
-                  : summary.published
-                    ? "active"
-                    : "pending",
-              value: summary.published + "/" + summary.rooms.length,
-            },
-            {
-              label: "Room readiness",
-              status:
-                summary.rooms.length && summary.fullyReady === summary.rooms.length
-                  ? "done"
-                  : summary.checkedInEntries || summary.checkedInJudges
-                    ? "active"
-                    : "pending",
-              value:
-                "Competitors " + summary.entryCheckIns + "/" + summary.totalEntryCheckIns +
-                " • Judges " + summary.checkedInJudges + "/" + summary.totalJudges +
-                " • Ready " + summary.fullyReady + "/" + summary.rooms.length,
-            },
-            {
-              label: "Motion",
-              status:
-                getRoundMotionStatus(control).label === "Locked"
-                  ? "pending"
-                  : getRoundMotionStatus(control).label === "Prep Live"
-                    ? "active"
-                    : "done",
-              value: getRoundMotionStatus(control).label,
-            },
-            {
-              label: "Ballots",
-              status:
-                summary.rooms.length && summary.officialBallots === summary.rooms.length
-                  ? "done"
-                  : summary.officialBallots
-                    ? "active"
-                    : "pending",
-              value: summary.officialBallots + "/" + summary.rooms.length,
-            },
-          ];
-        }
-
-        const publicRooms = canSeeDraw ? summary.published : 0;
-        return [
-          {
-            label: "Posted",
-            status: publicRooms ? "done" : "pending",
-            value: canSeeDraw
-              ? publicRooms
-                ? publicRooms + " rooms"
-                : "Awaiting release"
-              : "Private",
-          },
-          {
-            label: "Motion",
-            status:
-              !canSeeDraw
-                ? "pending"
-                : getRoundMotionStatus(control).label === "Locked"
-                ? "pending"
-                : getRoundMotionStatus(control).label === "Prep Live"
-                  ? "active"
-                  : "done",
-            value: canSeeDraw ? getRoundMotionStatus(control).label : "Private",
-          },
-          {
-            label: "Prep",
-            status:
-              !canSeeDraw
-                ? "pending"
-                : getRoundMotionStatus(control).label === "Prep Live"
-                ? "active"
-                : control.motionReleased && getRoundPrepEndKey(control)
-                  ? "done"
-                  : "pending",
-            value: canSeeDraw ? getRoundPrepSummary(control) : "Private",
-          },
-          {
-            label: "Ballots",
-            status:
-              publicRooms && summary.officialBallots >= publicRooms
-                ? "done"
-                : summary.officialBallots
-                  ? "active"
-                  : "pending",
-            value: Math.min(summary.officialBallots, publicRooms) + "/" + publicRooms,
-          },
-          {
-            label: "Boards",
-            status:
-              canSeeStandings && publicRooms && summary.officialBallots >= publicRooms
-                ? "done"
-                : canSeeStandings && summary.officialBallots
-                  ? "active"
-                  : "pending",
-            value: canSeeStandings ? "Standings linked" : "Private",
-          },
-        ];
-      }
-
       function getBreakProjection(tournament) {
         const breakSize = normalizeOptionalBreakSize(tournament?.config?.breakSize, null);
         const standings = getComputedStandings(tournament);
@@ -10499,67 +10047,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
             </div>
           </div>
         `;
-      }
-
-      function getInstitutionDashboardRecords(tournament) {
-        const records = new Map();
-        const teams = getTournamentTeams(tournament);
-        const standings = getComputedStandings(tournament);
-        const judges = getTournamentJudges(tournament);
-
-        function getRecord(institution) {
-          const key = String(institution || "").trim();
-          if (!key) {
-            return null;
-          }
-          if (!records.has(key)) {
-            records.set(key, {
-              institution: key,
-              teams: 0,
-              judges: 0,
-              teamPoints: 0,
-              speaks: 0,
-              finish: null,
-            });
-          }
-          return records.get(key);
-        }
-
-        teams.forEach((team) => {
-          const institution = String(team.institution || "").trim();
-          const record = getRecord(institution);
-          if (!record) {
-            return;
-          }
-          record.teams += 1;
-          const standing = standings.find(
-            (entry) => normalizeTextKey(entry.name) === normalizeTextKey(team.name),
-          );
-          if (standing) {
-            record.teamPoints += Number(standing.points || 0);
-            record.speaks += Number(standing.speaks || 0);
-          }
-        });
-
-        judges.forEach((judge) => {
-          const record = getRecord(judge.institution);
-          if (record) {
-            record.judges += 1;
-          }
-        });
-
-        return applyCompetitionRanks(
-          Array.from(records.values()).sort(
-            (left, right) =>
-              Number(right.teamPoints || 0) - Number(left.teamPoints || 0) ||
-              Number(right.speaks || 0) - Number(left.speaks || 0) ||
-              String(left.institution).localeCompare(String(right.institution)),
-          ),
-          (left, right) =>
-            Number(left.teamPoints || 0) === Number(right.teamPoints || 0) &&
-            Number(left.speaks || 0) === Number(right.speaks || 0),
-          "finish",
-        );
       }
 
       function getTournamentInstitutionNames(tournament) {
@@ -11166,13 +10653,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
             (targetRole === "judge"
               ? "Judge registration is live."
               : "Debater registration is live."),
-        };
-      }
-
-      function getTournamentRegistrationLinks() {
-        return {
-          debater: getPublicScreenLink("register-debater"),
-          judge: getPublicScreenLink("register-judge"),
         };
       }
 
@@ -13092,29 +12572,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         `;
       }
 
-      function getManagerMetrics() {
-        return {
-          archivedTournaments: state.tournaments.filter(
-            (tournament) => tournament.status === "archived",
-          ).length,
-          hiddenStandings: state.tournaments.filter(
-            (tournament) => !tournament.publication.showPublicStandings,
-          ).length,
-          pendingAccounts: getPendingEmails().length,
-          inactiveUsers: state.users.filter((user) => !user.active).length,
-          passwordResetRequests: getOpenRecoveryRequests().length,
-        };
-      }
-
-      function getOpenRecoveryRequests() {
-        return (state.recoveryRequests || [])
-          .filter((request) => request.status === "open")
-          .sort(
-            (left, right) =>
-              Number(right.submittedAtKey || 0) - Number(left.submittedAtKey || 0),
-          );
-      }
-
       function getHomeNoticeFeedRecords({
         email = session.userEmail,
         capabilities = getWorkspaceCapabilities(email),
@@ -13921,24 +13378,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               .join("")}
           </div>
         `;
-      }
-
-      function getNonManagerUserOptionsMarkup(selectedEmail = "") {
-        const users = state.users.filter(
-          (user) => normalizeEmail(user.email) !== normalizeEmail(MANAGER_EMAIL),
-        );
-        if (!users.length) {
-          return `<option value="">No eligible accounts</option>`;
-        }
-        return users
-          .map(
-            (user) =>
-              `<option value="${escapeHtml(user.email)}" ${selected(
-                user.email,
-                selectedEmail,
-              )}>${escapeHtml(user.name)} (${escapeHtml(user.email)})</option>`,
-          )
-          .join("");
       }
 
       function renderPasswordField(label, name, options = {}) {
@@ -15640,113 +15079,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         `;
       }
 
-      function renderTournamentRegistrationStudio(tournament) {
-        const registration = getTournamentRegistrationSettings(tournament);
-        const debaterAvailability = getTournamentRegistrationAvailability(tournament, "debater");
-        const judgeAvailability = getTournamentRegistrationAvailability(tournament, "judge");
-        const links = getTournamentRegistrationLinks();
-        const pendingDebaters = (tournament.permissions?.debaterEmails || []).filter(
-          (email) =>
-            normalizeEmail(email) &&
-            !state.users.some((user) => normalizeEmail(user.email) === normalizeEmail(email)),
-        ).length;
-        const pendingJudges = (tournament.permissions?.judgeEmails || []).filter(
-          (email) =>
-            normalizeEmail(email) &&
-            !state.users.some((user) => normalizeEmail(user.email) === normalizeEmail(email)),
-        ).length;
-
-        return `
-          <section class="surface registration-studio">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Registration</p>
-                <h2>Public registration</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(
-                [registration.debaterOpen ? "Debaters open" : "", registration.judgeOpen ? "Judges open" : ""]
-                  .filter(Boolean)
-                  .join(" • ") || "Closed",
-              )}</span>
-            </div>
-            <div class="leaderboard-grid">
-              <div class="leaderboard-card">
-                <div class="section-heading">
-                  <div>
-                    <h3>Debater registration</h3>
-                  </div>
-                  <span class="mini-pill ${debaterAvailability.open ? "success" : "warning"}">${escapeHtml(
-                    debaterAvailability.open ? "Live" : "Closed",
-                  )}</span>
-                </div>
-                <p class="fine-print registration-card-summary">${escapeHtml(
-                  tournament.participants.length +
-                    " participants • " +
-                    getTournamentTeams(tournament).length +
-                    " teams • " +
-                    (pendingDebaters ? pendingDebaters + " pending accounts" : "All linked"),
-                )}</p>
-                ${
-                  registration.debaterNote
-                    ? `<p class="muted">${escapeHtml(registration.debaterNote)}</p>`
-                    : ""
-                }
-                <a class="token-link" href="${escapeHtml(links.debater)}" target="_blank" rel="noreferrer">${escapeHtml(
-                  links.debater,
-                )}</a>
-                <div class="button-row wrap-row">
-                  <button class="secondary-button" type="button" data-action="copy-public-registration-link" data-url="${escapeAttributeValue(
-                    links.debater,
-                  )}" data-label="Debater registration link">Copy link</button>
-                  <a class="secondary-button inline-link" href="${escapeHtml(
-                    links.debater,
-                  )}" target="_blank" rel="noreferrer">Open page</a>
-                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="roster">Open Roster</button>
-                </div>
-              </div>
-              <div class="leaderboard-card">
-                <div class="section-heading">
-                  <div>
-                    <h3>Judge registration</h3>
-                  </div>
-                  <span class="mini-pill ${judgeAvailability.open ? "success" : "warning"}">${escapeHtml(
-                    judgeAvailability.open ? "Live" : "Closed",
-                  )}</span>
-                </div>
-                <p class="fine-print registration-card-summary">${escapeHtml(
-                  getTournamentJudges(tournament).length +
-                    " judges • " +
-                    (tournament.judgeAllocations || []).length +
-                    " allocations • " +
-                    (pendingJudges ? pendingJudges + " pending accounts" : "All linked"),
-                )}</p>
-                ${
-                  registration.judgeNote
-                    ? `<p class="muted">${escapeHtml(registration.judgeNote)}</p>`
-                    : ""
-                }
-                <a class="token-link" href="${escapeHtml(links.judge)}" target="_blank" rel="noreferrer">${escapeHtml(
-                  links.judge,
-                )}</a>
-                <div class="button-row wrap-row">
-                  <button class="secondary-button" type="button" data-action="copy-public-registration-link" data-url="${escapeAttributeValue(
-                    links.judge,
-                  )}" data-label="Judge registration link">Copy link</button>
-                  <a class="secondary-button inline-link" href="${escapeHtml(
-                    links.judge,
-                  )}" target="_blank" rel="noreferrer">Open page</a>
-                  <button class="secondary-button" type="button" data-action="set-focused-tournament-section" data-section="judges">Open Judges</button>
-                </div>
-              </div>
-            </div>
-            <details class="compact-info-disclosure">
-              <summary>Visibility rules</summary>
-              <p>Registration appears when the tournament is open, listed, and enabled in Setup.</p>
-            </details>
-          </section>
-        `;
-      }
-
       function renderParticipantEntryForm(tournament) {
         return `
           <form class="stack compact-stack participant-entry-form" data-form="add-participant" data-id="${escapeHtml(
@@ -17124,7 +16456,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                                   [
                                     row.teamName,
                                     row.institution,
-                                    row.roles.join(", "),
                                   ]
                                     .filter(Boolean)
                                     .join(" • ") || "Tournament participant",
@@ -17135,14 +16466,19 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                               )}</span>
                             </summary>
                             <div class="regional-log-details-body">
-                              <div class="workspace-chip-row">
-                                ${row.roles
-                                  .map(
-                                    (role) =>
-                                      `<span class="role-pill">${escapeHtml(role)}</span>`,
-                                  )
-                                  .join("")}
-                              </div>
+                              ${
+                                row.roles.length > 1
+                                  ? `<div class="workspace-chip-row">
+                                      ${row.roles
+                                        .slice(1)
+                                        .map(
+                                          (role) =>
+                                            `<span class="role-pill">${escapeHtml(role)}</span>`,
+                                        )
+                                        .join("")}
+                                    </div>`
+                                  : ""
+                              }
                               <p class="fine-print">${escapeHtml(
                                 row.email || "No email address saved.",
                               )}</p>
@@ -17454,110 +16790,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         return { sections, active };
       }
 
-      function renderFocusedTournamentNavigator(
-        tournament,
-        feedbackCategories = [],
-        scoringProfile = getScoringProfile(tournament),
-        sectionState = null,
-      ) {
-        const { sections, active } =
-          sectionState ||
-          getFocusedTournamentSectionState(
-            tournament,
-            feedbackCategories,
-            scoringProfile,
-          );
-
-        return `
-          <section class="surface focus-nav-shell" aria-label="Tournament tools">
-            <div class="focus-nav-grid">
-              ${sections
-                .map(
-                  (section) => {
-                    return `
-                    <button class="focus-nav-button ${section.key === active.key ? "is-active" : ""}" type="button" data-action="set-focused-tournament-section" data-section="${escapeHtml(
-                      section.key,
-                    )}">
-                      <strong>${escapeHtml(section.label)}</strong>
-                    </button>
-                  `;
-                  },
-                )
-                .join("")}
-            </div>
-          </section>
-        `;
-      }
-
-      function renderTournamentControlRoomPanel(tournament) {
-        const control = getTournamentControlRoomState(tournament);
-        const snapshot = control.snapshot;
-        const drawLabel = snapshot.nextDraftRound
-          ? "Round " + snapshot.nextDraftRound + " waiting"
-          : snapshot.latestPublishedRound
-            ? "Round " + snapshot.latestPublishedRound + " published"
-            : "No draw";
-        const standingsLabel = tournament.publication.showPublicStandings ? "Visible" : "Hidden";
-
-        return `
-          <section class="surface control-room-compact">
-            <div class="control-room-compact-head">
-              <div>
-                <h2>${escapeHtml(tournament.name)}</h2>
-                <p class="muted">${escapeHtml(
-                  "Round " +
-                    control.activeRound +
-                    " • " +
-                    control.lifecycle +
-                    " • " +
-                    tournament.format,
-                )}</p>
-              </div>
-              <button type="button" data-action="open-tournament-section" data-id="${escapeHtml(
-                tournament.id,
-              )}" data-section="${escapeHtml(control.nextSection)}">${escapeHtml(
-                control.nextRequiredAction,
-              )}</button>
-            </div>
-            <div class="control-room-compact-grid">
-              <div class="control-room-next">
-                <span>Next action</span>
-                <strong>${escapeHtml(control.nextRequiredAction)}</strong>
-                <p>${escapeHtml(
-                  snapshot.attention[0] ||
-                    "No blockers are currently flagged for this tournament.",
-                )}</p>
-              </div>
-              <div class="control-room-metric">
-                <span>Ballots</span>
-                <strong>${escapeHtml(control.ballotProgress.label)}</strong>
-              </div>
-              <div class="control-room-metric">
-                <span>Draw</span>
-                <strong>${escapeHtml(drawLabel)}</strong>
-              </div>
-              <div class="control-room-metric">
-                <span>Standings</span>
-                <strong>${escapeHtml(standingsLabel)}</strong>
-              </div>
-            </div>
-            <div class="control-room-actions" aria-label="Control room actions">
-              <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
-                tournament.id,
-              )}" data-section="draw">Round draw</button>
-              <button class="secondary-button" type="button" data-action="open-tournament-section" data-id="${escapeHtml(
-                tournament.id,
-              )}" data-section="standings">Standings</button>
-              <button class="secondary-button" type="button" data-action="toggle-public-standings" data-id="${escapeHtml(
-                tournament.id,
-              )}">${escapeHtml(
-                tournament.publication.showPublicStandings ? "Hide standings" : "Publish standings",
-              )}</button>
-            </div>
-          </section>
-        `;
-      }
-
       function renderTournamentSwitchCard(tournament, activeId = "") {
         const canManage = canManageTournament(tournament);
         const archivedForUser = isTournamentArchivedForUser(tournament.id);
@@ -17794,26 +17026,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         `;
       }
 
-      function renderRoundTimeline(tournament, round, options = {}) {
-        const stages = getRoundTimelineStages(tournament, round, options);
-        return `
-          <div class="timeline-strip" role="list" aria-label="${escapeHtml(
-            "Round " + round + " timeline",
-          )}">
-            ${stages
-              .map(
-                (stage) => `
-                  <div class="timeline-step ${escapeHtml(stage.status)}" role="listitem">
-                    <span class="timeline-label">${escapeHtml(stage.label)}</span>
-                    <strong>${escapeHtml(stage.value)}</strong>
-                  </div>
-                `,
-              )
-              .join("")}
-          </div>
-        `;
-      }
-
       function renderTournamentNoticeboardPreview(tournament, options = {}) {
         const notices = getVisibleTournamentNotices(tournament, {
           scope: options.scope || "public",
@@ -18026,146 +17238,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                       .join("")}
                   </div>`
                 : ""
-            }
-          </div>
-        `;
-      }
-
-      function renderInstitutionDashboardPanel(tournament) {
-        const institutions = getInstitutionDashboardRecords(tournament).slice(0, 8);
-        return `
-          <div class="flat-panel">
-            <div class="section-heading">
-              <div>
-                <h3>Institutions</h3>
-              </div>
-              <span class="role-pill">${escapeHtml(institutions.length)} tracked</span>
-            </div>
-            ${
-              institutions.length
-                ? `<div class="table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Institution</th>
-                          <th>Teams</th>
-                          <th>Judges</th>
-                          <th>Team Points</th>
-                          <th>Finish</th>
-                          <th>Search</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${institutions
-                          .map(
-                            (record) => `
-                              <tr>
-                                <td>${escapeHtml(record.institution)}</td>
-                                <td>${escapeHtml(record.teams)}</td>
-                                <td>${escapeHtml(record.judges)}</td>
-                                <td>${escapeHtml(formatScoreValue(record.teamPoints))}</td>
-                                <td>${escapeHtml(
-                                  record.finish ? "#" + record.finish : "Awaiting",
-                                )}</td>
-                                <td><button class="secondary-button" type="button" data-action="apply-search-recommendation" data-query="${escapeAttributeValue(
-                                  record.institution,
-                                )}">Open</button></td>
-                              </tr>
-                            `,
-                          )
-                          .join("")}
-                      </tbody>
-                    </table>
-                  </div>`
-                : `<div class="empty-state">Add institutions to teams or participants to unlock institution tracking.</div>`
-            }
-          </div>
-        `;
-      }
-
-      function renderJudgeAnalyticsPanel(tournament) {
-        const analytics = getJudgeAnalytics(tournament);
-        const canSeeManagerOnly = canViewManagerOnlyTournamentFeedback(tournament);
-        return `
-          <div class="flat-panel">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Judge analytics</p>
-                <h3>Allocation overview</h3>
-              </div>
-            </div>
-            <div class="workspace-stat-grid">
-              <div class="workspace-stat">
-                <span class="muted">Ballots submitted</span>
-                <strong>${escapeHtml(analytics.submittedBallots)}</strong>
-              </div>
-              <div class="workspace-stat">
-                <span class="muted">Judges checked in</span>
-                <strong>${escapeHtml(analytics.checkedInJudges)}</strong>
-              </div>
-              <div class="workspace-stat">
-                <span class="muted">Average turnaround</span>
-                <strong>${escapeHtml(
-                  analytics.averageTurnaround ? analytics.averageTurnaround + " mins" : "—",
-                )}</strong>
-              </div>
-            </div>
-            ${
-              analytics.records.length
-                ? `<div class="leaderboard-list">
-                    ${analytics.records
-                      .map(
-                        (record) => `
-                          <div class="leaderboard-row">
-                            <div class="stack">
-                              <strong>${escapeHtml(getJudgeDisplayLabel(record.judge))}</strong>
-                              <span class="muted">${escapeHtml(
-                                record.assigned +
-                                  " rooms • " +
-                                  record.chairAssignments +
-                                  " chair • " +
-                                  record.panelAssignments +
-                                  " panel",
-                              )}</span>
-                            </div>
-                            <p class="fine-print">${escapeHtml(
-                              record.submitted +
-                                " submitted • " +
-                                record.pending +
-                                " pending • " +
-                                (record.avgPriority
-                                  ? "Priority " + record.avgPriority
-                                  : "Priority building") +
-                                " • " +
-                                record.strengthLabel,
-                            )}</p>
-                            ${
-                              canSeeManagerOnly
-                                ? `<div class="stack">
-                                    <span class="fine-print">${escapeHtml(
-                                      record.teamFeedbackCount
-                                        ? "Team feedback " + formatScoreValue(record.avgTeamFeedback) + " / 10 across " + record.teamFeedbackCount + " notes"
-                                        : "No team feedback yet",
-                                    )}</span>
-                                    <span class="fine-print">${escapeHtml(
-                                      record.peerFeedbackCount
-                                        ? "Peer feedback " + formatScoreValue(record.avgPeerFeedback) + " / 10 across " + record.peerFeedbackCount + " notes"
-                                        : "No chair/wing feedback yet",
-                                    )}</span>
-                                    <span class="fine-print">${escapeHtml(
-                                      "Improvement signal " +
-                                        (record.improvementSignal > 0 ? "+" : "") +
-                                        formatScoreValue(record.improvementSignal),
-                                    )}</span>
-                                  </div>`
-                                : ""
-                            }
-                          </div>
-                        `,
-                      )
-                      .join("")}
-                  </div>`
-                : `<div class="empty-state">Judge analytics will appear once rooms are allocated.</div>`
             }
           </div>
         `;
@@ -18535,11 +17607,31 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                 )}</textarea>
               </label>
               <div class="button-row wrap-row">
-                <button type="submit" name="intent" value="save">Save Round Control</button>
-                <button class="secondary-button" type="submit" name="intent" value="release">Save And Release Motion</button>
-                <button class="secondary-button" type="submit" name="intent" value="start-prep">Start Prep</button>
-                <button class="secondary-button" type="submit" name="intent" value="reset-prep">Reset Prep</button>
-                <button class="ghost-button" type="submit" name="intent" value="hide">Hide Motion</button>
+                <button type="submit" name="intent" value="save">Save Changes</button>
+                ${
+                  !selectedControl?.motionReleased
+                    ? `<button class="secondary-button" type="submit" name="intent" value="release">Save and Release Motion</button>`
+                    : ""
+                }
+                <button
+                  class="secondary-button"
+                  type="submit"
+                  name="intent"
+                  value="${
+                    selectedControl?.prepStartedAt || selectedControl?.prepStartedAtKey
+                      ? "reset-prep"
+                      : "start-prep"
+                  }"
+                >${
+                  selectedControl?.prepStartedAt || selectedControl?.prepStartedAtKey
+                    ? "Reset Prep"
+                    : "Start Prep"
+                }</button>
+                ${
+                  selectedControl?.motionReleased
+                    ? `<button class="ghost-button" type="submit" name="intent" value="hide">Hide Motion</button>`
+                    : ""
+                }
               </div>
             </form>
           </section>
@@ -22106,22 +21198,6 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         }
 
         return renderRegionalHome();
-      }
-
-      function getTournamentOpenAction(tournament) {
-        return canManageTournament(tournament) ? "focus-tournament" : "open-tournament-record";
-      }
-
-      function renderTournamentShortcutButton(tournament, label = "") {
-        if (!tournament) {
-          return "";
-        }
-
-        return `<button class="secondary-button menu-room-button" type="button" data-action="${escapeHtml(
-          getTournamentOpenAction(tournament),
-        )}" data-id="${escapeHtml(tournament.id)}"><span>${escapeHtml(
-          label || tournament.code || tournament.name,
-        )}</span></button>`;
       }
 
       function renderParticipantProfileButton(participant, label = "Open Profile", secondary = false) {
@@ -28489,45 +27565,42 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           (currentTournament) => {
             currentTournament.roundControls = buildRoundControls(
               currentTournament.rounds || 1,
-              buildRoundControls(
-                currentTournament.rounds || 1,
-                currentTournament.roundControls || [],
-              ).map((control) => {
-                if (Number(control.round) !== Number(round)) {
-                  return control;
-                }
-                const nextControl = createRoundControlRecord(round, {
-                  ...control,
-                  motionTitle,
-                  motionText,
-                  judgeNotes,
-                  prepMinutes,
-                });
-                if (intent === "hide") {
-                  nextControl.motionReleased = false;
-                  nextControl.motionReleasedAt = "";
-                  nextControl.motionReleasedAtKey = 0;
-                  nextControl.prepStartedAt = "";
-                  nextControl.prepStartedAtKey = 0;
-                } else if (intent === "release") {
-                  nextControl.motionReleased = true;
+              currentTournament.roundControls || [],
+            ).map((control) => {
+              if (Number(control.round) !== Number(round)) {
+                return control;
+              }
+              const nextControl = createRoundControlRecord(round, {
+                ...control,
+                motionTitle,
+                motionText,
+                judgeNotes,
+                prepMinutes,
+              });
+              if (intent === "hide") {
+                nextControl.motionReleased = false;
+                nextControl.motionReleasedAt = "";
+                nextControl.motionReleasedAtKey = 0;
+                nextControl.prepStartedAt = "";
+                nextControl.prepStartedAtKey = 0;
+              } else if (intent === "release") {
+                nextControl.motionReleased = true;
+                nextControl.motionReleasedAt = timestamp();
+                nextControl.motionReleasedAtKey = Date.now();
+              } else if (intent === "start-prep") {
+                nextControl.motionReleased = true;
+                if (!nextControl.motionReleasedAtKey) {
                   nextControl.motionReleasedAt = timestamp();
                   nextControl.motionReleasedAtKey = Date.now();
-                } else if (intent === "start-prep") {
-                  nextControl.motionReleased = true;
-                  if (!nextControl.motionReleasedAtKey) {
-                    nextControl.motionReleasedAt = timestamp();
-                    nextControl.motionReleasedAtKey = Date.now();
-                  }
-                  nextControl.prepStartedAt = timestamp();
-                  nextControl.prepStartedAtKey = Date.now();
-                } else if (intent === "reset-prep") {
-                  nextControl.prepStartedAt = "";
-                  nextControl.prepStartedAtKey = 0;
                 }
-                return nextControl;
-              }),
-            );
+                nextControl.prepStartedAt = timestamp();
+                nextControl.prepStartedAtKey = Date.now();
+              } else if (intent === "reset-prep") {
+                nextControl.prepStartedAt = "";
+                nextControl.prepStartedAtKey = 0;
+              }
+              return nextControl;
+            });
             return addAudit(
               currentTournament,
               (intent === "hide"
