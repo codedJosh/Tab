@@ -1739,6 +1739,12 @@ function assertScoringPersistAuthorization(previousState, nextState, actorEmail,
     error.code = "scoring_permission_denied";
     throw error;
   };
+  const invalidBallot = (message) => {
+    const error = new Error(message);
+    error.statusCode = 422;
+    error.code = "invalid_ballot";
+    throw error;
+  };
   const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
   const canonicalStandings = (entries) => (entries || []).map((entry) => ({
     id: String(entry.id || ""), name: String(entry.name || ""),
@@ -1850,14 +1856,36 @@ function assertScoringPersistAuthorization(previousState, nextState, actorEmail,
                 Math.abs(parts.reduce((sum, value) => sum + value, 0) - score) > 0.001) forbidden();
           }
         }
-        const assignedIds = old.participantIds?.length
-          ? old.participantIds
-          : draw.participantIds || [];
+        const slotParticipantIds = (draw.slots || []).flatMap((slot) =>
+          Array.isArray(slot.participantIds) ? slot.participantIds : []);
+        const uniqueSlotParticipantIds = [...new Set(slotParticipantIds)];
+        if (slotParticipantIds.length !== uniqueSlotParticipantIds.length) {
+          invalidBallot("A debate assigns a speaker to more than one team.");
+        }
+        const assignedIds = uniqueSlotParticipantIds.length
+          ? uniqueSlotParticipantIds
+          : old.participantIds?.length ? old.participantIds : draw.participantIds || [];
+        if (old.participantIds?.length && uniqueSlotParticipantIds.length &&
+            (old.participantIds.length !== assignedIds.length ||
+             old.participantIds.some((id) => !assignedIds.includes(id)))) {
+          invalidBallot("The ballot speakers do not match the assigned debate.");
+        }
         for (const participantId of assignedIds) {
           const participant = (next.participants || []).find((entry) => entry.id === participantId);
           const entries = (participant?.feedback || []).filter((entry) =>
             entry.allocationId === old.id && normalizeEmail(entry.judgeEmail) === actor);
           if (entries.length !== 1 || entries[0].drawId !== old.drawId) forbidden();
+          const scores = entries[0].scores || {};
+          for (const [category, rawValue] of Object.entries(scores)) {
+            const value = Number(rawValue);
+            const normalizedCategory = String(category).toLowerCase();
+            const max = normalizedCategory === "cross examination questions" ? 20
+              : normalizedCategory === "cross examination responses" ? 40
+                : normalizedCategory === "rebuttal" ? 50 : 100;
+            if (!Number.isFinite(value) || value < 0 || value > max) {
+              invalidBallot("A speaker mark is outside the allowed score range.");
+            }
+          }
         }
       }
     }
@@ -2389,6 +2417,7 @@ function listRecipientTournamentNames(state, user, tournamentId = "") {
   const explicitTournamentId = String(tournamentId || "").trim();
   if (explicitTournamentId && tournamentMap.get(explicitTournamentId)) {
     names.add(tournamentMap.get(explicitTournamentId));
+    return Array.from(names);
   }
 
   const deletedIds = new Set(normalizeStringList(user?.deletedTournamentIds || [], 200));
@@ -2441,19 +2470,26 @@ function buildPrivateAccessEmailCopy({
     !regionalPortal && tournamentNames.length > 0 ? " for " + tournamentNames[0] : "";
   const reasonLabel = getPrivateAccessEmailReasonLabel(reasonKey);
   const appName = DEFAULT_BRANDING.appName;
+  const accessLabel = regionalPortal
+    ? "Open Regional Coordination and Operations"
+    : reasonKey === "judge_registration"
+      ? "Open your judge page"
+      : reasonKey === "participant_registration"
+        ? "Open your tournament page"
+        : "Open your private access page";
   const subject =
     regionalPortal
       ? "Your " + appName + " Regional Operations private access URL"
-      : "Your " + appName + " private access URL" + headlineTournament;
+      : reasonKey === "judge_registration"
+        ? "Open your judge page for " + (tournamentNames[0] || appName)
+        : reasonKey === "participant_registration"
+          ? "Open your tournament page for " + (tournamentNames[0] || appName)
+          : "Your " + appName + " private access URL" + headlineTournament;
   const tournamentLine = regionalPortal
     ? "This link opens the Regional Coordination and Operations portal for reports, requests, contacts, workshop resources, and regional staff tools."
     : tournamentNames.length
     ? "Tournament context: " + tournamentNames.join(", ") + "."
     : "Tournament context will appear in your portal as soon as you are assigned.";
-  const accessLabel = regionalPortal
-    ? "Open Regional Coordination and Operations"
-    : "Open your private access URL";
-
   const text =
     "Hi " +
     recipientName +
@@ -2770,6 +2806,7 @@ async function sendPasswordResetEmail({ request, user, token } = {}) {
 
   try {
     const resendResponse = await fetch("https://api.resend.com/emails", {
+      signal: AbortSignal.timeout(8000),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -3327,31 +3364,21 @@ app.post("/api", async (request, response) => {
           targetUser = state.users.find((user) => user.email === email) || null;
         }
 
-        const notifications = [];
-        if (targetUser) {
-          notifications.push(
-            await sendPrivateAccessEmail({
-              state,
-              user: targetUser,
-              request,
-              reason: "sign_up",
-            }),
-          );
-        }
-
         const nextWorkspace = await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });
         const accountAccess = getAuthenticatedAccountAccess(nextWorkspace.state, email);
         const sessionToken = await issueSession(client, email, accountAccess.sessionScope);
         return {
-          state: accountAccess.state,
+          state: nextWorkspace.state,
           revision: nextWorkspace.revision,
           sessionToken,
-          notifications,
+          notificationEmails: targetUser ? [targetUser.email] : [],
         };
       });
 
+      await deliverCommittedRegistrationEmails(result, request, "sign_up", "");
+      result.state = getAuthenticatedAccountAccess(result.state, email).state;
       sendStatePayload(response, 200, result);
       return;
     }
@@ -4007,22 +4034,33 @@ app.post("/api", async (request, response) => {
           resetEmailStatus: "",
         });
 
-        let notification = {
-          email,
-          status: "skipped",
-          message: "If the account exists, a reset email will be sent.",
-        };
-        if (user && token) {
-          notification = await sendPasswordResetEmail({ request, user, token });
-          recoveryRequest.resetSentAt = nowText();
-          recoveryRequest.resetEmailStatus = notification.status;
-        }
-
         await writeWorkspaceState(client, state, {
           expectedRevision: workspace.revision,
         });
-        return { accepted: true };
+        return {
+          accepted: true,
+          delivery: user && token
+            ? { recoveryRequestId: recoveryRequest.id, user: { email: user.email, name: user.name, active: user.active }, token }
+            : null,
+        };
       });
+
+      if (result.delivery) {
+        const { recoveryRequestId, user, token } = result.delivery;
+        const notification = await sendPasswordResetEmail({ request, user, token });
+        try {
+          await withTransaction(async (client) => {
+            const workspace = await readWorkspaceRecord(client, { forUpdate: true });
+            const recovery = (workspace?.state?.recoveryRequests || []).find((entry) => entry.id === recoveryRequestId);
+            if (!recovery) return;
+            recovery.resetSentAt = nowText();
+            recovery.resetEmailStatus = notification.status;
+            await writeWorkspaceState(client, workspace.state, { expectedRevision: workspace.revision });
+          });
+        } catch (error) {
+          console.error("Password reset request saved; delivery receipt could not be recorded:", error.message);
+        }
+      }
 
       sendJson(response, 200, { ok: true, accepted: Boolean(result.accepted) });
       return;

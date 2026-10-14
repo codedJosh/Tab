@@ -52,6 +52,16 @@ test('email links ignore attacker-controlled request origins',()=>{
  assert.equal(resetLink.searchParams.get('reset'),'reset-token');
 });
 
+test('a tournament-triggered private access email names only that tournament',()=>{
+ const ctx=vm.createContext({
+  normalizeStringList:(values)=>Array.from(new Set(values.map(value=>String(value||'').trim()).filter(Boolean))),
+ });
+ vm.runInContext(fn('listRecipientTournamentNames'),ctx);
+ const state={tournaments:[{id:'event-a',name:'Event A'},{id:'event-b',name:'Event B'}]};
+ const user={registeredTournamentIds:['event-a','event-b']};
+ assert.deepEqual(Array.from(ctx.listRecipientTournamentNames(state,user,'event-b')),['Event B']);
+});
+
 test('browser API access accepts JADE and configured app origins only',()=>{
  const ctx=vm.createContext({URL,PUBLIC_APP_URL:'https://staging.jade.example/app'});
  vm.runInContext(fn('isAllowedBrowserOrigin'),ctx);
@@ -115,6 +125,20 @@ test('post-commit email receipts merge into the latest state without deleting co
  const result={state:{users:[{email:'a@test.org'}],tournaments:[]},revision:10,notificationEmails:['a@test.org']};
  await ctx.deliverCommittedRegistrationEmails(result,{},'participant_registration','t');
  assert.equal(result.state.tournaments[0].name,'concurrent registration');assert.equal(result.revision,12);assert.equal(result.state.users[0].sent,true);
+});
+
+test('sign-up commits the account before delivering its access email',()=>{
+ const signup=actionBlock('sign_up');
+ assert.doesNotMatch(signup,/await sendPrivateAccessEmail\(/);
+ assert.match(signup,/await deliverCommittedRegistrationEmails\(result, request, "sign_up"/);
+ assert.ok(signup.indexOf('await deliverCommittedRegistrationEmails') > signup.indexOf('const result = await withTransaction'));
+});
+
+test('password reset tokens are committed before the reset email is sent',()=>{
+ const reset=actionBlock('request_password_reset');
+ assert.ok(reset.indexOf('await writeWorkspaceState(client, state') < reset.indexOf('await sendPasswordResetEmail'));
+ assert.match(reset,/resetTokenHash: tokenHash/);
+ assert.match(reset,/resetEmailStatus = notification.status/);
 });
 
 test('server blocks publishing a round with no saved motion',()=>{

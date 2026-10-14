@@ -577,7 +577,7 @@ test('private BP tournament completes three rounds of submitted ballots and reca
      });
      return JSON.stringify({roomId:room.id,allocationId:'synthetic-chair-${round}',fields});})()`);
    const payload=JSON.parse(json);
-   app.run(`submitJudgeBallot(tournament.id,${JSON.stringify(payload.allocationId)},{get:key=>(${JSON.stringify(payload.fields)})[key]??null})`);
+   await app.run(`submitJudgeBallot(tournament.id,${JSON.stringify(payload.allocationId)},{get:key=>(${JSON.stringify(payload.fields)})[key]??null})`);
  }
  await app.run('state.tournaments=[tournament]; rehydrateState(state).then(value=>{state=value;tournament=state.tournaments.find(item=>item.name==="Synthetic Private BP QA")})');
  assert.equal(app.run('tournament.draw.length'),3);

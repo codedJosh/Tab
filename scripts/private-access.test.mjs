@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {publicWorkspace,privateVisibility,memberWorkspace,applyPrivateEntryCommand} from '../frontend/public-workspace.js';
+import {publicWorkspace,privateVisibility,memberWorkspace,applyPrivateEntryCommand,judgeWorkspace} from '../frontend/public-workspace.js';
 const workspace={workspaceContractVersion:'test',appSettings:{manager:{email:'admin@example.org',password:'SECRET'},portal:{showFeedbackInPrivatePortal:true,showStandingsInPrivatePortal:true}},users:[{id:'u',email:'private@example.org',active:true,globalRole:'member',passwordHash:'SECRET',privateAccessToken:'ACCOUNT'}],regionalOperations:{banking:'SECRET'},tournaments:[{id:'t',name:'Public',publication:{showFeedbackInPrivatePortal:false,showDrawInPrivatePortal:false,showStandingsInPrivatePortal:true},teams:[{id:'team-a',name:'Team A',institution:'School A'}],participants:[{id:'p',token:'PRIVATE',email:'private@example.org',name:'Debater A',teamId:'team-a',feedback:[{note:'SECRET'}]},{id:'other',token:'OTHER',email:'other@example.org',name:'Debater B'}],draw:[{id:'r1',status:'Published',round:1,room:'Room 1',slots:[{teamId:'team-a',entryId:'team-a',label:'Team A',participantIds:['p']},{teamId:'team-b',entryId:'team-b',label:'Team B',participantIds:['other']}],officialResults:{'team-a':{outcome:'win'},'team-b':{outcome:'loss'}}}]}]};
 test('public bootstrap excludes accounts, private tokens, contacts and unreleased feedback',()=>{
  const json=JSON.stringify(publicWorkspace(workspace));
@@ -82,4 +82,14 @@ test('a generic account link cannot show judge controls without a tournament-sco
  assert.deepEqual(accountView.tournaments[0].judgeAllocations,[]);
  const judgeView=memberWorkspace(judgeWorkspaceData,'private@example.org');
  assert.equal(judgeView.tournaments[0].permissions.judgeEmails[0],'private@example.org');
+});
+test('a judge access link is limited to its assigned tournament and current judge role',()=>{
+ const scoped=structuredClone(workspace);
+ scoped.tournaments[0].judges=[{email:'private@example.org',name:'Judge'}];
+ scoped.tournaments.push({...structuredClone(scoped.tournaments[0]),id:'other-event',name:'Other event',judges:[]});
+ const view=judgeWorkspace(scoped,'private@example.org','t');
+ assert.deepEqual(view.tournaments.map(tournament=>tournament.id),['t']);
+ assert.throws(()=>judgeWorkspace(scoped,'private@example.org','other-event'),/no longer assigned/);
+ scoped.tournaments[0].judges=[];
+ assert.throws(()=>judgeWorkspace(scoped,'private@example.org','t'),/no longer assigned/);
 });

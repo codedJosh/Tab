@@ -10,6 +10,7 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
       const BACKEND_ENDPOINT_STORAGE_KEY = STORAGE_KEY + "-backend-endpoint";
       const PENDING_CLOUD_SYNC_STORAGE_KEY = STORAGE_KEY + "-pending-cloud-sync";
       const CLOUD_SYNC_CONFLICTS_STORAGE_KEY = STORAGE_KEY + "-cloud-sync-conflicts";
+      const judgeBallotRecovery = new Map();
       function safeStorageGet(storage, key) {
         try {
           return storage.getItem(key);
@@ -10615,7 +10616,8 @@ import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
       }
 
       function getJudgeDraftValue(allocation, fieldName, fallback = "") {
-        return allocation?.draft?.[fieldName] ?? fallback;
+        return judgeBallotRecovery.get(String(allocation?.id || ""))?.[fieldName] ??
+          allocation?.draft?.[fieldName] ?? fallback;
       }
 
       function getJudgeAssignments(email = session.userEmail) {
@@ -22711,6 +22713,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                         </section>`;
                       }).join("") : ""}
                     </div>
+                    <p class="ballot-save-status" role="status" aria-live="polite"></p>
                     <div class="button-row">
                       <button class="secondary-button" type="submit" name="ballot_action" value="draft" formnovalidate>Save Draft</button>
                       <button type="submit" name="ballot_action" value="submit"><span>Submit Ballot</span></button>
@@ -26062,7 +26065,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         if (forceCloud) {
           tournamentMutationQueue = tournamentMutationQueue.catch(() => {}).then(() =>
             persistTournamentMutationDurably(id, updater, successMessage, options));
-          return;
+          return tournamentMutationQueue;
         }
 
         let found = false;
@@ -26076,9 +26079,10 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         if (!found) {
           setFlash("error", "Tournament not found.");
           renderApp();
-          return;
+          return false;
         }
         persist("success", successMessage);
+        return true;
       }
 
       function duplicateTournament(tournamentId) {
@@ -28514,9 +28518,15 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         }, "Teams created.", {forceCloud: true});
       }
 
-      function submitJudgeBallot(tournamentId, allocationId, formData) {
+      async function submitJudgeBallot(tournamentId, allocationId, formData) {
         const tournament = ensureJudgeAccessById(tournamentId);
         if (!tournament) return;
+
+        const ballotEntries = typeof formData.entries === "function" ? [...formData.entries()] : [];
+        const formValues = Object.fromEntries(ballotEntries
+          .filter(([key]) => key !== "ballot_action")
+          .map(([key, value]) => [String(key), String(value).slice(0, 5000)]));
+        judgeBallotRecovery.set(String(allocationId), formValues);
 
         const targetAllocation = getJudgeAllocationsForTournament(tournament).find(
           (allocation) => allocation.id === allocationId,
@@ -28552,14 +28562,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         }
 
         if (formData.get("ballot_action") === "draft") {
-          const draft = Object.fromEntries([...formData.entries()]
-            .filter(([key]) => key !== "ballot_action")
-            .map(([key, value]) => [String(key), String(value).slice(0, 5000)]));
-          updateTournament(tournamentId, (currentTournament) => {
+          const saved = await updateTournament(tournamentId, (currentTournament) => {
             currentTournament.judgeAllocations = (currentTournament.judgeAllocations || []).map(
-              (entry) => entry.id === allocationId ? { ...entry, draft } : entry);
+              (entry) => entry.id === allocationId ? { ...entry, draft: formValues } : entry);
             return currentTournament;
           }, "Ballot draft saved.", { forceCloud: true });
+          if (saved) judgeBallotRecovery.delete(String(allocationId));
           return;
         }
 
@@ -28769,7 +28777,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           }
         }
 
-        updateTournament(
+        const saved = await updateTournament(
           tournamentId,
           (currentTournament) => {
             const submittedAt = timestamp();
@@ -28911,6 +28919,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           "Judge ballot submitted.",
           { forceCloud: true },
         );
+        if (saved) judgeBallotRecovery.delete(String(allocationId));
       }
 
       function submitParticipantJudgeFeedback(tournamentId, participantId, allocationId, formData) {
@@ -30998,11 +31007,22 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           }
 
           if (form.dataset.form === "submit-judge-ballot") {
+            if (form.dataset.submitting === "true") return;
             if (formData.get("ballot_action") !== "draft" &&
                 !window.confirm("Submit this ballot? Review the room result and speaker marks. A tournament manager must reopen it for corrections.")) {
               return;
             }
-            submitJudgeBallot(form.dataset.id, form.dataset.allocationId, formData);
+            form.dataset.submitting = "true";
+            form.setAttribute("aria-busy", "true");
+            form.querySelectorAll('button[type="submit"]').forEach((button) => { button.disabled = true; });
+            const status = form.querySelector(".ballot-save-status");
+            if (status) status.textContent = formData.get("ballot_action") === "draft" ? "Saving draft…" : "Submitting ballot…";
+            try {
+              await submitJudgeBallot(form.dataset.id, form.dataset.allocationId, formData);
+            } catch (error) {
+              setFlash("error", error?.message || "The ballot could not be saved. Your entries are still available to retry.");
+              renderApp();
+            }
             return;
           }
 
