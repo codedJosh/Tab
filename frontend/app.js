@@ -1,6 +1,7 @@
 import { privateVisibility } from "./public-workspace.js";
 import { applyTournamentChanges, tournamentChanges } from "./tournament-patch.js";
 import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } from "./tournament-rules.js";
+import { evaluateDrawEntryConflicts } from "./draw-integrity.js";
       const STORAGE_KEY = "debate-tab-advanced-v1";
       const SESSION_STORAGE_KEY = STORAGE_KEY + "-session";
       const AUTH_PREFS_STORAGE_KEY = STORAGE_KEY + "-auth-prefs";
@@ -9631,125 +9632,15 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       }
 
       function getDrawEntryConflictReport(tournament, drawEntry) {
-        if (!drawEntry) {
-          return [];
-        }
-
-        const issues = [];
-        const slots = Array.isArray(drawEntry.slots) ? drawEntry.slots : [];
-        const currentKeys = getDrawEntryIdentityKeys(drawEntry);
-        const institutionMap = new Map();
-
-        slots.forEach((slot) => {
-          const institution = getDrawSlotInstitution(tournament, slot);
-          if (!institution) {
-            return;
-          }
-          institutionMap.set(institution, (institutionMap.get(institution) || 0) + 1);
+        return evaluateDrawEntryConflicts(tournament, drawEntry, {
+          getSlotInstitution: getDrawSlotInstitution,
+          getSlotLabel: (slot, index) => getDrawSlotDisplayLabel(tournament, slot, {
+            drawEntry,
+            slotIndex: index,
+            forcePrivate: true,
+          }),
+          getRoleLabel: getJudgeAllocationRoleLabel,
         });
-
-        institutionMap.forEach((count, institution) => {
-          if (count > 1) {
-            issues.push({
-              tone: "danger",
-              label: "Institution clash",
-              detail:
-                institution +
-                " appears " +
-                count +
-                " times in this room.",
-            });
-          }
-        });
-
-        (tournament.draw || [])
-          .filter((entry) => Number(entry.round || 0) < Number(drawEntry.round || 0))
-          .forEach((previousEntry) => {
-            const previousKeys = getDrawEntryIdentityKeys(previousEntry);
-            const overlap = currentKeys.filter((key) => previousKeys.includes(key));
-            if (overlap.length >= 2) {
-              issues.push({
-                tone: "warning",
-                label: "Repeat matchup",
-                detail:
-                  "This room repeats " +
-                  overlap.length +
-                  " entry matchups from Round " +
-                  previousEntry.round +
-                  " • " +
-                  previousEntry.room +
-                  ".",
-              });
-            }
-          });
-
-        const roomAllocations = getAllocationsForDrawEntry(tournament, drawEntry.id);
-        roomAllocations.forEach((allocation) => {
-          const judge = getJudgeByEmail(tournament, allocation.judgeEmail);
-          const judgeConflict = getJudgeInstitutionConflict(tournament, drawEntry, judge);
-          if (judgeConflict) {
-            issues.push({
-              tone: "danger",
-              label: "Judge conflict",
-              detail:
-                (judge?.name || allocation.judgeEmail) +
-                " shares " +
-                judgeConflict.institution +
-                " with " +
-                judgeConflict.matchingLabels.join(", ") +
-                ".",
-            });
-          }
-
-          (tournament.judgeAllocations || [])
-            .filter(
-              (previousAllocation) =>
-                normalizeEmail(previousAllocation.judgeEmail) ===
-                  normalizeEmail(allocation.judgeEmail) &&
-                Number(previousAllocation.round || 0) < Number(drawEntry.round || 0),
-            )
-            .forEach((previousAllocation) => {
-              const previousEntry = getDrawEntryById(tournament, previousAllocation.drawId);
-              const previousKeys = getDrawEntryIdentityKeys(previousEntry);
-              const overlap = currentKeys.filter((key) => previousKeys.includes(key));
-              if (overlap.length) {
-                issues.push({
-                  tone: "warning",
-                  label: "Judge repeat exposure",
-                  detail:
-                    (judge?.name || allocation.judgeEmail) +
-                    " has already seen " +
-                    overlap.length +
-                    " of these entries earlier in the tournament.",
-                });
-              }
-            });
-        });
-
-        const allocationsByJudge = new Map();
-        roomAllocations.forEach((allocation) => {
-          const email = normalizeEmail(allocation.judgeEmail);
-          if (!email) return;
-          if (!allocationsByJudge.has(email)) allocationsByJudge.set(email, []);
-          allocationsByJudge.get(email).push(allocation);
-        });
-        allocationsByJudge.forEach((allocations) => {
-          if (allocations.length < 2) return;
-          const judge = getJudgeByEmail(tournament, allocations[0].judgeEmail);
-          const roles = allocations.map((allocation) => getJudgeAllocationRoleLabel(allocation.panelRole));
-          issues.push({
-            tone: "danger",
-            label: "Duplicate judge assignment",
-            detail: (judge?.name || allocations[0].judgeEmail) +
-              " is assigned more than once in this room (" + roles.join(", ") + ").",
-          });
-        });
-
-        return Array.from(
-          new Map(
-            issues.map((issue) => [issue.label + "::" + issue.detail, issue]),
-          ).values(),
-        );
       }
 
       function getRoundConflictSummary(tournament, round) {
@@ -14731,6 +14622,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                       const checkedInEntries = areAllDrawEntriesCheckedIn(entry);
                       const checkInSummary = getDrawEntryCheckInSummary(entry);
                       const conflictCount = getDrawEntryConflictReport(tournament, entry).length;
+                      const publishedRoom = String(entry.status || "").toLowerCase() === "published";
                       return `
                         <tr>
                           <td data-label="Round">${escapeHtml(entry.round)}</td>
@@ -14795,10 +14687,10 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                         </div>
                                       </details>
                                       <details class="draw-review-delete-action">
-                                        <summary>Delete room</summary>
+                                        <summary>${publishedRoom ? "Published room" : "Delete room"}</summary>
                                         <button class="danger-button" type="button" data-action="delete-draw" data-id="${escapeHtml(
                                           tournament.id,
-                                        )}" data-draw-id="${escapeHtml(entry.id)}">Delete this room</button>
+                                        )}" data-draw-id="${escapeHtml(entry.id)}" ${publishedRoom ? 'disabled aria-disabled="true" title="Published rooms are locked."' : ""}>${publishedRoom ? "Published rooms are locked" : "Delete this room"}</button>
                                       </details>
                                     </div>
                                   </td>
@@ -17962,7 +17854,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                           publishRound,
                         )}</select>
                       </label>
-                      <button class="danger-button" type="submit">Reset round</button>
+                      <button class="danger-button" type="submit" data-reset-round-submit ${(publishReadiness.summary?.published || 0) > 0 ? 'disabled aria-disabled="true" title="Published rounds are locked."' : ""}>${(publishReadiness.summary?.published || 0) > 0 ? "Round is locked" : "Reset round"}</button>
                     </form>
                   </div>
                 </div>
@@ -18855,6 +18747,14 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           publishButton.disabled = !readiness.canPublish;
           publishButton.setAttribute("aria-disabled", String(!readiness.canPublish));
           publishButton.textContent = readiness.alreadyPublished ? "Already published" : "Publish round";
+        }
+        const resetButton = form.closest(".draw-publish-shell")?.querySelector("[data-reset-round-submit]");
+        if (resetButton) {
+          const hasPublishedRooms = (readiness.summary?.published || 0) > 0;
+          resetButton.disabled = hasPublishedRooms;
+          resetButton.setAttribute("aria-disabled", String(hasPublishedRooms));
+          resetButton.textContent = hasPublishedRooms ? "Round is locked" : "Reset round";
+          resetButton.title = hasPublishedRooms ? "Published rounds are locked." : "";
         }
       }
 

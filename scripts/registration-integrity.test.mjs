@@ -424,6 +424,8 @@ test('one judge cannot occupy chair and wing roles in the same room',async()=>{
  const report=JSON.parse(app.run('JSON.stringify(getDrawEntryConflictReport(tournament,tournament.draw[0]))'));
  assert.equal(report.filter(issue=>issue.label==='Duplicate judge assignment').length,1);
  assert.match(report.find(issue=>issue.label==='Duplicate judge assignment').detail,/Chair, Panelist/);
+ assert.equal(report.find(issue=>issue.label==='Duplicate judge assignment').code,'JUDGE_ASSIGNED_TWICE_IN_ROOM');
+ assert.equal(report.find(issue=>issue.label==='Duplicate judge assignment').blocksPublication,true);
  assert.equal(app.run('getRoundReleaseReadiness(tournament,1).canPublish'),false);
  const summary=app.run('renderConflictReviewPanel(tournament,{compact:true})');
  assert.match(summary,/2 flags · 1 affected round/);
@@ -445,6 +447,8 @@ test('published rounds show their saved state instead of draft-only motion block
  const html=app.run('renderTournamentDrawStudio(tournament)');
  assert.match(html,/Already published/);
  assert.doesNotMatch(html,/Add and save the motion before publishing this round/);
+ assert.match(html,/data-reset-round-submit disabled aria-disabled="true"/);
+ assert.match(app.run('renderDrawTable(tournament,true,true)'),/Published rooms are locked/);
 });
 
 test('draw review keeps institution names in matchups and compact placement labels in results',async()=>{

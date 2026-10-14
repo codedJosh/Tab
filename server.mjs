@@ -1,6 +1,7 @@
 import { publicWorkspace, applyPrivateEntryCommand, judgeWorkspace, memberWorkspace } from "./frontend/public-workspace.js";
 import { applyTournamentChanges } from "./frontend/tournament-patch.js";
 import { registrationTeamSize } from "./frontend/tournament-rules.js";
+import { evaluateDrawEntryConflicts } from "./frontend/draw-integrity.js";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -1636,35 +1637,95 @@ function getAuthenticatedAccountAccess(state, email) {
 
 function assertDrawReleaseIntegrity(previousTournament, nextTournament) {
   const previousDraw = new Map((previousTournament?.draw || []).map((entry) => [String(entry.id || ""), entry]));
+  const nextDraw = new Map((nextTournament?.draw || []).map((entry) => [String(entry.id || ""), entry]));
+  const fail = (message, code = "draw_release_blocked", ruleCode = "") => {
+    const error = new Error(message);
+    error.statusCode = 422;
+    error.code = code;
+    if (ruleCode) error.ruleCode = ruleCode;
+    throw error;
+  };
+  for (const [id, previous] of previousDraw) {
+    if (String(previous.status || "").toLowerCase() !== "published") continue;
+    const next = nextDraw.get(id);
+    if (!next || String(next.status || "").toLowerCase() !== "published") {
+      fail("Round " + Number(previous.round || 0) + " is published and locked. Its draw cannot be reset or unpublished.", "published_round_locked");
+    }
+    for (const field of ["round", "room", "matchup", "slots", "entryIds", "teamIds", "participantIds"]) {
+      if (JSON.stringify(previous[field] ?? null) !== JSON.stringify(next[field] ?? null)) {
+        fail("Round " + Number(previous.round || 0) + " is published and locked. Its room assignments cannot be changed.", "published_round_locked");
+      }
+    }
+  }
   const newlyPublished = (nextTournament?.draw || []).filter((entry) => {
     const previous = previousDraw.get(String(entry.id || ""));
     return String(entry.status || "").toLowerCase() === "published" &&
       String(previous?.status || "").toLowerCase() !== "published";
   });
   if (!newlyPublished.length) return;
-
-  const fail = (message) => {
-    const error = new Error(message);
-    error.statusCode = 422;
-    error.code = "draw_release_blocked";
-    throw error;
-  };
   const controls = new Map((nextTournament?.roundControls || []).map((entry) => [Number(entry.round), entry]));
-  for (const room of newlyPublished) {
-    const round = Number(room.round);
+  const rounds = new Set(newlyPublished.map((entry) => Number(entry.round)));
+  for (const round of rounds) {
     const control = controls.get(round);
     if (!String(control?.motionTitle || control?.motionText || "").trim()) {
       fail("Save a motion for Round " + round + " before publishing its draw.");
     }
-    const assignedJudges = new Set();
-    for (const allocation of nextTournament?.judgeAllocations || []) {
-      if (String(allocation.drawId || "") !== String(room.id || "")) continue;
-      const email = normalizeEmail(allocation.judgeEmail);
-      if (!email) continue;
-      if (assignedJudges.has(email)) {
-        fail("A judge has more than one role in " + String(room.room || "this room") + ". Resolve the duplicate assignment before publishing.");
+    const rooms = (nextTournament?.draw || []).filter((entry) => Number(entry.round) === round);
+    if (!rooms.length || rooms.some((entry) => String(entry.status || "").toLowerCase() !== "published")) {
+      fail("Publish every room in Round " + round + " together after its checks pass.");
+    }
+    const roomNames = new Set();
+    const entryKeys = new Set();
+    const assignedParticipants = new Set();
+    const roundJudgeRooms = new Map();
+    for (const room of rooms) {
+      const name = String(room.room || "").trim();
+      if (!name || /overflow/i.test(name) || /overflow/i.test(String(room.matchup || ""))) {
+        fail("Name every room and resolve overflow entries before publishing Round " + round + ".");
       }
-      assignedJudges.add(email);
+      const roomKey = normalizeTextKey(name);
+      if (roomNames.has(roomKey)) fail("Use a unique room name for every room in Round " + round + ".");
+      roomNames.add(roomKey);
+      const slots = Array.isArray(room.slots) ? room.slots : [];
+      const keys = slots.map((slot) => String(slot.teamId || "").trim() || String(slot.entryId || "").trim() || normalizeTextKey(slot.teamName || slot.shortLabel || slot.label)).filter(Boolean);
+      if (!keys.length || new Set(keys).size !== keys.length) {
+        fail("Add distinct team entries to every room before publishing Round " + round + ".");
+      }
+      for (const key of keys) {
+        if (entryKeys.has(key)) fail("A team or speaker entry appears in more than one room in Round " + round + ".");
+        entryKeys.add(key);
+      }
+      for (const slot of slots) {
+        for (const participantId of slot.participantIds || []) {
+          const id = String(participantId || "");
+          if (assignedParticipants.has(id)) fail("A speaker appears in more than one room in Round " + round + ".");
+          assignedParticipants.add(id);
+          const participant = (nextTournament?.participants || []).find((entry) => String(entry.id) === id);
+          if (!participant) fail("A room contains an unregistered speaker. Refresh the draw before publishing.");
+          if (participant.teamId && slot.teamId && String(participant.teamId) !== String(slot.teamId)) {
+            fail("A registered team is split across sides. Correct the team assignment before publishing.");
+          }
+        }
+      }
+      const chair = (nextTournament?.judgeAllocations || []).some((allocation) =>
+        String(allocation.drawId || "") === String(room.id || "") &&
+        /chair/.test(String(allocation.panelRole || allocation.role || "").toLowerCase()),
+      );
+      if (!chair) fail("Assign a chair to " + name + " before publishing Round " + round + ".");
+      for (const allocation of nextTournament?.judgeAllocations || []) {
+        if (String(allocation.drawId || "") !== String(room.id || "")) continue;
+        const email = normalizeEmail(allocation.judgeEmail);
+        if (!email) continue;
+        const previousRoom = roundJudgeRooms.get(email);
+        if (previousRoom && previousRoom !== String(room.id || "")) {
+          fail("A judge is assigned to more than one room in Round " + round + ". Resolve the duplicate assignment before publishing.");
+        }
+        roundJudgeRooms.set(email, String(room.id || ""));
+      }
+      const severeConflicts = evaluateDrawEntryConflicts(nextTournament, room).filter((issue) => issue.blocksPublication);
+      if (severeConflicts.length) {
+        fail("Resolve the conflict in " + name + " before publishing Round " + round + ": " + severeConflicts[0].detail, "draw_release_blocked", severeConflicts[0].code);
+      }
     }
   }
 }
