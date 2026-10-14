@@ -1634,6 +1634,41 @@ function getAuthenticatedAccountAccess(state, email) {
   };
 }
 
+function assertDrawReleaseIntegrity(previousTournament, nextTournament) {
+  const previousDraw = new Map((previousTournament?.draw || []).map((entry) => [String(entry.id || ""), entry]));
+  const newlyPublished = (nextTournament?.draw || []).filter((entry) => {
+    const previous = previousDraw.get(String(entry.id || ""));
+    return String(entry.status || "").toLowerCase() === "published" &&
+      String(previous?.status || "").toLowerCase() !== "published";
+  });
+  if (!newlyPublished.length) return;
+
+  const fail = (message) => {
+    const error = new Error(message);
+    error.statusCode = 422;
+    error.code = "draw_release_blocked";
+    throw error;
+  };
+  const controls = new Map((nextTournament?.roundControls || []).map((entry) => [Number(entry.round), entry]));
+  for (const room of newlyPublished) {
+    const round = Number(room.round);
+    const control = controls.get(round);
+    if (!String(control?.motionTitle || control?.motionText || "").trim()) {
+      fail("Save a motion for Round " + round + " before publishing its draw.");
+    }
+    const assignedJudges = new Set();
+    for (const allocation of nextTournament?.judgeAllocations || []) {
+      if (String(allocation.drawId || "") !== String(room.id || "")) continue;
+      const email = normalizeEmail(allocation.judgeEmail);
+      if (!email) continue;
+      if (assignedJudges.has(email)) {
+        fail("A judge has more than one role in " + String(room.room || "this room") + ". Resolve the duplicate assignment before publishing.");
+      }
+      assignedJudges.add(email);
+    }
+  }
+}
+
 function assertScoringPersistAuthorization(previousState, nextState, actorEmail, restrictedJudge = false) {
   const actor = normalizeEmail(actorEmail);
   if (!restrictedJudge && isSystemAdmin(previousState, actor)) return;
@@ -3748,6 +3783,7 @@ app.post("/api", async (request, response) => {
         try { next.tournaments[index] = applyTournamentChanges(current.tournaments[index], request.body?.changes); }
         catch (error) { error.statusCode = error.code === "edit_conflict" ? 409 : 422; throw error; }
         if (next.tournaments[index].id !== current.tournaments[index].id) throw Object.assign(new Error("Tournament identity cannot change."), {statusCode:422});
+        assertDrawReleaseIntegrity(current.tournaments[index], next.tournaments[index]);
         assertScoringPersistAuthorization(current, next, session.email, session.access_scope?.role === "judge");
         const hasChanges = JSON.stringify(next.tournaments[index]) !== JSON.stringify(current.tournaments[index]);
         const saved = hasChanges

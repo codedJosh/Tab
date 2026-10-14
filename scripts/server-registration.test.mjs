@@ -115,3 +115,30 @@ test('post-commit email receipts merge into the latest state without deleting co
  await ctx.deliverCommittedRegistrationEmails(result,{},'participant_registration','t');
  assert.equal(result.state.tournaments[0].name,'concurrent registration');assert.equal(result.revision,12);assert.equal(result.state.users[0].sent,true);
 });
+
+test('server blocks publishing a round with no saved motion',()=>{
+ const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase()});
+ vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
+ const before={draw:[{id:'room-1',round:1,status:'Draft'}],roundControls:[],judgeAllocations:[]};
+ const after={...before,draw:[{...before.draw[0],status:'Published'}]};
+ assert.throws(()=>ctx.assertDrawReleaseIntegrity(before,after),error=>error.code==='draw_release_blocked'&&/Save a motion/.test(error.message));
+});
+
+test('server blocks publishing a room with a judge assigned in multiple roles',()=>{
+ const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase()});
+ vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
+ const before={draw:[{id:'room-1',round:1,room:'Room 1',status:'Draft'}],roundControls:[{round:1,motionTitle:'Motion'}],judgeAllocations:[]};
+ const after={...before,draw:[{...before.draw[0],status:'Published'}],judgeAllocations:[
+  {drawId:'room-1',judgeEmail:'judge@example.org',panelRole:'chair'},
+  {drawId:'room-1',judgeEmail:'JUDGE@example.org',panelRole:'panelist'},
+ ]};
+ assert.throws(()=>ctx.assertDrawReleaseIntegrity(before,after),error=>error.code==='draw_release_blocked'&&/more than one role/.test(error.message));
+});
+
+test('server publication guard allows an already published room and unrelated edits',()=>{
+ const ctx=vm.createContext({normalizeEmail:value=>String(value||'').trim().toLowerCase()});
+ vm.runInContext(fn('assertDrawReleaseIntegrity'),ctx);
+ const before={draw:[{id:'room-1',round:1,status:'Published'}],roundControls:[],judgeAllocations:[]};
+ const after={...before,name:'Updated title'};
+ assert.doesNotThrow(()=>ctx.assertDrawReleaseIntegrity(before,after));
+});

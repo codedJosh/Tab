@@ -409,6 +409,71 @@ test('Use Judge Profile replaces a conflicted chair and clears the saved conflic
  assert.equal(app.run('getRoundConflictSummary(tournament,2).severe'),0);
 });
 
+test('one judge cannot occupy chair and wing roles in the same room',async()=>{
+ const app=await fixture();
+ app.run(`tournament.rounds=1;
+   var plan=getDrawGenerationPlan(tournament,getRoundProfileForRound(tournament,1));
+   var room=createDrawRecord(tournament,{id:'duplicate-role-room',round:1,room:'Room 1',entries:plan.entries});
+   var chair=createJudgeRecord('Same Judge','same@test.org','School A',{panelQuality:'chair'});
+   tournament.judges=[chair];tournament.draw=[room];
+   tournament.roundControls=buildRoundControls(1,[{round:1,motionTitle:'Motion'}]);
+   tournament.judgeAllocations=[
+     createJudgeAllocationRecord(tournament,room,chair.email,{id:'same-chair',panelRole:'chair'}),
+     createJudgeAllocationRecord(tournament,room,chair.email,{id:'same-wing',panelRole:'panelist'}),
+   ];`);
+ const report=JSON.parse(app.run('JSON.stringify(getDrawEntryConflictReport(tournament,tournament.draw[0]))'));
+ assert.equal(report.filter(issue=>issue.label==='Duplicate judge assignment').length,1);
+ assert.match(report.find(issue=>issue.label==='Duplicate judge assignment').detail,/Chair, Panelist/);
+ assert.equal(app.run('getRoundReleaseReadiness(tournament,1).canPublish'),false);
+ const summary=app.run('renderConflictReviewPanel(tournament,{compact:true})');
+ assert.match(summary,/2 flags · 1 affected round/);
+ assert.match(summary,/Same Judge is assigned more than once/);
+ const table=app.run('renderDrawTable(tournament,true,true)');
+ assert.match(table,/2 conflict flags/);
+});
+
+test('published rounds show their saved state instead of draft-only motion blockers',async()=>{
+ const app=await fixture();
+ app.run(`tournament.rounds=1;
+   var plan=getDrawGenerationPlan(tournament,getRoundProfileForRound(tournament,1));
+   var room=createDrawRecord(tournament,{id:'published-room',round:1,room:'Room 1',status:'Published',entries:plan.entries});
+   tournament.draw=[room];tournament.roundControls=buildRoundControls(1,[{round:1}]);`);
+ const readiness=JSON.parse(app.run('JSON.stringify(getRoundReleaseReadiness(tournament,1))'));
+ assert.equal(readiness.alreadyPublished,true);
+ assert.equal(readiness.canPublish,false);
+ assert.match(app.run('getRoundReleaseReadinessText(getRoundReleaseReadiness(tournament,1))'),/published and locked/i);
+ const html=app.run('renderTournamentDrawStudio(tournament)');
+ assert.match(html,/Already published/);
+ assert.doesNotMatch(html,/Add and save the motion before publishing this round/);
+});
+
+test('draw review keeps institution names in matchups and compact placement labels in results',async()=>{
+ const app=await fixture();
+ app.run(`tournament=createTournamentRecord({name:'Compact Review',format:'British Parliamentary',participantModel:'teams',teamSize:1,teamsPerRoom:4,rounds:1,scoringMethod:'WUDC Team Points'});
+   tournament.teams=[
+     {id:'og',name:'Alpha',institution:'North College'},
+     {id:'oo',name:'Beta',institution:'South College'},
+     {id:'cg',name:'Gamma',institution:'East College'},
+     {id:'co',name:'Delta',institution:'West College'},
+   ];
+   const slots=[
+     {teamId:'og',teamName:'Alpha',institution:'North College',shortLabel:'Alpha',side:'OG'},
+     {teamId:'oo',teamName:'Beta',institution:'South College',shortLabel:'Beta',side:'OO'},
+     {teamId:'cg',teamName:'Gamma',institution:'East College',shortLabel:'Gamma',side:'CG'},
+     {teamId:'co',teamName:'Delta',institution:'West College',shortLabel:'Delta',side:'CO'},
+   ];
+   const room=createDrawRecord(tournament,{id:'compact-room',round:1,room:'Room 1',status:'Published',entries:[]});
+   room.slots=slots;
+   room.officialResults=Object.fromEntries(slots.map((slot,index)=>[getDrawSlotCheckInKey(slot),{rank:index+1}]));
+   tournament.draw=[room];`);
+ const html=app.run('renderDrawTable(tournament,true,true)');
+ const resultCell=html.match(/<td data-label="Official result">([^<]*)<\/td>/)?.[1] || '';
+ assert.match(resultCell,/OG 1st · 3 pts/);
+ assert.doesNotMatch(resultCell,/North College|South College|East College|West College/);
+ assert.match(html,/Competitor check-in <span class="muted">optional<\/span>/);
+ assert.match(html,/Results are tracked separately/);
+});
+
 test('room and judge check-ins are counted and labeled separately',async()=>{
  const app=await fixture();
  app.run(`var plan=getDrawGenerationPlan(tournament,getRoundProfileForRound(tournament,1));
@@ -427,6 +492,14 @@ test('room and judge check-ins are counted and labeled separately',async()=>{
  })`));
  assert.deepEqual(checkIns.room,[true]);
  assert.deepEqual(checkIns.judge,[true]);
+ assert.match(app.run('renderDrawTable(tournament,true,true)'),/Attendance tracking only; it is not required to publish or calculate results/);
+});
+
+test('Regional Operations sign-in explains how eligible coordinators request access',async()=>{
+ const app=await fixture();
+ const html=app.run('renderRegionalOperationsPublicView()');
+ assert.match(html,/Need access\?/);
+ assert.match(html,/mailto:[^\"]+Regional%20Operations%20access%20request/);
 });
 
 test('Round Draw ballot review opens the ballot workflow',async()=>{
@@ -439,6 +512,7 @@ test('Round Draw ballot review opens the ballot workflow',async()=>{
    var chair=createJudgeRecord('Chair','chair@test.org','',{panelQuality:'chair'});tournament.judges=[chair];
    tournament.judgeAllocations=[createJudgeAllocationRecord(tournament,room,chair.email,{id:'ballot-chair',panelRole:'chair',submittedAt:'2026-10-13T12:00:00.000Z',ballotResults:{}})];`);
  const drawBoard=app.run('renderRoundControlBoard(tournament,true,true,true)');
+ assert.match(drawBoard,/aria-label="Round status table" tabindex="0"/);
  assert.match(drawBoard,/Review Ballots/);
  assert.match(drawBoard,/data-action="set-focused-tournament-section" data-section="ballots"/);
  const html=app.run('getFocusedTournamentSections(tournament).find(section=>section.key==="ballots").render()');

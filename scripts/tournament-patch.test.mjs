@@ -34,6 +34,18 @@ test('round controls merge edits to different rounds instead of replacing the wh
  const result=applyTournamentChanges(latest,tournamentChanges(base,edited));
  assert.deepEqual(result.roundControls.map(control=>control.motionTitle),['New 1','New 2']);
 });
+test('saving a motion preserves a concurrent check-in on the same round',()=>{
+ const base={
+  roundControls:[{round:1,motionTitle:'Draft',motionText:'',prepMinutes:10}],
+  judgeAllocations:[{id:'chair',round:1,drawId:'room-1',checkedIn:false,panelRole:'chair'}],
+ };
+ const motionEdit=structuredClone(base);motionEdit.roundControls[0].motionText='Final motion';
+ const checkInEdit=structuredClone(base);checkInEdit.judgeAllocations[0].checkedIn=true;
+ const latest=applyTournamentChanges(base,tournamentChanges(base,checkInEdit));
+ const saved=applyTournamentChanges(latest,tournamentChanges(base,motionEdit));
+ assert.equal(saved.roundControls[0].motionText,'Final motion');
+ assert.equal(saved.judgeAllocations[0].checkedIn,true);
+});
 test('explicit allocation removal survives a concurrent check-in update to that allocation',()=>{
  const base={judgeAllocations:[{id:'a1',drawId:'d1',checkedIn:false,panelRole:'chair'}]};
  const edited={judgeAllocations:[]};

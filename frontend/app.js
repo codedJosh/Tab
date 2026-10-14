@@ -6571,7 +6571,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           );
       }
 
-      function getDrawOfficialResultSummary(tournament, drawEntry) {
+      function getDrawOfficialResultSummary(tournament, drawEntry, options = {}) {
         const slots = getOrderedDrawSlotsForDisplay(tournament, drawEntry).map((entry) => entry.slot);
         const officialResults = normalizeDrawOfficialResults(drawEntry?.officialResults);
         const resultMode = getDrawOfficialResultMode(tournament, drawEntry);
@@ -6592,6 +6592,12 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           return "";
         }
 
+        function getCompactResultPointLabel(result) {
+          return getResultPointLabel(result)
+            .replace(" team points", " pts")
+            .replace(" team point", " pt");
+        }
+
         if (resultMode === "bp_rank") {
           const rankedSlots = slots
             .map((slot) => ({
@@ -6607,12 +6613,22 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 
           return rankedSlots
             .map((entry) => {
-              const label = getDrawSlotDisplayLabel(tournament, entry.slot, {
-                drawEntry,
-                slotIndex: slots.findIndex(
-                  (slot) => getDrawSlotCheckInKey(slot) === getDrawSlotCheckInKey(entry.slot),
-                ),
-              });
+              const slotIndex = slots.findIndex(
+                (slot) => getDrawSlotCheckInKey(slot) === getDrawSlotCheckInKey(entry.slot),
+              );
+              const label = options.compact
+                ? getResolvedDrawSlotSideLabel(tournament, drawEntry, entry.slot, slotIndex) ||
+                  "Entry " + (slotIndex + 1)
+                : getDrawSlotDisplayLabel(tournament, entry.slot, { drawEntry, slotIndex });
+              if (options.compact) {
+                return (
+                  label +
+                  " " +
+                  formatOrdinal(entry.result.rank) +
+                  " · " +
+                  getCompactResultPointLabel(entry.result)
+                );
+              }
               return (
                 label +
                 " " +
@@ -6639,12 +6655,22 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 
           return outcomeSlots
             .map((entry) => {
-              const label = getDrawSlotDisplayLabel(tournament, entry.slot, {
-                drawEntry,
-                slotIndex: slots.findIndex(
-                  (slot) => getDrawSlotCheckInKey(slot) === getDrawSlotCheckInKey(entry.slot),
-                ),
-              });
+              const slotIndex = slots.findIndex(
+                (slot) => getDrawSlotCheckInKey(slot) === getDrawSlotCheckInKey(entry.slot),
+              );
+              const label = options.compact
+                ? getResolvedDrawSlotSideLabel(tournament, drawEntry, entry.slot, slotIndex) ||
+                  "Entry " + (slotIndex + 1)
+                : getDrawSlotDisplayLabel(tournament, entry.slot, { drawEntry, slotIndex });
+              if (options.compact) {
+                return (
+                  label +
+                  " " +
+                  toTitleLabel(entry.result.outcome) +
+                  " · " +
+                  getCompactResultPointLabel(entry.result)
+                );
+              }
               return (
                 label +
                 " " +
@@ -9657,7 +9683,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
             }
           });
 
-        getAllocationsForDrawEntry(tournament, drawEntry.id).forEach((allocation) => {
+        const roomAllocations = getAllocationsForDrawEntry(tournament, drawEntry.id);
+        roomAllocations.forEach((allocation) => {
           const judge = getJudgeByEmail(tournament, allocation.judgeEmail);
           const judgeConflict = getJudgeInstitutionConflict(tournament, drawEntry, judge);
           if (judgeConflict) {
@@ -9697,6 +9724,25 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                 });
               }
             });
+        });
+
+        const allocationsByJudge = new Map();
+        roomAllocations.forEach((allocation) => {
+          const email = normalizeEmail(allocation.judgeEmail);
+          if (!email) return;
+          if (!allocationsByJudge.has(email)) allocationsByJudge.set(email, []);
+          allocationsByJudge.get(email).push(allocation);
+        });
+        allocationsByJudge.forEach((allocations) => {
+          if (allocations.length < 2) return;
+          const judge = getJudgeByEmail(tournament, allocations[0].judgeEmail);
+          const roles = allocations.map((allocation) => getJudgeAllocationRoleLabel(allocation.panelRole));
+          issues.push({
+            tone: "danger",
+            label: "Duplicate judge assignment",
+            detail: (judge?.name || allocations[0].judgeEmail) +
+              " is assigned more than once in this room (" + roles.join(", ") + ").",
+          });
         });
 
         return Array.from(
@@ -9744,6 +9790,17 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         const targetRound = normalizeRoundCount(round, 1);
         const summary = getRoundStatusSummary(tournament, targetRound);
         const rooms = summary.rooms || [];
+        if (rooms.length && summary.published === rooms.length) {
+          return {
+            round: targetRound,
+            canPublish: false,
+            alreadyPublished: true,
+            blockers: [],
+            warnings: [],
+            summary,
+            conflictSummary: getRoundConflictSummary(tournament, targetRound),
+          };
+        }
         const blockers = getRosterIntegrityIssues(tournament, getRoundProfileForRound(tournament, targetRound));
         const warnings = [];
         if (
@@ -9888,6 +9945,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       }
 
       function getRoundReleaseReadinessText(readiness) {
+        if (readiness?.alreadyPublished) {
+          return "This round is published and locked. Review its ballots or results from the round controls.";
+        }
         const issues = readiness?.blockers?.length
           ? readiness.blockers
           : readiness?.warnings || [];
@@ -13920,7 +13980,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                           </div>
                         </form>
                         <p class="auth-footer">
-                          Regional Operations accounts are created by managers. Use the email and password assigned to your regional workspace.
+                          Regional Operations accounts are created by managers. Use the email and password assigned to your regional workspace. Need access? <a href="mailto:${escapeAttributeValue(MANAGER_EMAIL)}?subject=${encodeURIComponent("Regional Operations access request")}">Ask JADE support</a> to route your request to a manager.
                         </p>
                       </div>
                     </div>
@@ -14641,8 +14701,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         }
 
         return `
-          <div class="table-wrap">
-            <table>
+          <div class="table-wrap draw-review-table-wrap" role="region" aria-label="Draw review rooms" tabindex="0">
+            <table class="draw-review-table">
               <thead>
                 <tr>
                   <th>Round</th>
@@ -14651,7 +14711,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   <th>Official Result</th>
                   <th>Priority</th>
                   <th>Status</th>
-                  ${canManage ? "<th>Competitor check-in</th><th>Ballot</th>" : ""}
+                  ${canManage ? '<th title="Attendance tracking only; it is not required to publish or calculate results.">Competitor check-in <span class="muted">optional</span></th><th title="Submitted means the judge saved a ballot; Returned means staff marked it received. Results are tracked separately.">Ballot</th>' : ""}
                   ${canManage ? "<th>Action</th>" : ""}
                 </tr>
               </thead>
@@ -14667,40 +14727,40 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                   .map(
                     (entry) => {
                       const matchup = getDrawMatchupForDisplay(tournament, entry);
-                      const resultSummary = getDrawOfficialResultSummary(tournament, entry);
+                      const resultSummary = getDrawOfficialResultSummary(tournament, entry, { compact: true });
                       const checkedInEntries = areAllDrawEntriesCheckedIn(entry);
                       const checkInSummary = getDrawEntryCheckInSummary(entry);
                       const conflictCount = getDrawEntryConflictReport(tournament, entry).length;
                       return `
                         <tr>
-                          <td>${escapeHtml(entry.round)}</td>
-                          <td>${escapeHtml(entry.room)}</td>
-                          <td>${escapeHtml(matchup)}</td>
-                          <td>${escapeHtml(resultSummary || "Awaiting official result")}</td>
-                          <td>${escapeHtml(
+                          <td data-label="Round">${escapeHtml(entry.round)}</td>
+                          <td data-label="Room">${escapeHtml(entry.room)}</td>
+                          <td data-label="Matchup">${escapeHtml(matchup)}</td>
+                          <td data-label="Official result">${escapeHtml(resultSummary || "Awaiting official result")}</td>
+                          <td data-label="Priority">${escapeHtml(
                             getRoomPriorityLabel(entry.priority) +
                               " (" +
                               normalizeRoomPriority(entry.priority, 3) +
                               ")",
                           )}</td>
-                          <td>${escapeHtml(entry.status)}</td>
+                          <td data-label="Status">${escapeHtml(entry.status)}</td>
                           ${
                             canManage
                               ? `
-                                  <td>${escapeHtml(
+                                  <td data-label="Competitor check-in">${escapeHtml(
                                     checkInSummary.total
                                       ? checkInSummary.checked + "/" + checkInSummary.total + " competitors"
                                       : "No competitor check-ins",
                                   )}</td>
-                                  <td>${escapeHtml(
+                                  <td data-label="Ballot">${escapeHtml(
                                     entry.ballotCheckedIn
                                       ? "Returned"
                                       : getOfficialBallotAllocationForDraw(tournament, entry)
                                         ? "Submitted"
                                         : "Pending",
                                   )}</td>
-                                  <td>
-                                    <form class="compact-inline-form" data-form="update-draw-room" data-id="${escapeHtml(
+                                  <td class="draw-review-actions" data-label="Room actions">
+                                    <form class="draw-review-save-form" data-form="update-draw-room" data-id="${escapeHtml(
                                       tournament.id,
                                     )}" data-draw-id="${escapeHtml(entry.id)}">
                                       <input type="hidden" name="status" value="${escapeHtml(
@@ -14716,21 +14776,31 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                                             )}</span>`
                                           : ""
                                       }
-                                      <button class="secondary-button" type="submit">Save</button>
-                                      <button class="ghost-button" type="button" data-action="toggle-room-checkin" data-id="${escapeHtml(
-                                        tournament.id,
-                                      )}" data-draw-id="${escapeHtml(entry.id)}">${escapeHtml(
-                                        checkedInEntries ? "Clear competitor check-in" : "Check in competitors",
-                                      )}</button>
-                                      <button class="ghost-button" type="button" data-action="toggle-room-ballot" data-id="${escapeHtml(
-                                        tournament.id,
-                                      )}" data-draw-id="${escapeHtml(entry.id)}">${escapeHtml(
-                                        entry.ballotCheckedIn ? "Undo Ballot" : "Mark Ballot In",
-                                      )}</button>
-                                      <button class="ghost-button" type="button" data-action="delete-draw" data-id="${escapeHtml(
-                                        tournament.id,
-                                      )}" data-draw-id="${escapeHtml(entry.id)}">Delete</button>
+                                      <button class="secondary-button" type="submit">Save priority</button>
                                     </form>
+                                    <div class="draw-review-secondary-actions">
+                                      <details>
+                                        <summary>Attendance and ballot</summary>
+                                        <div class="draw-review-action-menu">
+                                          <button class="ghost-button" type="button" data-action="toggle-room-checkin" data-id="${escapeHtml(
+                                            tournament.id,
+                                          )}" data-draw-id="${escapeHtml(entry.id)}">${escapeHtml(
+                                            checkedInEntries ? "Clear competitor check-in" : "Check in competitors",
+                                          )}</button>
+                                          <button class="ghost-button" type="button" data-action="toggle-room-ballot" data-id="${escapeHtml(
+                                            tournament.id,
+                                          )}" data-draw-id="${escapeHtml(entry.id)}">${escapeHtml(
+                                            entry.ballotCheckedIn ? "Undo ballot return" : "Mark ballot returned",
+                                          )}</button>
+                                        </div>
+                                      </details>
+                                      <details class="draw-review-delete-action">
+                                        <summary>Delete room</summary>
+                                        <button class="danger-button" type="button" data-action="delete-draw" data-id="${escapeHtml(
+                                          tournament.id,
+                                        )}" data-draw-id="${escapeHtml(entry.id)}">Delete this room</button>
+                                      </details>
+                                    </div>
                                   </td>
                                 `
                               : ""
@@ -17248,6 +17318,8 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         const checkItems = [];
         const drawEntries = tournament.draw || [];
         const entriesByRound = new Map();
+        let conflictFlagCount = 0;
+        let affectedConflictRounds = 0;
         drawEntries.forEach((entry) => {
           const round = normalizeRoundCount(entry.round, 1);
           if (!entriesByRound.has(round)) {
@@ -17261,6 +17333,8 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
           const entries = entriesByRound.get(round) || [];
           const statusSummary = getRoundStatusSummary(tournament, round);
           const conflictSummary = getRoundConflictSummary(tournament, round);
+          conflictFlagCount += conflictSummary.total;
+          if (conflictSummary.total) affectedConflictRounds += 1;
 
           if (!entries.length) {
             checkItems.push({
@@ -17361,54 +17435,18 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             });
           }
 
-          if (conflictSummary.total) {
-            const institutionConflicts = conflictSummary.flaggedRooms.reduce(
-              (sum, record) =>
-                sum +
-                record.issues.filter((issue) =>
-                  String(issue.label || "").toLowerCase().includes("institution"),
-                ).length,
-              0,
-            );
-            const judgeConflicts = conflictSummary.flaggedRooms.reduce(
-              (sum, record) =>
-                sum +
-                record.issues.filter((issue) =>
-                  String(issue.label || "").toLowerCase().includes("judge"),
-                ).length,
-              0,
-            );
-            if (institutionConflicts) {
+          conflictSummary.flaggedRooms.forEach(({ entry, issues }) => {
+            issues.forEach((issue) => {
               checkItems.push({
-                tone: "warning",
-                label: "Institution conflicts",
-                detail:
-                  "Round " +
-                  round +
-                  " has " +
-                  institutionConflicts +
-                  " institutional clash flag" +
-                  (institutionConflicts === 1 ? "" : "s") +
-                  ".",
-                actionSection: "draw",
+                tone: issue.tone,
+                label: issue.label,
+                detail: "Round " + round + " · " + (entry.room || "Unnamed room") + ": " + issue.detail,
+                actionSection: String(issue.label || "").toLowerCase().includes("judge")
+                  ? "judges"
+                  : "draw",
               });
-            }
-            if (judgeConflicts) {
-              checkItems.push({
-                tone: "warning",
-                label: "Judge conflicts",
-                detail:
-                  "Round " +
-                  round +
-                  " has " +
-                  judgeConflicts +
-                  " judge conflict flag" +
-                  (judgeConflicts === 1 ? "" : "s") +
-                  ".",
-                actionSection: "judges",
-              });
-            }
-          }
+            });
+          });
 
           if (entries.length && statusSummary.allocations.length < entries.length) {
             checkItems.push({
@@ -17441,11 +17479,16 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                     <strong>Draw conflict check</strong>
                     <span>${escapeHtml(
                       dedupedItems.length
-                        ? dedupedItems.length + " issue" + (dedupedItems.length === 1 ? "" : "s") + " to review"
+                        ? dedupedItems.length + " checks to review"
                         : "No conflicts found",
                     )}</span>
                   </span>
-                  <span class="role-pill">${escapeHtml(dedupedItems.length)} issues</span>
+                  <span class="role-pill">${escapeHtml(
+                    conflictFlagCount
+                    ? conflictFlagCount + " flag" + (conflictFlagCount === 1 ? "" : "s") +
+                      " · " + affectedConflictRounds + " affected round" + (affectedConflictRounds === 1 ? "" : "s")
+                      : "0 flags",
+                  )}</span>
                 </summary>
                 ${
                   dedupedItems.length
@@ -17481,7 +17524,12 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
               <div>
                 <h2>Conflict Checker</h2>
               </div>
-              <span class="role-pill">${escapeHtml(dedupedItems.length)} issues</span>
+              <span class="role-pill">${escapeHtml(
+                conflictFlagCount
+                  ? conflictFlagCount + " flag" + (conflictFlagCount === 1 ? "" : "s") +
+                    " · " + affectedConflictRounds + " affected round" + (affectedConflictRounds === 1 ? "" : "s")
+                  : dedupedItems.length + " checks",
+              )}</span>
             </div>
             ${
               dedupedItems.length
@@ -17653,7 +17701,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
               </div>
               <span class="role-pill">${escapeHtml(profiles.length)} rounds</span>
             </div>
-            <div class="table-wrap round-board-table-wrap">
+            <div class="table-wrap round-board-table-wrap" role="region" aria-label="Round status table" tabindex="0">
               <table class="round-board-table">
                 <thead>
                   <tr>
@@ -17901,7 +17949,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
                           publishRound,
                         )}</select>
                       </label>
-                      <button type="submit" data-publish-round-submit ${publishReadiness.canPublish ? "" : 'disabled aria-disabled="true"'}>Publish round</button>
+                      <button type="submit" data-publish-round-submit ${publishReadiness.canPublish ? "" : 'disabled aria-disabled="true"'}>${publishReadiness.alreadyPublished ? "Already published" : "Publish round"}</button>
                     </form>
 
                     <form class="stack draw-danger-form" data-form="clear-draw-round" data-id="${escapeHtml(
@@ -18806,6 +18854,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         if (publishButton) {
           publishButton.disabled = !readiness.canPublish;
           publishButton.setAttribute("aria-disabled", String(!readiness.canPublish));
+          publishButton.textContent = readiness.alreadyPublished ? "Already published" : "Publish round";
         }
       }
 

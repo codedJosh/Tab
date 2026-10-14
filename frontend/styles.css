@@ -1955,7 +1955,7 @@
         border-radius: 24px;
         background:
           linear-gradient(118deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.04) 24%, transparent 42%),
-          linear-gradient(135deg, rgba(5, 25, 17, 0.52), rgba(15, 72, 45, 0.32) 50%, rgba(115, 135, 68, 0.18)),
+          linear-gradient(135deg, rgba(5, 25, 17, 0.82), rgba(15, 72, 45, 0.68) 58%, rgba(53, 68, 37, 0.55)),
           radial-gradient(circle at 18% 8%, rgba(231, 255, 226, 0.26), transparent 34%),
           linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 48%);
         -webkit-backdrop-filter: blur(22px) saturate(1.38);
@@ -1966,6 +1966,12 @@
           inset 0 0 34px rgba(231, 255, 226, 0.08),
           inset 0 -1px 0 rgba(178, 228, 160, 0.1);
         translate: 0 10px;
+      }
+
+      .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .hero-copy,
+      .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .regional-page-label {
+        color: #fff;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
       }
 
       .regional-public-front-page:not(.auth-flow-page) > .premium-home-hero.regional-operations-hero .public-hero-brand-stack,
@@ -14836,6 +14842,172 @@
 .workspace-shell .draw-studio-shell td:nth-child(4) {
   white-space: normal;
   min-width: 180px;
+}
+
+.workspace-shell .round-board-table-wrap,
+.workspace-shell .draw-review-table-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(20, 73, 54, 0.62) rgba(20, 49, 38, 0.08);
+}
+
+.workspace-shell .round-board-table-wrap::-webkit-scrollbar,
+.workspace-shell .draw-review-table-wrap::-webkit-scrollbar {
+  height: 11px;
+}
+
+.workspace-shell .round-board-table-wrap::-webkit-scrollbar-track,
+.workspace-shell .draw-review-table-wrap::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(20, 49, 38, 0.08);
+}
+
+.workspace-shell .round-board-table-wrap::-webkit-scrollbar-thumb,
+.workspace-shell .draw-review-table-wrap::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(248, 251, 248, 0.9);
+  border-radius: 999px;
+  background: rgba(20, 73, 54, 0.62);
+}
+
+.workspace-shell .round-board-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.workspace-shell .round-board-table th:first-child,
+.workspace-shell .round-board-table td:first-child,
+.workspace-shell .draw-review-table th:first-child,
+.workspace-shell .draw-review-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #f7faf8;
+  box-shadow: 1px 0 0 rgba(20, 49, 38, 0.1);
+}
+
+.workspace-shell .round-board-table th:last-child,
+.workspace-shell .round-board-table td:last-child,
+.workspace-shell .draw-review-table th:last-child,
+.workspace-shell .draw-review-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: #f7faf8;
+  box-shadow: -1px 0 0 rgba(20, 49, 38, 0.1);
+}
+
+.workspace-shell .draw-review-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.workspace-shell .draw-review-table th:nth-child(1) { width: 56px; }
+.workspace-shell .draw-review-table th:nth-child(2) { width: 92px; }
+.workspace-shell .draw-review-table th:nth-child(3) { width: 240px; }
+.workspace-shell .draw-review-table th:nth-child(4) { width: 150px; }
+.workspace-shell .draw-review-table th:nth-child(5) { width: 92px; }
+.workspace-shell .draw-review-table th:nth-child(6) { width: 92px; }
+.workspace-shell .draw-review-table th:nth-child(7) { width: 124px; }
+.workspace-shell .draw-review-table th:nth-child(8) { width: 82px; }
+.workspace-shell .draw-review-table th:nth-child(9) { width: 176px; }
+
+.workspace-shell .draw-review-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.workspace-shell .draw-review-save-form,
+.workspace-shell .draw-review-secondary-actions,
+.workspace-shell .draw-review-action-menu {
+  display: grid;
+  gap: 6px;
+}
+
+.workspace-shell .draw-review-save-form {
+  grid-template-columns: minmax(68px, 1fr) auto;
+  align-items: center;
+}
+
+.workspace-shell .draw-review-secondary-actions {
+  margin-top: 7px;
+}
+
+.workspace-shell .draw-review-secondary-actions details {
+  border: 1px solid rgba(20, 49, 38, 0.12);
+  border-radius: 8px;
+  padding: 5px 7px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.workspace-shell .draw-review-secondary-actions summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 620;
+}
+
+.workspace-shell .draw-review-action-menu,
+.workspace-shell .draw-review-delete-action > button {
+  margin-top: 7px;
+}
+
+.workspace-shell .draw-review-delete-action {
+  border-color: rgba(163, 50, 43, 0.2) !important;
+}
+
+@media (max-width: 760px) {
+  .workspace-shell .draw-review-table,
+  .workspace-shell .draw-review-table tbody,
+  .workspace-shell .draw-review-table tr,
+  .workspace-shell .draw-review-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .workspace-shell .draw-review-table {
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  .workspace-shell .draw-review-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .workspace-shell .draw-review-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .workspace-shell .draw-review-table td {
+    position: static !important;
+    min-width: 0;
+    padding: 5px 4px !important;
+    box-shadow: none !important;
+  }
+
+  .workspace-shell .draw-review-table td::before {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--muted);
+    content: attr(data-label);
+    font-size: 0.66rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .workspace-shell .draw-review-table td:nth-child(3),
+  .workspace-shell .draw-review-table td:nth-child(4),
+  .workspace-shell .draw-review-table td:last-child {
+    grid-column: 1 / -1;
+  }
 }
 
 button:disabled,
