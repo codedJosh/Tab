@@ -138,5 +138,37 @@ export function evaluateDrawEntryConflicts(tournament, drawEntry, options = {}) 
     });
   });
 
+  const roundEntries = (tournament?.draw || []).filter((entry) => Number(entry.round || 0) === Number(drawEntry.round || 0));
+  const currentEntryId = String(drawEntry.id || "");
+  const assignmentsByJudge = new Map();
+  (tournament?.judgeAllocations || []).forEach((allocation) => {
+    const assignedEntry = roundEntries.find((entry) => String(entry.id || "") === String(allocation.drawId || ""));
+    const email = normalizeEmail(allocation.judgeEmail);
+    if (!assignedEntry || !email) return;
+    if (!assignmentsByJudge.has(email)) assignmentsByJudge.set(email, []);
+    assignmentsByJudge.get(email).push({ entry: assignedEntry, allocation });
+  });
+  assignmentsByJudge.forEach((assignments, email) => {
+    const distinctEntryIds = Array.from(new Set(assignments.map(({ entry }) => String(entry.id || ""))));
+    if (distinctEntryIds.length < 2) return;
+    const canonicalEntryId = distinctEntryIds.slice().sort()[0];
+    if (currentEntryId !== canonicalEntryId) return;
+    const judge = (tournament?.judges || []).find((entry) => normalizeEmail(entry.email) === email);
+    const details = assignments
+      .slice()
+      .sort((left, right) => String(left.entry.id).localeCompare(String(right.entry.id)))
+      .map(({ entry, allocation }) => {
+        const role = normalizeRole(allocation.panelRole || allocation.role);
+        return String(entry.room || "Unnamed room") + " (" + (role === "chair" ? "Chair" : "Wing") + ")";
+      });
+    issues.push({
+      tone: "danger",
+      label: "Judge assigned to multiple rooms",
+      detail: (judge?.name || email) + " is assigned to " + details.join(" and ") + " in Round " + drawEntry.round + ".",
+      code: "JUDGE_ASSIGNED_MULTIPLE_ROOMS_IN_ROUND",
+      blocksPublication: true,
+    });
+  });
+
   return Array.from(new Map(issues.map((issue) => [issue.code + "::" + issue.detail, issue])).values());
 }

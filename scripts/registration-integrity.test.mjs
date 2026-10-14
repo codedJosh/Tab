@@ -499,6 +499,24 @@ test('room and judge check-ins are counted and labeled separately',async()=>{
  assert.match(app.run('renderDrawTable(tournament,true,true)'),/Attendance tracking only; it is not required to publish or calculate results/);
 });
 
+test('judge assigned to two rooms is counted once and named in the affected row report',async()=>{
+ const app=await fixture();
+ app.run(`const judge=createJudgeRecord('Shared Judge','shared@test.org','',{panelQuality:'chair'});
+   tournament.judges=[judge];
+   const roomA={id:'room-a',round:1,room:'Room A',status:'Draft',slots:[]};
+   const roomB={id:'room-b',round:1,room:'Room B',status:'Draft',slots:[]};
+   tournament.draw=[roomA,roomB];
+   tournament.judgeAllocations=[
+     {id:'chair-a',drawId:'room-a',round:1,room:'Room A',judgeEmail:judge.email,panelRole:'chair'},
+     {id:'wing-b',drawId:'room-b',round:1,room:'Room B',judgeEmail:judge.email,panelRole:'panelist'},
+   ];`);
+ const summary=JSON.parse(app.run('JSON.stringify(getRoundConflictSummary(tournament,1))'));
+ assert.equal(summary.total,1);
+ assert.equal(summary.flaggedRooms.length,1);
+ assert.equal(summary.flaggedRooms[0].issues[0].code,'JUDGE_ASSIGNED_MULTIPLE_ROOMS_IN_ROUND');
+ assert.match(summary.flaggedRooms[0].issues[0].detail,/Room A \(Chair\).*Room B \(Wing\)/);
+});
+
 test('Regional Operations sign-in explains how eligible coordinators request access',async()=>{
  const app=await fixture();
  const html=app.run('renderRegionalOperationsPublicView()');

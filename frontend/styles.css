@@ -14848,6 +14848,7 @@
 .workspace-shell .draw-review-table-wrap {
   scrollbar-width: thin;
   scrollbar-color: rgba(20, 73, 54, 0.62) rgba(20, 49, 38, 0.08);
+  container-type: inline-size;
 }
 
 .workspace-shell .round-board-table-wrap::-webkit-scrollbar,
@@ -14954,7 +14955,7 @@
   border-color: rgba(163, 50, 43, 0.2) !important;
 }
 
-@media (max-width: 760px) {
+@container (max-width: 1020px) {
   .workspace-shell .draw-review-table,
   .workspace-shell .draw-review-table tbody,
   .workspace-shell .draw-review-table tr,

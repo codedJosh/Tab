@@ -196,7 +196,7 @@ test('server blocks a judge assigned to two different rooms in one round',()=>{
  ];
  const before={draw:rooms,roundControls:[{round:1,motionTitle:'Motion'}],judgeAllocations};
  const after={...before,draw:rooms.map(room=>({...room,status:'Published'}))};
- assert.throws(()=>ctx.assertDrawReleaseIntegrity(before,after),error=>error.code==='draw_release_blocked'&&/more than one room/.test(error.message));
+ assert.throws(()=>ctx.assertDrawReleaseIntegrity(before,after),error=>error.code==='draw_release_blocked'&&/Room 1 \(Chair\).*Room 2 \(Chair\)/.test(error.message));
 });
 
 test('server publication uses the same judge-institution conflict finding as Draw Review',()=>{
