@@ -1,5 +1,5 @@
 import { privateVisibility } from "./public-workspace.js";
-import { tournamentChanges } from "./tournament-patch.js";
+import { applyTournamentChanges, tournamentChanges } from "./tournament-patch.js";
 import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } from "./tournament-rules.js";
       const STORAGE_KEY = "debate-tab-advanced-v1";
       const SESSION_STORAGE_KEY = STORAGE_KEY + "-session";
@@ -64,8 +64,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         "section",
         "profile",
       ];
-      const LIVE_SYNC_INTERVAL_MS = 5000;
-      const LIVE_SYNC_MIN_GAP_MS = 2500;
+      const LIVE_SYNC_INTERVAL_MS = 2500;
+      const LIVE_SYNC_MIN_GAP_MS = 2000;
       const LIVE_SYNC_INTERACTION_COOLDOWN_MS = 900;
       const TRACKED_FORM_DRAFT_DATASET_KEYS = [
         "id",
@@ -527,6 +527,10 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       let queuedCloudPersistRequest = null;
       let cloudPersistWorkerRunning = false;
       let cloudRefreshInFlight = null;
+      let cloudConfirmedState = null;
+      let queuedWorkspacePatchRequest = null;
+      let workspacePatchWorkerRunning = false;
+      let workspacePatchQueue = Promise.resolve();
       let pendingCloudSync = null;
       let cloudSyncConflictGeneration = 0;
       let cloudSyncRequiresRefresh = false;
@@ -1318,7 +1322,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         }
         // renderApp preserves tracked drafts; an abandoned draft must not
         // prevent live registrations from appearing for the rest of the session.
-        const token = String(new URL(window.location.href).searchParams.get("token") || "").trim();
         if (hasEditableFocus()) {
           return false;
         }
@@ -8345,7 +8348,10 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         }
         // A revision probe does not load the state belonging to that revision.
         if (action !== "get_revision" && typeof result?.revision !== "undefined") {
-          cloudRuntime.revision = normalizeWorkspaceRevision(result.revision);
+          cloudRuntime.revision = Math.max(
+            normalizeWorkspaceRevision(cloudRuntime.revision),
+            normalizeWorkspaceRevision(result.revision),
+          );
         }
         cloudRuntime.contractVersion = String(result?.contractVersion || "").trim();
         cloudRuntime.contractMismatch = false;
@@ -8385,7 +8391,9 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
             timeoutMs: CLOUD_AUTH_BOOT_TIMEOUT_MS,
           });
           cloudRuntime.initialized = true;
-          return await rehydrateState(result.state);
+          const authenticatedState = await rehydrateState(result.state);
+          cloudConfirmedState = clone(authenticatedState);
+          return authenticatedState;
         } catch (error) {
           if (error?.code === "invalid_session" || error?.code === "401" || error?.code === "403") {
             session.cloudSessionToken = "";
@@ -8433,6 +8441,10 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
             });
             cloudRuntime.initialized = true;
             const latestRevision = normalizeWorkspaceRevision(result?.revision);
+            const newestKnownRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
+            if (latestRevision > 0 && newestKnownRevision > latestRevision) {
+              return false;
+            }
             const revisionUnchanged =
               previousRevision > 0 &&
               latestRevision > 0 &&
@@ -8448,6 +8460,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               return false;
             }
             state = refreshedState;
+            cloudConfirmedState = clone(refreshedState);
             cloudSyncRequiresRefresh = false;
             updateCurrentUserRecord();
             applyBranding();
@@ -8472,6 +8485,103 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         } finally {
           cloudRefreshInFlight = null;
         }
+      }
+
+      function queueCloudWorkspacePatch(options = {}) {
+        if (!state || !cloudConfirmedState || !session.cloudSessionToken || !isSystemAdmin(session.userEmail)) {
+          queueCloudPersist(options);
+          return;
+        }
+        if (cloudSyncRequiresRefresh) {
+          setFlash("warning", "Refresh the shared workspace before saving another edit.");
+          renderApp();
+          return;
+        }
+        localMutationVersion += 1;
+        queuedWorkspacePatchRequest = {
+          snapshot: clone(state),
+          successMessage: String(options.successMessage || "Changes saved.").trim(),
+        };
+        if (workspacePatchWorkerRunning) return;
+
+        workspacePatchWorkerRunning = true;
+        workspacePatchQueue = (async () => {
+          while (queuedWorkspacePatchRequest) {
+            await waitForCloudRetry(200);
+            const request = queuedWorkspacePatchRequest;
+            queuedWorkspacePatchRequest = null;
+            const baseState = clone(cloudConfirmedState);
+            const changes = tournamentChanges(baseState, request.snapshot);
+            if (!changes.length) {
+              setFlash("success", request.successMessage);
+              renderApp();
+              continue;
+            }
+
+            const idempotent = changes.every((change) =>
+              !Array.isArray(change.orderBefore) &&
+              !Array.isArray(change.orderAfter) &&
+              String(change.path?.[0]?.key || "") !== "users" &&
+              String(change.path?.[0]?.key || "") !== "recoveryRequests",
+            );
+            let saved = false;
+            let lastError = null;
+            for (let attempt = 0; attempt < (idempotent ? 3 : 1); attempt += 1) {
+              try {
+                const result = await callCloud("patch_workspace", {
+                  sessionToken: session.cloudSessionToken,
+                  changes,
+                });
+                cloudConfirmedState = applyTournamentChanges(baseState, changes);
+                const responseRevision = normalizeWorkspaceRevision(result.revision);
+                if (responseRevision > 1) {
+                  // Leave the local revision behind so the next idle poll
+                  // merges unrelated edits committed with this patch.
+                  cloudRuntime.revision = Math.min(cloudRuntime.revision, responseRevision - 1);
+                }
+                setFlash("success", request.successMessage);
+                saveState();
+                saveSession();
+                renderApp();
+                saved = true;
+                break;
+              } catch (error) {
+                lastError = error;
+                const transient = error?.code === "backend_timeout" || error?.name === "TypeError" || /^5\d\d$/.test(String(error?.code || ""));
+                if (!transient || !idempotent || attempt >= 2) break;
+                await waitForCloudRetry(250 * (2 ** attempt));
+              }
+            }
+            if (saved) continue;
+
+            const conflictRecord = {
+              id: createId("cloud-conflict"),
+              userEmail: normalizeEmail(session.userEmail),
+              createdAt: new Date().toISOString(),
+              state: request.snapshot,
+              baseRevision: normalizeWorkspaceRevision(cloudRuntime.revision),
+              conflicted: true,
+            };
+            if (!preserveCloudSyncConflict(conflictRecord)) {
+              localStorageSet(PENDING_CLOUD_SYNC_STORAGE_KEY, JSON.stringify(conflictRecord));
+            }
+            const refreshed = await refreshStateFromBackend({skipRender:true, forceApply:true});
+            if (!refreshed) cloudSyncRequiresRefresh = true;
+            setFlash("warning", lastError?.code === "edit_conflict"
+              ? "A shared setting changed elsewhere. The latest saved state is loaded, and your edit is kept in local conflict recovery."
+              : refreshed
+                ? "The save could not be confirmed. The latest saved state is loaded, and your edit is kept in local conflict recovery."
+                : "The save could not be confirmed. Your edit is kept in local conflict recovery. Refresh before editing again.");
+            renderApp();
+          }
+        })().catch((error) => {
+          console.error(error);
+          setFlash("error", error?.message || "The shared workspace could not save this change.");
+          renderApp();
+        }).finally(() => {
+          workspacePatchWorkerRunning = false;
+          if (queuedWorkspacePatchRequest) queueCloudWorkspacePatch({successMessage:queuedWorkspacePatchRequest.successMessage});
+        });
       }
 
       function queueCloudPersist(options = {}) {
@@ -8537,6 +8647,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
                 // copy and prevents an older response from replacing edits
                 // made while the request was in flight.
                 clearPendingCloudSyncRecord(requestSyncId);
+                cloudConfirmedState = clone(requestState);
                 saveSession();
                 if (requiresSharedBackend() && !requestOptions.skipSuccessRender) {
                   renderApp();
@@ -8577,6 +8688,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
       async function flushCloudPersistQueue() {
         try {
           await cloudPersistQueue;
+          await workspacePatchQueue;
         } catch (error) {
           console.error(error);
         }
@@ -8590,6 +8702,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 
         try {
           await cloudPersistQueue;
+          await workspacePatchQueue;
         } catch (error) {
           console.error(error);
         }
@@ -8623,6 +8736,46 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           }
           queueCloudPersist();
           return false;
+        }
+
+        if (cloudConfirmedState && isSystemAdmin(session.userEmail)) {
+          const baseState = clone(cloudConfirmedState);
+          const attemptedState = clone(state);
+          const changes = tournamentChanges(baseState, attemptedState);
+          if (!changes.length) return true;
+          try {
+            const result = await callCloud("patch_workspace", {
+              sessionToken: session.cloudSessionToken,
+              changes,
+            });
+            cloudConfirmedState = applyTournamentChanges(baseState, changes);
+            const responseRevision = normalizeWorkspaceRevision(result.revision);
+            if (responseRevision > 1) {
+              cloudRuntime.revision = Math.min(cloudRuntime.revision, responseRevision - 1);
+            }
+            saveState();
+            saveSession();
+            if (!skipRender) renderApp();
+            return true;
+          } catch (error) {
+            if (error?.code === "edit_conflict" || error?.code === "stale_revision") {
+              const conflictRecord = {
+                id: createId("cloud-conflict"),
+                userEmail: normalizeEmail(session.userEmail),
+                createdAt: new Date().toISOString(),
+                state: attemptedState,
+                baseRevision: normalizeWorkspaceRevision(cloudRuntime.revision),
+                conflicted: true,
+              };
+              if (!preserveCloudSyncConflict(conflictRecord)) {
+                localStorageSet(PENDING_CLOUD_SYNC_STORAGE_KEY, JSON.stringify(conflictRecord));
+              }
+              await refreshStateFromBackend({skipRender:true, forceApply:true});
+              error.code = "stale_revision";
+              throw error;
+            }
+            throw error;
+          }
         }
 
         let result;
@@ -8665,6 +8818,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           updateCurrentUserRecord();
           saveState();
         }
+        cloudConfirmedState = clone(state || queuedState);
         saveSession();
         clearPendingCloudSyncRecord(syncId);
 
@@ -8780,13 +8934,15 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         scheduleStateSave();
         saveSession();
         applyBranding();
+        const useScopedWorkspacePatch = Boolean(
+          session.cloudSessionToken && cloudConfirmedState && isSystemAdmin(session.userEmail),
+        );
         if (type && text) {
-          setFlash(type, text);
+          setFlash(useScopedWorkspacePatch ? "info" : type, useScopedWorkspacePatch ? "Saving changes…" : text);
         }
         renderApp();
-        queueCloudPersist({
-          skipSuccessRender: true,
-        });
+        if (useScopedWorkspacePatch) queueCloudWorkspacePatch({successMessage:text});
+        else queueCloudPersist({skipSuccessRender:true});
       }
 
       function createParticipant(
@@ -26943,41 +27099,63 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         localMutationVersion += 1;
         const previousState = clone(state);
         const previousSession = normalizeSessionRecord(session);
-        const maxAttempts = 1;
+        const maxAttempts = 3;
         const errorMessage =
           String(options.errorMessage || "").trim() ||
           "The shared backend could not save that tournament change.";
+        let attemptedState = null;
+        let patchChanges = [];
 
         for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-          let found = false;
-          state.tournaments = state.tournaments.map((tournament) => {
-            if (tournament.id !== id) {
-              return tournament;
-            }
-            found = true;
-            return updater(clone(tournament));
-          });
+          if (attempt === 0) {
+            let found = false;
+            state.tournaments = state.tournaments.map((tournament) => {
+              if (tournament.id !== id) {
+                return tournament;
+              }
+              found = true;
+              return updater(clone(tournament));
+            });
 
-          if (!found) {
-            state = previousState;
-            session = previousSession;
-            setFlash("error", "Tournament not found.");
-            saveState();
-            saveSession();
-            renderApp();
-            return false;
+            if (!found) {
+              state = previousState;
+              session = previousSession;
+              setFlash("error", "Tournament not found.");
+              saveState();
+              saveSession();
+              renderApp();
+              return false;
+            }
+            const before = previousState.tournaments.find(entry => entry.id === id);
+            const after = state.tournaments.find(entry => entry.id === id);
+            patchChanges = tournamentChanges(before, after);
+            attemptedState = clone(state);
+          } else {
+            state = clone(attemptedState);
           }
 
           try {
-            const before = previousState.tournaments.find(entry => entry.id === id);
-            const after = state.tournaments.find(entry => entry.id === id);
             if (session.cloudSessionToken) {
+              const knownRevision = normalizeWorkspaceRevision(cloudRuntime.revision);
               const result = await callCloud("patch_tournament", {
                 sessionToken: session.cloudSessionToken,
                 tournamentId: id,
-                changes: tournamentChanges(before, after),
+                changes: patchChanges,
               });
-              state = await rehydrateState(result.state);
+              const responseRevision = normalizeWorkspaceRevision(result.revision);
+              if (knownRevision > 0 && responseRevision > 0 && responseRevision < knownRevision) {
+                await refreshStateFromBackend({skipRender:true, forceApply:true});
+              } else if (result.tournament) {
+                state.tournaments = state.tournaments.map((entry) => entry.id === id ? result.tournament : entry);
+                if (cloudConfirmedState?.tournaments) {
+                  cloudConfirmedState.tournaments = cloudConfirmedState.tournaments.map((entry) => entry.id === id ? result.tournament : entry);
+                }
+              } else if (result.state) {
+                // Accept the older response shape while clients roll forward.
+                state = await rehydrateState(result.state);
+              } else {
+                throw new Error("The shared backend acknowledged the edit without returning the updated tournament.");
+              }
             } else {
               await persistStateToCloudNow({skipRender:true});
             }
@@ -26987,8 +27165,38 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
             renderApp();
             return true;
           } catch (error) {
-            if (error?.code === "stale_revision" && attempt + 1 < maxAttempts) {
+            const safePatchRetry = session.cloudSessionToken &&
+              patchChanges.every((change) => !Array.isArray(change.orderBefore) && !Array.isArray(change.orderAfter));
+            const transientFailure = error?.code === "backend_timeout" || error?.name === "TypeError" || /^5\d\d$/.test(String(error?.code || ""));
+            if (transientFailure && safePatchRetry && attempt + 1 < maxAttempts) {
+              await waitForCloudRetry(250 * (2 ** attempt));
               continue;
+            }
+
+            if (error?.code === "edit_conflict" || error?.code === "stale_revision") {
+              const attemptedState = clone(state);
+              const conflictRecord = {
+                id: createId("cloud-conflict"),
+                userEmail: normalizeEmail(session.userEmail),
+                createdAt: new Date().toISOString(),
+                state: attemptedState,
+                baseRevision: normalizeWorkspaceRevision(cloudRuntime.revision),
+                conflicted: true,
+              };
+              if (!preserveCloudSyncConflict(conflictRecord)) {
+                localStorageSet(PENDING_CLOUD_SYNC_STORAGE_KEY, JSON.stringify(conflictRecord));
+              }
+              state = previousState;
+              const refreshed = await refreshStateFromBackend({skipRender:true, forceApply:true});
+              if (!refreshed) cloudSyncRequiresRefresh = true;
+              session = previousSession;
+              setFlash("warning", refreshed
+                ? "This field changed elsewhere. The saved version is loaded, and your attempted edit is kept in local conflict recovery."
+                : "This field changed elsewhere. Your attempted edit is kept in local conflict recovery, but the saved version could not be loaded. Refresh before editing again.");
+              saveState();
+              saveSession();
+              renderApp();
+              return false;
             }
 
             if (error?.code !== "stale_revision") {

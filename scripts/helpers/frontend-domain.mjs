@@ -1,5 +1,5 @@
 import { privateVisibility } from "../../frontend/public-workspace.js";
-import { tournamentChanges } from "../../frontend/tournament-patch.js";
+import { applyTournamentChanges, tournamentChanges } from "../../frontend/tournament-patch.js";
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
 import vm from "node:vm";
@@ -9,7 +9,7 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
 export function loadFrontendDomain() {
   const storage = { getItem: () => null, setItem() {}, removeItem() {} };
   const context = vm.createContext({
-    privateVisibility, tournamentChanges, resolveRoundStructure, registrationTeamSize, unassignedParticipants, console, URL, crypto: webcrypto, TextEncoder, TextDecoder, structuredClone,
+    privateVisibility, applyTournamentChanges, tournamentChanges, resolveRoundStructure, registrationTeamSize, unassignedParticipants, console, URL, crypto: webcrypto, TextEncoder, TextDecoder, structuredClone,
     setTimeout, clearTimeout,
     window: {
       location: { href: "http://localhost/", protocol: "http:" },

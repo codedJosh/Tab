@@ -3773,13 +3773,25 @@ app.post("/api", async (request, response) => {
           const isJudge=(tournament.judges || []).some(entry=>normalizeEmail(entry.email)===actor);
           if (!canManage && !(isJudge && !session.access_scope.accessTokenHash)) throw Object.assign(new Error("This account cannot edit tournament records."),{statusCode:403});
         }
-        const next = structuredClone(current);
+        // Keep the workspace shell and copy only the edited tournament. The
+        // database row is request-local, so unrelated tournament records can
+        // be shared safely while the scoped patch is applied.
+        const next = {...current,tournaments:[...current.tournaments]};
         try { next.tournaments[index] = applyTournamentChanges(current.tournaments[index], request.body?.changes); }
         catch (error) { error.statusCode = error.code === "edit_conflict" ? 409 : 422; throw error; }
         if (next.tournaments[index].id !== current.tournaments[index].id) throw Object.assign(new Error("Tournament identity cannot change."), {statusCode:422});
         assertScoringPersistAuthorization(current, next, session.email, session.access_scope?.role === "judge");
-        const saved = await writeWorkspaceState(client, next, {expectedRevision:workspace.revision});
-        return session.access_scope?.role === "judge" ? {...saved,state:judgeWorkspace(saved.state,session.email,session.access_scope.tournamentId)} : session.access_scope?.role === "member" ? {...saved,state:memberWorkspace(saved.state,session.email,{includeJudgeWorkspaces:!session.access_scope.accessTokenHash})} : saved;
+        const hasChanges = JSON.stringify(next.tournaments[index]) !== JSON.stringify(current.tournaments[index]);
+        const saved = hasChanges
+          ? await writeWorkspaceState(client, next, {expectedRevision:workspace.revision, clone:false, returnState:false})
+          : {revision:workspace.revision};
+        const updatedTournament = next.tournaments[index];
+        const tournament = session.access_scope?.role === "judge"
+          ? judgeWorkspace(next,session.email,session.access_scope.tournamentId).tournaments.find(entry => entry.id === updatedTournament.id)
+          : session.access_scope?.role === "member"
+            ? memberWorkspace(next,session.email,{includeJudgeWorkspaces:!session.access_scope.accessTokenHash}).tournaments.find(entry => entry.id === updatedTournament.id)
+            : updatedTournament;
+        return {revision:saved.revision,tournament};
       });
       sendStatePayload(response, 200, result);
       return;
@@ -3861,6 +3873,36 @@ app.post("/api", async (request, response) => {
         };
       });
 
+      sendStatePayload(response, 200, result);
+      return;
+    }
+
+    if (action === "patch_workspace") {
+      const result = await withTransaction(async (client) => {
+        const session = await getSession(client, String(request.body?.sessionToken || ""));
+        if (!session) throw Object.assign(new Error("Sign in again."), {statusCode:401, code:"invalid_session"});
+        const workspace = await readWorkspaceRecord(client, {forUpdate:true});
+        const current = workspace?.state;
+        const actor = normalizeEmail(session.email);
+        const user = current?.users.find(entry => normalizeEmail(entry.email) === actor);
+        if (!user?.active) throw Object.assign(new Error("Account unavailable."), {statusCode:403});
+        if (session.access_scope || !isSystemAdmin(current, actor)) {
+          throw Object.assign(new Error("Only System Managers can edit shared workspace settings."), {statusCode:403, code:"forbidden_workspace_patch"});
+        }
+        let next;
+        try {
+          next = applyTournamentChanges(current, request.body?.changes);
+        } catch (error) {
+          error.statusCode = error.code === "edit_conflict" ? 409 : 422;
+          throw error;
+        }
+        assertWorkspaceContract(next, "workspace patch");
+        assertScoringPersistAuthorization(current, next, actor);
+        if (JSON.stringify(next) === JSON.stringify(current)) return {revision:workspace.revision, notifications:[]};
+        const notifications = await deliverPersistPrivateAccessEmails({previousState:current,nextState:next,request});
+        const saved = await writeWorkspaceState(client, next, {expectedRevision:workspace.revision, clone:false, returnState:false});
+        return {revision:saved.revision, notifications};
+      });
       sendStatePayload(response, 200, result);
       return;
     }
