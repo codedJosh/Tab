@@ -3119,8 +3119,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         const debaterTournaments = accessRecords
           .filter((record) => record.access === "debater")
           .map((record) => record.tournament);
-        const globalManager = false;
-        const systemAdmin = false;
         const regionalRole = getRegionalOperationsRoleForEmail(target);
         const regionalAccess = Boolean(regionalRole || isSystemAdmin(target));
         const regionalPortalMode = Boolean(isRegionalOperationsPortalPage() && regionalAccess);
@@ -3130,25 +3128,17 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         const speakerHistoryCount = getAccountSpeakerHistoryProfiles(target, {
           includeHidden: true,
         }).length;
-        const competitorOnly = false;
-        const judgeOnly = false;
-        const regionalOnly = regionalPortalMode;
 
         return {
           accessRecords,
           managedTournaments,
           judgedTournaments,
           debaterTournaments,
-          globalManager,
-          systemAdmin,
           regionalRole,
           regionalAccess,
           canManageAny,
           canJudgeAny,
-          competitorOnly,
-          judgeOnly,
           regionalPortalMode,
-          regionalOnly,
           canViewPeople: Boolean(target),
           canViewLinks: Boolean(target),
           canViewJudging: canJudgeAny,
@@ -3199,8 +3189,10 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         return "overview";
       }
 
-      function getWorkspaceNavItems(email = session.userEmail) {
-        const capabilities = getWorkspaceCapabilities(email);
+      function getWorkspaceNavItems(
+        email = session.userEmail,
+        capabilities = getWorkspaceCapabilities(email),
+      ) {
 
         if (capabilities.regionalPortalMode) {
           const regionalItems = [
@@ -3254,74 +3246,8 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
           ];
         }
 
-        if (capabilities.competitorOnly) {
-          return [
-            {
-              key: "overview",
-              label: "Home",
-              count: capabilities.debaterTournaments.length,
-              group: "Debater",
-            },
-            {
-              key: "tournaments",
-              label: "My tournaments",
-              count: capabilities.debaterTournaments.length,
-              group: "Debater",
-            },
-            {
-              key: "search",
-              label: "Search",
-              count: null,
-              group: "Tools",
-            },
-            {
-              key: "settings",
-              label: "Settings",
-              count: null,
-              group: "Account",
-            },
-            { key: "links", label: "Private Links", count: null, group: "Account" },
-          ];
-        }
-
-        if (capabilities.judgeOnly) {
-          return [
-            {
-              key: "overview",
-              label: "Home",
-              count: getVisibleTournaments(email).length,
-              group: "Judge",
-            },
-            {
-              key: "judging",
-              label: "Ballots",
-              count: getJudgeAssignments(email).length,
-              group: "Judge",
-            },
-            {
-              key: "search",
-              label: "Search",
-              count: null,
-              group: "Tools",
-            },
-            {
-              key: "tournaments",
-              label: "Tournaments",
-              count: getVisibleTournaments(email).length,
-              group: "Judge",
-            },
-            {
-              key: "settings",
-              label: "Settings",
-              count: null,
-              group: "Account",
-            },
-            { key: "links", label: "Private Links", count: null, group: "Account" },
-          ];
-        }
-
         const activeManagedTournament = !capabilities.regionalPortalMode && capabilities.canManageAny
-          ? getManagedTournamentForSession()
+          ? getManagedTournamentForSession(capabilities)
           : null;
         if (activeManagedTournament) {
           return [
@@ -3384,14 +3310,17 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         return items;
       }
 
-      function normalizeWorkspaceView(view = session.view, email = session.userEmail) {
-        const items = getWorkspaceNavItems(email);
+      function normalizeWorkspaceView(
+        view = session.view,
+        email = session.userEmail,
+        items = getWorkspaceNavItems(email),
+      ) {
         const fallback = items[0]?.key || "overview";
         return items.some((item) => item.key === view) ? view : fallback;
       }
 
-      function getManagedTournamentForSession() {
-        const managed = getWorkspaceCapabilities().managedTournaments.filter((tournament) =>
+      function getManagedTournamentForSession(capabilities = getWorkspaceCapabilities()) {
+        const managed = capabilities.managedTournaments.filter((tournament) =>
           canManageTournament(tournament),
         );
         if (!managed.length || !session.managedTournamentId) {
@@ -14564,19 +14493,14 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
         `;
       }
 
-      function renderMenu() {
-        const currentView = normalizeWorkspaceView();
-        const items = getWorkspaceNavItems();
-        const capabilities = getWorkspaceCapabilities();
-        const currentUser = getCurrentUser();
-        const displayName =
-          String(currentUser?.name || "").trim() ||
-          String(session.userEmail || "").trim().split("@")[0] ||
-          "there";
+      function renderMenu(options = {}) {
+        const capabilities = options.capabilities || getWorkspaceCapabilities();
+        const items = options.items || getWorkspaceNavItems(session.userEmail, capabilities);
+        const currentView = options.currentView || normalizeWorkspaceView(session.view, session.userEmail, items);
         const activeManagedTournament = capabilities.regionalPortalMode
           ? null
           : capabilities.canManageAny
-          ? getManagedTournamentForSession()
+          ? getManagedTournamentForSession(capabilities)
           : null;
         const groupOrder = [
           "User Settings",
@@ -14878,322 +14802,6 @@ import { resolveRoundStructure, registrationTeamSize, unassignedParticipants } f
               }
             </section>
           </section>
-        `;
-      }
-
-      function getCompetitorDashboardStats(email = session.userEmail) {
-        const tournaments = getDebaterTournaments(email);
-        let postedRounds = 0;
-        let visibleStandings = 0;
-        let feedbackItems = 0;
-
-        tournaments.forEach((tournament) => {
-          const participant = getParticipantForUser(tournament, email);
-          if (!participant) return;
-
-          if (getPrimaryParticipantDrawEntry(tournament, participant)) {
-            postedRounds += 1;
-          }
-
-          if (
-            tournament.publication.showPublicStandings ||
-            tournament.publication.showStandingsInPrivatePortal ||
-            state.appSettings.portal.showStandingsInPrivatePortal
-          ) {
-            visibleStandings += 1;
-          }
-
-          feedbackItems += getPortalFeedbackEntries(tournament, participant).length;
-        });
-
-        return {
-          tournaments: tournaments.length,
-          postedRounds,
-          visibleStandings,
-          feedbackItems,
-        };
-      }
-
-      function renderCompetitorTournamentCard(tournament) {
-        const participant = getParticipantForUser(tournament);
-        if (!participant) {
-          return "";
-        }
-
-        const canShowStandings =
-          tournament.publication.showPublicStandings ||
-          privateVisibility(tournament, state.appSettings, "showStandingsInPrivatePortal");
-        const canShowSpeakerBoard =
-          canShowStandings && canViewSpeakerBoard(tournament);
-        const canShowDraw =
-          tournament.publication.showPublicDraw ||
-          privateVisibility(tournament, state.appSettings, "showDrawInPrivatePortal");
-        const canShowFeedback =
-          privateVisibility(tournament, state.appSettings, "showFeedbackInPrivatePortal");
-        const standing = findStandingForParticipant(tournament, participant);
-        const speakerStanding = getSpeakerStandingForParticipant(tournament, participant);
-        const speakerScore = getParticipantComputedSpeakerScore(tournament, participant);
-        const latestRound = getPrimaryParticipantDrawEntry(tournament, participant);
-        const latestFeedback =
-          getPortalFeedbackEntries(tournament, participant).slice(-1)[0] || null;
-        const latestRoundControl = latestRound
-          ? getRoundControlForRound(tournament, latestRound.round)
-          : null;
-        const entryLabel =
-          participant.teamName || participant.name || (tournament.participantModel === "teams"
-            ? "Team entry"
-            : "Individual entry");
-
-        return `
-          <article class="surface competitor-card">
-            <div class="competitor-summary">
-              <div class="competitor-card-head">
-                <div class="stack">
-                  <div>
-                    <p class="eyebrow">My Event</p>
-                    <h3>${escapeHtml(tournament.name)}</h3>
-                  </div>
-                  <div class="kpi-line">
-                    <span>${escapeHtml(
-                      getTournamentFormatContextLabel(tournament, {
-                      }),
-                    )}</span>
-                    <span>${escapeHtml(tournament.code)}</span>
-                    <span>${escapeHtml(entryLabel)}</span>
-                  </div>
-                </div>
-                <span class="status-pill ${escapeHtml(tournament.status)}">${escapeHtml(
-                  toTitleLabel(tournament.status),
-                )}</span>
-              </div>
-              <div class="competitor-card-grid">
-                <div class="competitor-stat">
-                  <span class="muted">Latest round</span>
-                  <strong>${escapeHtml(
-                    canShowDraw
-                      ? latestRound
-                        ? "Round " + latestRound.round
-                        : "Not published"
-                      : "Hidden",
-                  )}</strong>
-                  <span class="portal-summary-copy">${escapeHtml(
-                    canShowDraw
-                      ? latestRound
-                        ? latestRound.room + " • " + latestRound.status
-                        : ""
-                      : "",
-                  )}</span>
-                </div>
-                <div class="competitor-stat">
-                  <span class="muted">${escapeHtml(
-                    participant.teamId || participant.teamName ? "Team standing" : "Standing",
-                  )}</span>
-                  <strong>${escapeHtml(
-                    canShowStandings
-                      ? standing
-                        ? "#" + standing.rank
-                        : "Not published"
-                      : "Hidden",
-                  )}</strong>
-                  <span class="portal-summary-copy">${escapeHtml(
-                    canShowStandings
-                      ? standing
-                        ? getStandingSummaryText(tournament, standing)
-                        : ""
-                      : "",
-                  )}</span>
-                </div>
-                <div class="competitor-stat">
-                  <span class="muted">Speaker rank</span>
-                  <strong>${escapeHtml(
-                    canShowSpeakerBoard && speakerStanding
-                      ? "#" + speakerStanding.speakerRank
-                      : canShowSpeakerBoard
-                        ? "Awaiting scores"
-                        : "Hidden",
-                  )}</strong>
-                  <span class="portal-summary-copy">${escapeHtml(
-                    canShowSpeakerBoard && speakerStanding
-                      ? formatScoreValue(speakerScore) + " speaker points"
-                      : "",
-                  )}</span>
-                </div>
-              </div>
-              ${
-                tournament.announcement
-                  ? `
-                    <div class="competitor-note announcement-card">
-                      <p class="eyebrow">Tournament update</p>
-                      <p>${escapeHtml(tournament.announcement)}</p>
-                    </div>
-                  `
-                  : ""
-              }
-              ${
-                canShowFeedback && latestFeedback
-                  ? `
-                    <div class="competitor-note">
-                      <p class="eyebrow">Latest feedback</p>
-                      <p>${escapeHtml(
-                        latestFeedback.note || "A new feedback entry has been posted in your private tab.",
-                      )}</p>
-                      <p class="fine-print">${escapeHtml(
-                        latestFeedback.judgeEmail + " • " + latestFeedback.createdAt,
-                      )}</p>
-                    </div>
-                  `
-                  : ""
-              }
-              <div class="button-row competitor-action-row">
-                <a class="cta-link floating-accent" href="${escapeHtml(
-                  getPrivateLink(participant.token),
-                )}" target="_blank" rel="noreferrer">My tab</a>
-                ${renderTournamentNavigationButton(tournament, "Tournament", true)}
-                ${renderParticipantProfileButton(participant, "History", true)}
-              </div>
-            </div>
-          </article>
-        `;
-      }
-
-      function renderCompetitorHomeView(view = "overview") {
-        if (view === "search") {
-          return renderSearchView();
-        }
-
-        if (view === "links") {
-          return renderLinksView();
-        }
-
-        if (view === "about") {
-          return renderAboutView(false);
-        }
-
-        if (view === "settings") {
-          return renderSettingsView();
-        }
-
-        if (view === "tournaments") {
-          return renderTournamentsView();
-        }
-
-        const tournaments = getDebaterTournaments();
-
-        if (!tournaments.length) {
-          return `
-            <section class="surface">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">My access</p>
-                  <h2>No tournament access yet</h2>
-                </div>
-              </div>
-              <div class="empty-state">
-                Your account is active, but no tournament has been linked to this email yet. Register for a tournament, open a public tournament, or create your own tournament workspace.
-              </div>
-            </section>
-          `;
-        }
-
-        return `
-          <section class="surface">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">${escapeHtml(
-                  view === "overview" ? "My Events" : "Tournament Access",
-                )}</p>
-                <h2>${escapeHtml(
-                  view === "overview" ? "Current tournaments" : "All assigned events",
-                )}</h2>
-              </div>
-              <span class="role-pill">${escapeHtml(tournaments.length)} visible</span>
-            </div>
-            <div class="stack">
-              ${tournaments.map((tournament) => renderCompetitorTournamentCard(tournament)).join("")}
-            </div>
-          </section>
-        `;
-      }
-
-      function renderCompetitorWorkspace() {
-        const currentView = normalizeWorkspaceView();
-        const currentUser = getCurrentUser();
-        const stats = getCompetitorDashboardStats();
-
-        return `
-          <div class="page-shell">
-            <div class="competitor-shell">
-              <section class="surface competitor-hero">
-                <div class="competitor-hero-grid">
-                  <div class="competitor-hero-copy">
-                    ${renderBrandLockup({
-                      kicker: "Competitor Access",
-                      size: "compact",
-                      subtitle:
-                        "Quick access to your draw, standings, feedback, and notices.",
-                    })}
-                    <div>
-                      <p class="eyebrow">Debater view</p>
-                      <h1>Your tournament portal</h1>
-                    </div>
-                    <nav class="competitor-nav" aria-label="Competitor workspace navigation">
-                      <button type="button" ${
-                        currentView === "overview" ? "" : 'class="secondary-button"'
-                      } data-action="set-view" data-view="overview">Home</button>
-                      <button type="button" ${
-                        currentView === "tournaments" ? "" : 'class="secondary-button"'
-                      } data-action="set-view" data-view="tournaments">My Tournaments</button>
-                      <button type="button" ${
-                        currentView === "links" ? "" : 'class="secondary-button"'
-                      } data-action="set-view" data-view="links">Private Link</button>
-                      <button type="button" ${
-                        currentView === "settings" ? "" : 'class="secondary-button"'
-                      } data-action="set-view" data-view="settings">Settings</button>
-                      <button class="secondary-button" type="button" data-action="logout">Sign Out</button>
-                    </nav>
-                  </div>
-                  <div class="competitor-hero-side">
-                    <div class="inline-card competitor-account-card">
-                      <div class="competitor-account-topline">
-                        <strong class="competitor-account-name">${escapeHtml(
-                          currentUser?.name || session.userEmail,
-                        )}</strong>
-                        <span class="competitor-pill">Competitor</span>
-                      </div>
-                      <div class="competitor-account-meta">
-                        <p class="muted competitor-account-email">${escapeHtml(
-                          session.userEmail,
-                        )}</p>
-                      </div>
-                      <div class="button-row wrap-row competitor-account-actions">
-                        <button class="secondary-button" type="button" data-action="set-view" data-view="settings">Open Settings</button>
-                      </div>
-                    </div>
-                    <div class="competitor-metrics">
-                      <div class="competitor-metric">
-                        <span class="muted">Events</span>
-                        <strong>${escapeHtml(stats.tournaments)}</strong>
-                      </div>
-                      <div class="competitor-metric">
-                        <span class="muted">Rounds posted</span>
-                        <strong>${escapeHtml(stats.postedRounds)}</strong>
-                      </div>
-                      <div class="competitor-metric">
-                        <span class="muted">Standings visible</span>
-                        <strong>${escapeHtml(stats.visibleStandings)}</strong>
-                      </div>
-                      <div class="competitor-metric">
-                        <span class="muted">Feedback items</span>
-                        <strong>${escapeHtml(stats.feedbackItems)}</strong>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-              ${renderFlash()}
-              ${renderCompetitorHomeView(currentView)}
-            </div>
-          </div>
         `;
       }
 
@@ -20176,11 +19784,10 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         `;
       }
 
-      function renderTournamentsView() {
-        const capabilities = getWorkspaceCapabilities();
+      function renderTournamentsView(capabilities = getWorkspaceCapabilities()) {
         const activeVisible = getActiveVisibleTournaments();
         const archivedVisible = getArchivedVisibleTournaments();
-        const focusedTournament = capabilities.canManageAny ? getManagedTournamentForSession() : null;
+        const focusedTournament = capabilities.canManageAny ? getManagedTournamentForSession(capabilities) : null;
         const selectedTournament = !capabilities.canManageAny
           ? getSelectedTournamentForSession()
           : null;
@@ -24541,28 +24148,17 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
 
       function renderWorkspace() {
         const capabilities = getWorkspaceCapabilities();
-        if (capabilities.competitorOnly && !capabilities.regionalPortalMode) {
-          return renderCompetitorWorkspace();
-        }
-
-        const currentView = normalizeWorkspaceView();
-        const focusedParticipantProfile =
-          currentView === "search" && session.selectedParticipantKey
-            ? getParticipantProfileByKey(session.selectedParticipantKey, session.userEmail)
-            : null;
+        const items = getWorkspaceNavItems(session.userEmail, capabilities);
+        const currentView = normalizeWorkspaceView(session.view, session.userEmail, items);
         if (session.view !== currentView) {
           session.view = currentView;
         }
-
-        const regionalView = capabilities.regionalPortalMode
-          ? normalizeRegionalWorkspaceView(currentView)
-          : "";
 
         const viewMarkup =
           currentView === "overview"
             ? renderOverviewView()
             : currentView === "tournaments"
-              ? renderTournamentsView()
+              ? renderTournamentsView(capabilities)
             : currentView === "launch"
               ? renderLaunchView()
             : currentView === "regional" ||
@@ -24594,7 +24190,7 @@ ${canSeeStandings && tournament.publication.showInstitutionBoard === true ? `<h3
         return `
           <div class="page-shell">
             <div class="workspace-shell">
-              ${renderMenu()}
+              ${renderMenu({ capabilities, items, currentView })}
               <section id="workspace-main" class="content-panel" role="main">
                 ${renderFlash()}
                 ${viewMarkup}
